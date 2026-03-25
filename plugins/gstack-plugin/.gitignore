@@ -1,0 +1,5 @@
+skills/browse/bin/browse
+skills/browse/bin/find-browse
+skills/browse/bin/.version
+skills/browse/dist/
+node_modules/

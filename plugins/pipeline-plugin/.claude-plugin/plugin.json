@@ -1,0 +1,17 @@
+{
+  "name": "pipeline-plugin",
+  "description": "Crew + gstack 통합 파이프라인 (feature, hotfix, deep-review, security, performance, weekly)",
+  "version": "1.0.0",
+  "author": {
+    "name": "eZar"
+  },
+  "homepage": "https://lucydata.ai",
+  "repository": "https://bitbucket.org/ezardev-admin/marketplace-for-claude",
+  "license": "MIT",
+  "keywords": ["pipeline", "workflow", "crew", "gstack"],
+  "commands": "./commands/",
+  "dependencies": {
+    "common-plugin": ">=1.0.0",
+    "gstack-plugin": ">=1.0.0"
+  }
+}

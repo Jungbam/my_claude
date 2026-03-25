@@ -1,0 +1,13 @@
+{
+  "name": "internal-plugin",
+  "description": "사내 내부 전용 Claude Code 플러그인 (Datamart, GCS 등)",
+  "version": "1.0.0",
+  "author": {
+    "name": "Yongsu Kim"
+  },
+  "homepage": "https://lucydata.ai",
+  "repository": "https://bitbucket.org/ezardev-admin/marketplace-for-claude",
+  "license": "MIT",
+  "keywords": ["internal", "datamart", "gcs"],
+  "skills": "./skills/"
+}

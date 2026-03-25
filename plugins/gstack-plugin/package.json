@@ -1,0 +1,17 @@
+{
+  "name": "gstack-plugin",
+  "version": "1.0.0",
+  "description": "Browser QA, deploy, review skills (forked from gstack)",
+  "type": "module",
+  "scripts": {
+    "build": "bun build --compile skills/browse/src/cli.ts --outfile skills/browse/bin/browse && bun build --compile skills/browse/src/find-browse.ts --outfile skills/browse/bin/find-browse",
+    "test": "bun test skills/browse/test/"
+  },
+  "dependencies": {
+    "playwright": "^1.58.2",
+    "diff": "^7.0.0"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  }
+}

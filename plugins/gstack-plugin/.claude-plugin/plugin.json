@@ -1,0 +1,14 @@
+{
+  "name": "gstack-plugin",
+  "description": "브라우저 QA, 코드 리뷰, 배포, 보안 감사 등 26개 워크플로우 스킬 (gstack 포크)",
+  "version": "1.0.0",
+  "author": {
+    "name": "eZar (forked from gstack by Garry Tan)"
+  },
+  "homepage": "https://lucydata.ai",
+  "repository": "https://bitbucket.org/ezardev-admin/marketplace-for-claude",
+  "license": "MIT",
+  "keywords": ["browser", "qa", "deploy", "review", "security", "gstack"],
+  "skills": "./skills/",
+  "setup": "./setup.sh"
+}
