@@ -9,8 +9,6 @@
   "repository": "https://bitbucket.org/ezardev-admin/marketplace-for-claude",
   "license": "MIT",
   "keywords": ["browser", "qa", "deploy", "review", "security", "gstack"],
-  "agents": [
-    "./agents/adversarial-reviewer.md"
-  ],
+  "agents": "./agents/",
   "skills": "./skills/"
 }
