@@ -157,27 +157,11 @@ Bash로 `git diff --name-only HEAD~10` (또는 main 브랜치와의 diff)를 실
 
 ### Check 5: 시크릿 및 민감 정보 점검
 
-서브에이전트 실행 (Task tool, subagent_type: **"Explore"**, model: **"haiku"** — 패턴 매칭 중심, 속도 우선):
+서브에이전트 실행 (Task tool, subagent_type: **"common-plugin:security-auditor"**, model: **"haiku"** — 패턴 매칭 중심, 속도 우선):
 
-> **보안 감사관**으로서 최근 변경된 파일에서 민감 정보 유출을 점검합니다.
+> 최근 변경된 파일에서 민감 정보 유출을 점검합니다.
 >
 > **변경된 파일**: [Phase 1b의 변경 파일 목록]
->
-> 수행 작업:
-> 1. 변경된 파일을 읽고 다음 패턴을 Grep으로 검색:
->    - 하드코딩된 API 키/토큰: `api[_-]?key\s*[:=]`, `token\s*[:=]`, `secret\s*[:=]`, `password\s*[:=]`
->    - AWS 키: `AKIA[0-9A-Z]{16}`, `aws[_-]?secret`
->    - 개인키/인증서: `-----BEGIN (RSA |EC |DSA )?PRIVATE KEY-----`, `-----BEGIN CERTIFICATE-----`
->    - 환경변수 직접 값: `.env` 파일이 커밋 대상인지 확인
->    - 내부 URL/IP: `192.168.`, `10.0.`, `localhost:[0-9]+` (프로덕션 코드에서)
-> 2. `.gitignore`에 `.env`, 시크릿 파일이 포함되어 있는지 확인
-> 3. 테스트 픽스처에 실제 시크릿이 사용되는지 확인
->
-> 각 발견에 대해:
-> - **심각도**: Critical (실제 시크릿 가능성) / Warning (패턴 매칭만)
-> - **파일**: path:line
-> - **패턴**: 매칭된 패턴 유형
-> - **컨텍스트**: 해당 라인의 코드 (시크릿 값은 마스킹)
 
 결과 기록:
 - **status**: pass / fail

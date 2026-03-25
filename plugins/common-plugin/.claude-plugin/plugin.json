@@ -10,7 +10,17 @@
   "license": "MIT",
   "keywords": ["common", "internal"],
   "commands": "./commands/",
-  "agents": ["./agents/code-reviewer.md"],
+  "agents": [
+    "./agents/pm-analyst.md",
+    "./agents/architect.md",
+    "./agents/developer.md",
+    "./agents/code-reviewer.md",
+    "./agents/qa-engineer.md",
+    "./agents/investigator.md",
+    "./agents/impact-analyzer.md",
+    "./agents/reproducer.md",
+    "./agents/security-auditor.md"
+  ],
   "skills": "./skills/",
   "hooks": "./hooks/hooks.json",
   "mcpServers": "./.mcp.json",
