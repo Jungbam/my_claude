@@ -5,15 +5,15 @@
   "scripts": {
     "dev": "next dev --port 3333",
     "build": "next build",
-    "start": "next start --port 3333"
+    "start": "next start --port 3333",
+    "test": "bun test test/"
   },
   "dependencies": {
     "next": "^15.3.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "swr": "^2.3.0",
-    "mermaid": "^11.4.0",
-    "chokidar": "^4.0.0"
+    "mermaid": "^11.4.0"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

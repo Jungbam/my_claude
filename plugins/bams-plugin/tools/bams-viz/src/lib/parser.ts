@@ -11,25 +11,12 @@ import type {
   Span,
 } from './types'
 
-// Department mapping for color coding
+import { AGENT_DEPT_MAP } from './agents-config'
+
+// Department mapping — derived from single source + non-org agents
 export const DEPT_MAP: Record<string, string> = {
-  'product-strategy': 'planning',
-  'business-analysis': 'planning',
-  'ux-research': 'planning',
-  'project-governance': 'planning',
-  'frontend-engineering': 'engineering',
-  'backend-engineering': 'engineering',
-  'platform-devops': 'engineering',
-  'data-integration': 'engineering',
-  'product-analytics': 'evaluation',
-  'experimentation': 'evaluation',
-  'performance-evaluation': 'evaluation',
-  'business-kpi': 'evaluation',
-  'qa-strategy': 'qa',
-  'automation-qa': 'qa',
-  'defect-triage': 'qa',
-  'release-quality-gate': 'qa',
-  // Non-org agents (general purpose, Explore, Plan, etc.)
+  ...AGENT_DEPT_MAP,
+  // Non-org agents (Claude Code built-in agent types)
   'general-purpose': 'engineering',
   'Explore': 'engineering',
   'Plan': 'planning',
@@ -115,7 +102,7 @@ function buildAgentData(events: PipelineEvent[]): AgentData {
         agent.resultSummary = e.result_summary || ''
         agent.output = e.output
         agent.tokenUsage = e.token_usage
-        agent.durationMs = e.duration_ms ||
+        agent.durationMs = e.duration_ms ??
           (agent.startedAt ? new Date(e.ts).getTime() - new Date(agent.startedAt).getTime() : null)
       } else {
         // Orphaned end event -- still record it
@@ -130,7 +117,7 @@ function buildAgentData(events: PipelineEvent[]): AgentData {
           parallelGroup: null,
           startedAt: null,
           endedAt: e.ts,
-          durationMs: e.duration_ms || null,
+          durationMs: e.duration_ms ?? null,
           isError: e.is_error || false,
           errorMessage: e.error_message || '',
           resultSummary: e.result_summary || '',
@@ -166,7 +153,9 @@ function buildAgentData(events: PipelineEvent[]): AgentData {
     s.callCount++
     if (call.isError) s.errorCount++
     if (call.durationMs != null) {
-      s.totalDurationMs += call.durationMs
+      if (!call.isError) {
+        s.totalDurationMs += call.durationMs
+      }
       s.minDurationMs = Math.min(s.minDurationMs, call.durationMs)
       s.maxDurationMs = Math.max(s.maxDurationMs, call.durationMs)
     }
@@ -402,12 +391,12 @@ function identifyParallelGroups(pipeline: Pipeline): void {
   for (const [step, agents] of byStep) {
     if (agents.length < 2) continue
 
-    // Use explicit parallel_group if present
-    const explicit = agents.filter(a => a.parallelGroup)
-    if (explicit.length > 0) continue // Already grouped
+    // Only apply time-based grouping to agents without explicit parallel_group
+    const ungrouped = agents.filter(a => !a.parallelGroup)
+    if (ungrouped.length < 2) continue
 
     // Time-based grouping: within 500ms
-    const sorted = agents
+    const sorted = ungrouped
       .filter(a => a.startedAt)
       .sort((a, b) => new Date(a.startedAt!).getTime() - new Date(b.startedAt!).getTime())
 

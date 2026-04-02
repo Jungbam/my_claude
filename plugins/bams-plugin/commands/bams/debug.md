@@ -32,7 +32,7 @@ Glob으로 `.crew/config.md`가 존재하는지 확인합니다. 없으면:
 사전 조건 확인 후, Bash로 다음을 실행합니다:
 
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh pipeline_start "{slug}" "debug" "/bams:debug" "{arguments}"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "debug" "/bams:debug" "{arguments}"
 ```
 
 ## Phase 1: 버그 분류 및 재현 (defect-triage)
@@ -55,7 +55,7 @@ Options:
 
 Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_start "{slug}" 1 "버그 분류 및 재현" "Phase 1: 진단"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 1 "버그 분류 및 재현" "Phase 1: 진단"
 ```
 
 ### 1b. defect-triage 에이전트
@@ -99,7 +99,7 @@ defect-triage 반환 후, 결과를 사용자에게 표시:
 
 Phase 1 완료 시, Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_end "{slug}" 1 "done" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 1 "done" {duration_ms}
 ```
 
 ## Phase 1.5: Git 체크포인트
@@ -117,7 +117,7 @@ Options:
 
 Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_start "{slug}" 2 "버그 수정" "Phase 2: 수정"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 2 "버그 수정" "Phase 2: 수정"
 ```
 
 defect-triage 결과의 수정 대상 파일에 따라 적절한 에이전트를 선택합니다:
@@ -146,14 +146,14 @@ git 저장소인 경우, `git diff --stat` 표시.
 
 Phase 2 완료 시, Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_end "{slug}" 2 "done" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 2 "done" {duration_ms}
 ```
 
 ## Phase 3: 회귀 테스트 (automation-qa) — 병렬 실행
 
 Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_start "{slug}" 3 "회귀 테스트" "Phase 3: 테스트"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 3 "회귀 테스트" "Phase 3: 테스트"
 ```
 
 ### 3a + 3b: 기존 테스트 실행 ∥ 회귀 테스트 생성 (동시)
@@ -179,14 +179,14 @@ bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/ba
 
 Phase 3 완료 시, Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_end "{slug}" 3 "{status}" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 3 "{status}" {duration_ms}
 ```
 
 ## Phase 4: 마무리
 
 Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_start "{slug}" 4 "마무리" "Phase 4: 마무리"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 4 "마무리" "Phase 4: 마무리"
 ```
 
 ### 4a. 아티팩트 저장
@@ -203,27 +203,27 @@ bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/ba
 
 Step 4 완료 시, Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_end "{slug}" 4 "done" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 4 "done" {duration_ms}
 ```
 
 ## Phase 5: CLAUDE.md 상태 업데이트
 
 Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_start "{slug}" 5 "CLAUDE.md 상태 업데이트" "Phase 5: 상태 업데이트"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 5 "CLAUDE.md 상태 업데이트" "Phase 5: 상태 업데이트"
 ```
 
 `CLAUDE.md`의 `## Bams 현재 상태` 섹션을 업데이트합니다.
 
 업데이트 완료 후, Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_end "{slug}" 5 "done" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 5 "done" {duration_ms}
 ```
 
 ### Viz 이벤트: pipeline_end
 
 파이프라인 종료 시, Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh pipeline_end "{slug}" "{status}" {total} {completed} {failed} {skipped}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_end "{slug}" "{status}" {total} {completed} {failed} {skipped}
 ```
 (`{status}`는 `completed` / `paused` / `failed` 중 하나, `{total}`은 5)

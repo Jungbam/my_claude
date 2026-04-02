@@ -1,25 +1,24 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import React from 'react'
 import { usePolling } from '@/hooks/usePolling'
-import { DagTab } from '@/components/tabs/DagTab'
 import { GanttTab } from '@/components/tabs/GanttTab'
+import { DagTab } from '@/components/tabs/DagTab'
 import { OrgTab } from '@/components/tabs/OrgTab'
 import { AgentsTab } from '@/components/tabs/AgentsTab'
 import { TimelineTab } from '@/components/tabs/TimelineTab'
 import { LogsTab } from '@/components/tabs/LogsTab'
-import { TracesTab } from '@/components/tabs/TracesTab'
 import { MetaverseTab } from '@/components/tabs/MetaverseTab'
 
 const TABS = [
+  { id: 'agents', label: 'Agents', icon: '🤖' },
+  { id: 'metaverse', label: 'Metaverse', icon: '🌐' },
   { id: 'dag', label: 'DAG', icon: '🔀' },
   { id: 'gantt', label: 'Gantt', icon: '📊' },
   { id: 'org', label: 'Org', icon: '🏢' },
-  { id: 'agents', label: 'Agents', icon: '🤖' },
   { id: 'timeline', label: 'Timeline', icon: '📅' },
   { id: 'logs', label: 'Logs', icon: '📋' },
-  { id: 'traces', label: 'Traces', icon: '🔍' },
-  { id: 'metaverse', label: 'Metaverse', icon: '🌐' },
 ] as const
 
 type TabId = (typeof TABS)[number]['id']
@@ -31,23 +30,23 @@ interface PipelineListItem {
 }
 
 export function Dashboard() {
-  const [activeTab, setActiveTab] = useState<TabId>('dag')
+  const [activeTab, setActiveTab] = useState<TabId>('agents')
   const [selectedPipeline, setSelectedPipeline] = useState<string | null>(null)
   const [theme, setTheme] = useState<'light' | 'dark'>('dark')
   const [logHighlightTs, setLogHighlightTs] = useState<string | null>(null)
 
-  // Poll pipeline list
-  const { data: pipelines } = usePolling<PipelineListItem[]>('/api/pipelines', 3000)
+  // Poll pipeline list + connection status (unified)
+  const { data: pipelines, isValidating, error: connError } = usePolling<PipelineListItem[]>('/api/pipelines', 3000)
 
-  // Connection status (reuses pipeline list endpoint)
-  const { isValidating, error: connError } = usePolling<unknown>('/api/pipelines', 5000)
+  // Track if user has interacted with selector
+  const [userSelected, setUserSelected] = useState(false)
 
-  // Auto-select first pipeline
+  // Auto-select first pipeline only on initial load
   useEffect(() => {
-    if (pipelines && pipelines.length > 0 && !selectedPipeline) {
+    if (pipelines && pipelines.length > 0 && !selectedPipeline && !userSelected) {
       setSelectedPipeline(pipelines[0].slug)
     }
-  }, [pipelines, selectedPipeline])
+  }, [pipelines, selectedPipeline, userSelected])
 
   // Theme persistence
   useEffect(() => {
@@ -68,11 +67,6 @@ export function Dashboard() {
   const handleNavigateToLogs = useCallback((timestamp?: string) => {
     setActiveTab('logs')
     if (timestamp) setLogHighlightTs(timestamp)
-  }, [])
-
-  // Cross-tab navigation: Metaverse -> Traces
-  const handleNavigateToTraces = useCallback(() => {
-    setActiveTab('traces')
   }, [])
 
   const connectionStatus = connError ? 'disconnected' : isValidating ? 'connecting' : 'connected'
@@ -106,7 +100,7 @@ export function Dashboard() {
         {/* Pipeline selector */}
         <select
           value={selectedPipeline || ''}
-          onChange={e => setSelectedPipeline(e.target.value || null)}
+          onChange={e => { setUserSelected(true); setSelectedPipeline(e.target.value || null) }}
           style={{
             padding: '5px 10px',
             borderRadius: '6px',
@@ -119,7 +113,7 @@ export function Dashboard() {
             cursor: 'pointer',
           }}
         >
-          <option value="">Select pipeline...</option>
+          <option value="">All pipelines (전체)</option>
           {pipelines?.map(p => (
             <option key={p.slug} value={p.slug}>
               {p.slug} ({p.status})
@@ -204,11 +198,10 @@ export function Dashboard() {
           {activeTab === 'dag' && <DagTab pipelineSlug={selectedPipeline} />}
           {activeTab === 'gantt' && <GanttTab pipelineSlug={selectedPipeline} />}
           {activeTab === 'org' && <OrgTab />}
-          {activeTab === 'agents' && <AgentsTab />}
+          {activeTab === 'agents' && <AgentsTab pipelineSlug={selectedPipeline} />}
           {activeTab === 'timeline' && <TimelineTab pipelineSlug={selectedPipeline} onNavigateToLogs={handleNavigateToLogs} />}
           {activeTab === 'logs' && <LogsTab pipelineSlug={selectedPipeline} highlightTimestamp={logHighlightTs} />}
-          {activeTab === 'traces' && <TracesTab />}
-          {activeTab === 'metaverse' && <MetaverseTab onNavigateToTraces={handleNavigateToTraces} />}
+          {activeTab === 'metaverse' && <MetaverseTab pipelineSlug={selectedPipeline} />}
         </TabErrorBoundary>
       </main>
 
@@ -229,16 +222,24 @@ export function Dashboard() {
           Pipeline: {selectedPipeline || 'none'}
           {pipelines && ` | ${pipelines.length} pipeline(s)`}
         </span>
-        <span>
-          Last update: {new Date().toLocaleTimeString('ko-KR', { hour12: false })}
-        </span>
+        <LastUpdateTime />
       </footer>
     </div>
   )
 }
 
+function LastUpdateTime() {
+  const [time, setTime] = useState('')
+  useEffect(() => {
+    const update = () => setTime(new Date().toLocaleTimeString('ko-KR', { hour12: false }))
+    update()
+    const id = setInterval(update, 1000)
+    return () => clearInterval(id)
+  }, [])
+  return <span>Last update: {time || '--:--:--'}</span>
+}
+
 // Error boundary for individual tabs
-import React from 'react'
 
 interface ErrorBoundaryState {
   hasError: boolean

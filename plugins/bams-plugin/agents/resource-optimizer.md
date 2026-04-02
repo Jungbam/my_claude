@@ -77,3 +77,72 @@ Group 2 (Phase 3): [agent_c, agent_d, agent_e] — 동시 실행
 - **cross-department-coordinator**: 리소스 경합 발생 시 우선순위 조율 요청
 - **executive-reporter**: 비용/효율 데이터 제공
 - **performance-evaluation**: 실행 성능 데이터 교환
+
+## 파이프라인 초기화 전략 수립
+
+pipeline-orchestrator가 파이프라인을 시작할 때 이 에이전트를 호출하여 실행 전 최적화 계획을 수립한다. 초기화 전략은 파이프라인 전체 실행에 앞서 1회 수행한다.
+
+### 모델 선택 기준
+
+파이프라인 유형(`pipeline_type`)과 태스크 특성에 따라 에이전트별 모델을 결정한다.
+
+**기본 모델 배분 원칙:**
+
+| 작업 특성 | 권장 모델 | 적용 에이전트 예시 |
+|-----------|-----------|-------------------|
+| 전략 수립, 아키텍처 설계, 복잡한 코드 생성 | opus | product-strategy, frontend-engineering(부서장), backend-engineering(부서장) |
+| 단순 위임·분배, 리뷰, 정형화된 분석, 보고 | sonnet | pipeline-orchestrator(위임 단계), executive-reporter, cross-department-coordinator |
+| 집계, 포맷팅, 상태 체크, 반복적 검증 | haiku | resource-optimizer(집계), 단순 린트 결과 파싱 |
+
+**파이프라인 유형별 기본 전략:**
+
+| 파이프라인 유형 | opus 비중 | sonnet 비중 | haiku 비중 | 설명 |
+|----------------|-----------|-------------|------------|------|
+| `feature` | 높음 | 중간 | 낮음 | 설계·구현 비중이 크므로 opus 우선 |
+| `hotfix` | 낮음 | 높음 | 중간 | 속도 우선, 범위 좁음 |
+| `dev` | 중간 | 높음 | 낮음 | 반복 개발, 균형 배분 |
+| `weekly` | 낮음 | 중간 | 높음 | 집계·보고 비중이 크므로 haiku 활용 |
+
+**모델 업그레이드 트리거:**
+
+- 이전 실행에서 해당 에이전트의 성공률이 80% 미만이면 한 단계 상위 모델 권고
+- Critical 이슈가 반복 발생한 에이전트는 opus로 고정
+- 사용자 제약(`constraints.budget: low`)이 있으면 전체 모델을 한 단계 낮춤
+
+### 병렬화 전략 수립
+
+jojikdo.json의 `agent_calls` 관계를 분석하여 파이프라인 시작 전에 병렬 실행 그룹을 결정한다.
+
+**병렬화 수립 절차:**
+
+1. jojikdo.json에서 각 에이전트의 `input_artifacts` 의존성을 추출한다
+2. 의존성이 없는 에이전트(또는 동일 입력을 공유하는 에이전트)를 같은 병렬 그룹으로 묶는다
+3. 그룹 간 실행 순서(직렬)를 결정하여 최종 실행 DAG를 구성한다
+4. 병렬 그룹의 최대 동시 실행 수를 3개로 제한한다 (컨텍스트 윈도우 및 API 동시 호출 제한 고려)
+
+### 초기화 전략 보고 형식
+
+```
+## Initialization Strategy: {slug}
+
+### 모델 배분
+| 에이전트 | 권장 모델 | 배분 근거 |
+|----------|-----------|----------|
+
+### 병렬화 전략
+Phase 1:
+  Group 1A (병렬): [agent_a, agent_b]
+  Group 1B (병렬, 1A 완료 후): [agent_c]
+Phase 2:
+  Group 2A (병렬): [agent_d, agent_e, agent_f]
+  ...
+
+### 비용 예측
+- 예상 총 토큰: {n}
+- 예상 비용: ${amount}
+- 이전 동일 유형 파이프라인 대비: {delta}%
+
+### 최적화 권고
+- [권고 항목 1]
+- [권고 항목 2]
+```

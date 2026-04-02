@@ -29,22 +29,22 @@
 }
 
 [data-theme="dark"] {
-  --bg-primary: #1a1b1e;
-  --bg-secondary: #25262b;
-  --bg-tertiary: #2c2e33;
-  --bg-card: #25262b;
-  --bg-hover: #2c2e33;
-  --text-primary: #e1e1e3;
-  --text-secondary: #909296;
-  --text-muted: #5c5f66;
-  --border: #373a40;
-  --border-light: #2c2e33;
-  --shadow: rgba(0,0,0,0.3);
-  --shadow-lg: rgba(0,0,0,0.4);
+  --bg-primary: #0f1117;
+  --bg-secondary: #171921;
+  --bg-tertiary: #1e2028;
+  --bg-card: #1a1c24;
+  --bg-hover: #252830;
+  --text-primary: #f0f0f2;
+  --text-secondary: #a0a4ae;
+  --text-muted: #6b7080;
+  --border: #2a2d38;
+  --border-light: #222530;
+  --shadow: rgba(0,0,0,0.4);
+  --shadow-lg: rgba(0,0,0,0.5);
   --error-bg: rgba(239,68,68,0.15);
-  --scrollbar-thumb: #4a4d53;
-  --code-bg: #2c2e33;
-  --status-pending: #373a40;
+  --scrollbar-thumb: #3a3d45;
+  --code-bg: #1e2028;
+  --status-pending: #2a2d38;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -72,3 +72,15 @@ body {
 body, .bg-transition {
   transition: background-color 0.2s, color 0.2s, border-color 0.2s;
 }
+
+/* Metaverse agent animations */
+@keyframes agentPulse {
+  0%, 100% { r: 22; opacity: 0.3; }
+  50% { r: 28; opacity: 0.1; }
+}
+@keyframes agentBlink {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.8; }
+}
+.agent-pulse { animation: agentPulse 1.5s ease-in-out infinite; }
+.agent-blink { animation: agentBlink 0.8s ease-in-out infinite; }

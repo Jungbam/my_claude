@@ -50,20 +50,20 @@ dept_map() {
 
 case "$EVENT_TYPE" in
   pipeline_start)
-    printf '{"type":"pipeline_start","pipeline_slug":"%s","pipeline_type":"%s","command":"%s","arguments":"%s","ts":"%s"}\n' \
-      "$SLUG" "${3:-unknown}" "${4:-}" "${5:-}" "$TS" >> "$EVENTS_FILE"
+    jq -cn --arg slug "$SLUG" --arg ptype "${3:-unknown}" --arg cmd "${4:-}" --arg args "${5:-}" --arg ts "$TS" \
+      '{type:"pipeline_start",pipeline_slug:$slug,pipeline_type:$ptype,command:$cmd,arguments:$args,ts:$ts}' >> "$EVENTS_FILE"
     ;;
   pipeline_end)
-    printf '{"type":"pipeline_end","pipeline_slug":"%s","status":"%s","total_steps":%s,"completed_steps":%s,"failed_steps":%s,"skipped_steps":%s,"ts":"%s"}\n' \
-      "$SLUG" "${3:-completed}" "${4:-0}" "${5:-0}" "${6:-0}" "${7:-0}" "$TS" >> "$EVENTS_FILE"
+    jq -cn --arg slug "$SLUG" --arg status "${3:-completed}" --argjson total "${4:-0}" --argjson completed "${5:-0}" --argjson failed "${6:-0}" --argjson skipped "${7:-0}" --arg ts "$TS" \
+      '{type:"pipeline_end",pipeline_slug:$slug,status:$status,total_steps:$total,completed_steps:$completed,failed_steps:$failed,skipped_steps:$skipped,ts:$ts}' >> "$EVENTS_FILE"
     ;;
   step_start)
-    printf '{"type":"step_start","pipeline_slug":"%s","step_number":%s,"step_name":"%s","phase":"%s","ts":"%s"}\n' \
-      "$SLUG" "${3:-0}" "${4:-}" "${5:-}" "$TS" >> "$EVENTS_FILE"
+    jq -cn --arg slug "$SLUG" --argjson num "${3:-0}" --arg name "${4:-}" --arg phase "${5:-}" --arg ts "$TS" \
+      '{type:"step_start",pipeline_slug:$slug,step_number:$num,step_name:$name,phase:$phase,ts:$ts}' >> "$EVENTS_FILE"
     ;;
   step_end)
-    printf '{"type":"step_end","pipeline_slug":"%s","step_number":%s,"status":"%s","duration_ms":%s,"ts":"%s"}\n' \
-      "$SLUG" "${3:-0}" "${4:-done}" "${5:-0}" "$TS" >> "$EVENTS_FILE"
+    jq -cn --arg slug "$SLUG" --argjson num "${3:-0}" --arg status "${4:-done}" --argjson dur "${5:-0}" --arg ts "$TS" \
+      '{type:"step_end",pipeline_slug:$slug,step_number:$num,status:$status,duration_ms:$dur,ts:$ts}' >> "$EVENTS_FILE"
     ;;
   agent_start)
     CALL_ID="${3:-}"
@@ -119,8 +119,8 @@ case "$EVENT_TYPE" in
     printf '%s\n' "$EVENT" >> "$AGENTS_FILE" 2>/dev/null || true
     ;;
   error)
-    printf '{"type":"error","pipeline_slug":"%s","message":"%s","step_number":%s,"error_code":"%s","ts":"%s"}\n' \
-      "$SLUG" "${3:-}" "${4:-0}" "${5:-unknown}" "$TS" >> "$EVENTS_FILE"
+    jq -cn --arg slug "$SLUG" --arg msg "${3:-}" --argjson num "${4:-0}" --arg code "${5:-unknown}" --arg ts "$TS" \
+      '{type:"error",pipeline_slug:$slug,message:$msg,step_number:$num,error_code:$code,ts:$ts}' >> "$EVENTS_FILE"
     ;;
 esac
 

@@ -76,3 +76,55 @@ disallowedTools: Write, Edit
 - **project-governance**: 일정 영향 분석 요청
 - **product-strategy**: 우선순위 충돌 시 전략적 판단 요청
 - **모든 20개 에이전트**: 의존성·핸드오프 대상
+
+## Phase 전환 핸드오프 관리
+
+pipeline-orchestrator가 Phase 전환 시 이 에이전트를 호출하여 핸드오프 체크리스트를 실행한다. 핸드오프 실패 시 전환을 차단하고 pipeline-orchestrator에게 재계획을 요청한다.
+
+### 핸드오프 체크리스트
+
+**이전 Phase 산출물 완료 확인:**
+
+| # | 확인 항목 | 판단 방법 |
+|---|----------|----------|
+| 1 | 필수 산출물 파일이 모두 존재하는가 | Glob으로 경로 존재 확인 |
+| 2 | 각 산출물의 필수 필드가 비어 있지 않은가 | Read 후 섹션 헤더 및 내용 검증 |
+| 3 | 품질 상태가 `PASS` 또는 `CONDITIONAL`인가 | 이벤트 로그의 `quality_status` 파싱 |
+| 4 | Critical 이슈가 미해결 상태로 남아 있지 않은가 | issues 목록에서 `severity: critical` 검색 |
+| 5 | 부서장 종합 보고가 제출되었는가 | 이벤트 로그의 `department_report` 이벤트 확인 |
+
+**다음 Phase 입력 준비 확인:**
+
+| # | 확인 항목 | 판단 방법 |
+|---|----------|----------|
+| 1 | 다음 Phase 에이전트가 요구하는 입력 산출물이 모두 준비되었는가 | jojikdo.json의 `input_artifacts` 대조 |
+| 2 | 산출물 포맷이 수신 에이전트의 기대 포맷과 일치하는가 | 포맷 스키마 검증 |
+| 3 | 컨텍스트 전달이 필요한 결정 사항이 문서화되었는가 | decision_log 존재 여부 확인 |
+
+**부서 간 핸드오프 포인트:**
+
+| 전환 | 제공 부서 | 수신 부서 | 핵심 산출물 |
+|------|-----------|-----------|-------------|
+| 기획 → 개발 | product-strategy, business-analysis, ux-research | frontend-engineering, backend-engineering | PRD, 기술 설계서, 태스크 분해 목록 |
+| 개발 → QA | frontend-engineering, backend-engineering, platform-devops | qa-strategy, automation-qa | 빌드 산출물, API 스펙, 구현 요약 |
+| QA → 리뷰 | qa-strategy, defect-triage | release-quality-gate, executive-reporter | QA 리포트, 결함 목록, 테스트 커버리지 |
+| 리뷰 → 배포 | release-quality-gate | platform-devops | 릴리즈 품질 게이트 결과, 배포 승인 |
+
+### 핸드오프 보고 형식
+
+```
+## Handoff Report: Phase {N} → Phase {N+1}
+
+### 이전 Phase 산출물 상태
+| 산출물 | 경로 | 완료 여부 | 비고 |
+|--------|------|-----------|------|
+
+### 다음 Phase 입력 준비 상태
+| 필요 산출물 | 준비 여부 | 위치 |
+|-------------|-----------|------|
+
+### 핸드오프 결과
+- 상태: {PASS | FAIL | CONDITIONAL}
+- 차단 사유 (FAIL 시): [설명]
+- 조건부 사항 (CONDITIONAL 시): [설명]
+```

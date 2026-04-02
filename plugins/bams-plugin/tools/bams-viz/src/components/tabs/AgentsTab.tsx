@@ -1,93 +1,121 @@
 'use client'
 
+import { useMemo } from 'react'
 import { usePolling } from '@/hooks/usePolling'
-import { EmptyState } from '@/components/ui/EmptyState'
 import { Badge } from '@/components/ui/Badge'
 import { formatDuration, formatRelativeTime } from '@/lib/utils'
-import type { AgentData, AgentCall, AgentTypeStat } from '@/lib/types'
+import { ALL_AGENTS, DEPT_INFO } from '@/lib/agents-config'
+import type { AgentData, AgentTypeStat } from '@/lib/types'
 
-const DEPT_COLORS: Record<string, string> = {
-  planning: 'var(--dept-planning)',
-  engineering: 'var(--dept-engineering)',
-  evaluation: 'var(--dept-evaluation)',
-  qa: 'var(--dept-qa)',
+interface AgentRow {
+  agentType: string
+  department: string
+  callCount: number
+  errorCount: number
+  avgDurationMs: number
+  errorRate: number
+  lastActive: string | null
 }
 
-function StatCard({ stat }: { stat: AgentTypeStat }) {
-  const deptColor = DEPT_COLORS[stat.dept] || 'var(--text-muted)'
+interface DeptSummary {
+  department: string
+  label: string
+  color: string
+  totalCalls: number
+  totalErrors: number
+  avgDuration: number
+  agentCount: number
+}
+
+function buildAgentRows(data: AgentData | null): AgentRow[] {
+  const statMap = new Map<string, AgentTypeStat>()
+  if (data) {
+    for (const s of data.stats) statMap.set(s.agentType, s)
+  }
+
+  // Find last active time per agent type
+  const lastActiveMap = new Map<string, string>()
+  if (data) {
+    for (const call of data.calls) {
+      const t = call.startedAt || call.endedAt
+      if (!t) continue
+      const prev = lastActiveMap.get(call.agentType)
+      if (!prev || new Date(t).getTime() > new Date(prev).getTime()) {
+        lastActiveMap.set(call.agentType, t)
+      }
+    }
+  }
+
+  return ALL_AGENTS.map(({ agentType, department }) => {
+    const stat = statMap.get(agentType)
+    return {
+      agentType,
+      department,
+      callCount: stat?.callCount ?? 0,
+      errorCount: stat?.errorCount ?? 0,
+      avgDurationMs: stat?.avgDurationMs ?? 0,
+      errorRate: stat?.errorRate ?? 0,
+      lastActive: lastActiveMap.get(agentType) ?? null,
+    }
+  })
+}
+
+function buildDeptSummaries(rows: AgentRow[]): DeptSummary[] {
+  const deptOrder = ['management', 'planning', 'engineering', 'evaluation', 'qa']
+  return deptOrder.map(dept => {
+    const deptRows = rows.filter(r => r.department === dept)
+    const info = DEPT_INFO[dept] || { color: '#6c757d', label: dept }
+    const totalCalls = deptRows.reduce((s, r) => s + r.callCount, 0)
+    const totalErrors = deptRows.reduce((s, r) => s + r.errorCount, 0)
+    const activeDurations = deptRows.filter(r => r.avgDurationMs > 0)
+    const avgDuration = activeDurations.length > 0
+      ? activeDurations.reduce((s, r) => s + r.avgDurationMs, 0) / activeDurations.length
+      : 0
+    return {
+      department: dept,
+      label: info.label,
+      color: info.color,
+      totalCalls,
+      totalErrors,
+      avgDuration,
+      agentCount: deptRows.length,
+    }
+  })
+}
+
+function DeptSummaryCard({ summary }: { summary: DeptSummary }) {
+  const errorRate = summary.totalCalls > 0
+    ? ((summary.totalErrors / summary.totalCalls) * 100).toFixed(1)
+    : '0.0'
   return (
     <div style={{
       background: 'var(--bg-card)',
       border: '1px solid var(--border-light)',
       borderRadius: '8px',
-      padding: '16px',
-      borderLeft: `3px solid ${deptColor}`,
+      padding: '14px 16px',
+      borderLeft: `3px solid ${summary.color}`,
+      minWidth: '170px',
+      flex: '1 1 170px',
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-        <span style={{ fontWeight: 600, fontSize: '13px' }}>{stat.agentType}</span>
-        <span style={{ fontSize: '11px', color: deptColor, fontWeight: 500 }}>{stat.dept}</span>
+      <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '8px', color: summary.color }}>
+        {summary.label}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-        <div>Calls: <strong style={{ color: 'var(--text-primary)' }}>{stat.callCount}</strong></div>
-        <div>Errors: <strong style={{ color: stat.errorCount > 0 ? 'var(--status-fail)' : 'var(--text-primary)' }}>{stat.errorCount}</strong></div>
-        <div>Avg: <strong style={{ color: 'var(--text-primary)' }}>{formatDuration(stat.avgDurationMs)}</strong></div>
-        <div>Total: <strong style={{ color: 'var(--text-primary)' }}>{formatDuration(stat.totalDurationMs)}</strong></div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+        <div>Calls: <strong style={{ color: 'var(--text-primary)' }}>{summary.totalCalls}</strong></div>
+        <div>Errors: <strong style={{ color: summary.totalErrors > 0 ? 'var(--status-fail)' : 'var(--text-primary)' }}>{summary.totalErrors}</strong></div>
+        <div>Avg: <strong style={{ color: 'var(--text-primary)' }}>{summary.avgDuration > 0 ? formatDuration(summary.avgDuration) : '-'}</strong></div>
+        <div>Err%: <strong style={{ color: parseFloat(errorRate) > 0 ? 'var(--status-fail)' : 'var(--text-primary)' }}>{errorRate}%</strong></div>
       </div>
-      {stat.errorRate > 0 && (
-        <div style={{ marginTop: '8px' }}>
-          <div style={{
-            height: '3px',
-            background: 'var(--bg-tertiary)',
-            borderRadius: '2px',
-            overflow: 'hidden',
-          }}>
-            <div style={{
-              height: '100%',
-              width: `${Math.min(stat.errorRate, 100)}%`,
-              background: 'var(--status-fail)',
-              borderRadius: '2px',
-            }} />
-          </div>
-          <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
-            {stat.errorRate.toFixed(1)}% error rate
-          </div>
-        </div>
-      )}
     </div>
   )
 }
 
-function AgentRow({ agent }: { agent: AgentCall }) {
-  const isRunning = !!(agent.startedAt && !agent.endedAt)
-  const variant = agent.isError ? 'error' : isRunning ? 'running' : 'success'
-  const label = agent.isError ? 'ERROR' : isRunning ? 'RUNNING' : 'DONE'
+export function AgentsTab({ pipelineSlug }: { pipelineSlug?: string | null }) {
+  const apiUrl = pipelineSlug ? `/api/agents?date=all&pipeline=${pipelineSlug}` : '/api/agents?date=all'
+  const { data, error, isLoading } = usePolling<AgentData>(apiUrl, 2000)
 
-  return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: '12px',
-      padding: '10px 16px',
-      borderBottom: '1px solid var(--border-light)',
-      fontSize: '13px',
-    }}>
-      <Badge variant={variant} pulse={isRunning}>{label}</Badge>
-      <span style={{ fontWeight: 600, minWidth: '140px' }}>{agent.agentType}</span>
-      <span style={{ color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {agent.description || agent.promptSummary || '-'}
-      </span>
-      <span style={{ color: 'var(--text-muted)', fontSize: '11px', minWidth: '60px', textAlign: 'right' }}>
-        {agent.durationMs != null ? formatDuration(agent.durationMs) : isRunning ? '...' : '-'}
-      </span>
-      <span style={{ color: 'var(--text-muted)', fontSize: '11px', minWidth: '70px', textAlign: 'right' }}>
-        {agent.startedAt ? formatRelativeTime(agent.startedAt) : '-'}
-      </span>
-    </div>
-  )
-}
-
-export function AgentsTab() {
-  const { data, error, isLoading } = usePolling<AgentData>('/api/agents?date=all', 2000)
+  const rows = useMemo(() => buildAgentRows(data ?? null), [data])
+  const deptSummaries = useMemo(() => buildDeptSummaries(rows), [rows])
 
   if (isLoading) {
     return <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading agents...</div>
@@ -95,15 +123,10 @@ export function AgentsTab() {
   if (error) {
     return <div style={{ padding: '20px', color: 'var(--status-fail)' }}>Error loading agents: {error.message}</div>
   }
-  if (!data || data.totalCalls === 0) {
-    return <EmptyState icon="🤖" title="No agent calls" description="No agent invocations recorded yet" />
-  }
 
-  const sortedCalls = [...data.calls].sort((a, b) => {
-    const ta = a.startedAt ? new Date(a.startedAt).getTime() : 0
-    const tb = b.startedAt ? new Date(b.startedAt).getTime() : 0
-    return tb - ta
-  })
+  const totalCalls = data?.totalCalls ?? 0
+  const totalErrors = data?.totalErrors ?? 0
+  const runningCount = data?.runningCount ?? 0
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -117,51 +140,102 @@ export function AgentsTab() {
         color: 'var(--text-secondary)',
         flexShrink: 0,
       }}>
-        <span>Total: <strong style={{ color: 'var(--text-primary)' }}>{data.totalCalls}</strong></span>
-        <span>Running: <strong style={{ color: 'var(--status-running)' }}>{data.runningCount}</strong></span>
-        <span>Errors: <strong style={{ color: data.totalErrors > 0 ? 'var(--status-fail)' : 'var(--text-primary)' }}>{data.totalErrors}</strong></span>
+        <span>Agents: <strong style={{ color: 'var(--text-primary)' }}>{ALL_AGENTS.length}</strong></span>
+        <span>Total Calls: <strong style={{ color: 'var(--text-primary)' }}>{totalCalls}</strong></span>
+        <span>Running: <strong style={{ color: 'var(--status-running)' }}>{runningCount}</strong></span>
+        <span>Errors: <strong style={{ color: totalErrors > 0 ? 'var(--status-fail)' : 'var(--text-primary)' }}>{totalErrors}</strong></span>
       </div>
 
-      <div style={{ flex: 1, overflow: 'auto', display: 'flex', gap: '0' }}>
-        {/* Stats panel */}
+      <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
+        {/* Department summary cards */}
         <div style={{
-          width: '300px',
-          flexShrink: 0,
-          borderRight: '1px solid var(--border-light)',
-          padding: '16px',
-          overflowY: 'auto',
           display: 'flex',
-          flexDirection: 'column',
           gap: '12px',
+          marginBottom: '20px',
+          flexWrap: 'wrap',
         }}>
-          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Agent Types
-          </div>
-          {data.stats.map(stat => (
-            <StatCard key={stat.agentType} stat={stat} />
+          {deptSummaries.map(s => (
+            <DeptSummaryCard key={s.department} summary={s} />
           ))}
         </div>
 
-        {/* Call list */}
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        {/* Agent table */}
+        <div style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-light)',
+          borderRadius: '8px',
+          overflow: 'hidden',
+        }}>
+          {/* Table header */}
           <div style={{
-            padding: '8px 16px',
-            fontSize: '12px',
+            display: 'grid',
+            gridTemplateColumns: '2fr 1fr 80px 90px 80px 100px',
+            gap: '8px',
+            padding: '10px 16px',
+            fontSize: '11px',
             fontWeight: 600,
             color: 'var(--text-muted)',
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
             borderBottom: '1px solid var(--border-light)',
-            position: 'sticky',
-            top: 0,
             background: 'var(--bg-secondary)',
-            zIndex: 1,
           }}>
-            Recent Calls
+            <div>Agent</div>
+            <div>Department</div>
+            <div style={{ textAlign: 'right' }}>Calls</div>
+            <div style={{ textAlign: 'right' }}>Avg Time</div>
+            <div style={{ textAlign: 'right' }}>Err %</div>
+            <div style={{ textAlign: 'right' }}>Last Active</div>
           </div>
-          {sortedCalls.map(agent => (
-            <AgentRow key={agent.callId} agent={agent} />
-          ))}
+
+          {/* Table rows */}
+          {rows.map(row => {
+            const deptInfo = DEPT_INFO[row.department] || { color: '#6c757d', label: row.department }
+            const hasActivity = row.callCount > 0
+            return (
+              <div
+                key={row.agentType}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '2fr 1fr 80px 90px 80px 100px',
+                  gap: '8px',
+                  padding: '10px 16px',
+                  fontSize: '13px',
+                  borderBottom: '1px solid var(--border-light)',
+                  opacity: hasActivity ? 1 : 0.5,
+                }}
+              >
+                <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    background: hasActivity ? deptInfo.color : '#6c757d',
+                    flexShrink: 0,
+                  }} />
+                  {row.agentType}
+                </div>
+                <div style={{ color: deptInfo.color, fontSize: '12px', display: 'flex', alignItems: 'center' }}>
+                  {deptInfo.label}
+                </div>
+                <div style={{ textAlign: 'right', color: 'var(--text-primary)' }}>
+                  {row.callCount > 0 ? row.callCount : '-'}
+                </div>
+                <div style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>
+                  {row.avgDurationMs > 0 ? formatDuration(row.avgDurationMs) : '-'}
+                </div>
+                <div style={{
+                  textAlign: 'right',
+                  color: row.errorRate > 0 ? 'var(--status-fail)' : 'var(--text-secondary)',
+                }}>
+                  {row.callCount > 0 ? `${row.errorRate.toFixed(1)}%` : '-'}
+                </div>
+                <div style={{ textAlign: 'right', color: 'var(--text-muted)', fontSize: '12px' }}>
+                  {row.lastActive ? formatRelativeTime(row.lastActive) : '-'}
+                </div>
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>

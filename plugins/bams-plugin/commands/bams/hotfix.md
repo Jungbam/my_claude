@@ -31,36 +31,113 @@ _DEPLOY_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/land-
 진행 추적 파일 및 lock 파일 생성 직후, Bash로 다음을 실행합니다:
 
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh pipeline_start "{slug}" "hotfix" "/bams:hotfix" "{arguments}"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "hotfix" "/bams:hotfix" "{arguments}"
 ```
 
 ## Step 1: 버그 진단 + 수정
 
 Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_start "{slug}" 1 "버그 진단 + 수정" "Phase 1: 진단/수정"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 1 "버그 진단 + 수정" "Phase 1: 진단/수정"
 ```
 
-**컨텍스트 활용**: config.md의 프로젝트 구조 + 관련 gotchas + 이전 리뷰 이슈를 전달.
+pipeline-orchestrator에게 긴급 진단 및 수정을 지시합니다.
 
-`bams-plugin:defect-triage` 에이전트로 결함 분류 및 근본 원인 추적.
-3개 Investigator 병렬 분석 → Impact Analysis → Scope Lock → 외과적 수정 → Root Cause Verification → 회귀 테스트 생성.
+서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**):
+
+> **핫픽스 긴급 진단 모드** — 버그를 즉시 진단하고 수정합니다.
+>
+> **위임 메시지:**
+> ```
+> phase: 1
+> slug: {slug}
+> pipeline_type: hotfix
+> context:
+>   config: .crew/config.md
+>   bug_description: {$ARGUMENTS}
+>   gotchas: [config.md에서 버그 영역 관련 항목 전달]
+> constraints:
+>   urgency: critical
+> ```
+>
+> **수행할 작업:**
+>
+> 1. defect-triage를 호출하여 결함 분류 및 근본 원인 추적을 지시합니다:
+> ```
+> task_description: "버그를 긴급 분류하고 근본 원인을 추적하라"
+> input_artifacts:
+>   - .crew/config.md
+>   - bug_description: {$ARGUMENTS}
+> expected_output:
+>   type: defect_analysis
+>   paths: [.crew/artifacts/hotfix/{slug}-triage.md]
+> quality_criteria:
+>   - 근본 원인 식별
+>   - 영향 범위(Impact Analysis) 완료
+>   - Scope Lock 확정
+> ```
+>
+> 2. defect-triage 결과를 바탕으로 개발부장에게 외과적 수정을 위임합니다:
+> ```
+> task_description: "근본 원인에 맞는 최소 범위 수정을 적용하고 회귀 테스트를 생성하라"
+> input_artifacts:
+>   - .crew/artifacts/hotfix/{slug}-triage.md
+> expected_output:
+>   type: code_fix + regression_tests
+> quality_criteria:
+>   - 수정 파일 최소화 (범위 외 변경 금지)
+>   - Root Cause Verification 통과
+>   - 회귀 테스트 생성 완료
+> ```
+>
+> **기대 산출물**: 결함 분석 리포트, 수정된 코드, 회귀 테스트
 
 Step 1 완료 시, Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_end "{slug}" 1 "done" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 1 "done" {duration_ms}
 ```
 
 ## Step 2: QA 검증 (bams browse 스킬, 선택)
 
 Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_start "{slug}" 2 "QA 검증" "Phase 2: 검증"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 2 "QA 검증" "Phase 2: 검증"
 ```
 
 **스킬 미설치 시**: `skipped` 기록.
 
-`bams-plugin:automation-qa` 에이전트로 테스트 계획 수립.
+pipeline-orchestrator에게 QA 검증을 지시합니다.
+
+서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**):
+
+> **핫픽스 QA 검증 모드** — 수정 사항의 회귀 여부를 빠르게 검증합니다.
+>
+> **위임 메시지:**
+> ```
+> phase: 2
+> slug: {slug}
+> pipeline_type: hotfix
+> context:
+>   fix_artifacts: .crew/artifacts/hotfix/{slug}-triage.md
+> constraints:
+>   urgency: critical
+>   scope: regression_only
+> ```
+>
+> **수행할 작업:**
+> qa-strategy(QA부장)에게 테스트 계획 수립을 위임합니다:
+> ```
+> task_description: "핫픽스 회귀 테스트 계획을 수립하고 automation-qa로 실행하라"
+> input_artifacts:
+>   - .crew/artifacts/hotfix/{slug}-triage.md
+> expected_output:
+>   type: qa_test_plan
+> quality_criteria:
+>   - 수정된 영역 회귀 테스트 포함
+>   - 관련 사이드 이펙트 체크 포함
+> ```
+>
+> qa-strategy는 내부적으로 automation-qa 에이전트를 활용하여 테스트를 실행합니다.
 
 AskUserQuestion — "브라우저 QA 테스트를 진행할까요?"
 - **건너뛰기 (Recommended)**
@@ -68,24 +145,24 @@ AskUserQuestion — "브라우저 QA 테스트를 진행할까요?"
 
 Step 2 완료 시, Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_end "{slug}" 2 "{status}" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 2 "{status}" {duration_ms}
 ```
 
 ## Step 3-4: CI/CD 프리플라이트 + 출시 준비 검토 (오버랩)
 
 Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_start "{slug}" 3 "CI/CD 프리플라이트" "Phase 3: 배포 준비"
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_start "{slug}" 4 "출시 준비 검토" "Phase 3: 배포 준비"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 3 "CI/CD 프리플라이트" "Phase 3: 배포 준비"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 4 "출시 준비 검토" "Phase 3: 배포 준비"
 ```
 
 **Step 3 — CI/CD 프리플라이트:**
-`/bams:verify` 실행. FAIL 시 자동 수정(최대 2회) / 수동 / 무시.
+pipeline-orchestrator에게 CI/CD 검증을 지시합니다. orchestrator는 개발부장에게 `/bams:verify` 실행을 위임합니다. FAIL 시 자동 수정(최대 2회) / 수동 / 무시.
 
 **Step 4 — 출시 준비 검토 (Step 3 PASS 시):**
 **스킬 미설치 시**: "수동 PR 생성" 안내 후 `skipped`.
 
-`bams-plugin:release-quality-gate` 에이전트로 출시 준비 검토.
+pipeline-orchestrator에게 출시 준비 검토를 지시합니다. orchestrator는 qa-strategy(QA부장)에게 release-quality-gate 실행을 위임합니다.
 **최적화**: verify PASS 판정이 나오면 release-quality-gate는 verify 결과를 기다리지 않고 즉시 코드 리뷰 기반 검토를 시작합니다. verify 결과는 RQG에 후속 전달됩니다.
 
 AskUserQuestion — "PR을 생성할까요?"
@@ -94,18 +171,18 @@ AskUserQuestion — "PR을 생성할까요?"
 
 Step 3-4 완료 시, Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_end "{slug}" 3 "{status}" {duration_ms}
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_end "{slug}" 4 "{status}" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 3 "{status}" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 4 "{status}" {duration_ms}
 ```
 
 ## Step 5: 배포 (bams deploy 스킬, 선택)
 
 Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_start "{slug}" 5 "배포" "Phase 4: 배포"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 5 "배포" "Phase 4: 배포"
 ```
 
-`bams-plugin:platform-devops` 에이전트로 배포 환경 점검.
+pipeline-orchestrator에게 배포 환경 점검을 지시합니다. orchestrator는 개발부장을 통해 `platform-devops` 에이전트로 배포 환경을 점검합니다.
 
 AskUserQuestion — "즉시 배포할까요?"
 - **나중에 (Recommended)**
@@ -113,16 +190,41 @@ AskUserQuestion — "즉시 배포할까요?"
 
 Step 5 완료 시, Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_end "{slug}" 5 "{status}" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 5 "{status}" {duration_ms}
 ```
 
 ## 마무리
+
+### 자동 회고 (축소판)
+
+pipeline_end 직전, pipeline-orchestrator에게 핫픽스 축소 회고를 지시합니다.
+
+서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**):
+
+> **핫픽스 축소 회고 모드** — 파이프라인 완료 후 핵심 학습만 빠르게 수집합니다.
+>
+> **위임 메시지:**
+> ```
+> phase: retro
+> slug: {slug}
+> pipeline_type: hotfix
+> context:
+>   triage: .crew/artifacts/hotfix/{slug}-triage.md
+> ```
+>
+> **수행할 작업:**
+> executive-reporter를 호출하여 다음 항목을 기록합니다:
+> 1. `hotfix:` — 근본 원인 + 영향 범위 요약
+> 2. `vulnerable:` — 같은 영역에서 반복 버그가 감지되면 경고 수준 상향
+> 3. `regression-test:` — 추가된 회귀 테스트 경로
+>
+> `.crew/board.md`의 관련 태스크를 `Done`으로 변경합니다.
 
 ### Viz 이벤트: pipeline_end
 
 파이프라인 종료 시, Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh pipeline_end "{slug}" "{status}" {total} {completed} {failed} {skipped}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_end "{slug}" "{status}" {total} {completed} {failed} {skipped}
 ```
 (`{status}`는 `completed` / `paused` / `failed` 중 하나, `{total}`은 5)
 

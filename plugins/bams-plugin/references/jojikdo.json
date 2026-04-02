@@ -46,8 +46,18 @@
         "released",
         "archived"
       ],
-      "priority_levels": ["P0", "P1", "P2", "P3"],
-      "severity_levels": ["critical", "high", "medium", "low"],
+      "priority_levels": [
+        "P0",
+        "P1",
+        "P2",
+        "P3"
+      ],
+      "severity_levels": [
+        "critical",
+        "high",
+        "medium",
+        "low"
+      ],
       "workflow_rules": [
         "모든 Skill은 owner_agent를 가진다",
         "모든 Agent 호출은 caller_agent와 callee_agent를 기록한다",
@@ -73,20 +83,33 @@
             "긴급도",
             "기존 파이프라인 상태"
           ],
-          "outputs": ["pipeline_plan", "gate_decision", "rollback_order"],
+          "outputs": [
+            "pipeline_plan",
+            "gate_decision",
+            "rollback_order"
+          ],
           "skills": [
             {
               "skill_id": "orchestrate_pipeline",
               "skill_name": "Pipeline Orchestration",
               "purpose": "파이프라인의 전체 단계를 설계하고 실행 순서를 조율한다",
-              "inputs": ["pipeline_type", "slug", "config.md", "기존 아티팩트"],
+              "inputs": [
+                "pipeline_type",
+                "slug",
+                "config.md",
+                "기존 아티팩트"
+              ],
               "process": [
                 "파이프라인 유형에 따라 실행 계획을 수립한다",
                 "기존 진행 상태를 확인하여 재개 지점을 결정한다",
                 "병렬화 가능 구간을 resource_optimizer_agent에 조회한다",
                 "각 Phase 전환 시 게이트 조건을 검증한다"
               ],
-              "artifacts": ["pipeline_plan", "gate_decision_log", "tracking_file"],
+              "artifacts": [
+                "pipeline_plan",
+                "gate_decision_log",
+                "tracking_file"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "resource_optimizer_agent",
@@ -114,14 +137,22 @@
               "skill_id": "decide_gate",
               "skill_name": "Phase Gate Decision",
               "purpose": "Phase 전환 시 Go/No-Go/Conditional-Go 판단을 내린다",
-              "inputs": ["Phase 산출물", "테스트 결과", "리뷰 결과", "보안 감사"],
+              "inputs": [
+                "Phase 산출물",
+                "테스트 결과",
+                "리뷰 결과",
+                "보안 감사"
+              ],
               "process": [
                 "필수 산출물 생성 여부를 확인한다",
                 "Critical 이슈가 0건인지 검증한다",
                 "다음 Phase 선행 조건 충족 여부를 확인한다",
                 "결정을 gate_decision_log에 기록한다"
               ],
-              "artifacts": ["gate_decision", "gate_decision_log"],
+              "artifacts": [
+                "gate_decision",
+                "gate_decision_log"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "release_quality_gate_agent",
@@ -143,14 +174,21 @@
               "skill_id": "execute_rollback",
               "skill_name": "Rollback Execution",
               "purpose": "파이프라인 실패 시 안전한 롤백을 실행한다",
-              "inputs": ["실패 유형", "영향 범위", "롤백 포인트"],
+              "inputs": [
+                "실패 유형",
+                "영향 범위",
+                "롤백 포인트"
+              ],
               "process": [
                 "실패 유형을 분류한다 (recoverable vs. unrecoverable)",
                 "롤백 범위를 결정한다 (현재 Phase vs. 이전 Phase)",
                 "보존할 아티팩트를 식별한다",
                 "롤백을 실행하고 재시작 지점을 기록한다"
               ],
-              "artifacts": ["rollback_log", "restart_plan"],
+              "artifacts": [
+                "rollback_log",
+                "restart_plan"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "cross_department_coordinator_agent",
@@ -164,7 +202,8 @@
                 "보존 아티팩트가 확인되었다"
               ]
             }
-          ]
+          ],
+          "role": "commander"
         },
         {
           "agent_id": "cross_department_coordinator_agent",
@@ -175,20 +214,31 @@
             "파이프라인 이벤트",
             "에이전트 산출물 상태"
           ],
-          "outputs": ["dependency_status", "conflict_resolution", "handoff_checklist"],
+          "outputs": [
+            "dependency_status",
+            "conflict_resolution",
+            "handoff_checklist"
+          ],
           "skills": [
             {
               "skill_id": "manage_dependencies",
               "skill_name": "Cross-Department Dependency Management",
               "purpose": "에이전트 간 입력-출력 의존성을 추적하고 병목을 사전에 식별한다",
-              "inputs": ["jojikdo.json", "파이프라인 이벤트", "산출물 상태"],
+              "inputs": [
+                "jojikdo.json",
+                "파이프라인 이벤트",
+                "산출물 상태"
+              ],
               "process": [
                 "agent_calls 관계에서 의존성 그래프를 구성한다",
                 "각 의존성의 상태를 실시간 추적한다",
                 "크리티컬 패스 상의 병목을 식별한다",
                 "블로커 발생 시 우회 경로를 제시한다"
               ],
-              "artifacts": ["dependency_graph", "dependency_status_report"],
+              "artifacts": [
+                "dependency_graph",
+                "dependency_status_report"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "project_governance_agent",
@@ -210,14 +260,21 @@
               "skill_id": "resolve_conflicts",
               "skill_name": "Inter-Department Conflict Resolution",
               "purpose": "부서 간 우선순위 충돌이나 해석 차이를 구조적으로 중재한다",
-              "inputs": ["충돌 내용", "각 부서 입장", "객관적 데이터"],
+              "inputs": [
+                "충돌 내용",
+                "각 부서 입장",
+                "객관적 데이터"
+              ],
               "process": [
                 "각 부서의 입장과 제약 조건을 수집한다",
                 "객관적 데이터로 판단 근거를 제시한다",
                 "합의점을 도출하거나 pipeline_orchestrator에게 에스컬레이션한다",
                 "결과를 decision_log에 기록한다"
               ],
-              "artifacts": ["conflict_resolution_note", "decision_log"],
+              "artifacts": [
+                "conflict_resolution_note",
+                "decision_log"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "product_strategy_agent",
@@ -235,7 +292,8 @@
                 "결정 근거가 decision_log에 기록되어 있다"
               ]
             }
-          ]
+          ],
+          "role": "specialist"
         },
         {
           "agent_id": "executive_reporter_agent",
@@ -247,20 +305,31 @@
             "tracking 파일",
             "리뷰/테스트 결과"
           ],
-          "outputs": ["pipeline_dashboard", "weekly_summary", "sprint_report"],
+          "outputs": [
+            "pipeline_dashboard",
+            "weekly_summary",
+            "sprint_report"
+          ],
           "skills": [
             {
               "skill_id": "generate_dashboard",
               "skill_name": "Pipeline Dashboard Generation",
               "purpose": "파이프라인 상태를 실시간 대시보드로 집계한다",
-              "inputs": ["파이프라인 이벤트", "board.md", "아티팩트 상태"],
+              "inputs": [
+                "파이프라인 이벤트",
+                "board.md",
+                "아티팩트 상태"
+              ],
               "process": [
                 "이벤트 파일에서 Phase별 진행률을 파싱한다",
                 "에이전트별 활동 상태를 집계한다",
                 "블로커와 리스크를 수집한다",
                 "신호등 체계로 요약한다"
               ],
-              "artifacts": ["pipeline_dashboard", "status_summary"],
+              "artifacts": [
+                "pipeline_dashboard",
+                "status_summary"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "project_governance_agent",
@@ -282,14 +351,22 @@
               "skill_id": "compile_weekly_summary",
               "skill_name": "Weekly Summary Compilation",
               "purpose": "주간 활동을 성과, 진행, 블로커, 계획으로 구조화하여 보고한다",
-              "inputs": ["git log", "board.md", "파이프라인 이력", "리뷰 결과"],
+              "inputs": [
+                "git log",
+                "board.md",
+                "파이프라인 이력",
+                "리뷰 결과"
+              ],
               "process": [
                 "주간 완료 태스크를 집계한다",
                 "진행 중 태스크와 블로커를 정리한다",
                 "다음 주 계획을 수립한다",
                 "수치 요약을 작성한다"
               ],
-              "artifacts": ["weekly_summary", "trend_analysis"],
+              "artifacts": [
+                "weekly_summary",
+                "trend_analysis"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "business_kpi_agent",
@@ -307,7 +384,8 @@
                 "다음 주 액션 아이템이 담당자와 함께 명시되어 있다"
               ]
             }
-          ]
+          ],
+          "role": "specialist"
         },
         {
           "agent_id": "resource_optimizer_agent",
@@ -319,20 +397,31 @@
             "이전 실행 이력",
             "비용 제약"
           ],
-          "outputs": ["resource_plan", "parallelization_strategy", "cost_analysis"],
+          "outputs": [
+            "resource_plan",
+            "parallelization_strategy",
+            "cost_analysis"
+          ],
           "skills": [
             {
               "skill_id": "optimize_model_selection",
               "skill_name": "Model Selection Optimization",
               "purpose": "각 에이전트의 태스크 특성에 맞는 최적 모델을 추천한다",
-              "inputs": ["에이전트 목록", "태스크 복잡도", "이전 품질 이력"],
+              "inputs": [
+                "에이전트 목록",
+                "태스크 복잡도",
+                "이전 품질 이력"
+              ],
               "process": [
                 "태스크 복잡도를 3단계(high/medium/low)로 분류한다",
                 "이전 실행에서 품질 이슈가 있었는지 확인한다",
                 "복잡도와 품질 요구에 따라 모델을 매핑한다",
                 "비용 예측을 작성한다"
               ],
-              "artifacts": ["model_assignment_table", "cost_forecast"],
+              "artifacts": [
+                "model_assignment_table",
+                "cost_forecast"
+              ],
               "agent_calls": [],
               "completion_criteria": [
                 "모든 에이전트에 모델이 배정되어 있다",
@@ -343,14 +432,20 @@
               "skill_id": "design_parallelization",
               "skill_name": "Parallelization Strategy Design",
               "purpose": "의존성 그래프를 분석하여 동시 실행 가능한 에이전트 그룹을 식별한다",
-              "inputs": ["jojikdo.json agent_calls", "파이프라인 단계"],
+              "inputs": [
+                "jojikdo.json agent_calls",
+                "파이프라인 단계"
+              ],
               "process": [
                 "의존성이 없는 에이전트를 병렬 그룹으로 묶는다",
                 "같은 Phase 내 독립 스킬을 식별한다",
                 "병렬 그룹 크기 제한을 적용한다",
                 "예상 소요 시간 단축률을 계산한다"
               ],
-              "artifacts": ["parallelization_strategy", "parallel_group_map"],
+              "artifacts": [
+                "parallelization_strategy",
+                "parallel_group_map"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "cross_department_coordinator_agent",
@@ -363,9 +458,11 @@
                 "예상 시간 단축률이 산출되어 있다"
               ]
             }
-          ]
+          ],
+          "role": "specialist"
         }
-      ]
+      ],
+      "department_lead": "pipeline_orchestrator_agent"
     },
     {
       "department_id": "planning",
@@ -383,7 +480,11 @@
             "기존 KPI",
             "고객 요청"
           ],
-          "outputs": ["vision_doc", "roadmap", "decision_log"],
+          "outputs": [
+            "vision_doc",
+            "roadmap",
+            "decision_log"
+          ],
           "skills": [
             {
               "skill_id": "define_product_vision",
@@ -478,14 +579,23 @@
               "skill_id": "align_stakeholders",
               "skill_name": "Stakeholder Alignment",
               "purpose": "부서 간 해석 차이와 의사결정 충돌을 제거한다",
-              "inputs": ["vision_doc", "roadmap", "기능 요약", "리소스 현황"],
+              "inputs": [
+                "vision_doc",
+                "roadmap",
+                "기능 요약",
+                "리소스 현황"
+              ],
               "process": [
                 "쟁점을 목록화한다",
                 "선택지와 trade-off를 작성한다",
                 "승인/보류/폐기 결정을 수집한다",
                 "결정사항을 문서화한다"
               ],
-              "artifacts": ["alignment_note", "decision_log", "approved_scope"],
+              "artifacts": [
+                "alignment_note",
+                "decision_log",
+                "approved_scope"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "project_governance_agent",
@@ -498,13 +608,19 @@
                 "남은 이슈와 오너가 정의되었다"
               ]
             }
-          ]
+          ],
+          "role": "department_lead"
         },
         {
           "agent_id": "business_analysis_agent",
           "agent_name": "Business Analysis Agent",
           "responsibility": "요구사항, 업무 규칙, 예외 조건, 정책 명세 구조화",
-          "inputs": ["비전", "업무 정책", "운영 이슈", "고객 요청"],
+          "inputs": [
+            "비전",
+            "업무 정책",
+            "운영 이슈",
+            "고객 요청"
+          ],
           "outputs": [
             "requirement_catalog",
             "functional_spec",
@@ -515,7 +631,12 @@
               "skill_id": "elicit_requirements",
               "skill_name": "Requirement Elicitation",
               "purpose": "이해관계자 요구를 수집하고 출처와 목적을 연결한다",
-              "inputs": ["인터뷰 기록", "VOC", "운영 프로세스", "규정 문서"],
+              "inputs": [
+                "인터뷰 기록",
+                "VOC",
+                "운영 프로세스",
+                "규정 문서"
+              ],
               "process": [
                 "요구사항을 출처별로 분류한다",
                 "필수/선택/보류 항목으로 나눈다",
@@ -590,7 +711,11 @@
               "skill_id": "decompose_scope",
               "skill_name": "Scope Decomposition",
               "purpose": "요구사항을 실행 가능한 작업 단위로 분해한다",
-              "inputs": ["functional_spec", "roadmap", "정책서"],
+              "inputs": [
+                "functional_spec",
+                "roadmap",
+                "정책서"
+              ],
               "process": [
                 "에픽을 기능 단위로 쪼갠다",
                 "스토리와 작업 단위를 만든다",
@@ -619,13 +744,19 @@
                 "선행 조건과 완료 조건이 존재한다"
               ]
             }
-          ]
+          ],
+          "role": "specialist"
         },
         {
           "agent_id": "ux_research_agent",
           "agent_name": "UX Research Agent",
           "responsibility": "사용자 목표, 여정, 마찰 지점, 사용성 문제를 구조화",
-          "inputs": ["인터뷰 요청", "행동 로그", "화면 설계안", "VOC"],
+          "inputs": [
+            "인터뷰 요청",
+            "행동 로그",
+            "화면 설계안",
+            "VOC"
+          ],
           "outputs": [
             "research_plan",
             "user_journey_map",
@@ -636,14 +767,22 @@
               "skill_id": "plan_user_research",
               "skill_name": "User Research Planning",
               "purpose": "조사 목적, 방법, 대상, 질문지를 정의한다",
-              "inputs": ["제품 목표", "가설", "이탈 지표", "고객 불만"],
+              "inputs": [
+                "제품 목표",
+                "가설",
+                "이탈 지표",
+                "고객 불만"
+              ],
               "process": [
                 "조사 질문을 정의한다",
                 "표본 기준을 설정한다",
                 "인터뷰/설문 방식을 선택한다",
                 "일정과 산출물 형식을 정한다"
               ],
-              "artifacts": ["research_plan", "interview_guide"],
+              "artifacts": [
+                "research_plan",
+                "interview_guide"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "product_analytics_agent",
@@ -660,7 +799,11 @@
               "skill_id": "map_user_journey",
               "skill_name": "User Journey Mapping",
               "purpose": "사용자 목표 달성 흐름과 이탈 지점을 시각화한다",
-              "inputs": ["인터뷰 결과", "세션 로그", "VOC"],
+              "inputs": [
+                "인터뷰 결과",
+                "세션 로그",
+                "VOC"
+              ],
               "process": [
                 "단계별 행동을 정리한다",
                 "감정과 불편 요인을 매핑한다",
@@ -693,14 +836,21 @@
               "skill_id": "review_usability",
               "skill_name": "Usability Review",
               "purpose": "프로토타입 또는 구현 화면의 사용성 문제를 조기 탐지한다",
-              "inputs": ["와이어프레임", "프로토타입", "베타 화면"],
+              "inputs": [
+                "와이어프레임",
+                "프로토타입",
+                "베타 화면"
+              ],
               "process": [
                 "핵심 태스크를 정의한다",
                 "과업 수행 장애를 기록한다",
                 "인지 부담과 탐색성 문제를 찾는다",
                 "수정 권고안을 작성한다"
               ],
-              "artifacts": ["usability_issue_log", "usability_recommendation"],
+              "artifacts": [
+                "usability_issue_log",
+                "usability_recommendation"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "frontend_engineering_agent",
@@ -717,7 +867,8 @@
                 "출시 전 주요 사용성 이슈가 우선순위화된다"
               ]
             }
-          ]
+          ],
+          "role": "specialist"
         },
         {
           "agent_id": "project_governance_agent",
@@ -729,7 +880,11 @@
             "resource_capacity",
             "risk_items"
           ],
-          "outputs": ["delivery_plan", "risk_register", "status_report"],
+          "outputs": [
+            "delivery_plan",
+            "risk_register",
+            "status_report"
+          ],
           "skills": [
             {
               "skill_id": "plan_delivery",
@@ -768,7 +923,9 @@
                   "expected_output": "qa_schedule_commitment"
                 }
               ],
-              "completion_criteria": ["범위, 일정, 담당자가 모두 연결된다"]
+              "completion_criteria": [
+                "범위, 일정, 담당자가 모두 연결된다"
+              ]
             },
             {
               "skill_id": "manage_risks_dependencies",
@@ -803,20 +960,30 @@
                   "expected_output": "release_risk_gate_note"
                 }
               ],
-              "completion_criteria": ["high risk 항목에 책임자와 일정이 있다"]
+              "completion_criteria": [
+                "high risk 항목에 책임자와 일정이 있다"
+              ]
             },
             {
               "skill_id": "govern_status",
               "skill_name": "Status Governance",
               "purpose": "진행 상태를 수치와 근거 기반으로 투명하게 관리한다",
-              "inputs": ["작업 진행률", "버그 현황", "KPI 영향", "일정 편차"],
+              "inputs": [
+                "작업 진행률",
+                "버그 현황",
+                "KPI 영향",
+                "일정 편차"
+              ],
               "process": [
                 "상태를 주기적으로 수집한다",
                 "지연 사유를 분류한다",
                 "에스컬레이션 필요 항목을 식별한다",
                 "결정 필요 안건을 상향한다"
               ],
-              "artifacts": ["status_report", "escalation_note"],
+              "artifacts": [
+                "status_report",
+                "escalation_note"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "all_relevant_agents",
@@ -828,9 +995,11 @@
                 "상태 보고가 정성적 표현이 아니라 근거 기반으로 작성된다"
               ]
             }
-          ]
+          ],
+          "role": "specialist"
         }
-      ]
+      ],
+      "department_lead": "product_strategy_agent"
     },
     {
       "department_id": "engineering",
@@ -841,7 +1010,11 @@
           "agent_id": "frontend_engineering_agent",
           "agent_name": "Frontend Engineering Agent",
           "responsibility": "사용자 인터페이스와 클라이언트 흐름 구현",
-          "inputs": ["functional_spec", "ui_design", "api_spec"],
+          "inputs": [
+            "functional_spec",
+            "ui_design",
+            "api_spec"
+          ],
           "outputs": [
             "ui_components",
             "client_flow_code",
@@ -852,14 +1025,21 @@
               "skill_id": "implement_ui_components",
               "skill_name": "UI Component Implementation",
               "purpose": "디자인과 기능 명세를 화면 컴포넌트로 구현한다",
-              "inputs": ["화면 설계서", "디자인 시스템", "api_spec"],
+              "inputs": [
+                "화면 설계서",
+                "디자인 시스템",
+                "api_spec"
+              ],
               "process": [
                 "컴포넌트 구조를 설계한다",
                 "상태 관리와 입력 검증을 구현한다",
                 "반응형 및 접근성을 반영한다",
                 "에러 표시 규칙을 맞춘다"
               ],
-              "artifacts": ["ui_component_code", "screen_implementation_note"],
+              "artifacts": [
+                "ui_component_code",
+                "screen_implementation_note"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "business_analysis_agent",
@@ -880,13 +1060,20 @@
               "skill_id": "orchestrate_client_flow",
               "skill_name": "Client Flow Orchestration",
               "purpose": "가입, 결제, 조회, 수정 등 사용자 플로우를 안정적으로 제어한다",
-              "inputs": ["use_case_doc", "권한 규칙", "상태 전이 규칙"],
+              "inputs": [
+                "use_case_doc",
+                "권한 규칙",
+                "상태 전이 규칙"
+              ],
               "process": [
                 "페이지 전환 규칙을 구현한다",
                 "에러 및 실패 복구 흐름을 구현한다",
                 "사용자 메시지 정책을 반영한다"
               ],
-              "artifacts": ["client_flow_code", "client_error_handling_guide"],
+              "artifacts": [
+                "client_flow_code",
+                "client_error_handling_guide"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "ux_research_agent",
@@ -899,13 +1086,19 @@
                   "expected_output": "flow_test_points"
                 }
               ],
-              "completion_criteria": ["정상/예외 흐름 모두 재현 가능하다"]
+              "completion_criteria": [
+                "정상/예외 흐름 모두 재현 가능하다"
+              ]
             },
             {
               "skill_id": "optimize_frontend_quality",
               "skill_name": "Frontend Quality Optimization",
               "purpose": "성능, 접근성, 재사용성, 유지보수성을 향상시킨다",
-              "inputs": ["성능 리포트", "QA 결과", "사용성 이슈"],
+              "inputs": [
+                "성능 리포트",
+                "QA 결과",
+                "사용성 이슈"
+              ],
               "process": [
                 "렌더링 병목을 개선한다",
                 "로딩 체감 시간을 줄인다",
@@ -923,9 +1116,12 @@
                   "expected_output": "perceived_performance_targets"
                 }
               ],
-              "completion_criteria": ["합의된 프론트 품질 기준을 만족한다"]
+              "completion_criteria": [
+                "합의된 프론트 품질 기준을 만족한다"
+              ]
             }
-          ]
+          ],
+          "role": "specialist"
         },
         {
           "agent_id": "backend_engineering_agent",
@@ -936,20 +1132,31 @@
             "business_rules",
             "integration_requirements"
           ],
-          "outputs": ["api_spec", "domain_logic_code", "schema_definition"],
+          "outputs": [
+            "api_spec",
+            "domain_logic_code",
+            "schema_definition"
+          ],
           "skills": [
             {
               "skill_id": "design_api_contract",
               "skill_name": "API Contract Design",
               "purpose": "클라이언트와 외부 시스템이 사용하는 인터페이스를 설계한다",
-              "inputs": ["functional_spec", "정책 규칙", "데이터 모델 요구"],
+              "inputs": [
+                "functional_spec",
+                "정책 규칙",
+                "데이터 모델 요구"
+              ],
               "process": [
                 "요청/응답 구조를 정의한다",
                 "인증/권한 규칙을 반영한다",
                 "에러 코드를 설계한다",
                 "호환성 정책을 정한다"
               ],
-              "artifacts": ["api_spec", "error_code_catalog"],
+              "artifacts": [
+                "api_spec",
+                "error_code_catalog"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "business_analysis_agent",
@@ -967,7 +1174,9 @@
                   "expected_output": "api_test_points"
                 }
               ],
-              "completion_criteria": ["API 변경 시 영향 범위 추적이 가능하다"]
+              "completion_criteria": [
+                "API 변경 시 영향 범위 추적이 가능하다"
+              ]
             },
             {
               "skill_id": "implement_domain_logic",
@@ -984,7 +1193,10 @@
                 "예외 처리와 검증 로직을 구현한다",
                 "테스트 코드를 작성한다"
               ],
-              "artifacts": ["domain_logic_code", "domain_test_suite"],
+              "artifacts": [
+                "domain_logic_code",
+                "domain_test_suite"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "business_analysis_agent",
@@ -1000,7 +1212,11 @@
               "skill_id": "manage_data_integrity",
               "skill_name": "Data Persistence & Integrity",
               "purpose": "데이터 저장 구조의 정합성과 성능을 확보한다",
-              "inputs": ["entity_model", "조회 패턴", "사용량 가정"],
+              "inputs": [
+                "entity_model",
+                "조회 패턴",
+                "사용량 가정"
+              ],
               "process": [
                 "스키마를 설계한다",
                 "인덱스와 쿼리를 최적화한다",
@@ -1024,9 +1240,12 @@
                   "expected_output": "backend_performance_targets"
                 }
               ],
-              "completion_criteria": ["기능, 분석, 운영 요구를 동시에 만족한다"]
+              "completion_criteria": [
+                "기능, 분석, 운영 요구를 동시에 만족한다"
+              ]
             }
-          ]
+          ],
+          "role": "specialist"
         },
         {
           "agent_id": "platform_devops_agent",
@@ -1047,7 +1266,11 @@
               "skill_id": "manage_infrastructure_as_code",
               "skill_name": "Infrastructure as Code Management",
               "purpose": "인프라를 코드 기반으로 재현 가능하게 운영한다",
-              "inputs": ["서비스 아키텍처", "환경 분리 정책", "보안 요구"],
+              "inputs": [
+                "서비스 아키텍처",
+                "환경 분리 정책",
+                "보안 요구"
+              ],
               "process": [
                 "환경별 인프라 선언을 작성한다",
                 "비밀정보 분리 정책을 적용한다",
@@ -1070,7 +1293,9 @@
                   "expected_output": "release_gate_infra_requirements"
                 }
               ],
-              "completion_criteria": ["동일 환경이 자동으로 재현 가능하다"]
+              "completion_criteria": [
+                "동일 환경이 자동으로 재현 가능하다"
+              ]
             },
             {
               "skill_id": "orchestrate_cicd",
@@ -1088,7 +1313,10 @@
                 "배포/롤백 단계를 자동화한다",
                 "실패 시 차단 규칙을 적용한다"
               ],
-              "artifacts": ["ci_cd_pipeline", "deployment_workflow"],
+              "artifacts": [
+                "ci_cd_pipeline",
+                "deployment_workflow"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "automation_qa_agent",
@@ -1114,7 +1342,12 @@
               "skill_id": "manage_observability_incidents",
               "skill_name": "Observability & Incident Response",
               "purpose": "장애를 빠르게 탐지하고 원인 추적과 복구를 지원한다",
-              "inputs": ["logs", "metrics", "traces", "alert_thresholds"],
+              "inputs": [
+                "logs",
+                "metrics",
+                "traces",
+                "alert_thresholds"
+              ],
               "process": [
                 "대시보드와 알림 정책을 구성한다",
                 "장애 유형별 런북을 정의한다",
@@ -1143,7 +1376,8 @@
                 "주요 장애 유형에 대해 탐지와 대응 절차가 존재한다"
               ]
             }
-          ]
+          ],
+          "role": "specialist"
         },
         {
           "agent_id": "data_integration_engineering_agent",
@@ -1154,7 +1388,10 @@
             "external_api_requirements",
             "event_taxonomy"
           ],
-          "outputs": ["event_tracking_spec", "integration_modules"],
+          "outputs": [
+            "event_tracking_spec",
+            "integration_modules"
+          ],
           "skills": [
             {
               "skill_id": "implement_event_tracking",
@@ -1172,7 +1409,10 @@
                 "속성과 식별자를 표준화한다",
                 "누락/중복 여부를 검증한다"
               ],
-              "artifacts": ["event_tracking_spec", "instrumentation_code"],
+              "artifacts": [
+                "event_tracking_spec",
+                "instrumentation_code"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "product_analytics_agent",
@@ -1193,14 +1433,21 @@
               "skill_id": "integrate_external_systems",
               "skill_name": "External System Integration",
               "purpose": "결제, 인증, 메시지, 파트너 시스템과의 연동을 구현한다",
-              "inputs": ["외부 API 문서", "보안 정책", "실패 처리 정책"],
+              "inputs": [
+                "외부 API 문서",
+                "보안 정책",
+                "실패 처리 정책"
+              ],
               "process": [
                 "연동 모듈을 구현한다",
                 "재시도/타임아웃/예외 처리를 구현한다",
                 "감사 로그를 남긴다",
                 "의존성 실패 시 대응 경로를 정의한다"
               ],
-              "artifacts": ["integration_modules", "failure_handling_guide"],
+              "artifacts": [
+                "integration_modules",
+                "failure_handling_guide"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "qa_strategy_agent",
@@ -1217,9 +1464,11 @@
                 "외부 시스템 오류가 서비스 전체 장애로 확대되지 않는다"
               ]
             }
-          ]
+          ],
+          "role": "specialist"
         }
-      ]
+      ],
+      "department_lead": "dynamic"
     },
     {
       "department_id": "evaluation",
@@ -1230,21 +1479,36 @@
           "agent_id": "product_analytics_agent",
           "agent_name": "Product Analytics Agent",
           "responsibility": "행동 분석, 퍼널 분석, 릴리즈 영향 평가",
-          "inputs": ["event_logs", "release_info", "segment_definitions"],
-          "outputs": ["kpi_dictionary", "funnel_report", "impact_review"],
+          "inputs": [
+            "event_logs",
+            "release_info",
+            "segment_definitions"
+          ],
+          "outputs": [
+            "kpi_dictionary",
+            "funnel_report",
+            "impact_review"
+          ],
           "skills": [
             {
               "skill_id": "define_kpis",
               "skill_name": "KPI Definition & Metric Governance",
               "purpose": "성공 판단 기준과 지표 계산 방식을 표준화한다",
-              "inputs": ["제품 목표", "매출 목표", "활성/전환/유지 목표"],
+              "inputs": [
+                "제품 목표",
+                "매출 목표",
+                "활성/전환/유지 목표"
+              ],
               "process": [
                 "핵심 지표를 정의한다",
                 "보조 지표를 정의한다",
                 "계산식과 집계 주기를 정의한다",
                 "지표 오너를 지정한다"
               ],
-              "artifacts": ["kpi_dictionary", "metric_governance_doc"],
+              "artifacts": [
+                "kpi_dictionary",
+                "metric_governance_doc"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "product_strategy_agent",
@@ -1257,13 +1521,19 @@
                   "expected_output": "business_metric_mapping"
                 }
               ],
-              "completion_criteria": ["팀마다 다른 계산식을 사용하지 않는다"]
+              "completion_criteria": [
+                "팀마다 다른 계산식을 사용하지 않는다"
+              ]
             },
             {
               "skill_id": "analyze_funnels_behavior",
               "skill_name": "Funnel & Behavior Analysis",
               "purpose": "전환, 이탈, 재방문, 기능 사용 행태를 분석한다",
-              "inputs": ["event_logs", "segments", "session_data"],
+              "inputs": [
+                "event_logs",
+                "segments",
+                "session_data"
+              ],
               "process": [
                 "단계별 퍼널을 계산한다",
                 "세그먼트 차이를 분석한다",
@@ -1287,7 +1557,9 @@
                   "expected_output": "requirement_change_candidates"
                 }
               ],
-              "completion_criteria": ["이탈 구간마다 개선 가설이 존재한다"]
+              "completion_criteria": [
+                "이탈 구간마다 개선 가설이 존재한다"
+              ]
             },
             {
               "skill_id": "review_post_release_impact",
@@ -1305,7 +1577,9 @@
                 "품질/운영 이슈와 함께 해석한다",
                 "확대/보완/롤백 권고를 작성한다"
               ],
-              "artifacts": ["impact_review"],
+              "artifacts": [
+                "impact_review"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "release_quality_gate_agent",
@@ -1318,15 +1592,22 @@
                   "expected_output": "roadmap_adjustment_proposal"
                 }
               ],
-              "completion_criteria": ["주요 릴리즈마다 성과 회고가 남는다"]
+              "completion_criteria": [
+                "주요 릴리즈마다 성과 회고가 남는다"
+              ]
             }
-          ]
+          ],
+          "role": "department_lead"
         },
         {
           "agent_id": "experimentation_agent",
           "agent_name": "Experimentation Agent",
           "responsibility": "A/B 테스트 및 실험 설계, 운영, 해석",
-          "inputs": ["개선 가설", "segment criteria", "tracking readiness"],
+          "inputs": [
+            "개선 가설",
+            "segment criteria",
+            "tracking readiness"
+          ],
           "outputs": [
             "experiment_brief",
             "experiment_tracking_spec",
@@ -1337,14 +1618,22 @@
               "skill_id": "design_experiment",
               "skill_name": "Experiment Design",
               "purpose": "가설, 실험군, 성공 지표, 종료 조건을 정의한다",
-              "inputs": ["개선 가설", "대상 세그먼트", "성공 KPI", "제약조건"],
+              "inputs": [
+                "개선 가설",
+                "대상 세그먼트",
+                "성공 KPI",
+                "제약조건"
+              ],
               "process": [
                 "실험 목적을 정의한다",
                 "대조군/실험군을 설계한다",
                 "주요 지표와 guardrail 지표를 정한다",
                 "기간과 종료 조건을 정한다"
               ],
-              "artifacts": ["experiment_brief", "variant_definition"],
+              "artifacts": [
+                "experiment_brief",
+                "variant_definition"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "product_strategy_agent",
@@ -1362,19 +1651,27 @@
                   "expected_output": "backend_experiment_implementation_plan"
                 }
               ],
-              "completion_criteria": ["가설, 변수, 지표, 기간이 모두 정의된다"]
+              "completion_criteria": [
+                "가설, 변수, 지표, 기간이 모두 정의된다"
+              ]
             },
             {
               "skill_id": "instrument_experiment",
               "skill_name": "Experiment Instrumentation",
               "purpose": "실험 결과가 분석 가능한 구조로 수집되도록 보장한다",
-              "inputs": ["experiment_brief", "event_schema", "variant_rules"],
+              "inputs": [
+                "experiment_brief",
+                "event_schema",
+                "variant_rules"
+              ],
               "process": [
                 "variant 식별 규칙을 정의한다",
                 "노출/전환 이벤트를 연결한다",
                 "데이터 누락 검증 절차를 둔다"
               ],
-              "artifacts": ["experiment_tracking_spec"],
+              "artifacts": [
+                "experiment_tracking_spec"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "data_integration_engineering_agent",
@@ -1395,14 +1692,21 @@
               "skill_id": "interpret_experiment_results",
               "skill_name": "Experiment Result Interpretation",
               "purpose": "실험 결과를 해석해 확대, 보완, 종료 여부를 결정한다",
-              "inputs": ["실험 결과 데이터", "품질 이슈", "운영 변화"],
+              "inputs": [
+                "실험 결과 데이터",
+                "품질 이슈",
+                "운영 변화"
+              ],
               "process": [
                 "지표 변화를 해석한다",
                 "예상외 효과를 검토한다",
                 "추가 검증 필요성을 판단한다",
                 "권고안을 작성한다"
               ],
-              "artifacts": ["experiment_readout", "rollout_recommendation"],
+              "artifacts": [
+                "experiment_readout",
+                "rollout_recommendation"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "product_analytics_agent",
@@ -1415,9 +1719,12 @@
                   "expected_output": "quality_guardrail_review"
                 }
               ],
-              "completion_criteria": ["의사결정 가능한 결론 문장이 존재한다"]
+              "completion_criteria": [
+                "의사결정 가능한 결론 문장이 존재한다"
+              ]
             }
-          ]
+          ],
+          "role": "specialist"
         },
         {
           "agent_id": "performance_evaluation_agent",
@@ -1438,13 +1745,19 @@
               "skill_id": "define_performance_benchmarks",
               "skill_name": "Performance Benchmark Definition",
               "purpose": "응답시간, 처리량, 오류율 등 합격 기준을 정의한다",
-              "inputs": ["사용자 기대치", "서비스 수준 목표", "기존 성능 기록"],
+              "inputs": [
+                "사용자 기대치",
+                "서비스 수준 목표",
+                "기존 성능 기록"
+              ],
               "process": [
                 "기능별 성능 목표를 설정한다",
                 "환경별 기준선을 만든다",
                 "측정 지표와 측정 방법을 문서화한다"
               ],
-              "artifacts": ["performance_benchmark_spec"],
+              "artifacts": [
+                "performance_benchmark_spec"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "platform_devops_agent",
@@ -1457,20 +1770,29 @@
                   "expected_output": "backend_hotspot_prediction"
                 }
               ],
-              "completion_criteria": ["기능별 성능 합격선이 문서화된다"]
+              "completion_criteria": [
+                "기능별 성능 합격선이 문서화된다"
+              ]
             },
             {
               "skill_id": "review_load_stability",
               "skill_name": "Load & Stability Review",
               "purpose": "트래픽 증가와 특정 조건에서의 안정성을 검증한다",
-              "inputs": ["예상 트래픽", "배포 버전", "인프라 구성"],
+              "inputs": [
+                "예상 트래픽",
+                "배포 버전",
+                "인프라 구성"
+              ],
               "process": [
                 "부하 시나리오를 정의한다",
                 "안정성 이슈를 탐지한다",
                 "병목 원인을 분석한다",
                 "수정 우선순위를 정한다"
               ],
-              "artifacts": ["load_test_review", "stability_finding_report"],
+              "artifacts": [
+                "load_test_review",
+                "stability_finding_report"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "platform_devops_agent",
@@ -1483,19 +1805,27 @@
                   "expected_output": "backend_optimization_actions"
                 }
               ],
-              "completion_criteria": ["병목 구간과 대응 우선순위가 명확하다"]
+              "completion_criteria": [
+                "병목 구간과 대응 우선순위가 명확하다"
+              ]
             },
             {
               "skill_id": "analyze_perceived_performance",
               "skill_name": "User-perceived Performance Analysis",
               "purpose": "사용자 체감 성능과 이탈 간 관계를 분석한다",
-              "inputs": ["프론트 성능 지표", "서버 성능 지표", "세션 데이터"],
+              "inputs": [
+                "프론트 성능 지표",
+                "서버 성능 지표",
+                "세션 데이터"
+              ],
               "process": [
                 "체감 로딩 구간을 식별한다",
                 "렌더링/네트워크/서버 원인을 분리한다",
                 "체감 성능과 이탈의 상관을 해석한다"
               ],
-              "artifacts": ["perceived_performance_insight"],
+              "artifacts": [
+                "perceived_performance_insight"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "frontend_engineering_agent",
@@ -1512,26 +1842,41 @@
                 "사용자 이탈과 연결된 체감 성능 문제를 특정한다"
               ]
             }
-          ]
+          ],
+          "role": "specialist"
         },
         {
           "agent_id": "business_kpi_agent",
           "agent_name": "Business KPI Agent",
           "responsibility": "사업성과와 제품 의사결정을 연결",
-          "inputs": ["매출 구조", "비용 구조", "제품 성과 데이터"],
-          "outputs": ["business_impact_memo", "executive_kpi_report"],
+          "inputs": [
+            "매출 구조",
+            "비용 구조",
+            "제품 성과 데이터"
+          ],
+          "outputs": [
+            "business_impact_memo",
+            "executive_kpi_report"
+          ],
           "skills": [
             {
               "skill_id": "map_revenue_cost_impact",
               "skill_name": "Revenue & Cost Impact Mapping",
               "purpose": "제품 변화가 매출과 비용에 미치는 영향을 정리한다",
-              "inputs": ["매출 구조", "CAC/LTV", "운영 비용", "기능 이용량"],
+              "inputs": [
+                "매출 구조",
+                "CAC/LTV",
+                "운영 비용",
+                "기능 이용량"
+              ],
               "process": [
                 "가치 기여도를 추정한다",
                 "비용 증가 요인을 식별한다",
                 "사업적 trade-off를 정리한다"
               ],
-              "artifacts": ["business_impact_memo"],
+              "artifacts": [
+                "business_impact_memo"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "product_strategy_agent",
@@ -1544,19 +1889,28 @@
                   "expected_output": "infra_cost_impact"
                 }
               ],
-              "completion_criteria": ["제품 의사결정이 사업 수치와 연결된다"]
+              "completion_criteria": [
+                "제품 의사결정이 사업 수치와 연결된다"
+              ]
             },
             {
               "skill_id": "report_executive_metrics",
               "skill_name": "Executive Reporting",
               "purpose": "경영진이 빠르게 의사결정할 수 있도록 핵심 수치를 요약한다",
-              "inputs": ["KPI", "실험 결과", "품질 현황", "릴리즈 결과"],
+              "inputs": [
+                "KPI",
+                "실험 결과",
+                "품질 현황",
+                "릴리즈 결과"
+              ],
               "process": [
                 "핵심 수치를 요약한다",
                 "리스크와 기회를 정리한다",
                 "다음 행동을 제안한다"
               ],
-              "artifacts": ["executive_kpi_report"],
+              "artifacts": [
+                "executive_kpi_report"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "product_analytics_agent",
@@ -1569,11 +1923,15 @@
                   "expected_output": "release_risk_summary"
                 }
               ],
-              "completion_criteria": ["숫자와 실행안이 함께 제시된다"]
+              "completion_criteria": [
+                "숫자와 실행안이 함께 제시된다"
+              ]
             }
-          ]
+          ],
+          "role": "specialist"
         }
-      ]
+      ],
+      "department_lead": "product_analytics_agent"
     },
     {
       "department_id": "qa",
@@ -1584,7 +1942,11 @@
           "agent_id": "qa_strategy_agent",
           "agent_name": "QA Strategy Agent",
           "responsibility": "테스트 전략, 범위, 리스크 기반 검증 설계",
-          "inputs": ["functional_spec", "risk_items", "release_scope"],
+          "inputs": [
+            "functional_spec",
+            "risk_items",
+            "release_scope"
+          ],
           "outputs": [
             "test_strategy",
             "test_case_suite",
@@ -1595,14 +1957,22 @@
               "skill_id": "define_test_strategy",
               "skill_name": "Test Strategy Definition",
               "purpose": "기능/비기능/회귀 테스트 범위와 접근 방식을 정의한다",
-              "inputs": ["functional_spec", "리스크 목록", "일정", "배포 정책"],
+              "inputs": [
+                "functional_spec",
+                "리스크 목록",
+                "일정",
+                "배포 정책"
+              ],
               "process": [
                 "테스트 레벨을 정의한다",
                 "위험 기반 우선순위를 정한다",
                 "필수 회귀 범위를 선정한다",
                 "합격/차단 기준을 정의한다"
               ],
-              "artifacts": ["test_strategy", "risk_based_test_scope"],
+              "artifacts": [
+                "test_strategy",
+                "risk_based_test_scope"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "business_analysis_agent",
@@ -1615,20 +1985,30 @@
                   "expected_output": "qa_capacity_fit"
                 }
               ],
-              "completion_criteria": ["무엇을 왜 테스트하는지 설명 가능하다"]
+              "completion_criteria": [
+                "무엇을 왜 테스트하는지 설명 가능하다"
+              ]
             },
             {
               "skill_id": "architect_test_cases",
               "skill_name": "Test Case Architecture",
               "purpose": "테스트 케이스를 체계적으로 구성하고 요구사항과 연결한다",
-              "inputs": ["functional_spec", "ui_flow", "api_spec", "예외 규칙"],
+              "inputs": [
+                "functional_spec",
+                "ui_flow",
+                "api_spec",
+                "예외 규칙"
+              ],
               "process": [
                 "시나리오를 도출한다",
                 "정상/경계/예외 케이스를 분류한다",
                 "요구사항과 테스트를 매핑한다",
                 "실행 우선순위를 정한다"
               ],
-              "artifacts": ["test_case_suite", "traceability_matrix"],
+              "artifacts": [
+                "test_case_suite",
+                "traceability_matrix"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "frontend_engineering_agent",
@@ -1660,7 +2040,9 @@
                 "탐지 난이도를 평가한다",
                 "완화 전략을 설계한다"
               ],
-              "artifacts": ["quality_risk_register"],
+              "artifacts": [
+                "quality_risk_register"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "platform_devops_agent",
@@ -1677,7 +2059,8 @@
                 "고위험 변경에 대해 추가 테스트 또는 배포 제한이 설정된다"
               ]
             }
-          ]
+          ],
+          "role": "department_lead"
         },
         {
           "agent_id": "automation_qa_agent",
@@ -1698,14 +2081,21 @@
               "skill_id": "automate_ui_e2e",
               "skill_name": "UI End-to-End Automation",
               "purpose": "핵심 사용자 시나리오를 자동화한다",
-              "inputs": ["주요 플로우", "테스트 시나리오", "테스트 환경"],
+              "inputs": [
+                "주요 플로우",
+                "테스트 시나리오",
+                "테스트 환경"
+              ],
               "process": [
                 "E2E 스크립트를 작성한다",
                 "환경별 실행 구성을 만든다",
                 "실패 증적을 수집한다",
                 "회귀 스위트에 편입한다"
               ],
-              "artifacts": ["e2e_test_suite", "execution_report"],
+              "artifacts": [
+                "e2e_test_suite",
+                "execution_report"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "qa_strategy_agent",
@@ -1718,19 +2108,28 @@
                   "expected_output": "ci_integration_stage"
                 }
               ],
-              "completion_criteria": ["핵심 플로우가 자동 회귀로 보호된다"]
+              "completion_criteria": [
+                "핵심 플로우가 자동 회귀로 보호된다"
+              ]
             },
             {
               "skill_id": "automate_api_integration",
               "skill_name": "API/Integration Automation",
               "purpose": "API와 외부 연동 검증을 반복 가능하게 만든다",
-              "inputs": ["api_spec", "인증 방식", "샘플 데이터"],
+              "inputs": [
+                "api_spec",
+                "인증 방식",
+                "샘플 데이터"
+              ],
               "process": [
                 "계약 테스트를 작성한다",
                 "응답 검증을 구현한다",
                 "연동 실패 시나리오를 자동화한다"
               ],
-              "artifacts": ["api_test_suite", "contract_validation_report"],
+              "artifacts": [
+                "api_test_suite",
+                "contract_validation_report"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "backend_engineering_agent",
@@ -1743,13 +2142,19 @@
                   "expected_output": "integration_test_scenarios"
                 }
               ],
-              "completion_criteria": ["주요 API와 연동 포인트가 자동 검증된다"]
+              "completion_criteria": [
+                "주요 API와 연동 포인트가 자동 검증된다"
+              ]
             },
             {
               "skill_id": "stabilize_automation",
               "skill_name": "Automation Reliability Maintenance",
               "purpose": "flaky 테스트를 줄이고 자동화의 신뢰도를 유지한다",
-              "inputs": ["실패 이력", "실행 시간", "환경 차이"],
+              "inputs": [
+                "실패 이력",
+                "실행 시간",
+                "환경 차이"
+              ],
               "process": [
                 "원인을 분석한다",
                 "selector/대기 전략을 개선한다",
@@ -1776,27 +2181,44 @@
                 "자동화 실패 원인이 제품 결함과 스크립트/환경 문제로 분리된다"
               ]
             }
-          ]
+          ],
+          "role": "specialist"
         },
         {
           "agent_id": "defect_triage_agent",
           "agent_name": "Defect Triage Agent",
           "responsibility": "결함 수집, 재현, 분류, 우선순위, 라우팅",
-          "inputs": ["bug_report", "logs", "screenshots", "reproduction_steps"],
-          "outputs": ["defect_ticket", "reproduction_guide", "rca_note"],
+          "inputs": [
+            "bug_report",
+            "logs",
+            "screenshots",
+            "reproduction_steps"
+          ],
+          "outputs": [
+            "defect_ticket",
+            "reproduction_guide",
+            "rca_note"
+          ],
           "skills": [
             {
               "skill_id": "classify_defects",
               "skill_name": "Defect Intake & Classification",
               "purpose": "발견된 이슈를 동일 기준으로 정리하고 담당 Agent에 할당한다",
-              "inputs": ["버그 제보", "실행 로그", "재현 절차", "사용자 영향"],
+              "inputs": [
+                "버그 제보",
+                "실행 로그",
+                "재현 절차",
+                "사용자 영향"
+              ],
               "process": [
                 "기능/UI/데이터/성능/운영 이슈로 분류한다",
                 "severity와 priority를 지정한다",
                 "담당 Agent를 배정한다",
                 "수정 필요 기준일을 설정한다"
               ],
-              "artifacts": ["defect_ticket"],
+              "artifacts": [
+                "defect_ticket"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "frontend_engineering_agent",
@@ -1814,19 +2236,27 @@
                   "expected_output": "ops_issue_owner_assignment"
                 }
               ],
-              "completion_criteria": ["모든 버그에 소유자와 우선순위가 있다"]
+              "completion_criteria": [
+                "모든 버그에 소유자와 우선순위가 있다"
+              ]
             },
             {
               "skill_id": "assure_reproduction",
               "skill_name": "Reproduction Assurance",
               "purpose": "버그를 개발이 독립적으로 재현 가능하도록 정리한다",
-              "inputs": ["테스트 데이터", "환경 정보", "실행 로그"],
+              "inputs": [
+                "테스트 데이터",
+                "환경 정보",
+                "실행 로그"
+              ],
               "process": [
                 "최소 재현 절차를 정리한다",
                 "필수 조건을 문서화한다",
                 "재현률을 확인한다"
               ],
-              "artifacts": ["reproduction_guide"],
+              "artifacts": [
+                "reproduction_guide"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "platform_devops_agent",
@@ -1847,13 +2277,20 @@
               "skill_id": "track_root_cause",
               "skill_name": "Root Cause Tracking",
               "purpose": "단발 수정이 아닌 재발 방지 관점으로 원인군을 추적한다",
-              "inputs": ["수정 내역", "장애 로그", "과거 유사 버그"],
+              "inputs": [
+                "수정 내역",
+                "장애 로그",
+                "과거 유사 버그"
+              ],
               "process": [
                 "근본 원인을 분류한다",
                 "재발 패턴을 찾는다",
                 "예방 조치를 정의한다"
               ],
-              "artifacts": ["rca_note", "preventive_action_list"],
+              "artifacts": [
+                "rca_note",
+                "preventive_action_list"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "release_quality_gate_agent",
@@ -1865,7 +2302,8 @@
                 "반복 버그에 대한 구조적 대응안이 존재한다"
               ]
             }
-          ]
+          ],
+          "role": "specialist"
         },
         {
           "agent_id": "release_quality_gate_agent",
@@ -1900,7 +2338,9 @@
                 "운영 및 모니터링 준비 상태를 확인한다",
                 "go/no-go 결정을 기록한다"
               ],
-              "artifacts": ["release_decision"],
+              "artifacts": [
+                "release_decision"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "qa_strategy_agent",
@@ -1923,19 +2363,27 @@
                   "expected_output": "deployment_readiness_summary"
                 }
               ],
-              "completion_criteria": ["출시 승인 또는 차단 사유가 문서화된다"]
+              "completion_criteria": [
+                "출시 승인 또는 차단 사유가 문서화된다"
+              ]
             },
             {
               "skill_id": "check_rollback_readiness",
               "skill_name": "Rollback Readiness Check",
               "purpose": "출시 후 문제 발생 시 즉시 복구 가능성을 보장한다",
-              "inputs": ["배포 스크립트", "DB 변경사항", "feature_flag 상태"],
+              "inputs": [
+                "배포 스크립트",
+                "DB 변경사항",
+                "feature_flag 상태"
+              ],
               "process": [
                 "롤백 절차를 점검한다",
                 "데이터 호환성을 확인한다",
                 "비상 대응 연락 체계를 검증한다"
               ],
-              "artifacts": ["rollback_checklist"],
+              "artifacts": [
+                "rollback_checklist"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "platform_devops_agent",
@@ -1956,14 +2404,21 @@
               "skill_id": "monitor_post_release_quality",
               "skill_name": "Post-release Quality Monitoring",
               "purpose": "출시 직후 이상 징후를 조기 탐지하고 대응한다",
-              "inputs": ["에러율", "응답시간", "이벤트 누락", "고객 문의"],
+              "inputs": [
+                "에러율",
+                "응답시간",
+                "이벤트 누락",
+                "고객 문의"
+              ],
               "process": [
                 "하이퍼케어 기간을 운영한다",
                 "이상 수치를 탐지한다",
                 "즉시 관련 Agent로 에스컬레이션한다",
                 "관찰 결과를 정리한다"
               ],
-              "artifacts": ["hypercare_report"],
+              "artifacts": [
+                "hypercare_report"
+              ],
               "agent_calls": [
                 {
                   "callee_agent": "platform_devops_agent",
@@ -1981,11 +2436,15 @@
                   "expected_output": "release_bug_ticket_set"
                 }
               ],
-              "completion_criteria": ["출시 직후 주요 위험이 조기에 통제된다"]
+              "completion_criteria": [
+                "출시 직후 주요 위험이 조기에 통제된다"
+              ]
             }
-          ]
+          ],
+          "role": "specialist"
         }
-      ]
+      ],
+      "department_lead": "qa_strategy_agent"
     }
   ],
   "cross_department_workflows": [

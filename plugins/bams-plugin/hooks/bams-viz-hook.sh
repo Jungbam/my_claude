@@ -8,13 +8,16 @@ set -uo pipefail
 
 # Read stdin (Claude Code passes tool info as JSON)
 INPUT=$(cat 2>/dev/null || true)
+[ -z "$INPUT" ] && exit 0
 
-# Fast-path: exit if not Agent tool
-if ! printf '%s' "$INPUT" | grep -q '"Agent"' 2>/dev/null; then
+# Fast-path: exit if not Agent tool (grep first, then jq for precision)
+printf '%s' "$INPUT" | grep -q '"Agent"' || exit 0
+TOOL_NAME=$(printf '%s' "$INPUT" | jq -r '.tool_name // .tool // ""' 2>/dev/null)
+if [ "$TOOL_NAME" != "Agent" ]; then
   exit 0
 fi
 
-# Resolve project root: use git root, or fallback to script's plugin directory
+# Resolve project root: BAMS_CREW_DIR > git root > script parent
 BAMS_ROOT="${BAMS_CREW_DIR:-}"
 if [ -z "$BAMS_ROOT" ]; then
   BAMS_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || true
@@ -23,7 +26,7 @@ if [ -z "$BAMS_ROOT" ]; then
   BAMS_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 fi
 
-# Agent events directory (always exists, independent of pipeline)
+# Agent events directory
 CREW_DIR="${BAMS_ROOT}/.crew/artifacts/agents"
 mkdir -p "$CREW_DIR" 2>/dev/null || true
 TODAY=$(date -u +%Y-%m-%d)
@@ -43,11 +46,17 @@ fi
 
 TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 HOOK_PHASE="${CLAUDE_HOOK_EVENT:-post}"
-CALLSTACK_FILE="/tmp/bams-viz-callstack"
 
-# Parse agent info with jq (~5ms vs python3 ~25ms)
-TOOL_INPUT=$(printf '%s' "$INPUT" | jq -r '.tool_input // .' 2>/dev/null)
-# If tool_input is a string (JSON-encoded), parse it again
+# Project-scoped callstack (avoid cross-project collisions)
+PROJ_HASH=$(printf '%s' "$BAMS_ROOT" | md5 2>/dev/null | head -c 8 || printf '%s' "$BAMS_ROOT" | md5sum 2>/dev/null | head -c 8)
+CALLSTACK_FILE="/tmp/bams-viz-callstack-${PROJ_HASH}"
+
+# Parse tool_input — may be nested string or object
+TOOL_INPUT=$(printf '%s' "$INPUT" | jq -r '.tool_input // empty' 2>/dev/null)
+if [ -z "$TOOL_INPUT" ] || [ "$TOOL_INPUT" = "null" ]; then
+  TOOL_INPUT="{}"
+fi
+# If tool_input is a JSON-encoded string, parse it again
 if printf '%s' "$TOOL_INPUT" | jq -e 'type == "string"' >/dev/null 2>&1; then
   TOOL_INPUT=$(printf '%s' "$TOOL_INPUT" | jq -r '.' | jq '.' 2>/dev/null || echo '{}')
 fi
@@ -61,17 +70,20 @@ PROMPT_SUMMARY=$(printf '%s' "$TOOL_INPUT" | jq -r '(.prompt // "")[:300] | spli
 INPUT_SUMMARY=$(printf '%s' "$TOOL_INPUT" | jq -r '(.prompt // "")[:1000]' 2>/dev/null)
 BACKGROUND=$(printf '%s' "$TOOL_INPUT" | jq -r '.run_in_background // false' 2>/dev/null)
 
-# Generate call_id (~2ms with md5)
-CALL_ID=$(printf '%s:%s:%s' "$AGENT_TYPE" "$TS" "$$" | md5 2>/dev/null | head -c 12 || printf '%s:%s:%s' "$AGENT_TYPE" "$TS" "$$" | md5sum 2>/dev/null | head -c 12)
+# Use tool_use_id from Claude Code if available, else generate
+CALL_ID=$(printf '%s' "$INPUT" | jq -r '.tool_use_id // empty' 2>/dev/null)
+if [ -z "$CALL_ID" ] || [ "$CALL_ID" = "null" ]; then
+  CALL_ID=$(printf '%s:%s:%s' "$AGENT_TYPE" "$TS" "$$" | md5 2>/dev/null | head -c 12 || printf '%s:%s:%s' "$AGENT_TYPE" "$TS" "$$" | md5sum 2>/dev/null | head -c 12)
+fi
 
-# Generate trace_id: pipeline_slug + run start, or standalone-{timestamp}
+# Trace ID: pipeline or standalone
 if [ -n "$PIPELINE_SLUG" ]; then
   TRACE_ID="${PIPELINE_SLUG}-$(date -u +%Y%m%dT%H%M%SZ)"
 else
   TRACE_ID="standalone-$(date -u +%Y%m%dT%H%M%SZ)"
 fi
 
-# Department mapping from agent_type
+# Department mapping
 dept_map() {
   case "$1" in
     product-strategy|business-analysis|ux-research|project-governance) echo "planning" ;;
@@ -85,21 +97,22 @@ dept_map() {
 }
 DEPARTMENT=$(dept_map "$AGENT_TYPE")
 
-# Get current step_number from pipeline events (last step_start)
+# Get current step_number from pipeline events
 STEP_NUMBER="null"
 if [ -n "$PIPELINE_EVENTS" ] && [ -f "$PIPELINE_EVENTS" ]; then
   STEP_NUMBER=$(grep '"step_start"' "$PIPELINE_EVENTS" 2>/dev/null | tail -1 | jq -r '.step_number // empty' 2>/dev/null || echo "null")
   [ -z "$STEP_NUMBER" ] && STEP_NUMBER="null"
 fi
 
-# Get parent_span_id from callstack (currently active agent)
+# Get parent_span_id from callstack
 PARENT_SPAN_ID=""
 if [ -f "$CALLSTACK_FILE" ] && [ -s "$CALLSTACK_FILE" ]; then
   PARENT_SPAN_ID=$(tail -1 "$CALLSTACK_FILE" 2>/dev/null | cut -d'|' -f1)
 fi
 
 if printf '%s' "$HOOK_PHASE" | grep -qi "pre"; then
-  # Push call_id to stack
+  # ── PreToolUse: agent_start ──
+  # Push to callstack for duration tracking
   printf '%s|%s|%s\n' "$CALL_ID" "$AGENT_TYPE" "$TS" >> "$CALLSTACK_FILE" 2>/dev/null || true
 
   EVENT_JSON=$(jq -cn \
@@ -122,16 +135,35 @@ if printf '%s' "$HOOK_PHASE" | grep -qi "pre"; then
      + (if $parent_span_id != "" then {parent_span_id:$parent_span_id} else {} end)
      + (if $pipeline_slug != "" then {pipeline_slug:$pipeline_slug} else {} end)')
 else
-  # Pop call_id from stack
+  # ── PostToolUse: agent_end ──
+  # Pop matching entry from callstack by CALL_ID (not LIFO — handles parallel agents)
   MATCHED_CALL_ID="$CALL_ID"
   MATCHED_START_TS=""
   if [ -f "$CALLSTACK_FILE" ] && [ -s "$CALLSTACK_FILE" ]; then
-    LAST_LINE=$(tail -1 "$CALLSTACK_FILE" 2>/dev/null)
-    if [ -n "$LAST_LINE" ]; then
-      MATCHED_CALL_ID=$(printf '%s' "$LAST_LINE" | cut -d'|' -f1)
-      MATCHED_START_TS=$(printf '%s' "$LAST_LINE" | cut -d'|' -f3)
-      # Remove last line
-      sed -i '' '$d' "$CALLSTACK_FILE" 2>/dev/null || sed -i '$d' "$CALLSTACK_FILE" 2>/dev/null || true
+    # Search for this specific call_id in the callstack
+    MATCHED_LINE=$(grep "^${CALL_ID}|" "$CALLSTACK_FILE" 2>/dev/null | tail -1)
+    if [ -n "$MATCHED_LINE" ]; then
+      MATCHED_CALL_ID=$(printf '%s' "$MATCHED_LINE" | cut -d'|' -f1)
+      MATCHED_START_TS=$(printf '%s' "$MATCHED_LINE" | cut -d'|' -f3)
+      # Remove this specific line from callstack
+      grep -v "^${CALL_ID}|" "$CALLSTACK_FILE" > "${CALLSTACK_FILE}.tmp" 2>/dev/null || true
+      if [ -s "${CALLSTACK_FILE}.tmp" ]; then
+        mv "${CALLSTACK_FILE}.tmp" "$CALLSTACK_FILE"
+      else
+        rm -f "$CALLSTACK_FILE" "${CALLSTACK_FILE}.tmp" 2>/dev/null || true
+      fi
+    else
+      # Fallback: no matching call_id found, pop last entry (legacy behavior)
+      LAST_LINE=$(tail -1 "$CALLSTACK_FILE" 2>/dev/null)
+      if [ -n "$LAST_LINE" ]; then
+        MATCHED_CALL_ID=$(printf '%s' "$LAST_LINE" | cut -d'|' -f1)
+        MATCHED_START_TS=$(printf '%s' "$LAST_LINE" | cut -d'|' -f3)
+        if [ "$(wc -l < "$CALLSTACK_FILE" 2>/dev/null)" -le 1 ] 2>/dev/null; then
+          rm -f "$CALLSTACK_FILE" 2>/dev/null || true
+        else
+          sed -i '' '$d' "$CALLSTACK_FILE" 2>/dev/null || sed -i '$d' "$CALLSTACK_FILE" 2>/dev/null || true
+        fi
+      fi
     fi
   fi
 
@@ -149,14 +181,14 @@ else
       elif type == "array" then (map(select(.type == "text") | .text) | first // "")[:1000]
       else ""
       end' 2>/dev/null)
-  # Derive status from is_error
+
   if [ "$IS_ERROR" = "true" ]; then
     STATUS="error"
   else
     STATUS="success"
   fi
 
-  # Compute duration_ms
+  # Compute duration_ms from callstack start time
   DURATION_MS="null"
   if [ -n "$MATCHED_START_TS" ]; then
     START_EPOCH=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$MATCHED_START_TS" "+%s" 2>/dev/null || date -d "$MATCHED_START_TS" "+%s" 2>/dev/null)
@@ -184,7 +216,9 @@ else
     --arg ts "$TS" \
     --arg pipeline_slug "$PIPELINE_SLUG" \
     --arg error_message "$ERROR_MSG" \
-    '{type:$type, call_id:$call_id, agent_type:$agent_type, is_error:$is_error, status:$status, duration_ms:$duration_ms, result_summary:$result_summary, output:$output, token_usage:$token_usage, ts:$ts} + (if $error_message != "" then {error_message:$error_message} else {} end) + (if $pipeline_slug != "" then {pipeline_slug:$pipeline_slug} else {} end)')
+    '{type:$type, call_id:$call_id, agent_type:$agent_type, is_error:$is_error, status:$status, duration_ms:$duration_ms, result_summary:$result_summary, output:$output, token_usage:$token_usage, ts:$ts}
+     + (if $error_message != "" then {error_message:$error_message} else {} end)
+     + (if $pipeline_slug != "" then {pipeline_slug:$pipeline_slug} else {} end)')
 fi
 
 # Atomic append to agents file (always)

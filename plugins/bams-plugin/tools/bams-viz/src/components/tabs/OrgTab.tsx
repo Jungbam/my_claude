@@ -12,15 +12,24 @@ export function OrgTab() {
   const { data, error, isLoading } = usePolling<OrgResponse>('/api/org', 3000)
   const containerRef = useRef<HTMLDivElement>(null)
   const mermaidRef = useRef<typeof import('mermaid') | null>(null)
+  const prevCodeRef = useRef<string>('')
 
   const renderMermaid = useCallback(async (code: string) => {
-    if (!containerRef.current) return
+    if (!containerRef.current || code === prevCodeRef.current) return
+    prevCodeRef.current = code
     if (!mermaidRef.current) {
       mermaidRef.current = await import('mermaid')
       mermaidRef.current.default.initialize({
         startOnLoad: false,
         theme: 'neutral',
         securityLevel: 'strict',
+        flowchart: {
+          useMaxWidth: false,
+          nodeSpacing: 30,
+          rankSpacing: 60,
+          padding: 20,
+          htmlLabels: true,
+        },
       })
     }
     try {
@@ -30,7 +39,8 @@ export function OrgTab() {
     } catch (err) {
       console.error('Mermaid org render error:', err)
       if (containerRef.current) {
-        containerRef.current.innerHTML = `<pre style="color:var(--status-fail);padding:20px;white-space:pre-wrap">${code}</pre>`
+        const escaped = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        containerRef.current.innerHTML = `<pre style="color:var(--status-fail);padding:20px;white-space:pre-wrap">${escaped}</pre>`
       }
     }
   }, [])
@@ -53,15 +63,28 @@ export function OrgTab() {
 
   return (
     <div style={{ padding: '20px', overflow: 'auto', height: '100%' }}>
-      <div
-        ref={containerRef}
-        style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'flex-start',
-          minHeight: '200px',
-        }}
-      />
+      <div style={{
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border)',
+        borderRadius: '10px',
+        padding: '24px',
+        boxShadow: '0 2px 8px var(--shadow)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+          <span style={{ fontSize: '16px' }}>🏢</span>
+          <span style={{ fontWeight: 600, fontSize: '14px' }}>Organization Chart</span>
+        </div>
+        <div
+          ref={containerRef}
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'flex-start',
+            minWidth: '800px',
+            minHeight: '1200px',
+          }}
+        />
+      </div>
     </div>
   )
 }

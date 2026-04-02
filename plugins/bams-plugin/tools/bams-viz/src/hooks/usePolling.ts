@@ -7,7 +7,7 @@ const fetcher = (url: string) => fetch(url).then(r => {
 })
 
 export function usePolling<T>(url: string | null, interval = 1000) {
-  const { data, error, isLoading, isValidating } = useSWR<T>(
+  const { data, error, isLoading, isValidating, mutate } = useSWR<T>(
     url,
     fetcher,
     {
@@ -16,5 +16,5 @@ export function usePolling<T>(url: string | null, interval = 1000) {
       dedupingInterval: 500,
     }
   )
-  return { data, error, isLoading, isValidating }
+  return { data, error, isLoading, isValidating, mutate }
 }

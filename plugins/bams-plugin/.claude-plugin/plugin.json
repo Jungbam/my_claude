@@ -32,5 +32,33 @@
     "./agents/release-quality-gate.md",
     "./agents/ux-research.md"
   ],
-  "skills": "./skills/"
+  "skills": "./skills/",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CLAUDE_HOOK_EVENT=pre bash ./hooks/bams-viz-hook.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CLAUDE_HOOK_EVENT=post bash ./hooks/bams-viz-hook.sh"
+          },
+          {
+            "type": "command",
+            "command": "CLAUDE_HOOK_EVENT=post bash ./hooks/retro-trigger-hook.sh"
+          }
+        ]
+      }
+    ]
+  }
 }

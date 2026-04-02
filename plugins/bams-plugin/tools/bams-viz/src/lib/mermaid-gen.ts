@@ -82,9 +82,11 @@ export function generateFlowchart(pipeline: Pipeline): string {
  * Generate Mermaid gantt chart from pipeline data
  */
 export function generateGantt(pipeline: Pipeline): string {
+  // Strip trailing Z from timestamps since Mermaid dateFormat doesn't handle it
+  const stripZ = (ts: string | null) => ts?.replace(/Z$/, '') ?? ''
   const lines: string[] = [
     'gantt',
-    `  title ${pipeline.type}: ${pipeline.slug}`,
+    `  title ${sanitizeId(pipeline.type)}: ${sanitizeId(pipeline.slug)}`,
     '  dateFormat YYYY-MM-DDTHH:mm:ss',
     '  axisFormat %H:%M',
   ]
@@ -95,7 +97,7 @@ export function generateGantt(pipeline: Pipeline): string {
     // Section per phase
     if (step.phase && step.phase !== currentPhase) {
       currentPhase = step.phase
-      lines.push(`  section ${step.phase}`)
+      lines.push(`  section ${step.phase.replace(/[:|]/g, ' ')}`)
     }
 
     const agents = pipeline.agents.filter(a => a.stepNumber === step.number)
@@ -105,7 +107,7 @@ export function generateGantt(pipeline: Pipeline): string {
       const tag = statusToGanttTag(step.status)
       if (step.startedAt && step.durationMs) {
         const durSec = Math.max(1, Math.ceil(step.durationMs / 1000))
-        lines.push(`  ${step.name} :${tag} s${step.number}, ${step.startedAt}, ${durSec}s`)
+        lines.push(`  ${step.name} :${tag} s${step.number}, ${stripZ(step.startedAt)}, ${durSec}s`)
       }
     } else {
       // Each agent as a separate bar
@@ -113,7 +115,7 @@ export function generateGantt(pipeline: Pipeline): string {
         const tag = a.isError ? 'crit,' : (a.endedAt ? 'done,' : 'active,')
         if (a.startedAt) {
           const durSec = a.durationMs ? Math.max(1, Math.ceil(a.durationMs / 1000)) : 60
-          lines.push(`  ${a.agentType} (${a.model}) :${tag} ${a.callId || 'a' + step.number}, ${a.startedAt}, ${durSec}s`)
+          lines.push(`  ${a.agentType} (${a.model}) :${tag} ${a.callId || 'a' + step.number}, ${stripZ(a.startedAt)}, ${durSec}s`)
         }
       }
     }

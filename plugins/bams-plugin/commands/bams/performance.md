@@ -33,28 +33,28 @@ _BENCHMARK_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/be
 진행 추적 파일 및 lock 파일 생성 직후, Bash로 다음을 실행합니다:
 
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh pipeline_start "{slug}" "performance" "/bams:performance" "{arguments}"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "performance" "/bams:performance" "{arguments}"
 ```
 
 ## 베이스라인 모드 (--baseline)
 
 Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_start "{slug}" 1 "베이스라인 측정" "Phase 1: 측정"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 1 "베이스라인 측정" "Phase 1: 측정"
 ```
 
 `_BENCHMARK_SKILL` `--baseline` 모드로 실행.
 
 베이스라인 모드 완료 시, Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_end "{slug}" 1 "done" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 1 "done" {duration_ms}
 ```
 
 ## 비교 모드 (기본)
 
 Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_start "{slug}" 2 "비교 측정" "Phase 2: 비교"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 2 "비교 측정" "Phase 2: 비교"
 ```
 
 `performance-*.md` 중 `mode: baseline`, `status: completed` 파일 확인.
@@ -63,14 +63,14 @@ bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/ba
 
 비교 모드 완료 시, Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_end "{slug}" 2 "done" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 2 "done" {duration_ms}
 ```
 
 ## 트렌드 모드 (--trend)
 
 Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_start "{slug}" 3 "트렌드 분석" "Phase 3: 트렌드"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 3 "트렌드 분석" "Phase 3: 트렌드"
 ```
 
 최근 20개 `performance-*.md` 프론트매터에서 수치만 추출하여 시계열 구축.
@@ -78,7 +78,7 @@ bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/ba
 
 트렌드 모드 완료 시, Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_end "{slug}" 3 "done" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 3 "done" {duration_ms}
 ```
 
 ## 마무리
@@ -87,7 +87,7 @@ bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/ba
 
 파이프라인 종료 시, Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh pipeline_end "{slug}" "{status}" {total} {completed} {failed} {skipped}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_end "{slug}" "{status}" {total} {completed} {failed} {skipped}
 ```
 (`{status}`는 `completed` / `paused` / `failed` 중 하나, `{total}`은 3)
 

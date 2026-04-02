@@ -120,20 +120,14 @@ function EventCard({ event, onNavigateToLogs }: { event: PipelineEvent; onNaviga
 
 export function TimelineTab({ pipelineSlug, onNavigateToLogs }: TimelineTabProps) {
   const [filter, setFilter] = useState<string>('all')
-  const { data, error, isLoading } = usePolling<PipelineEvent[]>(
-    pipelineSlug ? `/api/events/${pipelineSlug}` : null,
-    1000
-  )
+  const apiUrl = pipelineSlug ? `/api/events/raw/${pipelineSlug}` : '/api/events/raw/all'
+  const { data, error, isLoading } = usePolling<PipelineEvent[]>(apiUrl, 1000)
 
   const filtered = useMemo(() => {
-    if (!data) return []
+    if (!data || !Array.isArray(data)) return []
     if (filter === 'all') return data
     return data.filter(e => e.type === filter)
   }, [data, filter])
-
-  if (!pipelineSlug) {
-    return <EmptyState icon="📅" title="Select a pipeline" description="Choose a pipeline to view its event timeline" />
-  }
   if (isLoading) {
     return <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading timeline...</div>
   }

@@ -32,14 +32,14 @@ _CSO_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/cso/SKIL
 진행 추적 파일 및 lock 파일 생성 직후, Bash로 다음을 실행합니다:
 
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh pipeline_start "{slug}" "security" "/bams:security" "{arguments}"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "security" "/bams:security" "{arguments}"
 ```
 
 ## Step 1: 빠른 보안 체크
 
 Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_start "{slug}" 1 "빠른 보안 체크" "Phase 1: 보안 감사"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 1 "빠른 보안 체크" "Phase 1: 보안 감사"
 ```
 
 `bams-plugin:release-quality-gate` 에이전트로 보안 체크를 수행합니다.
@@ -47,14 +47,14 @@ bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/ba
 
 Step 1 완료 시, Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_end "{slug}" 1 "done" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 1 "done" {duration_ms}
 ```
 
 ## Step 2: OWASP+STRIDE 감사 (bams cso 스킬)
 
 Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_start "{slug}" 2 "OWASP+STRIDE 감사" "Phase 1: 보안 감사"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 2 "OWASP+STRIDE 감사" "Phase 1: 보안 감사"
 ```
 
 **스킬 미설치 시**: "Step 1 결과만 제공합니다." 후 `skipped`.
@@ -64,14 +64,14 @@ bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/ba
 
 Step 2 완료 시, Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_end "{slug}" 2 "{status}" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 2 "{status}" {duration_ms}
 ```
 
 ## Step 3: 심층 스캔 (--comprehensive만)
 
 Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_start "{slug}" 3 "심층 스캔" "Phase 2: 심층 감사"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 3 "심층 스캔" "Phase 2: 심층 감사"
 ```
 
 일일 모드 또는 스킬 미설치 시 `skipped`.
@@ -79,7 +79,7 @@ bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/ba
 
 Step 3 완료 시, Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh step_end "{slug}" 3 "{status}" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 3 "{status}" {duration_ms}
 ```
 
 ## 마무리
@@ -88,7 +88,7 @@ bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/ba
 
 파이프라인 종료 시, Bash로 다음을 실행합니다:
 ```bash
-bash /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/hooks/bams-viz-emit.sh pipeline_end "{slug}" "{status}" {total} {completed} {failed} {skipped}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_end "{slug}" "{status}" {total} {completed} {failed} {skipped}
 ```
 (`{status}`는 `completed` / `paused` / `failed` 중 하나, `{total}`은 3)
 

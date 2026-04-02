@@ -27,91 +27,114 @@ Glob으로 `.crew/config.md`가 존재하는지 확인합니다. 없으면:
 
 `.crew/config.md`와 `.crew/board.md`를 읽어 현재 상태를 파악합니다.
 
-## Phase 1: PRD 작성 (product-strategy)
+## Phase 1: PRD 작성 (기획부장 위임)
 
-**Task tool**을 사용하여 서브에이전트를 실행합니다 (subagent_type: **"bams-plugin:product-strategy"**, model: **"opus"**):
+pipeline-orchestrator에게 PRD 작성을 지시합니다.
 
----
+서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**):
 
-**PRD 작성 모드**로 다음 피처 요청을 분석하고 구조화된 PRD를 작성합니다.
+> **기획 시작 — PRD 작성**
+>
+> **위임 메시지:**
+> ```
+> phase: 1
+> slug: {slug}
+> pipeline_type: plan
+> context:
+>   config: .crew/config.md
+>   feature_description: {$ARGUMENTS}
+> ```
+>
+> **수행할 작업:**
+> product-strategy(기획부장)에게 PRD 작성을 위임합니다:
+>
+> ```
+> task_description: "피처 요청을 분석하고 구조화된 PRD를 작성하라"
+> input_artifacts:
+>   - .crew/config.md
+>   - feature_description: {$ARGUMENTS}
+> expected_output:
+>   type: prd_document
+>   paths: [.crew/artifacts/prd/{slug}-prd.md]
+> quality_criteria:
+>   - 문제 정의 및 목표 명확
+>   - 사용자 스토리 / 유스케이스 포함
+>   - 기능 요구사항 (필수/선택) 구분
+>   - 비기능 요구사항 (성능, 보안, 접근성) 포함
+>   - 인수 기준 (테스트 가능한 구체적 기준) 정의
+>   - 미결 질문 명시
+> ```
+>
+> product-strategy는 내부적으로 business-analysis, ux-research 에이전트를 활용하여 PRD를 작성합니다.
+> 기존 코드베이스 구조는 Glob과 Read 도구로 직접 파악합니다.
+>
+> **미결 질문이 있으면** 반드시 보고하세요.
 
-**피처 요청**: [$ARGUMENTS 삽입]
-
-**프로젝트 컨텍스트**: [.crew/config.md 내용 삽입]
-
-**기존 코드베이스**: Glob과 Read 도구를 사용하여 기존 코드베이스 구조를 파악합니다.
-
-PRD에 포함할 내용:
-- 문제 정의 및 목표
-- 사용자 스토리 / 유스케이스
-- 기능 요구사항 (필수/선택)
-- 비기능 요구사항 (성능, 보안, 접근성)
-- 인수 기준 (테스트 가능한 구체적 기준)
-- 미결 질문
-
----
-
-product-strategy 에이전트가 반환한 후, 출력을 주의 깊게 읽습니다.
+pipeline-orchestrator가 반환한 후, 출력을 주의 깊게 읽습니다.
 
 **미결 질문이 있으면**: 불릿 포인트로 사용자에게 제시합니다. Phase 2로 진행하기 전에 사용자의 답변을 기다립니다. 이 단계를 절대 건너뛰지 마세요. 답변을 받은 후 PRD에 반영합니다.
 
-## Phase 2: 기능 명세 + 기술 설계
+## Phase 2: 기능 명세 + 기술 설계 (기획부장 + 개발부장 병렬 위임)
 
-**3개 서브에이전트를 동시에 실행합니다:**
+pipeline-orchestrator에게 기능 명세와 기술 설계를 지시합니다.
 
-### 2a. business-analysis 에이전트 (opus):
+서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**):
 
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:business-analysis"**, model: **"opus"**):
-
-> **기능 명세 작성 모드**로 PRD를 기반으로 상세 기능 명세를 작성합니다.
+> **기획 Phase 2 — 기능 명세 + 기술 설계 (병렬)**
 >
-> **PRD**: [Phase 1의 PRD 삽입]
-> **프로젝트 컨텍스트**: [.crew/config.md 내용 삽입]
+> **위임 메시지:**
+> ```
+> phase: 2
+> slug: {slug}
+> pipeline_type: plan
+> context:
+>   prd: .crew/artifacts/prd/{slug}-prd.md
+>   config: .crew/config.md
+> ```
 >
-> 작성할 내용:
-> - 화면/API별 상세 동작 명세
-> - 데이터 모델 정의
-> - 상태 전이 다이어그램 (필요 시)
-> - 에러 시나리오 및 처리 방법
-> - 외부 시스템 연동 명세
-
-### 2b. frontend-engineering 에이전트 (sonnet):
-
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:frontend-engineering"**, model: **"sonnet"**):
-
-> **기술 설계 모드 (프론트엔드)**: 피처의 UI/UX 기술 구현을 설계합니다.
+> **수행할 작업 (병렬 위임):**
 >
-> **피처 요구사항**: [Phase 1의 PRD 삽입]
-> **프로젝트 컨텍스트**: [.crew/config.md 내용 삽입]
+> 1. product-strategy(기획부장)에게 business-analysis를 통한 기능 명세 작성을 위임:
+> ```
+> task_description: "PRD를 기반으로 상세 기능 명세를 작성하라"
+> input_artifacts:
+>   - .crew/artifacts/prd/{slug}-prd.md
+>   - .crew/config.md
+> expected_output:
+>   type: functional_spec
+>   paths: [.crew/artifacts/design/{slug}-spec.md]
+> quality_criteria:
+>   - 화면/API별 상세 동작 명세 완성
+>   - 데이터 모델 정의
+>   - 상태 전이 다이어그램 (필요 시)
+>   - 에러 시나리오 및 처리 방법
+>   - 외부 시스템 연동 명세
+> ```
 >
-> 코드베이스를 Glob, Read로 분석한 후:
-> - 컴포넌트 구조 설계
-> - 상태 관리 전략
-> - 라우팅 변경사항
-> - 스타일링 접근법
-> - 파일 생성/수정 목록
-
-### 2c. backend-engineering 에이전트 (sonnet):
-
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:backend-engineering"**, model: **"sonnet"**):
-
-> **기술 설계 모드 (백엔드)**: 피처의 API/데이터/로직 기술 구현을 설계합니다.
+> 2. 개발부장에게 프론트엔드/백엔드 기술 설계를 병렬 위임:
+>    - frontend-engineering: 컴포넌트 구조, 상태 관리, 라우팅, 스타일링, 파일 목록
+>    - backend-engineering: API 엔드포인트, DB 스키마, 비즈니스 로직, 인증/권한, 파일 목록
+> ```
+> task_description: "PRD를 기반으로 프론트엔드/백엔드 기술 설계를 병렬로 작성하라"
+> input_artifacts:
+>   - .crew/artifacts/prd/{slug}-prd.md
+>   - .crew/config.md
+> expected_output:
+>   type: technical_design
+>   paths: [.crew/artifacts/design/{slug}-design.md]
+> quality_criteria:
+>   - 컴포넌트 구조 명확
+>   - API 엔드포인트 정의 완료
+>   - 데이터 흐름 명시
+> ```
 >
-> **피처 요구사항**: [Phase 1의 PRD 삽입]
-> **프로젝트 컨텍스트**: [.crew/config.md 내용 삽입]
->
-> 코드베이스를 Glob, Read로 분석한 후:
-> - API 엔드포인트 설계
-> - 데이터베이스 스키마 변경
-> - 비즈니스 로직 구조
-> - 인증/권한 처리
-> - 파일 생성/수정 목록
+> **기대 산출물**: 기능 명세, 기술 설계 (기획부장 + 개발부장 병렬 결과)
 
 ## Phase 3: 태스크 분해
 
-3개 에이전트 결과를 종합하여 구체적인 태스크로 분해합니다:
+pipeline-orchestrator가 반환한 Phase 2 결과를 종합하여 구체적인 태스크로 분해합니다:
 
-1. business-analysis, frontend-engineering, backend-engineering 결과 읽기
+1. 기능 명세(spec)와 기술 설계(design) 문서 읽기
 2. 기능 명세와 기술 설계를 병합
 3. 작업을 개별 태스크로 분해. 각 태스크는:
    - 한 세션에서 완료 가능 (생성/수정 파일 5개 이하, 변경 라인 200줄 이하 목표)
