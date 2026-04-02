@@ -16,6 +16,7 @@ pipeline-orchestrator (총괄 지휘)
   ├─▶ 개발부장 (frontend-engineering, backend-engineering, platform-devops, data-integration)
   ├─▶ QA부장 (qa-strategy, automation-qa, defect-triage, release-quality-gate)
   ├─▶ 평가부장 (product-analytics, experimentation, performance-evaluation, business-kpi)
+  ├─▶ 인사 관리 (hr-agent — 에이전트 생명주기 관리)
   └─▶ 경영지원 (executive-reporter, cross-department-coordinator, resource-optimizer)
 ```
 
@@ -141,6 +142,7 @@ pipeline-orchestrator (총괄 지휘)
 | `qa` | qa-strategy | qa-strategy, automation-qa, defect-triage |
 | `planning` | product-strategy | product-strategy, business-analysis, ux-research |
 | `security` | platform-devops | platform-devops (보안 전문) |
+| `agent-management` | hr-agent | hr-agent (에이전트 생명주기 관리) |
 
 ### 3-2. 파일 패턴 기반 결정 (태그 없을 때)
 
@@ -152,6 +154,7 @@ pipeline-orchestrator (총괄 지휘)
 | `src/app/api/**`, `src/lib/**`, `*.server.ts`, `prisma/**` | backend-engineering |
 | `Dockerfile`, `.github/**`, `deploy/**`, `infra/**` | platform-devops |
 | `src/lib/data/**`, `scripts/etl/**`, `*.sql` | data-integration |
+| `agents/*.md`, `references/jojikdo.json`, `agents-config.ts` | hr-agent |
 
 ### 3-3. 혼합 패턴 (복수 부서)
 

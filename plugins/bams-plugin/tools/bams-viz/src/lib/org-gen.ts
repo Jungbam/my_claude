@@ -49,6 +49,7 @@ const DEFAULT_AGENT_CALLS: Record<string, (string | AgentCallTarget)[]> = {
     { agent_id: 'frontend_engineering_agent', purpose: '구현 지시' },
     { agent_id: 'backend_engineering_agent', purpose: '구현 지시' },
     { agent_id: 'qa_strategy_agent', purpose: '검증 지시' },
+    { agent_id: 'hr_agent', purpose: '에이전트 관리' },
   ],
   cross_department_coordinator_agent: [
     { agent_id: 'pipeline_orchestrator_agent', purpose: '조율' },

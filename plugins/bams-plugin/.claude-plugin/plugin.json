@@ -1,7 +1,7 @@
 {
   "name": "bams-plugin",
-  "description": "조직도 기반 통합 Claude Code 플러그인 — 총괄/기획/개발/평가/QA 5부서 20에이전트",
-  "version": "2.0.0",
+  "description": "조직도 기반 통합 Claude Code 플러그인 — 총괄/기획/개발/평가/QA 5부서 21에이전트",
+  "version": "2.1.0",
   "author": {
     "name": "Jungbam"
   },
@@ -30,7 +30,8 @@
     "./agents/project-governance.md",
     "./agents/qa-strategy.md",
     "./agents/release-quality-gate.md",
-    "./agents/ux-research.md"
+    "./agents/ux-research.md",
+    "./agents/hr-agent.md"
   ],
   "skills": "./skills/",
   "hooks": {

@@ -460,6 +460,109 @@
             }
           ],
           "role": "specialist"
+        },
+        {
+          "agent_id": "hr_agent",
+          "agent_name": "HR Agent",
+          "responsibility": "에이전트 생명주기 관리 — 정의, 등록, 평가, 비활성화",
+          "inputs": [
+            "에이전트 생성/변경/비활성화 요청",
+            "jojikdo.json",
+            "이벤트 로그 (jsonl)",
+            "기존 에이전트 정의 파일"
+          ],
+          "outputs": [
+            "에이전트 정의서",
+            "조직도 업데이트",
+            "퍼포먼스 보고서"
+          ],
+          "skills": [
+            {
+              "skill_id": "design_agent",
+              "skill_name": "Agent Design",
+              "purpose": "요청된 역할을 분석하여 agent_id, responsibility, skills, agent_calls를 설계한다",
+              "inputs": [
+                "역할 요약",
+                "jojikdo.json",
+                "기존 에이전트 목록"
+              ],
+              "process": [
+                "기존 조직도에서 중복 역할이 없는지 확인한다",
+                "agent_id, responsibility, inputs, outputs, skills를 설계한다",
+                "협업 대상 에이전트와의 agent_calls 관계를 정의한다",
+                "agents/*.md 형식에 맞춰 정의서를 작성한다"
+              ],
+              "artifacts": [
+                "agent_definition_doc",
+                "agent_md_file"
+              ],
+              "agent_calls": [],
+              "completion_criteria": [
+                "에이전트 정의서가 표준 형식으로 작성되어 있다",
+                "중복 역할이 없음을 확인했다"
+              ]
+            },
+            {
+              "skill_id": "manage_org_chart",
+              "skill_name": "Organization Chart Management",
+              "purpose": "jojikdo.json의 에이전트 추가/이동/삭제를 수행하고 관련 파일을 동기화한다",
+              "inputs": [
+                "변경 요청",
+                "jojikdo.json",
+                "plugin.json",
+                "agents-config.ts"
+              ],
+              "process": [
+                "jojikdo.json에 에이전트 객체를 추가/수정/삭제한다",
+                "plugin.json agents 배열을 동기화한다",
+                "agents-config.ts ALL_AGENTS를 동기화한다",
+                "org-gen.ts DEFAULT_AGENT_CALLS를 필요 시 업데이트한다"
+              ],
+              "artifacts": [
+                "updated_jojikdo",
+                "updated_plugin_json",
+                "updated_agents_config"
+              ],
+              "agent_calls": [],
+              "completion_criteria": [
+                "모든 참조 파일이 동기화되어 있다",
+                "generateOrgChart()가 에러 없이 실행된다"
+              ]
+            },
+            {
+              "skill_id": "evaluate_performance",
+              "skill_name": "Agent Performance Evaluation",
+              "purpose": "이벤트 로그에서 에이전트별 성능 지표를 집계하여 평가 리포트를 생성한다",
+              "inputs": [
+                "이벤트 로그 (jsonl)",
+                "평가 기간",
+                "이전 보고서"
+              ],
+              "process": [
+                "이벤트 로그에서 에이전트별 호출/성공/실패/재시도를 집계한다",
+                "등급 기준(A~F)에 따라 각 에이전트를 평가한다",
+                "이전 주 대비 트렌드를 계산한다",
+                "D/F 등급 에이전트에 대해 개선 권고를 작성한다"
+              ],
+              "artifacts": [
+                "weekly_report_md",
+                "weekly_report_json"
+              ],
+              "agent_calls": [
+                {
+                  "callee_agent": "executive_reporter_agent",
+                  "call_purpose": "퍼포먼스 요약을 경영진 대시보드에 반영",
+                  "expected_output": "dashboard_updated"
+                }
+              ],
+              "completion_criteria": [
+                "모든 활성 에이전트에 대해 등급이 부여되어 있다",
+                "보고서가 md와 json 형식 모두 생성되어 있다"
+              ]
+            }
+          ],
+          "model": "sonnet",
+          "role": "specialist"
         }
       ],
       "department_lead": "pipeline_orchestrator_agent"

@@ -10,6 +10,7 @@ import { AgentsTab } from '@/components/tabs/AgentsTab'
 import { TimelineTab } from '@/components/tabs/TimelineTab'
 import { LogsTab } from '@/components/tabs/LogsTab'
 import { MetaverseTab } from '@/components/tabs/MetaverseTab'
+import { HRTab } from '@/components/tabs/HRTab'
 
 const TABS = [
   { id: 'agents', label: 'Agents', icon: '🤖' },
@@ -19,6 +20,7 @@ const TABS = [
   { id: 'org', label: 'Org', icon: '🏢' },
   { id: 'timeline', label: 'Timeline', icon: '📅' },
   { id: 'logs', label: 'Logs', icon: '📋' },
+  { id: 'hr', label: 'HR', icon: '👤' },
 ] as const
 
 type TabId = (typeof TABS)[number]['id']
@@ -202,6 +204,7 @@ export function Dashboard() {
           {activeTab === 'timeline' && <TimelineTab pipelineSlug={selectedPipeline} onNavigateToLogs={handleNavigateToLogs} />}
           {activeTab === 'logs' && <LogsTab pipelineSlug={selectedPipeline} highlightTimestamp={logHighlightTs} />}
           {activeTab === 'metaverse' && <MetaverseTab pipelineSlug={selectedPipeline} />}
+          {activeTab === 'hr' && <HRTab />}
         </TabErrorBoundary>
       </main>
 

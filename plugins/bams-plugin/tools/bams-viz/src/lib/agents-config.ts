@@ -6,6 +6,7 @@ export const ALL_AGENTS: Array<{ agentType: string; department: string }> = [
   { agentType: 'cross-department-coordinator', department: 'management' },
   { agentType: 'executive-reporter', department: 'management' },
   { agentType: 'resource-optimizer', department: 'management' },
+  { agentType: 'hr-agent', department: 'management' },
   // Planning
   { agentType: 'product-strategy', department: 'planning' },
   { agentType: 'business-analysis', department: 'planning' },
