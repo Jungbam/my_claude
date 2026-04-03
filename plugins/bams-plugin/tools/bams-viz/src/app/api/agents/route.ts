@@ -24,8 +24,8 @@ export async function GET(request: NextRequest) {
     const agentData = store.getAgents(date)
 
     if (pipeline) {
-      const pipelineCalls = agentData.calls.filter((c: { pipelineSlug: string }) => c.pipelineSlug === pipeline)
-      const activeAgentTypes = new Set(pipelineCalls.map((c: { agentType: string }) => c.agentType))
+      const pipelineCalls = agentData.calls.filter((c) => c.pipelineSlug === pipeline)
+      const activeAgentTypes = new Set(pipelineCalls.map((c) => c.agentType))
 
       const statsByType: Record<string, unknown> = {}
       for (const call of pipelineCalls as Array<{
@@ -63,12 +63,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         calls: pipelineCalls,
         stats: Object.values(statsByType).sort((a, b) => (b as Record<string,number>).callCount - (a as Record<string,number>).callCount),
-        collaborations: agentData.collaborations.filter((c: { from: string; to: string }) =>
+        collaborations: agentData.collaborations.filter((c) =>
           activeAgentTypes.has(c.from) || activeAgentTypes.has(c.to)
         ),
         totalCalls: pipelineCalls.length,
-        totalErrors: pipelineCalls.filter((c: { isError: boolean }) => c.isError).length,
-        runningCount: pipelineCalls.filter((c: { startedAt?: string; endedAt?: string }) => c.startedAt && !c.endedAt).length,
+        totalErrors: pipelineCalls.filter((c) => c.isError).length,
+        runningCount: pipelineCalls.filter((c) => c.startedAt && !c.endedAt).length,
       }, { headers: corsHeaders })
     }
 
