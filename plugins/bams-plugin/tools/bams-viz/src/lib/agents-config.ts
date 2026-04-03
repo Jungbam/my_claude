@@ -17,6 +17,13 @@ export const ALL_AGENTS: Array<{ agentType: string; department: string }> = [
   { agentType: 'backend-engineering', department: 'engineering' },
   { agentType: 'platform-devops', department: 'engineering' },
   { agentType: 'data-integration', department: 'engineering' },
+  // Design (sub-department of Engineering)
+  { agentType: 'design-director', department: 'design' },
+  { agentType: 'ui-designer', department: 'design' },
+  { agentType: 'ux-designer', department: 'design' },
+  { agentType: 'graphic-designer', department: 'design' },
+  { agentType: 'motion-designer', department: 'design' },
+  { agentType: 'design-system-agent', department: 'design' },
   // Evaluation
   { agentType: 'product-analytics', department: 'evaluation' },
   { agentType: 'experimentation', department: 'evaluation' },
@@ -33,6 +40,7 @@ export const DEPT_INFO: Record<string, { color: string; label: string }> = {
   management: { color: '#ec4899', label: 'Executive' },
   planning: { color: '#3b82f6', label: 'Planning' },
   engineering: { color: '#22c55e', label: 'Engineering' },
+  design: { color: '#ec4899', label: 'Design' },
   evaluation: { color: '#f97316', label: 'Evaluation' },
   qa: { color: '#a855f7', label: 'QA' },
 }

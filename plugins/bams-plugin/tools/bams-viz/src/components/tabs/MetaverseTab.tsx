@@ -11,13 +11,14 @@ import type { AgentData, AgentCall } from '@/lib/types'
 
 const DEPT_MAP = DEPT_INFO
 
-/* ── Layout: management top-center, planning/engineering mid, evaluation/qa bottom ── */
+/* ── Layout: management top-center, planning/engineering mid, design center, evaluation/qa bottom ── */
 const DEPT_LAYOUT: Record<string, { x: number; y: number; w: number; h: number }> = {
   management:  { x: 250, y: 20,  w: 500, h: 200 },
   planning:    { x: 20,  y: 260, w: 470, h: 240 },
   engineering: { x: 510, y: 260, w: 470, h: 240 },
-  evaluation:  { x: 20,  y: 540, w: 470, h: 240 },
-  qa:          { x: 510, y: 540, w: 470, h: 240 },
+  design:      { x: 175, y: 520, w: 650, h: 240 },
+  evaluation:  { x: 20,  y: 780, w: 470, h: 240 },
+  qa:          { x: 510, y: 780, w: 470, h: 240 },
 }
 
 interface AgentNode {
@@ -232,7 +233,7 @@ export function MetaverseTab({ pipelineSlug, onNavigateToTraces }: MetaverseTabP
   }
 
   const svgWidth = 1000
-  const svgHeight = 800
+  const svgHeight = 1040
 
   return (
     <div style={{ height: '100%', overflow: 'auto', padding: '20px' }}>

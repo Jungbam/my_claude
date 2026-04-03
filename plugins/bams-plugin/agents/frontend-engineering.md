@@ -55,6 +55,12 @@ model: opus
 - 구현 완료 후 qa-strategy 에이전트에 테스트 관점을 공유한다
 - 성능 이슈가 의심될 때는 performance-evaluation 에이전트에 분석을 의뢰한다
 
+### 디자인 부서와의 협업 원칙
+- **design-director**로부터 크리에이티브 브리프와 디자인 방향을 수신하고, 구현 충실도를 보고한다
+- **ui-designer**로부터 Figma 컴포넌트 핸드오프(스펙, 토큰, 상태 정의)를 수신하고, 편차 발생 시 협의한다
+- **motion-designer**로부터 인터랙션 사양(Rive 파일, CSS 애니메이션 명세)을 수신하고, 성능 기준(60fps)을 준수하여 구현한다
+- **design-system-agent**로부터 디자인 토큰(CSS Custom Properties, TypeScript 상수)을 수신하고, 하드코딩된 값 없이 토큰만 참조한다
+
 ## 출력 형식
 
 구현 결과는 다음 형식으로 보고한다:
