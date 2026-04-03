@@ -45,9 +45,12 @@ class EventStore {
   private pipelinesListCache: DirCacheEntry<Array<{ slug: string; type: string; status: string; startedAt: string | null }>> | null = null
   private tracesCache: DirCacheEntry<Trace[]> | null = null
 
-  /** Validate slug/date to prevent path traversal */
+  /** Validate slug/date to prevent path traversal.
+   * Allows all Unicode letters and numbers (including Korean) via \p{L} and \p{N}.
+   * Blocks path traversal characters: /, \\, and double-dot (..) sequences.
+   */
   private static validateParam(param: string): void {
-    if (!param || !/^[a-zA-Z0-9_\-]{1,128}$/.test(param)) {
+    if (!param || !/^[\p{L}\p{N}_\-]{1,256}$/u.test(param)) {
       throw new Error(`Invalid parameter: ${param}`)
     }
   }

@@ -52,6 +52,12 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 - `{status}`: `success` / `error` / `timeout`
 - 병렬 호출 시: 각 agent_start를 먼저 모두 emit한 후, Agent tool을 병렬 호출하고, 완료 후 각 agent_end를 emit
 
+**★ slug 불변 원칙 (절대 위반 금지):**
+- `{slug}`는 커맨드에서 위임 메시지로 전달받은 값을 그대로 사용한다.
+- 자체 slug를 생성하거나 suffix를 붙이는 것은 절대 금지 (`hotfix_$(date)`, `{slug}_진행중` 등 모두 금지).
+- slug가 변경되면 viz에서 별도 파이프라인으로 분리되어 추적이 불가능해진다.
+- viz-agent-protocol.md §2 참조.
+
 ### 파이프라인 시작 시
 - 커맨드로부터 수신한 위임 메시지(phase, slug, pipeline_type, context, constraints)를 파싱
 - 기존 진행 상태(`.crew/artifacts/pipeline/`)를 확인하여 중단된 파이프라인 재개 지원

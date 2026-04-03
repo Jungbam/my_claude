@@ -95,8 +95,8 @@ case "$EVENT_TYPE" in
       --arg department "$DEPT" \
       --arg model "${5:-}" \
       --arg description "${6:-}" \
-      --arg prompt_summary "$(printf '%s' "${7:-}" | head -c 300)" \
-      --arg input "$(printf '%s' "${7:-}" | head -c 1000)" \
+      --arg prompt_summary "$(printf '%s' "${7:-}" | cut -c1-300)" \
+      --arg input "$(printf '%s' "${7:-}" | cut -c1-1000)" \
       --argjson step_number "$STEP_NUM" \
       --arg ts "$TS" \
       --arg pipeline_slug "$SLUG" \
@@ -119,8 +119,8 @@ case "$EVENT_TYPE" in
       --argjson is_error "$IS_ERR" \
       --arg status "$A_STATUS" \
       --argjson duration_ms "${6:-null}" \
-      --arg result_summary "$(printf '%s' "${7:-}" | head -c 300)" \
-      --arg output "$(printf '%s' "${7:-}" | head -c 1000)" \
+      --arg result_summary "$(printf '%s' "${7:-}" | cut -c1-300)" \
+      --arg output "$(printf '%s' "${7:-}" | cut -c1-1000)" \
       --argjson token_usage "null" \
       --arg ts "$TS" \
       --arg pipeline_slug "$SLUG" \

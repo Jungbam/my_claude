@@ -29,13 +29,17 @@
 
 모든 파이프라인 slug는 다음 형식을 따릅니다:
 ```
-{command}_{한글요약}_{상태}
+{command}_{한글요약}
 ```
 - command: feature, hotfix, dev, debug
 - 한글요약: 공백 없이 작업 내용 요약
-- 상태: 진행중 | 완료
 
-예: `feature_결제플로우구현_진행중`, `hotfix_빌드에러수정_완료`
+예: `feature_결제플로우구현`, `hotfix_빌드에러수정`
+
+**slug는 파이프라인 수명 동안 불변(immutable)입니다.** 상태는 slug에 포함하지 않으며,
+이벤트 파일 내 `pipeline_start` / `pipeline_end` 이벤트로 자동 판별합니다.
+- `pipeline_end` 없음 → 진행 중
+- `pipeline_end` 있음 → 완료 (status 필드 기준)
 
 이 규칙은 이벤트 파일, PRD, 설계문서, 리뷰, board.md 태스크 ID에 모두 적용됩니다.
 상세: `.crew/references/pipeline-naming-convention.md` 참조
