@@ -34,6 +34,10 @@ _CODEX_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/codex/
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "deep-review" "/bams:deep-review" "{arguments}"
 ```
 
+### ★ Viz Agent 이벤트 규칙
+
+**`references/viz-agent-protocol.md` 참조.** 모든 서브에이전트 호출 전후에 반드시 agent_start/agent_end 이벤트를 emit한다. orchestrator 내부에서 부서장/에이전트를 호출할 때도 동일하게 적용한다.
+
 ## Step 1-2-3: 리뷰 실행 전략 선택
 
 **AskUserQuestion** — "리뷰 범위를 선택하세요:"

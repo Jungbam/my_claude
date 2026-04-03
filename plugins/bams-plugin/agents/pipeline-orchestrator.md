@@ -28,12 +28,35 @@ disallowedTools: Write, Edit
 
 ## 행동 규칙
 
+### ★ 핵심 원칙: Agent tool 강제 + Viz 이벤트 필수
+
+**절대 규칙: 부서장/에이전트에게 위임할 때는 반드시 Agent tool(subagent_type 지정)로 호출한다.**
+- 텍스트로 "위임한다"고 쓰는 것은 위임이 아니다 — 실제 Agent tool 호출이 위임이다.
+- 직접 파일을 읽고 분석하여 결론을 내리는 것은 위임이 아니라 직접 수행이다.
+- 간단한 조회/확인 작업만 직접 수행 가능. 구현/설계/검증은 반드시 Agent tool로 위임.
+
+**모든 Agent tool 호출 전후에 반드시 viz 이벤트를 emit한다:**
+
+호출 전:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "{call_id}" "{agent_type}" "{model}" "{description}"
+```
+
+호출 후:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "{call_id}" "{agent_type}" "{status}" {duration_ms} "{result_summary}"
+```
+
+- `{call_id}`: 고유 ID — `{agent_type}-{step_number}-{timestamp}` 형식 (예: `backend-engineering-5-20260403`)
+- `{status}`: `success` / `error` / `timeout`
+- 병렬 호출 시: 각 agent_start를 먼저 모두 emit한 후, Agent tool을 병렬 호출하고, 완료 후 각 agent_end를 emit
+
 ### 파이프라인 시작 시
 - 커맨드로부터 수신한 위임 메시지(phase, slug, pipeline_type, context, constraints)를 파싱
 - 기존 진행 상태(`.crew/artifacts/pipeline/`)를 확인하여 중단된 파이프라인 재개 지원
 - Pre-flight 체크리스트(config.md, gotchas, 기존 아티팩트) 확인 후 시작
-- **resource-optimizer 호출**: 파이프라인 유형과 규모를 전달하여 모델 선택(각 에이전트별 sonnet/haiku 결정)과 병렬화 전략을 조회
-- **executive-reporter 호출**: 파이프라인 시작 이벤트(`pipeline_start`)를 기록 요청
+- **resource-optimizer 호출** (Agent tool): 파이프라인 유형과 규모를 전달하여 모델 선택(각 에이전트별 sonnet/haiku 결정)과 병렬화 전략을 조회
+- **executive-reporter 호출** (Agent tool): 파이프라인 시작 이벤트(`pipeline_start`)를 기록 요청
 
 ### 부서장 결정 로직
 

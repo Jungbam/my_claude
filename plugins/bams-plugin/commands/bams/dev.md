@@ -50,6 +50,25 @@ Glob으로 `.crew/config.md`가 존재하는지 확인합니다. 없으면:
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "dev" "/bams:dev" "{arguments}"
 ```
 
+### ★ Viz Agent 이벤트 규칙 (모든 Phase에 적용)
+
+**이 파이프라인의 모든 서브에이전트(pipeline-orchestrator 포함) 호출 전후에 반드시 agent_start/agent_end 이벤트를 emit한다.**
+
+**호출 직전:**
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "{call_id}" "{agent_type}" "{model}" "{description}"
+```
+
+**호출 직후:**
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "{call_id}" "{agent_type}" "{status}" {duration_ms} "{result_summary}"
+```
+
+- `{call_id}` 형식: `{agent_type}-phase{N}` (예: `orchestrator-phase0`, `orchestrator-phase1`)
+- `{status}`: `success` / `error`
+- 이 규칙은 이 파이프라인에서 호출하는 모든 서브에이전트에 적용된다
+- **orchestrator 내부에서 부서장/에이전트를 호출할 때도** 동일하게 agent_start/agent_end를 emit해야 한다 (orchestrator.md의 핵심 원칙 참조)
+
 ## 작업 범위 결정
 
 **$ARGUMENTS가 태스크 ID인 경우 (예: "TASK-001"):**
@@ -80,6 +99,8 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 ```
 
 pipeline-orchestrator에게 파이프라인 초기화를 지시합니다.
+
+(★ agent_start/agent_end 규칙에 따라 호출 전후에 viz 이벤트 emit — call_id: `orchestrator-phase0`)
 
 서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**):
 
