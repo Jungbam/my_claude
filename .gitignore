@@ -18,17 +18,16 @@ bun.lock
 supabase/.temp/
 
 # .crew runtime artifacts (프로젝트별 로컬 데이터, 런타임 생성)
-.crew/artifacts/agents/
-.crew/artifacts/pipeline/
-.crew/artifacts/retro/
-.crew/artifacts/test/
-.crew/artifacts/review/
-.crew/artifacts/design/
-.crew/artifacts/prd/
+.crew/artifacts/
 .crew/board.md
 .crew/history.md
 .crew/gotchas.md
 .crew/*.lock
+.crew/db/
+.crew/memory/
+.crew/references/
+.crew/skills/
+.crew/sprints/
 
 # bams-viz build output
 plugins/bams-plugin/tools/bams-viz/.next/
