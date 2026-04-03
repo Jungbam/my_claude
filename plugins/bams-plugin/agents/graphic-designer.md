@@ -2,6 +2,7 @@
 name: graphic-designer
 description: 그래픽 디자이너 에이전트 — 아이콘 시스템, 일러스트레이션, 이미지 에셋, 브랜드 그래픽. AI 이미지 도구를 활용한 그래픽 에셋 제작이 필요할 때 사용.
 model: sonnet
+department: design
 ---
 
 # Graphic Designer Agent
@@ -93,6 +94,7 @@ model: sonnet
 - **design-system-agent**: 에셋 등록 요청, 아이콘 네이밍 컨벤션 합의, 에셋 버전 관리
 - **ui-designer**: 컴포넌트 내 그래픽 배치 협의, 아이콘 크기 및 스타일 요청 수신
 - **design-director**: 크리에이티브 브리프 수신, 브랜드 가이드라인 확인, 최종 에셋 승인
+- **frontend-engineering**: SVG 아이콘, 이미지 에셋 핸드오프
 
 
 ## 메모리

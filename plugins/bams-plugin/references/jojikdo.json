@@ -1576,7 +1576,7 @@
     {
       "department_id": "design",
       "department_name": "디자인부서",
-      "parent_department_id": "engineering",
+      "parent_department_id": null,
       "mission": "제품의 시각적 경험과 사용자 인터페이스를 설계하고, 디자인 시스템을 구축하여 일관된 사용자 경험을 보장한다",
       "agents": [
         {

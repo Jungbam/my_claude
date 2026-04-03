@@ -88,6 +88,7 @@ Phase: {current}/{total}  |  진행률: {n}%
 - **product-analytics**: KPI/성과 데이터 조회
 - **business-kpi**: 사업 성과 지표 조회
 - **performance-evaluation**: 성능 수치 조회
+- **hr-agent**: 에이전트 퍼포먼스 리포트 반영
 
 ## 파이프라인 성과 집계 및 회고 데이터
 

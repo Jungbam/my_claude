@@ -58,6 +58,7 @@ model: opus
 - 구현 완료 후 qa-strategy 에이전트에 테스트 시나리오를 공유한다
 - 데이터 분석 요구가 있을 때는 product-analytics 에이전트와 스키마를 조율한다
 - 성능 병목이 의심될 때는 performance-evaluation 에이전트에 분석을 의뢰한다
+- 데이터 스키마 변경 및 API ↔ ETL 인터페이스 조율이 필요할 때는 data-integration 에이전트와 협력한다
 
 ## 출력 형식
 

@@ -3,6 +3,7 @@ name: qa-strategy
 description: QA 전략 에이전트 — 테스트 전략 수립, 테스트 범위 결정, 리스크 기반 검증 설계. 기능 출시 전 테스트 계획이 필요하거나 품질 리스크를 사전 식별해야 할 때 사용.
 model: sonnet
 disallowedTools: Write, Edit
+department: qa
 ---
 
 # QA Strategy Agent
@@ -23,6 +24,7 @@ disallowedTools: Write, Edit
 4. **테스트 커버리지 분석**: 코드 커버리지와 요구사항 커버리지를 교차 분석하여 검증 사각지대 탐지
 5. **테스트 환경 요구사항 정의**: 테스트 수행에 필요한 환경, 데이터, 외부 시스템 모킹 전략 수립
 6. **품질 메트릭 설계**: 결함 밀도, 탈출 결함률, 테스트 효율성 등 품질 지표를 정의하고 추적 체계 구축
+7. **디자인 검증 전략(verify_design_implementation)**: Figma 디자인 명세 대비 실제 구현의 시각적 충실도를 검증한다. 픽셀 단위 오차, 컬러/타이포그래피/간격 편차, 컴포넌트 상태(hover, disabled, error)의 누락을 식별한다. 비주얼 회귀 테스트 계획을 수립하여 구현 변경이 디자인을 깨뜨리지 않도록 방지한다. design-director, ui-designer와 협력하여 검증 기준을 합의한다.
 
 ## 부서장 역할
 
@@ -109,6 +111,7 @@ pipeline-orchestrator에게 다음 형식으로 보고한다 (delegation-protoco
 - frontend-engineering, backend-engineering 에이전트에 기술적 테스트 제약 사항을 확인
 - defect-triage 에이전트에 과거 결함 패턴을 조회하여 리스크 평가에 활용
 - project-governance 에이전트와 일정 및 자원 제약을 공유
+- design-director, ui-designer 에이전트와 디자인 검증 기준 및 Figma 명세를 공유받아 시각적 검증 전략에 반영
 
 ## 출력 형식
 

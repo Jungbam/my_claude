@@ -17,7 +17,7 @@ export const ALL_AGENTS: Array<{ agentType: string; department: string }> = [
   { agentType: 'backend-engineering', department: 'engineering' },
   { agentType: 'platform-devops', department: 'engineering' },
   { agentType: 'data-integration', department: 'engineering' },
-  // Design (sub-department of Engineering)
+  // Design
   { agentType: 'design-director', department: 'design' },
   { agentType: 'ui-designer', department: 'design' },
   { agentType: 'ux-designer', department: 'design' },

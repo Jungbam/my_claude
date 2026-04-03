@@ -86,6 +86,90 @@ Bash `mkdir -p`로 다음 디렉토리를 생성합니다:
 .crew/db/
 ```
 
+
+## Step 5.2: 에이전트 Memory 디렉토리 자동 생성
+
+`plugins/bams-plugin/agents/` 디렉토리의 `.md` 파일 목록을 기반으로 `.crew/memory/` 하위에 각 에이전트의 PARA 메모리 디렉토리를 생성합니다.
+
+```bash
+# bams-plugin agents 디렉토리 탐색 (소스 → 캐시 순)
+_AGENTS_DIR=$(find . -path "*/bams-plugin/agents" -not -path "*/node_modules/*" 2>/dev/null | head -1)
+[ -z "$_AGENTS_DIR" ] && _AGENTS_DIR=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/agents" 2>/dev/null | head -1)
+
+if [ -n "$_AGENTS_DIR" ]; then
+  for _MD in "$_AGENTS_DIR"/*.md; do
+    _SLUG=$(basename "$_MD" .md)
+    _MEM_BASE=".crew/memory/$_SLUG"
+
+    # 이미 존재하면 스킵
+    if [ -d "$_MEM_BASE" ]; then
+      echo "[memory] $_SLUG: 이미 존재 — 스킵"
+      continue
+    fi
+
+    mkdir -p "$_MEM_BASE/life/projects"
+    mkdir -p "$_MEM_BASE/life/areas"
+    mkdir -p "$_MEM_BASE/life/archives"
+    mkdir -p "$_MEM_BASE/life/resources"
+    mkdir -p "$_MEM_BASE/memory"
+
+    cat > "$_MEM_BASE/MEMORY.md" << MEMEOF
+# MEMORY.md — $_SLUG
+
+> 역할: 
+> 생성: $(date +%Y-%m-%d)
+> 형식: PARA (Projects / Areas / Resources / Archives)
+
+---
+
+## 메모리 프로토콜
+
+### 세션 시작 시
+1. 이 파일(\`MEMORY.md\`)을 Read하여 이전 학습 항목과 gotcha를 컨텍스트에 로드한다
+2. 현재 파이프라인 슬러그가 있으면 \`.crew/memory/$_SLUG/life/projects/{slug}/summary.md\`도 로드한다
+3. qmd가 설치된 환경이면 \`qmd query "관련 키워드"\`로 연관 메모리 검색
+
+### 세션 종료 시 (파이프라인 회고)
+1. 이번 파이프라인에서 발견한 새로운 패턴/gotcha를 아래 "학습 항목" 섹션에 날짜와 함께 추가한다
+2. 내구성 있는 사실은 PARA 구조(\`life/\`)에 기록한다
+3. 오늘의 주요 작업은 \`memory/YYYY-MM-DD.md\`에 기록한다
+4. 글로벌 gotcha는 pipeline-orchestrator 판단으로 \`.crew/gotchas.md\`로 승격된다
+
+---
+
+## 학습 항목 (Tacit Knowledge)
+
+<!-- 형식:
+## [YYYY-MM-DD] {pipeline-slug}
+- 발견 사항: [설명]
+- 적용 패턴: [설명]
+- 주의사항: [설명]
+-->
+
+_아직 학습 항목 없음. 첫 파이프라인 실행 후 채워진다._
+
+---
+
+## PARA 구조 안내
+
+| 경로 | 용도 |
+|------|------|
+| \`life/projects/\` | 목표/기한이 있는 활성 프로젝트 작업 기록 |
+| \`life/areas/\` | 지속적 책임 영역 (프로젝트별 컨벤션, 패턴 등) |
+| \`life/resources/\` | 참조 자료 (API 문서, 프로토콜, 설계 패턴 등) |
+| \`life/archives/\` | 완료/중단된 항목 (영구 보존) |
+| \`memory/YYYY-MM-DD.md\` | 일별 실행 raw 로그 |
+MEMEOF
+
+    echo "[memory] $_SLUG: 생성 완료"
+  done
+else
+  echo "[memory] agents 디렉토리를 찾을 수 없습니다 — 스킵"
+fi
+```
+
+이 단계는 idempotent합니다. 이미 존재하는 디렉토리는 스킵하므로, `부분 재초기화` 시에도 안전하게 실행됩니다. 새 에이전트가 추가될 때마다 재실행하면 누락된 디렉토리만 생성합니다.
+
 ## Step 5.5: TaskDB 초기화 (SQLite)
 
 `.crew/db/bams.db`를 생성하여 DB 기반 태스크 관리를 활성화합니다.
@@ -193,6 +277,7 @@ Git: [초기화/기존]
 배포 환경: [준비됨/미설정]
 코드베이스 분석: [완료/스킵]
 TaskDB: [활성화됨 (.crew/db/bams.db) / 스킵]
+Memory: [에이전트 {N}개 디렉토리 생성 / 이미 존재]
 
 다음: /bams:plan <feature> | /bams:status | /bams:sprint plan
 ```

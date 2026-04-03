@@ -38,6 +38,67 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 **`references/viz-agent-protocol.md` 참조.** 모든 서브에이전트 호출 전후에 반드시 agent_start/agent_end 이벤트를 emit한다. orchestrator 내부에서 부서장/에이전트를 호출할 때도 동일하게 적용한다.
 
+
+## ★ 위임 원칙 — 커맨드 레벨 직접 수정 금지
+
+**이 커맨드에서 직접 Read/Edit/Write로 코드를 수정하지 않는다.**
+모든 코드 수정은 `pipeline-orchestrator → 부서장 → 에이전트` 위임 체계를 통해 수행한다.
+
+- 허용: Bash, Glob으로 상태 확인, viz 이벤트 emit, 사용자 질문
+- 금지: Edit/Write로 소스 코드 직접 변경, Read 없이 결과 가정
+- **위반 시**: 즉시 중단하고 pipeline-orchestrator에게 해당 작업을 위임할 것
+
+## Step 0.5: 파이프라인 타입 검증
+
+Pre-flight 완료 직후, 입력 내용이 hotfix에 적합한지 확인합니다.
+
+**타입 판별 기준:**
+
+| 입력 특성 | 적합한 파이프라인 |
+|-----------|-----------------|
+| 재현 가능한 버그, 에러 메시지, 기존 기능 오작동 | hotfix (계속 진행) |
+| 새로운 기능 추가, "~를 만들어줘", 신규 화면 | feature |
+| 기존 피처 개선, 리팩토링, 성능 최적화 | dev |
+| 보안 취약점, OWASP 관련 | security |
+
+$ARGUMENTS를 분석하여:
+1. **hotfix에 적합**: 바로 Step 1로 진행
+2. **다른 파이프라인이 적합**: AskUserQuestion으로 사용자에게 안내
+
+Question: "입력 내용이 버그 픽스보다 {적합한 파이프라인} 작업에 가까워 보입니다."
+Header: "파이프라인 타입 불일치"
+Options:
+- **hotfix로 계속** — "현재 파이프라인으로 진행"
+- **/{적합한 파이프라인} 사용** — "올바른 파이프라인으로 재시작 (현재 파이프라인 중단)"
+
+## Step 0.6: Parent Pipeline 연결
+
+이 핫픽스가 수정하는 원본 파이프라인을 연결합니다.
+
+Bash로 최근 파이프라인 목록을 조회합니다:
+
+```bash
+echo "=== 최근 파이프라인 목록 ==="
+ls -t ~/.bams/artifacts/pipeline/*-events.jsonl 2>/dev/null | head -10 | while read f; do
+  slug=$(basename "$f" -events.jsonl)
+  type=$(grep '"pipeline_start"' "$f" 2>/dev/null | head -1 | jq -r '.pipeline_type // "unknown"' 2>/dev/null)
+  echo "  $slug ($type)"
+done
+```
+
+AskUserQuestion — "이 핫픽스가 수정하는 파이프라인을 선택하세요"
+Header: "Parent"
+Options:
+- 조회된 파이프라인 목록에서 최근 5개를 옵션으로 제시
+- **없음** — "새로운 독립 핫픽스 (특정 파이프라인과 무관)"
+
+선택된 parent_pipeline_slug를 이후 pipeline_start emit 시 6번째 인자로 전달합니다.
+
+기존 pipeline_start emit 라인을 수정:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "hotfix" "/bams:hotfix" "{arguments}" "{parent_pipeline_slug}"
+```
+
 ## Step 1: 버그 진단 + 수정
 
 Bash로 다음을 실행합니다:
@@ -196,6 +257,47 @@ Step 5 완료 시, Bash로 다음을 실행합니다:
 ```bash
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 5 "{status}" {duration_ms}
 ```
+
+## Step 4.5: 에이전트 개선점 수집
+
+pipeline-orchestrator에게 개선점 수집을 지시합니다.
+
+서브에이전트 실행 (Agent tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"opus"**):
+
+> **에이전트 개선점 분석 모드** — 이 핫픽스의 근본 원인이 된 에이전트를 식별하고 개선점을 기록합니다.
+>
+> **수행할 작업:**
+> 1. `.crew/artifacts/hotfix/{slug}-triage.md`를 읽어 근본 원인 분석
+> 2. 이 버그를 만든 에이전트(또는 스킬)를 식별
+> 3. 일회성 실수인지 구조적 개선이 필요한지 판별:
+>    - `.crew/memory/{agent}/improvements/` 디렉토리에서 동일 pattern_tag 기존 레코드 검색
+>    - 기존 레코드가 있으면 type: structural, 없으면 type: one-off
+> 4. `.crew/memory/{agent}/improvements/{date}-{slug}.md` 파일 생성:
+>    ```yaml
+>    ---
+>    date: {YYYY-MM-DD}
+>    pipeline_slug: {slug}
+>    parent_pipeline_slug: {parent_slug or null}
+>    agent: {agent_type}
+>    pattern_tag: {카테고리 태그}
+>    type: one-off | structural
+>    severity: minor | major | critical
+>    ---
+>    
+>    ## 근본 원인
+>    {triage에서 식별된 근본 원인}
+>    
+>    ## 개선 제안
+>    {에이전트 또는 스킬에 대한 구체적 개선 제안}
+>    
+>    ## 관련 파이프라인
+>    - 원본: {parent_pipeline_slug}
+>    - 핫픽스: {slug}
+>    ```
+> 5. structural 유형이고 동일 pattern_tag가 2회 이상이면:
+>    - AskUserQuestion: "이 패턴이 반복되고 있습니다. 에이전트 개선을 진행할까요?"
+>    - Yes → `references/agent-improvement-protocol.md`의 Evolution Hook 실행
+>    - No → 기록만 남기고 종료
 
 ## 마무리
 

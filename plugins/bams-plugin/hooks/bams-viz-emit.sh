@@ -36,20 +36,36 @@ dept_map() {
   case "$1" in
     product-strategy|business-analysis|ux-research|project-governance) echo "planning" ;;
     frontend-engineering|backend-engineering|platform-devops|data-integration) echo "engineering" ;;
+    design-director|ui-designer|ux-designer|graphic-designer|motion-designer|design-system-agent) echo "design" ;;
     product-analytics|experimentation|performance-evaluation|business-kpi) echo "evaluation" ;;
     qa-strategy|automation-qa|defect-triage|release-quality-gate) echo "qa" ;;
-    pipeline-orchestrator|cross-department-coordinator|executive-reporter|resource-optimizer) echo "management" ;;
+    pipeline-orchestrator|cross-department-coordinator|executive-reporter|resource-optimizer|hr-agent) echo "management" ;;
     *) echo "general" ;;
   esac
 }
 
 case "$EVENT_TYPE" in
   pipeline_start)
-    jq -cn --arg slug "$SLUG" --arg ptype "${3:-unknown}" --arg cmd "${4:-}" --arg args "${5:-}" --arg ts "$TS" \
-      '{type:"pipeline_start",pipeline_slug:$slug,pipeline_type:$ptype,command:$cmd,arguments:$args,ts:$ts}' >> "$EVENTS_FILE"
+    _PARENT="${6:-}"
+    jq -cn --arg slug "$SLUG" --arg ptype "${3:-unknown}" --arg cmd "${4:-}" --arg args "${5:-}" --arg parent "$_PARENT" --arg ts "$TS" \
+      '{type:"pipeline_start",pipeline_slug:$slug,pipeline_type:$ptype,command:$cmd,arguments:$args,ts:$ts}
+       + (if $parent != "" then {parent_pipeline_slug:$parent} else {} end)' >> "$EVENTS_FILE"
     ;;
   pipeline_end)
-    jq -cn --arg slug "$SLUG" --arg status "${3:-completed}" --argjson total "${4:-0}" --argjson completed "${5:-0}" --argjson failed "${6:-0}" --argjson skipped "${7:-0}" --arg ts "$TS" \
+    # Auto-calculate step counts from event file if not explicitly provided
+    _P_STATUS="${3:-completed}"
+    _P_TOTAL="${4:-0}"
+    _P_COMPLETED="${5:-0}"
+    _P_FAILED="${6:-0}"
+    _P_SKIPPED="${7:-0}"
+    if [ "$_P_TOTAL" = "0" ] && [ -f "$EVENTS_FILE" ]; then
+      # Count unique step_end events by status
+      _P_TOTAL=$(grep -c '"step_start"' "$EVENTS_FILE" 2>/dev/null || echo 0)
+      _P_COMPLETED=$(grep '"step_end"' "$EVENTS_FILE" 2>/dev/null | grep -c '"status":"done"' 2>/dev/null || echo 0)
+      _P_FAILED=$(grep '"step_end"' "$EVENTS_FILE" 2>/dev/null | grep -c '"status":"fail"' 2>/dev/null || echo 0)
+      _P_SKIPPED=$(grep '"step_end"' "$EVENTS_FILE" 2>/dev/null | grep -c '"status":"skipped"' 2>/dev/null || echo 0)
+    fi
+    jq -cn --arg slug "$SLUG" --arg status "$_P_STATUS" --argjson total "$_P_TOTAL" --argjson completed "$_P_COMPLETED" --argjson failed "$_P_FAILED" --argjson skipped "$_P_SKIPPED" --arg ts "$TS" \
       '{type:"pipeline_end",pipeline_slug:$slug,status:$status,total_steps:$total,completed_steps:$completed,failed_steps:$failed,skipped_steps:$skipped,ts:$ts}' >> "$EVENTS_FILE"
     ;;
   step_start)

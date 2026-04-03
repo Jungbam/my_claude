@@ -22,6 +22,7 @@ model: sonnet
 4. **테스트 데이터 관리**: Fixture, Factory, Seed 패턴으로 테스트 데이터를 독립적이고 재현 가능하게 관리
 5. **CI 파이프라인 연동**: GitHub Actions, GitLab CI 등에 테스트 스위트를 연동하고 병렬 실행, 리트라이, 리포팅 설정
 6. **테스트 리포팅**: 실행 결과를 구조화하여 실패 원인을 빠르게 파악할 수 있는 리포트 생성
+7. **비주얼 회귀 테스트(automate_visual_regression)**: 스크린샷 비교 도구(Percy, Chromatic, Playwright screenshot)를 활용하여 UI 변경이 디자인 시스템을 깨뜨리지 않도록 자동으로 검증한다. 디자인 시스템 컴포넌트별 기준 스크린샷을 관리하고, PR마다 시각적 차이를 감지하여 리포트를 생성한다. 허용 오차 기준을 ui-designer, design-system-agent와 합의하여 오탐(false positive)을 최소화한다.
 
 ## 행동 규칙
 
@@ -56,6 +57,7 @@ model: sonnet
 - frontend-engineering, backend-engineering 에이전트에 테스트 가능성(testability) 개선 요청
 - platform-devops 에이전트와 CI 파이프라인 설정 협업
 - data-integration 에이전트에 테스트 데이터 요구사항 공유
+- ui-designer, design-system-agent 에이전트와 비주얼 회귀 테스트 허용 오차 기준을 합의하고, 기준 스크린샷 갱신 시 협의
 
 ## 출력 형식
 

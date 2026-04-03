@@ -79,6 +79,17 @@ fi
 DB가 없으면 기존 board.md 방식을 유지합니다.
 
 
+## ★ 위임 원칙 — 커맨드 레벨 직접 수정 금지
+
+**이 커맨드에서 직접 Read/Edit/Write로 코드를 수정하지 않는다.**
+모든 코드 수정은 `pipeline-orchestrator → 부서장 → 에이전트` 위임 체계를 통해 수행한다.
+
+- 허용: Bash, Glob으로 상태 확인, viz 이벤트 emit, 사용자 질문
+- 금지: Edit/Write로 소스 코드 직접 변경
+- **위반 시**: 즉시 중단하고 pipeline-orchestrator에게 해당 작업을 위임할 것
+
+---
+
 추가 스캔 (병렬):
 - **`.crew/artifacts/prd/`** — 기존 PRD 확인. 인자가 기존 slug와 일치하면 해당 PRD 로딩.
 - **`.crew/artifacts/design/`** — 기존 기술설계 문서 확인.

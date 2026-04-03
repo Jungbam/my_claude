@@ -320,6 +320,7 @@ function DagView({ pipeline, onAgentClick }: { pipeline: Pipeline; onAgentClick:
 
   // Summary stats
   const completedSteps = pipeline.steps.filter(s => s.status === 'done' || s.status === 'success' || s.status === 'completed').length
+  const skippedSteps = pipeline.steps.filter(s => s.status === 'skipped').length
   const totalAgents = pipeline.agents.length
   const failedAgents = pipeline.agents.filter(a => a.isError).length
 
@@ -366,6 +367,12 @@ function DagView({ pipeline, onAgentClick }: { pipeline: Pipeline; onAgentClick:
             <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>{totalAgents}</div>
             <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Agents</div>
           </div>
+          {skippedSteps > 0 && (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--status-skipped, #9ca3af)' }}>{skippedSteps}</div>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Skipped</div>
+            </div>
+          )}
           {failedAgents > 0 && (
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--status-fail)' }}>{failedAgents}</div>

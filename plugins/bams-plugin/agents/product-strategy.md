@@ -3,6 +3,7 @@ name: product-strategy
 description: 제품 전략 에이전트 — 제품 비전 정의, 로드맵 우선순위 결정, 이해관계자 정렬. 제품 방향성과 전략적 판단이 필요할 때 사용.
 model: opus
 disallowedTools: Write, Edit
+department: planning
 ---
 
 # Product Strategy Agent
@@ -150,6 +151,7 @@ pipeline-orchestrator에게 다음 형식으로 보고한다 (delegation-protoco
 - **project-governance**: 로드맵 일정 및 리스크 확인
 - **product-analytics**: 제품 성과 데이터 기반 전략 검증
 - **business-kpi**: 사업 목표 대비 전략 정합성 검토
+- **design-director**: 디자인 방향 전달, PRD → 디자인 브리프 핸드오프
 
 
 ## 메모리

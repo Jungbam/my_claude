@@ -120,3 +120,32 @@ hr-agent
 
 > 이 프로토콜은 ref-analysis-paperclip 파이프라인 Phase 2에서 구현되었다.
 > 참조: reference/paperclip/skills/para-memory-files/SKILL.md
+
+## §8. Agent Improvements (자기개선 기록)
+
+각 에이전트의 `.crew/memory/{agent}/improvements/` 디렉토리에 파이프라인별 개선 기록을 저장한다.
+
+### 디렉토리 구조
+
+```
+.crew/memory/{agent}/improvements/
+├── {YYYY-MM-DD}-{pipeline-slug}.md  # 개선 레코드
+├── {YYYY-MM-DD}-{pipeline-slug}.md
+└── backups/                          # 에이전트 .md 원본 백업
+    └── {agent}-{YYYY-MM-DD}.md
+```
+
+### improvements/ 용도
+
+- 파이프라인 실행 중 발견된 에이전트의 실수 패턴을 기록
+- Evolution Hook 트리거 여부를 판단하기 위한 누적 데이터
+- 에이전트 개선 이력 추적
+
+### 파일 명명 규칙
+
+- 레코드: `{YYYY-MM-DD}-{pipeline-slug}.md`
+  - 예: `2026-04-03-agent-self-improvement.md`
+- 백업: `{agent}-{YYYY-MM-DD}.md`
+  - 예: `backend-engineering-2026-04-03.md`
+
+상세 프로토콜: `.crew/references/agent-improvement-protocol.md` 참조.

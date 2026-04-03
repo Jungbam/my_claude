@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sed -i '' 's/^disallowedTools: Write, Edit$/disallowedTools: Write, Edit\\\\ndepartment: executive/' /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/agents/pipeline-orchestrator.md)",
+      "Bash(sed -i '' 's/^disallowedTools: Write, Edit$/disallowedTools: Write, Edit\\\\ndepartment: planning/' /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/agents/product-strategy.md)",
+      "Bash(sed -i '' 's/^disallowedTools: Write, Edit$/disallowedTools: Write, Edit\\\\ndepartment: evaluation/' /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/agents/product-analytics.md)",
+      "Bash(sed -i '' 's/^disallowedTools: Write, Edit$/disallowedTools: Write, Edit\\\\ndepartment: qa/' /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/agents/qa-strategy.md)",
+      "Bash(sed -i '' 's/^model: opus$/model: opus\\\\ndepartment: engineering/' /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/agents/frontend-engineering.md)",
+      "Bash(sed -i '' 's/^model: opus$/model: opus\\\\ndepartment: design/' /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/agents/design-director.md)",
+      "Bash(sed -i '' '24s|: 에 정의된|: `.crew/references/design-trends-2026.md`에 정의된|' /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/agents/design-director.md)",
+      "Bash(sed -i '' '96s|- 를 Read하여|- `.crew/references/design-trends-2026.md`를 Read하여|' /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/agents/design-director.md)",
+      "Bash(sed -i '' '128s|> 트렌드 전체 목록:  참조|> 트렌드 전체 목록: `.crew/references/design-trends-2026.md` 참조|' /Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/agents/design-director.md)",
+      "Bash(bun -e ':*)",
+      "Read(//Users/bamjung/Documents/ezar/claude/my_claude/**)",
+      "Bash([ -f /Users/bamjung/Documents/ezar/claude/my_claude/.crew/db/bams.db ])",
+      "Bash(sqlite3 /Users/bamjung/Documents/ezar/claude/my_claude/.crew/db/bams.db \"SELECT name FROM sqlite_master WHERE type='table';\")",
+      "Bash(sqlite3 /Users/bamjung/Documents/ezar/claude/my_claude/.crew/db/bams.db \"SELECT COUNT\\(*\\) FROM tasks;\")",
+      "Bash(sqlite3 /Users/bamjung/Documents/ezar/claude/my_claude/.crew/db/bams.db \"SELECT COUNT\\(*\\) FROM task_events;\")",
+      "Bash(sqlite3 /Users/bamjung/Documents/ezar/claude/my_claude/.crew/db/bams.db \"SELECT COUNT\\(*\\) FROM run_logs;\")",
+      "Bash(rm ~/.bams/artifacts/pipeline/*.jsonl)",
+      "Bash(rm ~/.bams/artifacts/agents/*.jsonl)",
+      "Bash(sqlite3 /Users/bamjung/Documents/ezar/claude/my_claude/.crew/db/bams.db \"SELECT 'tasks:'||COUNT\\(*\\) FROM tasks; SELECT 'task_events:'||COUNT\\(*\\) FROM task_events; SELECT 'run_logs:'||COUNT\\(*\\) FROM run_logs;\")"
+    ]
+  }
+}
