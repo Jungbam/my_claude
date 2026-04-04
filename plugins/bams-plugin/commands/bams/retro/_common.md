@@ -120,3 +120,23 @@ _BENCHMARK_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/be
 - **retro 이벤트 JSONL(`~/.bams/artifacts/pipeline/{slug}-events.jsonl`)은 `pipeline_end` emit 직후 즉시 삭제합니다** — retro 파이프라인은 viz DAG/Gantt/Timeline에 표시하지 않습니다
 - **분석 대상 파이프라인 이벤트(`~/.bams/artifacts/pipeline/{analyzed-slug}-events.jsonl`)는 HR DB 변환 완료 직후 삭제합니다** — retro 결과가 HR DB에 영속화된 후 소스 이벤트는 불필요합니다
 - 보존 기간 변경이 필요하면 이 파일의 정책을 수정하세요
+
+---
+
+## ★ Pre-flight Recovery (모든 Phase 실행 전)
+
+파이프라인 시작 시 이전 중단된 이벤트를 자동으로 정리합니다.
+커맨드가 파이프라인 slug를 알게 된 직후, `pipeline_start` emit 이전에 실행합니다:
+
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
+[ -n "$_EMIT" ] && bash "$_EMIT" recover "{slug}"
+```
+
+이 명령은 이벤트 파일을 스캔하여:
+- 매칭 없는 `agent_start` → `agent_end(status=interrupted)` 자동 emit
+- 매칭 없는 `step_start` → `step_end(status=interrupted)` 자동 emit
+- 매칭 없는 `pipeline_start` → `pipeline_end(status=interrupted)` 자동 emit
+
+이전 파이프라인 이벤트 파일이 없으면 no-op으로 종료합니다.
+

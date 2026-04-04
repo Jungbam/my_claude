@@ -9,6 +9,16 @@ Bams 오케스트레이터로서 5개 전문 병렬 qa-strategy 에이전트를 
 
 리뷰 대상: $ARGUMENTS
 
+## Pre-flight
+
+### Viz 이벤트: pipeline_start
+
+사전 조건 확인 후, Bash로 다음을 실행합니다:
+
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "review" "/bams:review" "{arguments}"
+```
+
 ## 코드 최신화
 
 Bash로 `git rev-parse --is-inside-work-tree 2>/dev/null`를 실행하여 git 저장소인지 확인합니다.
@@ -175,3 +185,11 @@ git 저장소인 경우, 수정 후 `git diff --stat` 표시하고 적용/되돌
 ## Phase 8: CLAUDE.md 상태 업데이트
 
 `CLAUDE.md`의 `## Bams 현재 상태` 섹션을 업데이트합니다.
+
+### Viz 이벤트: pipeline_end
+
+파이프라인 종료 시, Bash로 다음을 실행합니다:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_end "{slug}" "{status}" {total} {completed} {failed} {skipped}
+```
+(`{status}`는 `completed` / `paused` / `failed` 중 하나, `{total}`은 8)

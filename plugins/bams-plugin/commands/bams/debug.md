@@ -98,9 +98,9 @@ Bash로 다음을 실행합니다:
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 1 "버그 분류 및 재현" "Phase 1: 진단"
 ```
 
-### 1b. defect-triage 에이전트
+### 1b. qa-strategy 부서장 (defect-triage 위임)
 
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:defect-triage"**, model: **"opus"**):
+서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:qa-strategy"**, model: **"opus"**):
 
 > **버그 분류 및 재현 모드**로 보고된 버그를 분류하고 재현을 시도합니다.
 >
@@ -204,7 +204,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 프로젝트에 테스트 러너가 있으면 Bash로 실행. 실패 시 사용자에게 수정/조사/스킵 선택.
 
 **3b — 회귀 테스트 생성:**
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:automation-qa"**, model: **"sonnet"**):
+서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:qa-strategy"**, model: **"sonnet"**):
 
 > **회귀 테스트 모드**로 버그 수정에 대한 회귀 테스트를 작성합니다.
 >

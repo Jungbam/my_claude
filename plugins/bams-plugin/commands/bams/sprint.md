@@ -11,6 +11,16 @@ Bams 오케스트레이터로서 스프린트 운영을 관리합니다.
 
 $ARGUMENTS가 비어있으면, 아래 도움말 섹션을 표시하고 중단합니다.
 
+## Pre-flight
+
+### Viz 이벤트: pipeline_start
+
+사전 조건 확인 후, Bash로 다음을 실행합니다:
+
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "sprint" "/bams:sprint" "{arguments}"
+```
+
 ## 코드 최신화
 
 Bash로 `git rev-parse --is-inside-work-tree 2>/dev/null`를 실행하여 git 저장소인지 확인합니다.
@@ -145,3 +155,11 @@ Bams 스프린트 커맨드
   /bams:sprint status   현재 스프린트 진행 상황 확인
   /bams:sprint close    회고와 함께 스프린트 종료
 ```
+
+### Viz 이벤트: pipeline_end
+
+모든 액션(plan, status, close) 완료 후, Bash로 다음을 실행합니다:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_end "{slug}" "{status}" {total} {completed} {failed} {skipped}
+```
+(`{status}`는 `completed` / `paused` / `failed` 중 하나, `{total}`은 해당 액션의 총 step 수)

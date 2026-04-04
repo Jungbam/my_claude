@@ -80,3 +80,23 @@ fi
 ```
 
 DB가 없으면 기존 board.md 방식을 유지합니다.
+
+---
+
+## ★ Pre-flight Recovery (모든 Phase 실행 전)
+
+파이프라인 시작 시 이전 중단된 이벤트를 자동으로 정리합니다.
+커맨드가 파이프라인 slug를 알게 된 직후, `pipeline_start` emit 이전에 실행합니다:
+
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
+[ -n "$_EMIT" ] && bash "$_EMIT" recover "{slug}"
+```
+
+이 명령은 이벤트 파일을 스캔하여:
+- 매칭 없는 `agent_start` → `agent_end(status=interrupted)` 자동 emit
+- 매칭 없는 `step_start` → `step_end(status=interrupted)` 자동 emit
+- 매칭 없는 `pipeline_start` → `pipeline_end(status=interrupted)` 자동 emit
+
+이전 파이프라인 이벤트 파일이 없으면 no-op으로 종료합니다.
+

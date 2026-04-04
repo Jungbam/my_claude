@@ -36,7 +36,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 ```bash
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_end "{slug}" "{status}" {total} {completed} {failed} {skipped}
 ```
-(`{status}`는 `completed` / `paused` / `failed` 중 하나, `{total}`은 10)
+(`{status}`는 `completed` / `paused` / `failed` 중 하나, `{total}`은 11)
 
 ### completion-protocol 참조
 

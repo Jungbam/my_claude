@@ -61,9 +61,14 @@ case "$EVENT_TYPE" in
     if [ "$_P_TOTAL" = "0" ] && [ -f "$EVENTS_FILE" ]; then
       # Count unique step_end events by status
       _P_TOTAL=$(grep -c '"step_start"' "$EVENTS_FILE" 2>/dev/null || echo 0)
-      _P_COMPLETED=$(grep '"step_end"' "$EVENTS_FILE" 2>/dev/null | grep -c '"status":"done"' 2>/dev/null || echo 0)
-      _P_FAILED=$(grep '"step_end"' "$EVENTS_FILE" 2>/dev/null | grep -c '"status":"fail"' 2>/dev/null || echo 0)
-      _P_SKIPPED=$(grep '"step_end"' "$EVENTS_FILE" 2>/dev/null | grep -c '"status":"skipped"' 2>/dev/null || echo 0)
+      _P_COMPLETED=$(grep '"step_end"' "$EVENTS_FILE" 2>/dev/null | grep -c '"status":"done"' 2>/dev/null | tr -d '\n' | head -1 || echo 0)
+      _P_FAILED=$(grep '"step_end"' "$EVENTS_FILE" 2>/dev/null | grep -c '"status":"fail"' 2>/dev/null | tr -d '\n' | head -1 || echo 0)
+      _P_SKIPPED=$(grep '"step_end"' "$EVENTS_FILE" 2>/dev/null | grep -c '"status":"skipped"' 2>/dev/null | tr -d '\n' | head -1 || echo 0)
+      # Ensure values are pure integers (strip any trailing newlines or extra output)
+      _P_TOTAL=$(printf '%s' "$_P_TOTAL" | tr -d '\n ' | grep -E '^[0-9]+$' || echo 0)
+      _P_COMPLETED=$(printf '%s' "$_P_COMPLETED" | tr -d '\n ' | grep -E '^[0-9]+$' || echo 0)
+      _P_FAILED=$(printf '%s' "$_P_FAILED" | tr -d '\n ' | grep -E '^[0-9]+$' || echo 0)
+      _P_SKIPPED=$(printf '%s' "$_P_SKIPPED" | tr -d '\n ' | grep -E '^[0-9]+$' || echo 0)
     fi
     jq -cn --arg slug "$SLUG" --arg status "$_P_STATUS" --argjson total "$_P_TOTAL" --argjson completed "$_P_COMPLETED" --argjson failed "$_P_FAILED" --argjson skipped "$_P_SKIPPED" --arg ts "$TS" \
       '{type:"pipeline_end",pipeline_slug:$slug,status:$status,total_steps:$total,completed_steps:$completed,failed_steps:$failed,skipped_steps:$skipped,ts:$ts}' >> "$EVENTS_FILE"
@@ -146,6 +151,35 @@ case "$EVENT_TYPE" in
           --argjson output "$_OUT_TOK" \
           '{pipeline_slug:$slug,agent_slug:$agent,model:$model,input_tokens:$input,output_tokens:$output,billed_cents:0}')" \
         > /dev/null 2>&1 || true
+    fi
+    ;;
+  recover)
+    # Scan event file for unmatched start events and emit interrupted end events.
+    # Usage: bash bams-viz-emit.sh recover <slug>
+    if [ ! -f "$EVENTS_FILE" ]; then
+      exit 0
+    fi
+    RECOVER_TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    # 1. Find agent_start entries without matching agent_end
+    while IFS= read -r _line; do
+      _CALL_ID=$(printf '%s' "$_line" | jq -r '.call_id // empty' 2>/dev/null)
+      _AGENT_TYPE=$(printf '%s' "$_line" | jq -r '.agent_type // empty' 2>/dev/null)
+      [ -z "$_CALL_ID" ] && continue
+      if ! grep -q '"agent_end"' "$EVENTS_FILE" 2>/dev/null ||          ! grep '"agent_end"' "$EVENTS_FILE" 2>/dev/null | grep -q ""call_id":"$_CALL_ID""; then
+        jq -cn           --arg call_id "$_CALL_ID"           --arg agent_type "$_AGENT_TYPE"           --arg slug "$SLUG"           --arg ts "$RECOVER_TS"           '{type:"agent_end",call_id:$call_id,agent_type:$agent_type,status:"interrupted",is_error:true,duration_ms:null,result_summary:"session interrupted — recovered",output:"",token_usage:null,ts:$ts,pipeline_slug:$slug}' >> "$EVENTS_FILE"
+      fi
+    done < <(grep '"agent_start"' "$EVENTS_FILE" 2>/dev/null || true)
+    # 2. Find step_start entries without matching step_end
+    while IFS= read -r _line; do
+      _STEP_NUM=$(printf '%s' "$_line" | jq -r '.step_number // empty' 2>/dev/null)
+      [ -z "$_STEP_NUM" ] && continue
+      if ! grep -q '"step_end"' "$EVENTS_FILE" 2>/dev/null ||          ! grep '"step_end"' "$EVENTS_FILE" 2>/dev/null | grep -q ""step_number":$_STEP_NUM"; then
+        jq -cn           --argjson num "$_STEP_NUM"           --arg slug "$SLUG"           --arg ts "$RECOVER_TS"           '{type:"step_end",pipeline_slug:$slug,step_number:$num,status:"interrupted",duration_ms:0,ts:$ts}' >> "$EVENTS_FILE"
+      fi
+    done < <(grep '"step_start"' "$EVENTS_FILE" 2>/dev/null || true)
+    # 3. If pipeline_start exists without pipeline_end, emit pipeline_end(interrupted)
+    if grep -q '"pipeline_start"' "$EVENTS_FILE" 2>/dev/null &&        ! grep -q '"pipeline_end"' "$EVENTS_FILE" 2>/dev/null; then
+      jq -cn         --arg slug "$SLUG"         --arg ts "$RECOVER_TS"         '{type:"pipeline_end",pipeline_slug:$slug,status:"interrupted",total_steps:0,completed_steps:0,failed_steps:0,skipped_steps:0,ts:$ts}' >> "$EVENTS_FILE"
     fi
     ;;
   error)

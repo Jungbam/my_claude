@@ -79,7 +79,7 @@ echo "[retro] slug: $SLUG"
 
 ```bash
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-[ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "retro" "{TARGET_SCOPE}"
+[ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "retro" "/bams:retro" "{TARGET_SCOPE}"
 ```
 
 ## Phase 라우팅

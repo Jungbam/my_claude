@@ -11,6 +11,14 @@
 
 ---
 
+## Viz 이벤트: pipeline_start
+
+Step 0 시작 전, Bash로 다음을 실행합니다:
+
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "feature" "/bams:feature" "{arguments}"
+```
+
 ## Step 0. resource-optimizer 전략 수립
 
 Bash로 다음을 실행합니다:
