@@ -36,6 +36,10 @@ _BENCHMARK_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/be
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "performance" "/bams:performance" "{arguments}"
 ```
 
+### ★ Viz Agent 이벤트 규칙
+
+**`references/viz-agent-protocol.md` 참조.** 모든 서브에이전트 호출 전후에 반드시 agent_start/agent_end 이벤트를 emit한다. orchestrator 내부에서 부서장/에이전트를 호출할 때도 동일하게 적용한다.
+
 ## 베이스라인 모드 (--baseline)
 
 Bash로 다음을 실행합니다:
@@ -97,3 +101,40 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 1. `perf-baseline:` — 베이스라인 수치 (LCP, FCP, CLS, 번들 사이즈)
 2. `perf-regression:` — 이전 대비 악화 지표
 3. `perf-improvement:` — 최적화 적용 후 개선 수치
+
+
+### TaskDB 연동 (DB가 존재하면 board.md 대신 DB 사용)
+
+`~/.claude/plugins/marketplaces/my-claude/bams.db`가 존재하면 DB를 우선 사용합니다:
+
+```bash
+# DB 존재 확인
+if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
+  echo "[bams-db] DB 모드 활성화"
+fi
+```
+
+**태스크 등록 시 (DB가 존재하면):** Bash로 bun 스크립트를 실행하여 TaskDB에 태스크를 등록합니다.
+
+```bash
+# DB가 존재하면 TaskDB에 태스크 등록
+if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
+  bun -e "
+    import { TaskDB } from './plugins/bams-plugin/tools/bams-db/index.ts';
+    const db = new TaskDB();
+    db.createTask({ pipeline_slug: '{slug}', title: '{task_title}', status: 'in_progress', assignee_agent: '{agent}', phase: {phase} });
+    db.close();
+  "
+fi
+```
+
+**파이프라인 완료 시 (DB가 존재하면):** board.md를 DB 스냅샷으로 갱신합니다.
+
+```bash
+if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
+  bun run plugins/bams-plugin/tools/bams-db/sync-board.ts {slug} --write
+fi
+```
+
+DB가 없으면 기존 board.md 방식을 유지합니다.
+

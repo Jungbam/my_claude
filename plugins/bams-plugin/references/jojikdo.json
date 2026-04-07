@@ -1574,6 +1574,376 @@
       "department_lead": "dynamic"
     },
     {
+      "department_id": "design",
+      "department_name": "디자인부서",
+      "parent_department_id": null,
+      "mission": "제품의 시각적 경험과 사용자 인터페이스를 설계하고, 디자인 시스템을 구축하여 일관된 사용자 경험을 보장한다",
+      "agents": [
+        {
+          "agent_id": "design_director_agent",
+          "agent_name": "Design Director Agent",
+          "responsibility": "디자인 전략 수립, 디자인팀 조율, 브랜드 일관성 보장",
+          "inputs": [
+            "product_vision",
+            "brand_guidelines",
+            "user_research_report"
+          ],
+          "outputs": [
+            "design_strategy",
+            "design_review_decision",
+            "brand_consistency_report"
+          ],
+          "skills": [
+            {
+              "skill_id": "define_design_strategy",
+              "skill_name": "Design Strategy Definition",
+              "purpose": "제품 비전에 맞는 디자인 전략과 방향성을 수립한다",
+              "inputs": [
+                "product_vision",
+                "competitive_analysis",
+                "user_research_report"
+              ],
+              "process": [
+                "제품 목표와 사용자 니즈를 분석한다",
+                "디자인 원칙과 방향성을 정의한다",
+                "팀 내 디자인 작업을 조율한다",
+                "브랜드 일관성을 검토하고 피드백을 제공한다"
+              ],
+              "artifacts": [
+                "design_strategy",
+                "design_review_decision"
+              ],
+              "agent_calls": [
+                {
+                  "callee_agent": "product_strategy_agent",
+                  "call_purpose": "제품 비전 및 방향성 확인",
+                  "expected_output": "product_direction_confirmation"
+                },
+                {
+                  "callee_agent": "ux_research_agent",
+                  "call_purpose": "사용자 인사이트 공유",
+                  "expected_output": "user_insight_summary"
+                }
+              ],
+              "completion_criteria": [
+                "디자인 전략이 제품 목표와 정렬된다",
+                "팀 전체가 디자인 방향성을 공유한다"
+              ]
+            }
+          ],
+          "collaboration_with": [
+            "product_strategy_agent",
+            "frontend_engineering_agent",
+            "ux_research_agent"
+          ],
+          "role": "lead"
+        },
+        {
+          "agent_id": "ui_designer_agent",
+          "agent_name": "UI Designer Agent",
+          "responsibility": "사용자 인터페이스 화면 설계 및 시각적 디자인 구현",
+          "inputs": [
+            "functional_spec",
+            "design_strategy",
+            "user_journey_map"
+          ],
+          "outputs": [
+            "ui_design",
+            "screen_mockup",
+            "interaction_spec"
+          ],
+          "skills": [
+            {
+              "skill_id": "design_ui_screens",
+              "skill_name": "UI Screen Design",
+              "purpose": "기능 명세를 기반으로 화면 레이아웃과 인터랙션을 설계한다",
+              "inputs": [
+                "functional_spec",
+                "design_system",
+                "user_journey_map"
+              ],
+              "process": [
+                "와이어프레임을 작성한다",
+                "디자인 시스템 컴포넌트를 적용한다",
+                "인터랙션 및 상태 변화를 설계한다",
+                "화면 흐름과 레이아웃을 확정한다"
+              ],
+              "artifacts": [
+                "ui_design",
+                "screen_mockup",
+                "interaction_spec"
+              ],
+              "agent_calls": [
+                {
+                  "callee_agent": "design_system_agent",
+                  "call_purpose": "컴포넌트 및 토큰 사용 확인",
+                  "expected_output": "component_usage_guide"
+                },
+                {
+                  "callee_agent": "frontend_engineering_agent",
+                  "call_purpose": "구현 가능성 검토",
+                  "expected_output": "implementation_feasibility"
+                }
+              ],
+              "completion_criteria": [
+                "기능 명세의 모든 화면이 설계된다",
+                "디자인 시스템 규칙을 준수한다"
+              ]
+            }
+          ],
+          "collaboration_with": [
+            "design_director_agent",
+            "design_system_agent",
+            "frontend_engineering_agent",
+            "ux_designer_agent"
+          ],
+          "role": "specialist"
+        },
+        {
+          "agent_id": "ux_designer_agent",
+          "agent_name": "UX Designer Agent",
+          "responsibility": "사용자 경험 흐름 설계, 사용성 검증, 인터랙션 패턴 정의",
+          "inputs": [
+            "user_research_report",
+            "user_journey_map",
+            "functional_spec"
+          ],
+          "outputs": [
+            "ux_flow_design",
+            "usability_test_result",
+            "interaction_pattern_spec"
+          ],
+          "skills": [
+            {
+              "skill_id": "design_ux_flow",
+              "skill_name": "UX Flow Design",
+              "purpose": "사용자가 목표를 달성하는 최적의 경험 흐름을 설계한다",
+              "inputs": [
+                "user_research_report",
+                "user_journey_map",
+                "use_case_doc"
+              ],
+              "process": [
+                "사용자 목표와 태스크를 분석한다",
+                "최소 마찰의 플로우를 설계한다",
+                "엣지 케이스와 오류 상황을 정의한다",
+                "프로토타입으로 흐름을 검증한다"
+              ],
+              "artifacts": [
+                "ux_flow_design",
+                "interaction_pattern_spec"
+              ],
+              "agent_calls": [
+                {
+                  "callee_agent": "ux_research_agent",
+                  "call_purpose": "사용자 행동 패턴 확인",
+                  "expected_output": "user_behavior_insight"
+                },
+                {
+                  "callee_agent": "ui_designer_agent",
+                  "call_purpose": "화면 설계와 흐름 정렬",
+                  "expected_output": "flow_screen_alignment"
+                }
+              ],
+              "completion_criteria": [
+                "사용자가 주요 태스크를 마찰 없이 완료할 수 있다",
+                "오류 상황에서도 복구 경로가 명확하다"
+              ]
+            }
+          ],
+          "collaboration_with": [
+            "design_director_agent",
+            "ui_designer_agent",
+            "ux_research_agent",
+            "qa_strategy_agent"
+          ],
+          "role": "specialist"
+        },
+        {
+          "agent_id": "graphic_designer_agent",
+          "agent_name": "Graphic Designer Agent",
+          "responsibility": "브랜드 비주얼, 마케팅 자료, 아이콘 및 일러스트 제작",
+          "inputs": [
+            "brand_guidelines",
+            "design_strategy",
+            "content_brief"
+          ],
+          "outputs": [
+            "brand_visual_assets",
+            "marketing_materials",
+            "icon_set"
+          ],
+          "skills": [
+            {
+              "skill_id": "create_brand_visuals",
+              "skill_name": "Brand Visual Creation",
+              "purpose": "브랜드 정체성에 부합하는 시각적 자산을 제작한다",
+              "inputs": [
+                "brand_guidelines",
+                "design_strategy",
+                "content_brief"
+              ],
+              "process": [
+                "브랜드 가이드라인을 분석한다",
+                "비주얼 컨셉을 도출한다",
+                "아이콘, 일러스트, 마케팅 자료를 제작한다",
+                "디자인 디렉터의 검토를 받는다"
+              ],
+              "artifacts": [
+                "brand_visual_assets",
+                "icon_set",
+                "marketing_materials"
+              ],
+              "agent_calls": [
+                {
+                  "callee_agent": "design_director_agent",
+                  "call_purpose": "브랜드 일관성 검토",
+                  "expected_output": "brand_review_feedback"
+                },
+                {
+                  "callee_agent": "design_system_agent",
+                  "call_purpose": "아이콘 시스템 통합 확인",
+                  "expected_output": "icon_integration_guide"
+                }
+              ],
+              "completion_criteria": [
+                "브랜드 가이드라인을 준수한다",
+                "제작물이 디자인 시스템에 통합 가능하다"
+              ]
+            }
+          ],
+          "collaboration_with": [
+            "design_director_agent",
+            "design_system_agent",
+            "ui_designer_agent"
+          ],
+          "role": "specialist"
+        },
+        {
+          "agent_id": "motion_designer_agent",
+          "agent_name": "Motion Designer Agent",
+          "responsibility": "UI 트랜지션, 마이크로인터랙션, 애니메이션 설계 및 구현 가이드 제공",
+          "inputs": [
+            "ui_design",
+            "interaction_spec",
+            "brand_guidelines"
+          ],
+          "outputs": [
+            "motion_design_spec",
+            "animation_prototype",
+            "transition_guide"
+          ],
+          "skills": [
+            {
+              "skill_id": "design_motion_interactions",
+              "skill_name": "Motion Interaction Design",
+              "purpose": "UI 요소의 움직임을 통해 사용자 경험의 자연스러움과 피드백을 향상시킨다",
+              "inputs": [
+                "ui_design",
+                "interaction_spec",
+                "performance_constraints"
+              ],
+              "process": [
+                "인터랙션 포인트를 파악한다",
+                "애니메이션 원칙(이징, 타이밍)을 적용한다",
+                "프로토타입으로 동작을 검증한다",
+                "프론트 구현을 위한 스펙을 작성한다"
+              ],
+              "artifacts": [
+                "motion_design_spec",
+                "animation_prototype",
+                "transition_guide"
+              ],
+              "agent_calls": [
+                {
+                  "callee_agent": "frontend_engineering_agent",
+                  "call_purpose": "애니메이션 구현 가능성 확인",
+                  "expected_output": "animation_feasibility_report"
+                },
+                {
+                  "callee_agent": "performance_evaluation_agent",
+                  "call_purpose": "애니메이션 성능 영향 검토",
+                  "expected_output": "animation_performance_impact"
+                }
+              ],
+              "completion_criteria": [
+                "모든 트랜지션이 60fps 이상에서 동작한다",
+                "프론트 구현 스펙이 명확하다"
+              ]
+            }
+          ],
+          "collaboration_with": [
+            "ui_designer_agent",
+            "frontend_engineering_agent",
+            "performance_evaluation_agent"
+          ],
+          "role": "specialist"
+        },
+        {
+          "agent_id": "design_system_agent",
+          "agent_name": "Design System Agent",
+          "responsibility": "디자인 토큰, 컴포넌트 라이브러리, 사용 가이드라인 구축 및 유지",
+          "inputs": [
+            "brand_guidelines",
+            "ui_design",
+            "engineering_component_library"
+          ],
+          "outputs": [
+            "design_system",
+            "component_usage_guide",
+            "token_definitions"
+          ],
+          "skills": [
+            {
+              "skill_id": "build_design_system",
+              "skill_name": "Design System Build",
+              "purpose": "일관된 UI를 위한 토큰, 컴포넌트, 패턴을 체계적으로 정의하고 유지한다",
+              "inputs": [
+                "brand_guidelines",
+                "existing_ui_patterns",
+                "engineering_component_library"
+              ],
+              "process": [
+                "컬러, 타이포, 스페이싱 토큰을 정의한다",
+                "재사용 가능한 컴포넌트를 명세화한다",
+                "컴포넌트 사용 가이드라인을 작성한다",
+                "엔지니어링 컴포넌트와 정합성을 검토한다"
+              ],
+              "artifacts": [
+                "design_system",
+                "token_definitions",
+                "component_usage_guide"
+              ],
+              "agent_calls": [
+                {
+                  "callee_agent": "frontend_engineering_agent",
+                  "call_purpose": "컴포넌트 구현 정합성 확인",
+                  "expected_output": "component_implementation_alignment"
+                },
+                {
+                  "callee_agent": "design_director_agent",
+                  "call_purpose": "디자인 시스템 방향성 승인",
+                  "expected_output": "design_system_approval"
+                }
+              ],
+              "completion_criteria": [
+                "모든 UI 컴포넌트가 시스템으로 관리된다",
+                "엔지니어링 구현체와 디자인 명세가 일치한다"
+              ]
+            }
+          ],
+          "collaboration_with": [
+            "design_director_agent",
+            "ui_designer_agent",
+            "graphic_designer_agent",
+            "frontend_engineering_agent"
+          ],
+          "role": "specialist"
+        }
+      ],
+      "department_lead": "design_director_agent"
+    },
+    {
       "department_id": "evaluation",
       "department_name": "평가부서",
       "mission": "만든 기능이 성과, 사용자 경험, 사업 목표에 실제로 기여하는지 검증한다",

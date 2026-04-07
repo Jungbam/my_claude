@@ -179,6 +179,31 @@ _VIZ_DIR=$(find . -path "*/bams-plugin/tools/bams-viz/src/app/page.tsx" -not -pa
 cd "$_VIZ_DIR" && npm install 2>&1
 ```
 
+### Step 2.5: bams-server 기동
+
+bams-viz가 API 데이터를 올바르게 표시하려면 Control Plane 서버(port 3099)가 필요합니다.
+
+```bash
+if ! curl -sf http://localhost:3099/health > /dev/null 2>&1; then
+  echo "[bams] Control Plane 서버 기동 중..."
+  _SERVER_SCRIPT=$(find . -path "*/bams-plugin/server/src/app.ts" -not -path "*/node_modules/*" 2>/dev/null | head -1)
+  [ -z "$_SERVER_SCRIPT" ] && _SERVER_SCRIPT=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/server/src/app.ts" 2>/dev/null | head -1)
+  if [ -n "$_SERVER_SCRIPT" ]; then
+    nohup bun run "$_SERVER_SCRIPT" > /tmp/bams-server.log 2>&1 &
+    sleep 1
+    if curl -sf http://localhost:3099/health > /dev/null 2>&1; then
+      echo "[bams] Control Plane 서버 기동 완료 (http://localhost:3099)"
+    else
+      echo "[bams] WARNING: 서버 기동 실패 — 파일 fallback 모드로 진행"
+    fi
+  else
+    echo "[bams] WARNING: server/src/app.ts를 찾을 수 없음 — 파일 fallback 모드로 진행"
+  fi
+else
+  echo "[bams] Control Plane 서버 이미 실행 중 (http://localhost:3099)"
+fi
+```
+
 ### Step 3: 빌드 + 실행
 
 ```bash
@@ -212,6 +237,32 @@ URL: http://localhost:3333
 
 ## 모드 4: 서버 종료 (`/bams:viz stop`)
 
+bams-viz 대시보드와 Control Plane 서버를 모두 종료합니다.
+
 ```bash
-pkill -f "next.*3333" 2>/dev/null && echo "bams-viz 종료됨" || echo "서버가 실행 중이 아닙니다."
+echo "=== bams 서버 종료 ==="
+
+# 1. bams-viz (Next.js, port 3333)
+if pkill -f "next.*3333" 2>/dev/null; then
+  echo "✓ bams-viz (port 3333) 종료됨"
+else
+  echo "- bams-viz: 실행 중이 아님"
+fi
+
+# 2. Control Plane (bams-server, port 3099)
+if pkill -f "bams.*app.ts" 2>/dev/null || pkill -f "bun.*3099" 2>/dev/null; then
+  echo "✓ Control Plane (port 3099) 종료됨"
+else
+  echo "- Control Plane: 실행 중이 아님"
+fi
+
+# 3. 포트 점유 프로세스 잔여 확인 (위 pkill로 안 잡힌 경우)
+for port in 3333 3099; do
+  pid=$(lsof -ti :$port 2>/dev/null)
+  if [ -n "$pid" ]; then
+    kill $pid 2>/dev/null && echo "✓ port $port 잔여 프로세스($pid) 종료됨"
+  fi
+done
+
+echo "=== 완료 ==="
 ```

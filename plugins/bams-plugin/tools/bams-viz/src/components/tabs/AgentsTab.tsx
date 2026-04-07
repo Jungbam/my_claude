@@ -61,7 +61,7 @@ function buildAgentRows(data: AgentData | null): AgentRow[] {
 }
 
 function buildDeptSummaries(rows: AgentRow[]): DeptSummary[] {
-  const deptOrder = ['management', 'planning', 'engineering', 'evaluation', 'qa']
+  const deptOrder = ['management', 'planning', 'engineering', 'design', 'evaluation', 'qa']
   return deptOrder.map(dept => {
     const deptRows = rows.filter(r => r.department === dept)
     const info = DEPT_INFO[dept] || { color: '#6c757d', label: dept }

@@ -41,6 +41,17 @@ disallowedTools: Write, Edit
 - 캐시 가능한 결과(리뷰, 분석)를 식별하여 재실행 방지
 - 비용 임계값 초과 시 pipeline-orchestrator에게 알림
 
+### 파이프라인 이력 기반 재조정 규칙
+
+파이프라인 시작 시 이전 실행 지표를 참조하여 모델 배분을 재조정한다:
+
+- 에이전트별 재시도율 > 30% → 상위 모델 권고 (sonnet → opus)
+- 에이전트별 avg_ms > 글로벌 평균 150% → 배치 분할 전략 함께 권고
+- 개선 시뮬레이션 결과를 Resource Plan에 포함:
+  "현재 {에이전트} {모델} → 재시도율 {N}% → 상위 모델 권고 시 예상 재시도율 {M}%"
+
+참조 파일: phase1-agent-metrics.md 또는 이전 retro 산출물
+
 ## 출력 형식
 
 ### 리소스 배분 계획
@@ -146,3 +157,70 @@ Phase 2:
 - [권고 항목 1]
 - [권고 항목 2]
 ```
+
+
+
+## 학습된 교훈
+
+### [2026-04-05] retro_전체회고_1에서 확인된 패턴
+
+**맥락**: retro_전체회고_1 회고 — C등급(82.5점). 재시도율 50%(2회 호출 중 1건 세션 재시작 중복). 실제 파이프라인 이력 기반 재조정 규칙 미명시.
+
+**문제**:
+1. 세션 재시작 시 동일 파이프라인에서 이미 모델 배분 계획을 수립한 경우 재호출
+2. 실제 이력(avg_ms, 에러율) 기반 모델 업그레이드 권고 미실행
+
+**교훈**:
+- call_id 기반 멱등성 체크로 중복 skip 처리 필요
+- 파이프라인 이력을 참조하여 재시도율 30% 이상 에이전트에 상위 모델 선제 권고
+- 재시도율 50%는 호출 수 2건으로 인한 통계 왜곡 — 더 많은 샘플로 재평가 필요
+
+**적용 범위**: 모든 파이프라인 유형 (feature, hotfix, dev, retro)
+**출처**: retro_전체회고_1
+
+## 메모리
+
+이 에이전트는 세션 간 학습과 컨텍스트를 `.crew/memory/{agent-slug}/` 디렉터리에 PARA 방식으로 영구 저장한다.
+전체 프로토콜: `.crew/references/memory-protocol.md`
+
+### 세션 시작 시 로드
+
+파이프라인 시작 전 다음을 Read하여 이전 학습 항목을 로드한다:
+1. `.crew/memory/{agent-slug}/MEMORY.md` — Tacit knowledge (패턴, 반복 실수, gotcha)
+2. `.crew/memory/{agent-slug}/life/projects/{pipeline-slug}/summary.md` — 현재 파이프라인 컨텍스트 (존재하는 경우)
+
+### 파이프라인 완료 시 저장
+
+회고 단계에서 pipeline-orchestrator의 KPT 요청 시 `MEMORY.md`에 다음 형식으로 추가:
+
+```markdown
+## [YYYY-MM-DD] {pipeline-slug}
+- 발견 사항: [이번 파이프라인에서 발견한 패턴 또는 문제]
+- 적용 패턴: [성공적으로 적용한 접근 방식]
+- 주의사항: [다음 실행 시 주의할 gotcha]
+```
+
+### PARA 디렉터리 구조
+
+```
+.crew/memory/{agent-slug}/
+├── MEMORY.md              # Tacit knowledge (세션 시작 시 필수 로드)
+├── life/
+│   ├── projects/          # 진행 중 파이프라인별 컨텍스트
+│   ├── areas/             # 지속적 책임 영역
+│   ├── resources/         # 참조 자료
+│   └── archives/          # 완료/비활성 항목
+└── memory/                # 날짜별 세션 로그 (YYYY-MM-DD.md)
+```
+
+## Best Practice 참조
+
+**★ 작업 시작 시 반드시 Read:**
+Bash로 best-practice 파일을 찾아 Read합니다:
+```bash
+_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/resource-optimizer.md" 2>/dev/null | head -1)
+[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/resource-optimizer.md" 2>/dev/null | head -1)
+[ -n "$_BP" ] && echo "참조: $_BP"
+```
+- 파일이 발견되면 Read하여 해당 Responsibility별 협업 대상, 작업 절차, 주의사항을 확인
+- 파일이 없으면 건너뛰고 진행

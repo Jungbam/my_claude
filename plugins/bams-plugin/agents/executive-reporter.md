@@ -42,6 +42,15 @@ disallowedTools: Write, Edit
 - 액션 아이템을 담당자·기한과 함께 명시
 - 이전 보고서 대비 변화를 하이라이트
 
+### 파일 저장 위임 규칙 (필수 준수)
+
+executive-reporter는 `disallowedTools: Write, Edit` 제약으로 파일 직접 저장 불가하다.
+집계 보고서, 대시보드, 요약 파일 저장이 필요한 경우:
+
+→ **platform-devops에게 위임**: `task_description: "파일 저장"`, `content: {저장할 내용}`, `target_path: {경로}`
+
+위임 없이 파일 저장을 시도하는 것은 에러 원인 — **즉시 platform-devops 위임으로 전환**.
+
 ## 출력 형식
 
 ### 파이프라인 상태 대시보드
@@ -88,6 +97,7 @@ Phase: {current}/{total}  |  진행률: {n}%
 - **product-analytics**: KPI/성과 데이터 조회
 - **business-kpi**: 사업 성과 지표 조회
 - **performance-evaluation**: 성능 수치 조회
+- **hr-agent**: 에이전트 퍼포먼스 리포트 반영
 
 ## 파이프라인 성과 집계 및 회고 데이터
 
@@ -161,3 +171,70 @@ Phase: {current}/{total}  |  진행률: {n}%
 - [악화] ...
 - [반복 이슈] ...
 ```
+
+
+
+## 학습된 교훈
+
+### [2026-04-05] retro_전체회고_1에서 확인된 패턴
+
+**맥락**: retro_전체회고_1 회고 — C등급(82.5점). 재시도율 50%(2회 호출 중 1건 세션 재시작 중복). 파일 저장 위임 경로 미명시. 호출 수 2건으로 통계 제한.
+
+**문제**:
+1. 세션 재시작 시 동일 파이프라인에서 이미 보고 완료한 이벤트를 재전송
+2. disallowedTools 제약 인지 없이 파일 저장 시도 — 에러 발생
+
+**교훈**:
+- 파일 저장 필요 시 즉각 platform-devops에게 위임 — 직접 시도 금지
+- call_id를 확인하여 이미 처리된 요청은 skip 처리 (세션 재시작 중복 방지)
+- 소수 호출(2건)로 인한 지표 왜곡 인지 — 재시도율 50%는 실제 성과보다 낮게 평가될 수 있음
+
+**적용 범위**: 모든 파이프라인 (feature, hotfix, dev, retro)
+**출처**: retro_전체회고_1
+
+## 메모리
+
+이 에이전트는 세션 간 학습과 컨텍스트를 `.crew/memory/{agent-slug}/` 디렉터리에 PARA 방식으로 영구 저장한다.
+전체 프로토콜: `.crew/references/memory-protocol.md`
+
+### 세션 시작 시 로드
+
+파이프라인 시작 전 다음을 Read하여 이전 학습 항목을 로드한다:
+1. `.crew/memory/{agent-slug}/MEMORY.md` — Tacit knowledge (패턴, 반복 실수, gotcha)
+2. `.crew/memory/{agent-slug}/life/projects/{pipeline-slug}/summary.md` — 현재 파이프라인 컨텍스트 (존재하는 경우)
+
+### 파이프라인 완료 시 저장
+
+회고 단계에서 pipeline-orchestrator의 KPT 요청 시 `MEMORY.md`에 다음 형식으로 추가:
+
+```markdown
+## [YYYY-MM-DD] {pipeline-slug}
+- 발견 사항: [이번 파이프라인에서 발견한 패턴 또는 문제]
+- 적용 패턴: [성공적으로 적용한 접근 방식]
+- 주의사항: [다음 실행 시 주의할 gotcha]
+```
+
+### PARA 디렉터리 구조
+
+```
+.crew/memory/{agent-slug}/
+├── MEMORY.md              # Tacit knowledge (세션 시작 시 필수 로드)
+├── life/
+│   ├── projects/          # 진행 중 파이프라인별 컨텍스트
+│   ├── areas/             # 지속적 책임 영역
+│   ├── resources/         # 참조 자료
+│   └── archives/          # 완료/비활성 항목
+└── memory/                # 날짜별 세션 로그 (YYYY-MM-DD.md)
+```
+
+## Best Practice 참조
+
+**★ 작업 시작 시 반드시 Read:**
+Bash로 best-practice 파일을 찾아 Read합니다:
+```bash
+_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/executive-reporter.md" 2>/dev/null | head -1)
+[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/executive-reporter.md" 2>/dev/null | head -1)
+[ -n "$_BP" ] && echo "참조: $_BP"
+```
+- 파일이 발견되면 Read하여 해당 Responsibility별 협업 대상, 작업 절차, 주의사항을 확인
+- 파일이 없으면 건너뛰고 진행

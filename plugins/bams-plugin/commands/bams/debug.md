@@ -27,6 +27,42 @@ Glob으로 `.crew/config.md`가 존재하는지 확인합니다. 없으면:
 
 `.crew/config.md`와 `.crew/board.md`를 읽습니다.
 
+### TaskDB 연동 (DB가 존재하면 board.md 대신 DB 사용)
+
+`~/.claude/plugins/marketplaces/my-claude/bams.db`가 존재하면 DB를 우선 사용합니다:
+
+```bash
+# DB 존재 확인
+if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
+  echo "[bams-db] DB 모드 활성화"
+fi
+```
+
+**태스크 등록 시 (DB가 존재하면):** Bash로 bun 스크립트를 실행하여 TaskDB에 태스크를 등록합니다.
+
+```bash
+# DB가 존재하면 TaskDB에 태스크 등록
+if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
+  bun -e "
+    import { TaskDB } from './plugins/bams-plugin/tools/bams-db/index.ts';
+    const db = new TaskDB();
+    db.createTask({ pipeline_slug: '{slug}', title: '{task_title}', status: 'in_progress', assignee_agent: '{agent}', phase: {phase} });
+    db.close();
+  "
+fi
+```
+
+**파이프라인 완료 시 (DB가 존재하면):** board.md를 DB 스냅샷으로 갱신합니다.
+
+```bash
+if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
+  bun run plugins/bams-plugin/tools/bams-db/sync-board.ts {slug} --write
+fi
+```
+
+DB가 없으면 기존 board.md 방식을 유지합니다.
+
+
 ### Viz 이벤트: pipeline_start
 
 사전 조건 확인 후, Bash로 다음을 실행합니다:
@@ -34,6 +70,10 @@ Glob으로 `.crew/config.md`가 존재하는지 확인합니다. 없으면:
 ```bash
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "debug" "/bams:debug" "{arguments}"
 ```
+
+### ★ Viz Agent 이벤트 규칙
+
+**`references/viz-agent-protocol.md` 참조.** 모든 서브에이전트 호출 전후에 반드시 agent_start/agent_end 이벤트를 emit한다. orchestrator 내부에서 부서장/에이전트를 호출할 때도 동일하게 적용한다.
 
 ## Phase 1: 버그 분류 및 재현 (defect-triage)
 
@@ -58,9 +98,9 @@ Bash로 다음을 실행합니다:
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 1 "버그 분류 및 재현" "Phase 1: 진단"
 ```
 
-### 1b. defect-triage 에이전트
+### 1b. qa-strategy 부서장 (defect-triage 위임)
 
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:defect-triage"**, model: **"opus"**):
+서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:qa-strategy"**, model: **"opus"**):
 
 > **버그 분류 및 재현 모드**로 보고된 버그를 분류하고 재현을 시도합니다.
 >
@@ -164,7 +204,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 프로젝트에 테스트 러너가 있으면 Bash로 실행. 실패 시 사용자에게 수정/조사/스킵 선택.
 
 **3b — 회귀 테스트 생성:**
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:automation-qa"**, model: **"sonnet"**):
+서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:qa-strategy"**, model: **"sonnet"**):
 
 > **회귀 테스트 모드**로 버그 수정에 대한 회귀 테스트를 작성합니다.
 >

@@ -9,6 +9,14 @@ PR 생성과 머지를 관리하는 Ship 워크플로우입니다.
 
 ## Pre-flight
 
+### Viz 이벤트: pipeline_start
+
+사전 조건 확인 후, Bash로 다음을 실행합니다:
+
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "ship" "/bams:ship" "{arguments}"
+```
+
 bams-plugin ship 스킬 로딩:
 
 ```bash
@@ -38,3 +46,11 @@ _SHIP_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/ship/SK
 ## Step 3: 결과 확인
 
 PR URL과 상태를 보고합니다. 실패 시 원인 분석 및 재시도 옵션 제공.
+
+### Viz 이벤트: pipeline_end
+
+파이프라인 종료 시, Bash로 다음을 실행합니다:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_end "{slug}" "{status}" {total} {completed} {failed} {skipped}
+```
+(`{status}`는 `completed` / `paused` / `failed` 중 하나, `{total}`은 3)

@@ -11,6 +11,14 @@ argument-hint: [test command override]
 
 ## 사전 조건
 
+### Viz 이벤트: pipeline_start
+
+사전 조건 확인 후, Bash로 다음을 실행합니다:
+
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "verify" "/bams:verify" "{arguments}"
+```
+
 `.crew/config.md`가 있으면 읽어서 프로젝트 설정(테스트 명령어, 빌드 명령어 등)을 파악합니다.
 `CLAUDE.md`가 있으면 읽어서 빌드/테스트 가이드라인을 파악합니다.
 
@@ -69,3 +77,11 @@ Verify 결과
 ```
 
 FAIL 항목이 있으면 상세 에러를 표시합니다.
+
+### Viz 이벤트: pipeline_end
+
+파이프라인 종료 시, Bash로 다음을 실행합니다:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_end "{slug}" "{status}" {total} {completed} {failed} {skipped}
+```
+(`{status}`는 `completed` / `paused` / `failed` 중 하나, `{total}`은 3)

@@ -1,8 +1,9 @@
 import { readFileSync, readdirSync, existsSync, mkdirSync, statSync, unlinkSync } from 'fs'
 import { join, resolve } from 'path'
-import type { Pipeline, AgentData, Trace, PipelineEvent } from './types'
+import type { Pipeline, AgentData, Trace, PipelineEvent, WorkUnitEvent, WorkUnit } from './types'
 import { parseEvents, parseAgentEvents, buildTraces } from './parser'
 import { generateFlowchart, generateGantt } from './mermaid-gen'
+import { getGlobalRoot } from './global-root'
 
 const EMPTY_AGENT_DATA: AgentData = {
   calls: [],
@@ -36,6 +37,8 @@ class EventStore {
   private agentsDir: string = ''
   private initialized = false
 
+  private workunitDir: string = ''
+
   // File-level caches
   private pipelineCache = new Map<string, CacheEntry<Pipeline | null>>()
   private rawEventsCache = new Map<string, CacheEntry<PipelineEvent[]>>()
@@ -43,10 +46,38 @@ class EventStore {
   private agentCache = new Map<string, DirCacheEntry<AgentData>>()
   private pipelinesListCache: DirCacheEntry<Array<{ slug: string; type: string; status: string; startedAt: string | null }>> | null = null
   private tracesCache: DirCacheEntry<Trace[]> | null = null
+  private workunitCache = new Map<string, CacheEntry<WorkUnitEvent[]>>()
+  private workunitListCache: DirCacheEntry<WorkUnit[]> | null = null
 
-  /** Validate slug/date to prevent path traversal */
+  /**
+   * Defensively decode a percent-encoded parameter.
+   * Handles double-encoding by decoding up to 2 times until stable.
+   * Returns the decoded string, or the original if decoding fails.
+   */
+  static safeDecodeParam(param: string): string {
+    if (!param) return param
+    try {
+      let decoded = param
+      // Decode up to 2 rounds to handle double-encoding (%25xx → %xx → char)
+      for (let i = 0; i < 2; i++) {
+        const next = decodeURIComponent(decoded)
+        if (next === decoded) break // stable — no more encoding
+        decoded = next
+      }
+      return decoded
+    } catch {
+      return param // malformed URI — return as-is, let validateParam reject it
+    }
+  }
+
+  /** Validate slug/date to prevent path traversal.
+   * Allows all Unicode letters and numbers (including Korean) via \p{L} and \p{N}.
+   * Blocks path traversal characters: /, \\, and double-dot (..) sequences.
+   * Automatically decodes percent-encoded input before validation.
+   */
   private static validateParam(param: string): void {
-    if (!param || !/^[a-zA-Z0-9_\-]{1,128}$/.test(param)) {
+    const decoded = EventStore.safeDecodeParam(param)
+    if (!decoded || !/^[\p{L}\p{N}_\-]{1,256}$/u.test(decoded)) {
       throw new Error(`Invalid parameter: ${param}`)
     }
   }
@@ -61,43 +92,18 @@ class EventStore {
   initialize(crewRoot: string): void {
     this.pipelineDir = join(crewRoot, 'artifacts', 'pipeline')
     this.agentsDir = join(crewRoot, 'artifacts', 'agents')
+    this.workunitDir = join(crewRoot, 'artifacts', 'pipeline')
     mkdirSync(this.pipelineDir, { recursive: true })
     mkdirSync(this.agentsDir, { recursive: true })
     this.initialized = true
   }
 
   /**
-   * Find .crew directory — prefer git root (matches hook's write path),
-   * then walk up from cwd, then fallback to cwd/.crew
+   * Find global bams root — delegates to global-root.ts (Single Source of Truth).
+   * All projects share ~/.bams/ for cross-project visibility.
    */
   static findCrewRoot(): string {
-    // 1. Try git root first (same logic as bams-viz-hook.sh)
-    try {
-      const { execSync } = require('child_process')
-      const gitRoot = execSync('git rev-parse --show-toplevel', {
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-      }).trim()
-      const gitCrew = join(gitRoot, '.crew')
-      if (existsSync(gitCrew)) return gitCrew
-    } catch {
-      // not in a git repo
-    }
-
-    // 2. Walk up from cwd
-    let dir = process.cwd()
-    for (let i = 0; i < 10; i++) {
-      const target = join(dir, '.crew')
-      if (existsSync(target)) return target
-      const parent = resolve(dir, '..')
-      if (parent === dir) break
-      dir = parent
-    }
-
-    // 3. Fallback: create at cwd
-    const fallback = join(process.cwd(), '.crew')
-    mkdirSync(fallback, { recursive: true })
-    return fallback
+    return getGlobalRoot()
   }
 
   private ensureInitialized(): void {
@@ -178,6 +184,7 @@ class EventStore {
    */
   getPipeline(slug: string): Pipeline | null {
     this.ensureInitialized()
+    slug = EventStore.safeDecodeParam(slug)
     EventStore.validateParam(slug)
     const file = join(this.pipelineDir, `${slug}-events.jsonl`)
     const cached = this.pipelineCache.get(slug)
@@ -198,6 +205,7 @@ class EventStore {
    */
   getRawEvents(slug: string): PipelineEvent[] {
     this.ensureInitialized()
+    slug = EventStore.safeDecodeParam(slug)
     EventStore.validateParam(slug)
     const file = join(this.pipelineDir, `${slug}-events.jsonl`)
     const cached = this.rawEventsCache.get(slug)
@@ -471,11 +479,150 @@ class EventStore {
       })),
     }
   }
+  // ── Work Unit methods ──────────────────────────────────
+
+  /**
+   * List all work unit slugs from *-workunit.jsonl files
+   */
+  getWorkUnitSlugs(): string[] {
+    this.ensureInitialized()
+    try {
+      return readdirSync(this.workunitDir)
+        .filter((f: string) => f.endsWith('-workunit.jsonl'))
+        .map((f: string) => f.replace('-workunit.jsonl', ''))
+        .sort()
+    } catch {
+      return []
+    }
+  }
+
+  /**
+   * Get raw events for a specific work unit
+   */
+  getWorkUnitEvents(slug: string): WorkUnitEvent[] {
+    this.ensureInitialized()
+    slug = EventStore.safeDecodeParam(slug)
+    EventStore.validateParam(slug)
+    const file = join(this.workunitDir, `${slug}-workunit.jsonl`)
+    const cached = this.workunitCache.get(slug)
+    if (this.isFileCacheValid(cached, file)) return cached.data
+    if (!existsSync(file)) return []
+    try {
+      const content = readFileSync(file, 'utf-8')
+      const lines = content.trim().split('\n').filter(Boolean)
+      const events: WorkUnitEvent[] = []
+      for (const line of lines) {
+        try { events.push(JSON.parse(line)) } catch { /* skip */ }
+      }
+      this.workunitCache.set(slug, { data: events, mtimeMs: this.getFileMtime(file), cachedAt: Date.now() })
+      return events
+    } catch {
+      return []
+    }
+  }
+
+  /**
+   * Get all work units parsed into WorkUnit objects
+   */
+  getWorkUnits(): WorkUnit[] {
+    this.ensureInitialized()
+    const filter = (f: string) => f.endsWith('-workunit.jsonl')
+    if (this.isDirCacheValid(this.workunitListCache, this.workunitDir, filter)) {
+      return this.workunitListCache.data
+    }
+    try {
+      const slugs = this.getWorkUnitSlugs()
+      const filesMtime = this.getDirMtimes(this.workunitDir, filter)
+      const data = slugs.map((slug) => this.buildWorkUnit(slug)).filter((wu): wu is WorkUnit => wu !== null)
+      this.workunitListCache = { data, filesMtime, cachedAt: Date.now() }
+      return data
+    } catch {
+      return []
+    }
+  }
+
+  /**
+   * Get the currently active work unit (started but not ended)
+   */
+  getActiveWorkUnit(): WorkUnit | null {
+    const workunits = this.getWorkUnits()
+    return workunits.find((wu) => wu.status === 'active') ?? null
+  }
+
+  /**
+   * Get all currently active work units (started but not ended)
+   */
+  getActiveWorkUnits(): WorkUnit[] {
+    const workunits = this.getWorkUnits()
+    return workunits.filter((wu) => wu.status === 'active')
+  }
+
+  /**
+   * Build a WorkUnit object from its events
+   */
+  private buildWorkUnit(slug: string): WorkUnit | null {
+    const events = this.getWorkUnitEvents(slug)
+    if (events.length === 0) return null
+
+    const startEvent = events.find((e) => e.type === 'work_unit_start')
+    if (!startEvent) return null
+
+    const endEvent = events.find((e) => e.type === 'work_unit_end')
+    const linkedEvents = events.filter((e) => e.type === 'pipeline_linked')
+
+    let status: WorkUnit['status'] = 'active'
+    if (endEvent) {
+      status = (endEvent.status === 'abandoned') ? 'abandoned' : 'completed'
+    }
+
+    // Deduplicate by pipeline slug (Map preserves first occurrence)
+    const pipelineMap = new Map<string, { id: string; slug: string; type: string; linkedAt: string; status: string | undefined; durationMs: number | null; totalSteps: number; completedSteps: number; failedSteps: number; command: string | null; arguments: string | null }>()
+    for (const e of linkedEvents) {
+      const slug = e.pipeline_slug ?? ''
+      if (slug && !pipelineMap.has(slug)) {
+        pipelineMap.set(slug, {
+          id: slug,
+          slug,
+          type: e.pipeline_type ?? 'unknown',
+          linkedAt: e.ts ?? new Date().toISOString(),
+          status: undefined,
+          durationMs: null,
+          totalSteps: 0,
+          completedSteps: 0,
+          failedSteps: 0,
+          command: null,
+          arguments: null,
+        })
+      }
+    }
+    const pipelines = Array.from(pipelineMap.values())
+
+    // Enrich pipeline status from EventStore pipeline data
+    for (const p of pipelines) {
+      const pipeline = this.getPipeline(p.slug)
+      if (pipeline) {
+        p.status = pipeline.status
+        p.durationMs = pipeline.durationMs
+        p.command = pipeline.command
+      }
+    }
+
+    return {
+      slug,
+      name: startEvent.work_unit_name ?? slug,
+      status,
+      startedAt: startEvent.ts,
+      endedAt: endEvent?.ts ?? null,
+      pipelines,
+    }
+  }
+
   /**
    * Delete a pipeline's event file and invalidate caches
    */
   deletePipeline(slug: string): boolean {
     this.ensureInitialized()
+    slug = EventStore.safeDecodeParam(slug)
     EventStore.validateParam(slug)
     const file = join(this.pipelineDir, `${slug}-events.jsonl`)
     if (!existsSync(file)) return false
