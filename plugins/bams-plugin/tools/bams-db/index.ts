@@ -66,6 +66,8 @@ export class TaskDB {
     this.db.exec(TASK_EVENTS_TABLE_DDL);
     this.db.exec(TASKS_INDEXES_DDL);
     this.db.exec(RUN_LOGS_TABLE_DDL);
+    // hr_reports: retro 완료 시 저장되는 HR 보고서 (독립 테이블, FK 없음)
+    this.db.exec(HR_REPORTS_TABLE_DDL);
   }
 
   // ─────────────────────────────────────────────────────────────

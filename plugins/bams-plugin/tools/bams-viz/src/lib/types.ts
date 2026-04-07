@@ -393,7 +393,8 @@ export interface WorkUnitDetailResponse {
 }
 
 // ── Work Unit 상세 탭 타입 ──────────────────────────────────
-export type DetailTab = 'pipelines' | 'agents' | 'timeline' | 'dag' | 'logs' | 'retro' | 'metaverse'
+export type DetailTab = 'metaverse' | 'pipeline' | 'retro'
+export type PipelineSubTab = 'agent' | 'timeline' | 'dag' | 'logs'
 
 // ── Work Unit Agents API 응답 타입 ──────────────────────────
 // BE 응답: { work_unit_slug, stats, active_agents }

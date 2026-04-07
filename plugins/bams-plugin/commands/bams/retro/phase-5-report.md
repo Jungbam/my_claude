@@ -218,16 +218,18 @@ bun -e "
 
 ---
 
-## 분석 대상 파이프라인 이벤트 정리
+## 분석 완료 마커 기록
 
-HR DB 변환 완료 후, 이번 retro에서 분석한 소스 파이프라인 이벤트 파일을 삭제합니다.
+HR DB 변환 완료 후, 이번 retro에서 분석한 파이프라인 slug를 `.retro-analyzed` 마커 파일에 기록합니다.
+이벤트 JSONL 파일은 **삭제하지 않고 보존**합니다 (viz DAG/Gantt/Traces 데이터 보존).
 
 Bash로 다음을 실행합니다:
 ```bash
-echo "[retro] 분석 완료된 파이프라인 이벤트 파일 정리 시작..."
+echo "[retro] 분석 완료 마커 기록 시작..."
 METRICS_FILE=".crew/artifacts/retro/{slug}/phase1-pipeline-metrics.md"
 PIPELINE_DIR=~/.bams/artifacts/pipeline
-DELETED=0
+MARKER_FILE="${PIPELINE_DIR}/.retro-analyzed"
+MARKED=0
 SKIPPED=0
 
 if [ -f "$METRICS_FILE" ]; then
@@ -242,23 +244,26 @@ if [ -f "$METRICS_FILE" ]; then
   if [ -z "$SLUGS" ]; then
     echo "[retro] WARNING: phase1-pipeline-metrics.md에서 slug를 추출할 수 없음 — 스킵"
   else
+    # 마커 파일이 없으면 생성
+    [ ! -f "$MARKER_FILE" ] && touch "$MARKER_FILE"
+
     SLUG_COUNT=$(echo "$SLUGS" | wc -l | tr -d ' ')
     echo "[retro] 분석된 파이프라인: ${SLUG_COUNT}개"
     while IFS= read -r PIPELINE_SLUG; do
-      EVENT_FILE="${PIPELINE_DIR}/${PIPELINE_SLUG}-events.jsonl"
-      if [ -f "$EVENT_FILE" ]; then
-        rm -f "$EVENT_FILE"
-        echo "[retro]   삭제: ${PIPELINE_SLUG}-events.jsonl"
-        DELETED=$((DELETED + 1))
-      else
-        echo "[retro]   스킵 (이미 없음): ${PIPELINE_SLUG}-events.jsonl"
+      # 중복 방지: 이미 마커에 기록된 slug는 스킵
+      if grep -qxF "$PIPELINE_SLUG" "$MARKER_FILE" 2>/dev/null; then
+        echo "[retro]   스킵 (이미 마커 기록됨): ${PIPELINE_SLUG}"
         SKIPPED=$((SKIPPED + 1))
+      else
+        echo "$PIPELINE_SLUG" >> "$MARKER_FILE"
+        echo "[retro]   마커 기록: ${PIPELINE_SLUG}"
+        MARKED=$((MARKED + 1))
       fi
     done <<< "$SLUGS"
-    echo "[retro] 파이프라인 이벤트 정리 완료: 삭제 ${DELETED}건, 스킵 ${SKIPPED}건"
+    echo "[retro] 마커 기록 완료: 기록 ${MARKED}건, 스킵 ${SKIPPED}건"
   fi
 else
-  echo "[retro] WARNING: ${METRICS_FILE} 없음 — 파이프라인 이벤트 정리 스킵"
+  echo "[retro] WARNING: ${METRICS_FILE} 없음 — 마커 기록 스킵"
 fi
 ```
 

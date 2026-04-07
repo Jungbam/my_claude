@@ -47,7 +47,7 @@ async function main() {
     // DB 생성 + 스키마 실행 (TaskDB 생성자가 initSchema() 호출)
     const db = new TaskDB(dbPath);
     console.log("DB 생성 완료.");
-    console.log("스키마 적용 완료 (tasks, task_events, token_usage, budget_policies, run_logs).");
+    console.log("스키마 적용 완료 (work_units, pipelines, tasks, task_events, tasks_indexes, run_logs, hr_reports).");
     db.close();
   }
 

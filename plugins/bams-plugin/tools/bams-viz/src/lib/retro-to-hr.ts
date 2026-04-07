@@ -70,7 +70,7 @@ export function parseAgentMetrics(filePath: string): HRAgent[] {
   const parseNum = (s: string): number => parseInt(s.replace(/,/g, ''), 10) || 0
   const parseRate = (s: string): number | null => {
     const cleaned = s.trim()
-    if (cleaned === '—' || cleaned === '-' || cleaned === '') return null
+    if (cleaned === '—' || cleaned === '-' || cleaned === '' || cleaned.toUpperCase() === 'N/A') return null
     const val = parseFloat(cleaned.replace(/,/g, '').replace(/%$/, ''))
     return isNaN(val) ? null : val
   }
@@ -97,7 +97,7 @@ export function parseAgentMetrics(filePath: string): HRAgent[] {
 
     // Detect header row and build column map — only accept the first "에이전트" header
     const lower = cols.map(c => c.toLowerCase())
-    if (!inAgentTable && (lower[0].includes('에이전트') || lower[0] === 'agent')) {
+    if (!inAgentTable && (lower[0].includes('에이전트') || lower[0] === 'agent' || lower[0] === 'agent_type')) {
       inAgentTable = true
       passedSeparator = false
       colMap = { agent: 0, dept: -1, invocations: -1, successRate: -1, retryRate: -1, avgMs: -1, grade: -1 }
@@ -110,9 +110,15 @@ export function parseAgentMetrics(filePath: string): HRAgent[] {
         if (h.includes('평균') && (h.includes('ms') || h.includes('소요')))   colMap.avgMs = i
         if (h.includes('등급') || h === 'grade')                              colMap.grade = i
       }
-      // Fallback for 11-col format: positional
-      if (cols.length >= 11 && colMap.invocations === -1) {
-        colMap = { agent: 0, dept: 1, invocations: 2, successRate: 3, retryRate: 5, avgMs: 6, grade: 10 }
+      // Fallback for positional formats when keyword matching failed
+      if (colMap.invocations === -1) {
+        if (cols.length >= 12) {
+          // 12-col: agent_type | 부서 | 부서장 | 호출수 | 평균(ms) | 최대(ms) | 최소(ms) | 성공률 | 에러율 | 재시도율 | 종합점수 | 등급
+          colMap = { agent: 0, dept: 1, invocations: 3, successRate: 7, retryRate: 9, avgMs: 4, grade: 11 }
+        } else if (cols.length >= 11) {
+          // 11-col legacy: 에이전트 | 부서 | 호출수 | 성공률 | 재시도율 | 평균ms | ... | 등급
+          colMap = { agent: 0, dept: 1, invocations: 2, successRate: 3, retryRate: 5, avgMs: 6, grade: 10 }
+        }
       }
       continue
     }
@@ -204,10 +210,18 @@ export function parseKPT(filePath: string): KPTResult {
   try {
     const content = readFileSync(filePath, 'utf-8')
 
-    // KPT counts
-    const keepMatch = content.match(/Keep 종합.*?(\d+)건/)
-    const problemMatch = content.match(/Problem 종합.*?(\d+)건/)
-    const tryMatch = content.match(/Try 종합.*?(\d+)건/)
+    // KPT counts — try multiple formats for compatibility
+    // Format A (old): "Keep 종합 ... N건"
+    // Format B (new): "총 Keep: N개" or "총 Keep: 20개 / Problem: 26개 / Try: 23개"
+    const keepMatch = content.match(/Keep[:\s]+(\d+)개/)
+      ?? content.match(/총\s*Keep[:\s]*(\d+)/)
+      ?? content.match(/Keep 종합.*?(\d+)건/)
+    const problemMatch = content.match(/Problem[:\s]+(\d+)개/)
+      ?? content.match(/총.*?Problem[:\s]*(\d+)/)
+      ?? content.match(/Problem 종합.*?(\d+)건/)
+    const tryMatch = content.match(/Try[:\s]+(\d+)개/)
+      ?? content.match(/총.*?Try[:\s]*(\d+)/)
+      ?? content.match(/Try 종합.*?(\d+)건/)
 
     const keepCount = keepMatch ? parseInt(keepMatch[1], 10) : 0
     const problemCount = problemMatch ? parseInt(problemMatch[1], 10) : 0
@@ -286,10 +300,12 @@ export function parseRetroReport(filePath: string): RetroReportResult {
   try {
     const content = readFileSync(filePath, 'utf-8')
 
-    // Flexible pipeline count: "(7개 파이프라인" or "파이프라인: 7개" or "| 7개 |"
-    const pipelinesMatch = content.match(/\(?(\d+)개\s*파이프라인/)
-      ?? content.match(/파이프라인[:\s]*(\d+)개/)
+    // Flexible pipeline count — more specific patterns first to avoid false positives
+    // Priority: "분석 파이프라인 수 | 13개" > "파이프라인 수 | 13" > "N개 파이프라인" > "파이프라인: N개"
+    const pipelinesMatch = content.match(/분석 파이프라인 수\s*\|\s*(\d+)/)
       ?? content.match(/파이프라인 수\s*\|\s*(\d+)/)
+      ?? content.match(/\(?(\d+)개\s*파이프라인/)
+      ?? content.match(/파이프라인[:\s]*(\d+)개(?!\s*이상)/)
     const analyzedPipelines = pipelinesMatch ? parseInt(pipelinesMatch[1], 10) : 0
 
     const retroDateMatch = content.match(/작성일[:\s]*(\d{4}-\d{2}-\d{2})/)
@@ -387,6 +403,59 @@ export function parseImprovements(retroDir: string): { improvements: AgentImprov
     }
     if (currentAgent) {
       improvements.push(parseAgentBlock(currentAgent, gradeInfo, currentChanges))
+    }
+
+    // Fallback: parse from table format if no "### agent — N개 변경 항목" sections found
+    // Handles "## 1. 개선 대상 에이전트 목록" table + "## 4. 적용 시 예상 등급 변화" table
+    if (improvements.length === 0) {
+      let inTargetTable = false
+      let inGradeTable = false
+      const gradeMap: Record<string, { before: string; target: string }> = {}
+
+      // First pass: extract grade change table
+      for (const line of lines) {
+        if (/##\s+\d+\.\s*(적용 시 예상|예상 등급 변화)/i.test(line)) { inGradeTable = true; continue }
+        if (inGradeTable && line.startsWith('## ')) { inGradeTable = false; continue }
+        if (!inGradeTable || !line.startsWith('|')) continue
+        const sepCells = line.split('|').slice(1, -1)
+        if (sepCells.every(c => /^[\s\-:]+$/.test(c))) continue
+        const cols = line.split('|').map(c => c.trim()).filter((_, i, arr) => i > 0 && i < arr.length - 1)
+        if (cols.length < 3) continue
+        const agentId = cols[0]
+        if (!agentId || agentId === '에이전트' || /^[-\s]+$/.test(agentId)) continue
+        // cols[1] = current grade, cols[2] = expected grade
+        const beforeRaw = cols[1] ?? ''
+        const targetRaw = cols[2] ?? ''
+        const beforeGrade = beforeRaw.match(/([A-F])/)?.[1] ?? '?'
+        const targetGrade = targetRaw.match(/([A-F])/)?.[1] ?? '?'
+        gradeMap[agentId] = { before: beforeGrade, target: targetGrade }
+      }
+
+      // Second pass: extract agent list table
+      for (const line of lines) {
+        if (/##\s+\d+\.\s*(개선 대상 에이전트|Target Agent)/i.test(line)) { inTargetTable = true; continue }
+        if (inTargetTable && line.startsWith('## ')) { inTargetTable = false; continue }
+        if (!inTargetTable || !line.startsWith('|')) continue
+        const sepCells = line.split('|').slice(1, -1)
+        if (sepCells.every(c => /^[\s\-:]+$/.test(c))) continue
+        const cols = line.split('|').map(c => c.trim()).filter((_, i, arr) => i > 0 && i < arr.length - 1)
+        if (cols.length < 3) continue
+        // Expected: 우선순위 | 에이전트 | 등급 | 담당 부서 | 개선안 파일
+        // Skip header row
+        const firstCol = cols[0]
+        if (firstCol === '우선순위' || firstCol === '#' || /^[-\s]+$/.test(firstCol)) continue
+        const agentId = cols[1]
+        if (!agentId || /^[-\s]+$/.test(agentId)) continue
+        const gradeRaw = cols[2] ?? ''
+        const currentGrade = gradeRaw.match(/([A-F])/)?.[1] ?? '?'
+        const gradeLookup = gradeMap[agentId]
+        improvements.push({
+          agent_id: agentId,
+          grade_before: gradeLookup?.before ?? currentGrade,
+          grade_target: gradeLookup?.target ?? '?',
+          changes: [],
+        })
+      }
     }
 
     // Parse action items from "## 4. 전체 우선순위" table

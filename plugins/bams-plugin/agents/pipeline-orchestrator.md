@@ -97,6 +97,18 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 ### 파이프라인 시작 시
 - 커맨드로부터 수신한 위임 메시지(phase, slug, pipeline_type, context, constraints)를 파싱
 - 기존 진행 상태(`.crew/artifacts/pipeline/`)를 확인하여 중단된 파이프라인 재개 지원
+- **★ 미완료 파이프라인 자동 감지 (Step 0 — 신규 파이프라인 시작 전 필수)**:
+  ```bash
+  _INCOMPLETE=$(grep -l '"pipeline_start"' ~/.bams/artifacts/pipeline/*-events.jsonl 2>/dev/null | \
+    while read f; do slug=$(basename "$f" -events.jsonl); \
+    grep -q '"pipeline_end"' "$f" || echo "$slug"; done)
+  ```
+  - 미완료 파이프라인이 1건 이상이면 AskUserQuestion으로 처리 방향 확인:
+    - 선택지 A: 현재 파이프라인 계속 진행 (미완료 방치)
+    - 선택지 B: 미완료 파이프라인 복구 후 진행
+    - 선택지 C: 미완료 파이프라인 강제 종료 후 신규 시작
+  - 미완료 0건이면 바로 진행
+
 - **세션 재시작 멱등성 체크 (세션 재시작 감지 시 필수):**
   - 이벤트 로그에서 `agent_end`가 이미 기록된 call_id를 확인한다
   - 해당 call_id를 가진 부서장 위임은 skip하고 다음 미완료 Step으로 진행한다
@@ -118,6 +130,21 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 - **★ 규모 임계값 사전 감지**: 예상 위임 횟수가 20회 이상으로 추정되면 resource-optimizer에게 **자동 분할 전략** 요청. 20회 미만이면 기존 전략 유지.
   - 20회 이상: 위임 단위를 Micro-Step으로 분할하여 1개 Phase당 최대 8회 이내로 제한
   - 병렬화 가능 구간을 사전에 식별하여 실행 계획에 명시적으로 표기
+- **★ Phase 소요시간 모니터링 (Phase 완료 시마다 실행)**:
+  - 현재 Phase 소요시간이 직전 3회 동일 유형 평균의 120% 초과 시: resource-optimizer에게 재조회 요청
+  - 200% 초과 시: 사용자에게 소요시간 경보 + 계속 진행 여부 확인 (AskUserQuestion)
+  - dev 타입 누적 소요시간 600,000ms 초과 시: 즉시 경보 + 남은 Phase 배치 분할 전략 수립
+- **★ hotfix 파이프라인 수신 시 복잡도 사전 평가**:
+  - 예상 Step 수 평가: context의 bug_description + 영향 파일 분석
+    - 예상 Step ≤ 2: 즉시 진행 (Fast Path)
+    - 예상 Step 3: dev 타입 전환 고려 (권장)
+    - 예상 Step 4 이상: AskUserQuestion으로 dev 타입 재분류 제안 (강력 권고)
+  - 진행 중 Step 수가 초기 평가의 2배 초과 시: 즉시 에스컬레이션 (중단 또는 dev 전환)
+- **★ no_end 실시간 감지 watchdog (Phase 게이트 조건 포함)**:
+  - 각 agent_start emit 직후 call_id를 진행 중 목록에 추가
+  - agent_end 수신 후 진행 중 목록에서 제거
+  - 다음 Phase 시작 전 진행 중 목록이 0건인지 확인 (0건 아니면 recover 이벤트 emit)
+  - Phase 게이트 조건 추가: "진행 중 call_id 목록 0건"
 - **executive-reporter 호출** (Agent tool): 파이프라인 시작 이벤트(`pipeline_start`)를 기록 요청
 
 ### 부서장 결정 로직
@@ -479,6 +506,25 @@ echo "================================="
 
 **적용 범위**: 모든 파이프라인 유형 (feature, hotfix, dev, retro)
 **출처**: retro_전체회고_1
+
+### [2026-04-07] retro_전체회고_2에서 확인된 소요시간/watchdog 미흡 패턴
+
+**맥락**: retro_전체회고_2 회고 — B등급(86.5점). avg_ms 199,928ms(글로벌 평균 168.7%). P-06(소요시간 경보 미발동), P-07(미완료 파이프라인 4건 방치), P-08(no_end 5건 실시간 감지 미흡), P-09(hotfix 복잡도 조기 감지 미흡) 확인.
+
+**문제**:
+1. 미완료 파이프라인 4건 방치 — 파이프라인 시작 전 자동 감지 루틴 부재
+2. Phase 소요시간 임계값 경보 없음 → dev 타입 +397% 급증 사전 차단 실패
+3. hotfix 복잡도 조기 감지 기준 없어 5-step 과확장(+328% 초과) 발생
+4. no_end watchdog 없어 5건 미감지 → viz 추적 단절
+
+**교훈**:
+- 파이프라인 시작 전 미완료 파이프라인 목록 자동 감지 루틴을 Step 0으로 필수 실행
+- Phase 소요시간 120% 초과 시 resource-optimizer 재조회, 200% 초과 시 사용자 경보
+- hotfix 수신 즉시 복잡도 평가 후 Step 4 이상이면 dev 전환 AskUserQuestion
+- Phase 게이트 조건에 "진행 중 call_id 0건" 항목 추가로 no_end 실시간 감지
+
+**적용 범위**: 모든 파이프라인 유형 (feature, hotfix, dev, retro)
+**출처**: retro_전체회고_2
 
 ### 파이프라인 완료 시 저장
 

@@ -3,13 +3,9 @@
 import type { DetailTab } from '@/lib/types'
 
 const TABS: { id: DetailTab; label: string }[] = [
-  { id: 'pipelines', label: 'Pipelines' },
-  { id: 'agents', label: 'Agents' },
-  { id: 'timeline', label: 'Timeline' },
-  { id: 'dag', label: 'DAG' },
-  { id: 'logs', label: 'Logs' },
-  { id: 'retro', label: 'Retro' },
   { id: 'metaverse', label: 'Metaverse' },
+  { id: 'pipeline', label: 'Pipeline' },
+  { id: 'retro', label: 'Retro' },
 ]
 
 interface WorkDetailTabsProps {

@@ -61,6 +61,9 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 >   - 트렌드: 동일 타입 최근 3회 대비 비교 (20% 이상 변화 시 주석)
   - ★ retro_* 또는 retro-* slug의 JSONL 파일은 분석에서 제외 (자기 참조 방지)
   - retro 파이프라인은 분석 도구이므로 분석 대상이 아님
+  - ★ ~/.bams/artifacts/pipeline/.retro-analyzed 파일이 존재하면 해당 slug 목록을 로드하여 분석 대상에서 추가 제외
+  - 제외 우선순위: (1) retro_* slug 제외 (자기참조), (2) .retro-analyzed 마커 slug 제외 (이미 분석 완료)
+  - 마커 파일이 없으면 기존 동작과 동일 (전체 대상 분석)
 > ```
 >
 > **기대 산출물**: `.crew/artifacts/retro/{slug}/phase1-pipeline-metrics.md`
@@ -116,6 +119,9 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 >   - 소속 부서장 매핑 포함
   - ★ retro_* 또는 retro-* slug의 JSONL 파일은 분석에서 제외 (자기 참조 방지)
   - retro 파이프라인은 분석 도구이므로 분석 대상이 아님
+  - ★ ~/.bams/artifacts/pipeline/.retro-analyzed 파일이 존재하면 해당 slug 목록을 로드하여 분석 대상에서 추가 제외
+  - 제외 우선순위: (1) retro_* slug 제외 (자기참조), (2) .retro-analyzed 마커 slug 제외 (이미 분석 완료)
+  - 마커 파일이 없으면 기존 동작과 동일 (전체 대상 분석)
 > ```
 >
 > **기대 산출물**: `.crew/artifacts/retro/{slug}/phase1-agent-metrics.md`

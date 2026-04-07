@@ -6,9 +6,11 @@ import type { WorkUnitPipeline } from '@/lib/types'
 interface PipelinesPanelProps {
   pipelines: WorkUnitPipeline[]
   wuSlug: string
+  selectedSlug?: string
+  onSelect?: (slug: string) => void
 }
 
-export function PipelinesPanel({ pipelines, wuSlug }: PipelinesPanelProps) {
+export function PipelinesPanel({ pipelines, wuSlug, selectedSlug, onSelect }: PipelinesPanelProps) {
   if (pipelines.length === 0) {
     return (
       <div style={{
@@ -25,7 +27,13 @@ export function PipelinesPanel({ pipelines, wuSlug }: PipelinesPanelProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
       {pipelines.map(p => (
-        <PipelineAccordion key={p.id ?? p.slug} pipeline={p} wuSlug={wuSlug} />
+        <PipelineAccordion
+          key={p.id ?? p.slug}
+          pipeline={p}
+          wuSlug={wuSlug}
+          selected={p.slug === selectedSlug}
+          onSelect={onSelect}
+        />
       ))}
     </div>
   )

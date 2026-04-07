@@ -57,5 +57,7 @@ pipeline-orchestrator의 등급이 회고 반복 시 계속 하락하는 자기 
 - 에이전트 정의 파일(`agents/*.md`)에 적용된 개선 사항은 영구 보존됩니다
 - `.crew/gotchas.md`에 승격된 항목도 영구 보존됩니다
 - **retro 이벤트 JSONL(`~/.bams/artifacts/pipeline/{slug}-events.jsonl`)은 `pipeline_end` emit 직후 즉시 삭제합니다** — retro 파이프라인은 viz DAG/Gantt/Timeline에 표시하지 않습니다
-- **분석 대상 파이프라인 이벤트(`~/.bams/artifacts/pipeline/{analyzed-slug}-events.jsonl`)는 HR DB 변환 완료 직후 삭제합니다** — retro 결과가 HR DB에 영속화된 후 소스 이벤트는 불필요합니다
+- **분석 대상 파이프라인 이벤트는 삭제하지 않고 `~/.bams/artifacts/pipeline/.retro-analyzed` 마커에 slug를 기록합니다** — viz DAG/Gantt/Traces 데이터 보존 목적
+- **마커 파일 형식:** 줄 단위 텍스트 (1줄 = 1 분석 완료 slug). 중복 방지를 위해 `grep -qxF` 체크 후 append
+- **다음 retro Phase 1에서 마커를 읽어 이미 분석된 slug를 제외합니다**
 - 보존 기간 변경이 필요하면 이 파일의 정책을 수정하세요

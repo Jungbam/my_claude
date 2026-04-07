@@ -10,9 +10,11 @@ import type { WorkUnitPipeline } from '@/lib/types'
 interface PipelineAccordionProps {
   pipeline: WorkUnitPipeline
   wuSlug: string
+  selected?: boolean
+  onSelect?: (slug: string) => void
 }
 
-export function PipelineAccordion({ pipeline, wuSlug }: PipelineAccordionProps) {
+export function PipelineAccordion({ pipeline, wuSlug, selected, onSelect }: PipelineAccordionProps) {
   const [open, setOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -45,9 +47,10 @@ export function PipelineAccordion({ pipeline, wuSlug }: PipelineAccordionProps) 
   return (
     <div style={{
       background: 'var(--bg-card)',
-      border: '1px solid var(--border)',
+      border: `1px solid ${selected ? 'var(--accent)' : 'var(--border)'}`,
       borderRadius: '8px',
       overflow: 'hidden',
+      boxShadow: selected ? '0 0 0 1px var(--accent)' : undefined,
     }}>
       {/* Header row */}
       <div
@@ -59,7 +62,10 @@ export function PipelineAccordion({ pipeline, wuSlug }: PipelineAccordionProps) 
           cursor: 'pointer',
           userSelect: 'none',
         }}
-        onClick={() => setOpen(prev => !prev)}
+        onClick={() => {
+          setOpen(prev => !prev)
+          onSelect?.(pipeline.slug)
+        }}
       >
         {/* Chevron */}
         <span style={{
@@ -78,7 +84,7 @@ export function PipelineAccordion({ pipeline, wuSlug }: PipelineAccordionProps) 
         <span style={{
           fontWeight: 600,
           fontSize: '12px',
-          color: 'var(--text-primary)',
+          color: selected ? 'var(--accent)' : 'var(--text-primary)',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',

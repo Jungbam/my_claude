@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 
 export function AppHeader() {
   const router = useRouter()
+  const pathname = usePathname()
   const [theme, setTheme] = useState<'light' | 'dark'>('dark')
 
   useEffect(() => {
@@ -24,6 +25,8 @@ export function AppHeader() {
     })
   }, [])
 
+  const isHR = pathname === '/hr'
+
   return (
     <header style={{
       display: 'flex',
@@ -35,26 +38,64 @@ export function AppHeader() {
       borderBottom: '1px solid var(--border)',
       flexShrink: 0,
     }}>
-      <button
-        onClick={() => router.push('/')}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          color: 'var(--text-primary)',
-          padding: 0,
-        }}
-      >
-        <span style={{ fontWeight: 700, fontSize: '15px' }}>bams-viz</span>
-        <span style={{
-          fontSize: '10px',
-          color: 'var(--text-muted)',
-          fontWeight: 500,
-        }}>v3.0</span>
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+        <button
+          onClick={() => router.push('/')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'var(--text-primary)',
+            padding: 0,
+          }}
+        >
+          <span style={{ fontWeight: 700, fontSize: '15px' }}>bams-viz</span>
+          <span style={{
+            fontSize: '10px',
+            color: 'var(--text-muted)',
+            fontWeight: 500,
+          }}>v3.0</span>
+        </button>
+
+        {/* Navigation */}
+        <nav style={{ display: 'flex', gap: '4px' }}>
+          <button
+            onClick={() => router.push('/')}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: !isHR ? 600 : 400,
+              color: !isHR ? 'var(--text-primary)' : 'var(--text-muted)',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              borderBottom: !isHR ? '2px solid var(--accent, #3b82f6)' : '2px solid transparent',
+            }}
+          >
+            Work Units
+          </button>
+          <button
+            onClick={() => router.push('/hr')}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: isHR ? 600 : 400,
+              color: isHR ? 'var(--text-primary)' : 'var(--text-muted)',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              borderBottom: isHR ? '2px solid var(--accent, #3b82f6)' : '2px solid transparent',
+            }}
+          >
+            HR
+          </button>
+        </nav>
+      </div>
 
       <button
         onClick={toggleTheme}

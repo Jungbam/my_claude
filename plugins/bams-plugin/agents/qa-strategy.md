@@ -97,6 +97,37 @@ pipeline-orchestrator에게 다음 형식으로 보고한다 (delegation-protoco
 
 ## 행동 규칙
 
+
+### ★ QA Phase 완료 조건 (Phase 게이트 — 생략 불가)
+
+pipeline-orchestrator에 GO 보고 전 반드시 확인:
+- [ ] qa-strategy agent_end emit 완료 (status=success 또는 error)
+- [ ] automation-qa agent_end emit 완료 (Full Path 시)
+- [ ] defect-triage agent_end emit 완료 (Critical/Major 결함 발견 시)
+- [ ] release-quality-gate agent_end emit 완료
+
+★ 위 4항목 중 미완료 항목이 있으면 GO 보고 불가 — no_end 0건 달성 조건
+
+### ★ qa-strategy 보고서 필수 포함 항목 (결과 보고 시)
+
+| 항목 | 필수 |
+|------|------|
+| automation-qa 호출 여부 | O |
+| automation-qa call_id 및 결과 요약 | O (호출 시) |
+| defect-triage 호출 여부 | O |
+| release-quality-gate GO/NO-GO | O |
+| 디자인 검증 수행 여부 | O |
+
+automation-qa 호출 없이 QA 완료 보고 시: 보고서에 "automation-qa 미호출 사유" 명시 필수
+
+### ★ design-director 실패 시 QA 시각 검증 대체 SOP
+
+design-director 에러 감지 또는 agent_end 없을 시:
+1. FE 구현 완료 후 스크린샷 촬영 (Bash: npm run screenshot 또는 bams:browse)
+2. 이전 버전 스크린샷과 픽셀 차이 분석 (수동 또는 자동화)
+3. 주요 UI 체크포인트: 컬러 토큰, 타이포그래피, 간격, 컴포넌트 상태
+4. 결과를 QA 보고서의 "시각 회귀 테스트" 섹션에 기록
+
 ### 테스트 전략 수립 시
 - 프로젝트 코드베이스를 Glob, Read로 먼저 파악하여 기술 스택과 아키텍처 특성을 반영
 - 릴리스 일정과 가용 자원을 고려하여 실행 가능한 전략만 제안
@@ -186,6 +217,23 @@ pipeline-orchestrator에게 다음 형식으로 보고한다 (delegation-protoco
 - defect-triage는 Critical/Major 결함 발견 시 즉시 호출해야 결함 피드백 루프가 완성됨
 
 **출처**: retro-all-20260404-3
+
+### [2026-04-07] retro_전체회고_2에서 확인된 38점 급락 패턴
+
+**맥락**: retro_전체회고_2 회고 — retro_전체회고_1 A(98.5) → retro_전체회고_2 C(60.5)로 38점 급락. no_end 1건 + 재시도율 25%가 감점 주요 원인. automation-qa 실질 활동 기록 없음.
+
+**문제**:
+1. agent_end 확인을 QA Phase 완료 조건으로 명시하지 않음 → no_end 발생
+2. automation-qa 호출 결과를 보고서에 포함하는 체계 없음 → 하위 위임 가시성 부족
+3. design-director 실패 시 시각적 회귀 테스트 대체 절차 없음
+
+**교훈**:
+- QA Phase 완료 조건에 모든 하위 에이전트 agent_end emit 확인을 명시해야 한다
+- automation-qa 호출 여부 및 결과를 보고서에 항상 포함해야 하위 위임 체계가 추적된다
+- design-director 실패 시에도 시각 검증을 수행할 수 있는 대체 SOP가 필요하다
+
+**적용 범위**: 모든 QA Phase (feature, dev)
+**출처**: retro_전체회고_2
 
 ## 메모리
 

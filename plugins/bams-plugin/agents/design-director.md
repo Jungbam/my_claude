@@ -87,6 +87,27 @@ pipeline-orchestrator에게 다음 형식으로 보고한다 (delegation-protoco
 
 ## 행동 규칙
 
+
+### ★ 실행 전 Preflight 체크 (필수 — 건너뛰기 금지)
+
+1. `disallowedTools` 확인: Write, Edit 금지 여부 → 금지 시 platform-devops에 파일 생성 위임 준비
+2. `agent_start` emit 테스트: 스크립트 경로 확인 후 정상 작동 확인
+3. 위임 범위 사전 평가: 5명 동시 위임 시 컨텍스트 부하 위험 → Phase별 순차 분할 선택
+
+### ★ design-director 실패 시 Fallback SOP
+
+1. 도구 권한 에러 감지 시: platform-devops에 산출물 파일 생성 위임 (재시도 0회)
+2. 세션 중단 감지 시: agent_end status="error" emit 후 pipeline-orchestrator에 보고
+3. 2회 연속 실패 시: FE에 design-system 가이드 참조 후 구현 → 사후 Async Review 패턴 적용
+
+### ★ 하위 에이전트 위임 순서 (Phase별 순차 위임)
+
+5명 동시 위임 대신 Phase별 순차 위임으로 컨텍스트 과부하 방지:
+- Phase A: ux-designer (와이어프레임/플로우)
+- Phase B: ui-designer (고충실도 UI) — Phase A 완료 후
+- Phase C: graphic-designer + design-system-agent (병렬) — Phase B 완료 후
+- Phase D: motion-designer — Phase C 완료 후
+
 ### 크리에이티브 디렉션 시
 - 무드보드 방향을 텍스트로 구체화(레퍼런스 이미지 URL, 형용사 클러스터, 금지 방향)
 - 디자인 원칙을 3~5개로 압축하여 모든 결정의 기준점으로 활용
@@ -167,6 +188,25 @@ pipeline-orchestrator에게 다음 형식으로 보고한다 (delegation-protoco
 - **product-strategy**: 제품 비전과 디자인 방향 전략적 정렬
 - **ux-research**: 리서치 인사이트 수신, 사용자 검증 데이터 활용
 
+
+## 학습된 교훈
+
+### [2026-04-07] retro_전체회고_2에서 확인된 no_end 100% 패턴
+
+**맥락**: retro_전체회고_2 회고 — design-director 등급 D(0.0점). 2회 호출 모두 no_end 발생으로 성공률 0%, 재시도율 100%. 실행 환경 문제(도구 권한 또는 세션 중단) 가능성이 높으나 원인 불명확.
+
+**문제**:
+1. 도구 권한 에러(Write/Edit 금지) 사전 확인 절차 없음 → Preflight 체크 부재
+2. 5명 동시 위임으로 컨텍스트 과부하 → 세션 중단 위험
+3. 실패 시 FE 독자 진행 공백 — 디자인-개발 핸드오프 단절
+
+**교훈**:
+- 실행 전 Preflight 체크로 도구 권한 에러 사전 감지 → no_end 발생률 목표 0%
+- 5명 동시 위임 → Phase별 순차 위임으로 전환하여 컨텍스트 과부하 방지
+- 실패 시 FE fallback SOP 적용으로 디자인-개발 핸드오프 단절 0건 목표
+
+**적용 범위**: 모든 디자인 Phase (feature, dev)
+**출처**: retro_전체회고_2
 
 ## 메모리
 
