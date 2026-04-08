@@ -108,11 +108,23 @@ body, .bg-transition {
 /* Metaverse agent animations */
 @keyframes agentPulse {
   0%, 100% { r: 22; opacity: 0.3; }
-  50% { r: 28; opacity: 0.1; }
+  50% { r: 28; opacity: 0.15; }
+}
+@keyframes agentPulseScale {
+  0%, 100% { transform: scale(1); opacity: 0.3; }
+  50% { transform: scale(1.3); opacity: 0.15; }
 }
 @keyframes agentBlink {
   0%, 100% { opacity: 0.3; }
   50% { opacity: 0.8; }
 }
-.agent-pulse { animation: agentPulse 1.5s ease-in-out infinite; }
-.agent-blink { animation: agentBlink 0.8s ease-in-out infinite; }
+.agent-pulse {
+  transform-box: fill-box;
+  transform-origin: center center;
+  animation: agentPulseScale 1.5s ease-in-out infinite;
+}
+.agent-blink {
+  transform-box: fill-box;
+  transform-origin: center center;
+  animation: agentBlink 0.8s ease-in-out infinite;
+}

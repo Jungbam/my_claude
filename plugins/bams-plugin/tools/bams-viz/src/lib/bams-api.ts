@@ -279,10 +279,16 @@ es.addEventListener("agent_start", (e: MessageEvent) => {
   },
 
   async deleteWorkUnit(slug: string): Promise<{ ok: boolean }> {
-    return proxyFetch<{ ok: boolean }>(
-      `/api/workunits/${encodeURIComponent(slug)}`,
-      { method: "DELETE" }
-    );
+    // DELETE returns 204 No Content — cannot use proxyFetch (res.json() fails on empty body)
+    const res = await fetch(`/api/workunits/${encodeURIComponent(slug)}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!res.ok && res.status !== 204) {
+      const body = await res.text();
+      throw new Error(`bams-api: ${res.status} ${res.statusText} — ${body}`);
+    }
+    return { ok: true };
   },
 
 

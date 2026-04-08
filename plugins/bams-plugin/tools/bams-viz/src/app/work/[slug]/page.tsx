@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
+import { mutate as globalMutate } from 'swr'
 import { useParams, useRouter } from 'next/navigation'
 import { usePolling } from '@/hooks/usePolling'
 import { AppHeader } from '@/components/shared/AppHeader'
@@ -46,12 +47,14 @@ export default function WorkDetailPage() {
       if (action === 'delete') {
         if (!confirm('Are you sure you want to delete this work unit?')) return
         await bamsApi.deleteWorkUnit(slug)
+        await globalMutate('/api/workunits')  // 홈 목록 즉시 갱신
         router.push('/')
         return
       }
       const status = action === 'complete' ? 'completed' : 'abandoned'
       await bamsApi.patchWorkUnit(slug, { status })
-      mutate()
+      mutate()  // 현재 페이지 즉시 갱신
+      await globalMutate('/api/workunits')  // 홈 목록도 즉시 갱신
     } catch (err) {
       console.error('Action failed:', err)
     }
@@ -184,7 +187,7 @@ function RetroPanel({ wuSlug }: { wuSlug: string }) {
     } | null
   }>(
     `/api/workunits/${encodeURIComponent(wuSlug)}/retro`,
-    10000
+    5000
   )
 
   if (isLoading && !data) {

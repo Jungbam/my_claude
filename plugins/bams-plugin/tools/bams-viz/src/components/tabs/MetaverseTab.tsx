@@ -78,7 +78,10 @@ function buildAgentNodes(data: AgentData | null): AgentNode[] {
     })
 
     const lastCall = sorted[0] || null
-    const isRunning = lastCall && lastCall.startedAt && !lastCall.endedAt
+    // 24시간 이내에 시작된 call만 "running"으로 간주 — 오래된 dangling start 방지
+    const RUNNING_THRESHOLD_MS = 24 * 60 * 60 * 1000
+    const isRunning = lastCall && lastCall.startedAt && !lastCall.endedAt &&
+      (Date.now() - new Date(lastCall.startedAt).getTime() < RUNNING_THRESHOLD_MS)
     const hasError = lastCall?.isError
 
     const status: 'idle' | 'working' | 'error' = hasError ? 'error' : isRunning ? 'working' : 'idle'
@@ -150,6 +153,7 @@ function AgentNodeSVG({
           stroke={fillColor}
           strokeWidth={2}
           opacity={0.3}
+          className={node.status === 'working' ? 'agent-pulse' : node.status === 'error' ? 'agent-blink' : undefined}
         />
       )}
       {/* Main circle */}
@@ -216,7 +220,7 @@ export function MetaverseTab({ pipelineSlug, wuSlug, onNavigateToTraces }: Metav
 
   // wuSlug가 있으면 해당 work unit 기준으로 필터링, pipelineSlug가 있으면 파이프라인 기준
   const apiUrl = wuSlug
-    ? `/api/agents?date=all&pipeline_slug=${wuSlug}`
+    ? `/api/agents?date=all&work_unit=${encodeURIComponent(wuSlug)}`
     : pipelineSlug
     ? `/api/agents?date=all&pipeline=${pipelineSlug}`
     : '/api/agents?date=all'

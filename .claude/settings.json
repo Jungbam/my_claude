@@ -10,6 +10,7 @@
       "WebSearch(*)",
       "AskUserQuestion(*)"
     ],
+    "defaultMode": "acceptEdits",
     "additionalDirectories": [
       "~/.bams/artifacts/pipeline",
       "~/.bams/artifacts/hr",
@@ -17,7 +18,8 @@
       "~/.claude/plugins",
       "/tmp",
       "/private/tmp",
-      "~/Library/Application Support/SwiftBar"
+      "~/Library/Application Support/SwiftBar",
+      "/Users/bamjung/Documents/ezar/claude/my_claude/.git"
     ]
   }
 }

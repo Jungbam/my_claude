@@ -10,10 +10,9 @@ export function AppHeader() {
 
   useEffect(() => {
     const saved = localStorage.getItem('bams-viz-theme')
-    if (saved === 'light' || saved === 'dark') {
-      setTheme(saved)
-      document.documentElement.setAttribute('data-theme', saved)
-    }
+    const initial = (saved === 'light' || saved === 'dark') ? saved : 'dark'
+    setTheme(initial)
+    document.documentElement.setAttribute('data-theme', initial)
   }, [])
 
   const toggleTheme = useCallback(() => {

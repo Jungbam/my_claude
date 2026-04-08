@@ -481,6 +481,16 @@ export class TaskDB {
       .all(workUnitSlug);
   }
 
+
+  /**
+   * WU 삭제 시 연결된 파이프라인의 work_unit_id를 NULL로 초기화한다 (orphan 정리).
+   */
+  unlinkPipelinesFromWorkUnit(workUnitSlug: string): void {
+    this.db.prepare(
+      "UPDATE pipelines SET work_unit_id = NULL WHERE work_unit_id = (SELECT id FROM work_units WHERE slug = ?)"
+    ).run(workUnitSlug);
+  }
+
   /** DB 연결 종료 */
   close(): void {
     this.db.close();

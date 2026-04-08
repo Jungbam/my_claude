@@ -17,15 +17,8 @@ export default function HRPage() {
         maxWidth: '1200px',
         margin: '0 auto',
         width: '100%',
+        flex: 1,
       }}>
-        <h2 style={{
-          fontSize: '16px',
-          fontWeight: 700,
-          color: 'var(--text-primary)',
-          marginBottom: '16px',
-        }}>
-          HR Dashboard
-        </h2>
         <HRTab />
       </main>
     </div>

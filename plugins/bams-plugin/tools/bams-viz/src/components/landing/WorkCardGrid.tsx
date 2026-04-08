@@ -21,7 +21,7 @@ interface WorkUnitsResponse {
 export function WorkCardGrid() {
   const router = useRouter()
   const [filter, setFilter] = useState('all')
-  const { data, error, isLoading } = usePolling<WorkUnitsResponse>('/api/workunits', 5000)
+  const { data, error, isLoading, mutate } = usePolling<WorkUnitsResponse>('/api/workunits', 2000)
 
   const filtered = useMemo(() => {
     if (!data?.workunits) return []

@@ -36,7 +36,7 @@ import { readFileSync, existsSync, readdirSync, appendFileSync } from "fs";
 import { join } from "path";
 import { getDefaultDB, getDefaultWorkUnitDB, getDefaultHrReportDB } from "../../tools/bams-db/index.ts";
 import { getBroker } from "./sse-broker.ts";
-import type { TaskStatus } from "../../tools/bams-db/schema.ts";
+import type { TaskStatus, WorkUnitRow } from "../../tools/bams-db/schema.ts";
 
 // ─────────────────────────────────────────────────────────────
 // 설정
@@ -53,7 +53,7 @@ const AGENTS_DIR = "plugins/bams-plugin/agents";
 export function pushSseEvent(
   pipelineSlug: string,
   eventType: string,
-  data: unknown & { agent_slug?: string; run_id?: string }
+  data: Record<string, unknown>
 ): void {
   const broker = getBroker();
   broker.pushEvent({
@@ -70,7 +70,7 @@ export function pushSseEvent(
 // CORS 헤더
 // ─────────────────────────────────────────────────────────────
 
-function corsHeaders(): HeadersInit {
+function corsHeaders(): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
@@ -331,7 +331,7 @@ async function handleRequest(req: Request): Promise<Response> {
       const events = parsePipelineEvents(slug);
       const startEvent = events.find((e) => e.type === "pipeline_start");
       const lastEvent = events[events.length - 1];
-      pipelines.push({
+      (pipelines as Array<Record<string, unknown>>).push({
         slug,
         pipeline_type: (startEvent?.pipeline_type as string) ?? "unknown",
         started_at: startEvent?.ts ?? null,
@@ -417,7 +417,7 @@ async function handleRequest(req: Request): Promise<Response> {
     const taskId = taskPatchMatch[1];
     let body: { status?: TaskStatus; agent_slug?: string; run_id?: string };
     try {
-      body = await req.json();
+      body = await req.json() as { status?: TaskStatus; agent_slug?: string; run_id?: string };
     } catch {
       return errorResponse("Invalid JSON body");
     }
@@ -456,7 +456,7 @@ async function handleRequest(req: Request): Promise<Response> {
       // pipeline_id → pipeline slug 역조회 (getPipelines 전체 조회 후 id 매칭)
       const pipelineForTask = db.getPipelines().find((p) => p.id === updatedTask.pipeline_id);
       const pipelineSlugForSse = pipelineForTask?.slug ?? updatedTask.pipeline_id;
-      pushSseEvent(pipelineSlugForSse, "task_updated", updatedTask);
+      pushSseEvent(pipelineSlugForSse, "task_updated", updatedTask as unknown as Record<string, unknown>);
     }
 
     return jsonResponse({ task: updatedTask });
@@ -570,7 +570,15 @@ async function handleRequest(req: Request): Promise<Response> {
   // ── GET /api/workunits ──────────────────────────────────────
   if (method === "GET" && path === "/api/workunits") {
     const wuSlugs = getWorkUnitSlugs();
-    const workunits = wuSlugs.map((wuSlug) => {
+    // DB에서 소프트 삭제된 WU 슬러그 집합 (deleted_at IS NOT NULL)
+    const deletedWuSlugs = new Set<string>(
+      getDefaultWorkUnitDB().getWorkUnits()
+        .filter((wu) => wu.deleted_at != null)
+        .map((wu) => wu.slug)
+    );
+    const workunits = wuSlugs
+      .filter((wuSlug) => !deletedWuSlugs.has(wuSlug))
+      .map((wuSlug) => {
       const events = parseWorkUnitEvents(wuSlug);
       const startEvent = events.find((e) => e.type === "work_unit_start");
       const endEvent = events.find((e) => e.type === "work_unit_end");
@@ -786,12 +794,15 @@ async function handleRequest(req: Request): Promise<Response> {
           (e) => e.type === "agent_end" && e.call_id === se.call_id
         );
         if (!hasEnd) {
-          activeAgents.push({
-            call_id: se.call_id as string,
-            agent_type: (se.agent_type as string) ?? "unknown",
-            pipeline_slug: ps,
-            started_at: (se.ts as string) ?? null,
-          });
+          const pipelineEnded = pEvents.some((e) => e.type === "pipeline_end");
+          if (!pipelineEnded) {
+            activeAgents.push({
+              call_id: se.call_id as string,
+              agent_type: (se.agent_type as string) ?? "unknown",
+              pipeline_slug: ps,
+              started_at: (se.ts as string) ?? null,
+            });
+          }
         }
       }
     }
@@ -857,12 +868,15 @@ async function handleRequest(req: Request): Promise<Response> {
           (e) => e.type === "agent_end" && e.call_id === se.call_id
         );
         if (!hasEnd) {
-          activeAgents.push({
-            call_id: se.call_id as string,
-            agent_type: (se.agent_type as string) ?? "unknown",
-            pipeline_slug: ps,
-            started_at: (se.ts as string) ?? null,
-          });
+          const pipelineEnded = pEvents.some((e) => e.type === "pipeline_end");
+          if (!pipelineEnded) {
+            activeAgents.push({
+              call_id: se.call_id as string,
+              agent_type: (se.agent_type as string) ?? "unknown",
+              pipeline_slug: ps,
+              started_at: (se.ts as string) ?? null,
+            });
+          }
         }
       }
     }
@@ -921,7 +935,18 @@ async function handleRequest(req: Request): Promise<Response> {
     } | null = null;
 
     if (pipelineSlugs.length > 0) {
-      const pipelinesData: NonNullable<typeof autoSummary>["pipelines"] = [];
+      type PipelineDataItem = {
+        slug: string;
+        type: string;
+        status: "completed" | "failed" | "active" | "paused";
+        started_at: string | null;
+        ended_at: string | null;
+        duration_ms: number | null;
+        step_count: number;
+        agent_calls: number;
+        agent_errors: number;
+      };
+      const pipelinesData: PipelineDataItem[] = [];
       const agentStatsMap = new Map<string, { call_count: number; error_count: number; total_duration_ms: number; duration_count: number }>();
       const uniqueAgentTypes = new Set<string>();
       let totalAgentCalls = 0;
@@ -1037,7 +1062,7 @@ async function handleRequest(req: Request): Promise<Response> {
 
     let body: { status?: "completed" | "failed" | "paused" };
     try {
-      body = await req.json();
+      body = await req.json() as { status?: "completed" | "failed" | "paused" };
     } catch {
       return errorResponse("Invalid JSON body");
     }
@@ -1073,7 +1098,7 @@ async function handleRequest(req: Request): Promise<Response> {
     // DB 동기화: pipeline 상태 업데이트
     try {
       const db = getDefaultDB();
-      db.updatePipelineStatus(pipelineSlug, body.status, now, null);
+      db.updatePipelineStatus(pipelineSlug, body.status, now, undefined);
     } catch {
       // DB 업데이트 실패해도 JSONL은 기록됨
     }
@@ -1094,7 +1119,7 @@ async function handleRequest(req: Request): Promise<Response> {
     const wuSlug = decodeURIComponent(workunitPatchMatch[1]);
     let body: { status?: "completed" | "abandoned" };
     try {
-      body = await req.json();
+      body = await req.json() as { status?: "completed" | "abandoned" };
     } catch {
       return errorResponse("Invalid JSON body");
     }
@@ -1154,12 +1179,23 @@ async function handleRequest(req: Request): Promise<Response> {
   const workunitDeleteMatch = path.match(/^\/api\/workunits\/([^/]+)$/);
   if (method === "DELETE" && workunitDeleteMatch) {
     const wuSlug = decodeURIComponent(workunitDeleteMatch[1]);
+
+    // WU 존재 확인: JSONL 우선, DB fallback
     const wuEvents = parseWorkUnitEvents(wuSlug);
-    if (wuEvents.length === 0) {
+    const wuDb = getDefaultWorkUnitDB();
+    const wuFromDb = wuDb.getWorkUnit(wuSlug);
+    if (wuEvents.length === 0 && !wuFromDb) {
       return errorResponse(`Work unit not found: ${wuSlug}`, 404);
     }
-    const db = getDefaultWorkUnitDB();
-    db.deleteWorkUnit(wuSlug);
+    wuDb.deleteWorkUnit(wuSlug);
+
+    // orphan pipeline 처리: WU 삭제 시 연결된 pipeline의 work_unit_id를 null로 초기화
+    try {
+      const pipelineDb = getDefaultDB();
+      pipelineDb.unlinkPipelinesFromWorkUnit(wuSlug);
+    } catch (orphanErr) {
+      console.warn("[bams-server] orphan pipeline cleanup failed (non-fatal):", orphanErr);
+    }
 
     // JSONL append
     const wuFile = `${PIPELINE_EVENTS_DIR}/${wuSlug}-workunit.jsonl`;
@@ -1238,9 +1274,16 @@ async function handleRequest(req: Request): Promise<Response> {
       agent_slug: string;
       run_id?: string;
       payload?: unknown;
+      // agent_end 전용 필드
+      call_id?: string;
+      agent_type?: string;
+      status?: string;
+      duration_ms?: number;
+      result_summary?: string;
+      is_error?: boolean;
     };
     try {
-      body = await req.json();
+      body = await req.json() as typeof body;
     } catch {
       return errorResponse("Invalid JSON body");
     }
@@ -1253,6 +1296,73 @@ async function handleRequest(req: Request): Promise<Response> {
       ts: new Date().toISOString(),
       payload: body.payload,
     });
+
+    // ── agent_end 이벤트: DB에 task 로깅 ──────────────────────────
+    // agent_end 수신 시마다 해당 agent 작업 요약을 tasks 테이블에 기록한다.
+    if (body.type === "agent_end" && body.pipeline_slug) {
+      try {
+        const db = getDefaultDB();
+        const pipeline = db.getPipelineBySlug(body.pipeline_slug);
+        if (pipeline) {
+          const agentType = body.agent_type ?? body.agent_slug ?? "unknown";
+          const resultSummary = body.result_summary ?? (body.payload as { result_summary?: string } | undefined)?.result_summary ?? "";
+          const callId = body.call_id ?? (body.payload as { call_id?: string } | undefined)?.call_id ?? "";
+          const durationMs = body.duration_ms ?? (body.payload as { duration_ms?: number } | undefined)?.duration_ms ?? null;
+          const isError = body.is_error ?? (body.payload as { is_error?: boolean } | undefined)?.is_error ?? false;
+          const agentStatus = body.status ?? (body.payload as { status?: string } | undefined)?.status ?? "success";
+
+          const taskTitle = `[${agentType}] ${resultSummary.slice(0, 120) || "작업 완료"}`;
+          const taskDesc = resultSummary || `Agent: ${agentType}, Call ID: ${callId}`;
+
+          db.createTask({
+            pipeline_id: pipeline.id,
+            title: taskTitle,
+            description: taskDesc,
+            assignee_agent: agentType,
+            label: callId || undefined,
+            duration_ms: durationMs ?? undefined,
+            summary: resultSummary || undefined,
+            tags: [agentType, isError ? "error" : agentStatus],
+          });
+        } else {
+          console.warn("[bams-server] task logging skipped: pipeline not in DB:", body.pipeline_slug);
+        }
+      } catch (taskErr) {
+        // task 로깅 실패는 non-fatal — SSE 이벤트는 이미 push됨
+        console.error("[bams-server] agent_end task logging failed (non-fatal):", taskErr);
+      }
+    }
+
+    // ── pipeline_end 이벤트: DB pipeline 상태 업데이트 ──────────────
+    if (body.type === "pipeline_end" && body.pipeline_slug) {
+      try {
+        const db = getDefaultDB();
+        const status = body.status ?? (body.payload as { status?: string } | undefined)?.status ?? "completed";
+        const now = new Date().toISOString();
+        db.updatePipelineStatus(body.pipeline_slug, status, now, undefined);
+      } catch (dbErr) {
+        console.error("[bams-server] pipeline_end DB sync failed (non-fatal):", dbErr);
+      }
+    }
+
+    // ── pipeline_start 이벤트: DB pipeline 생성/업데이트 ─────────────
+    if (body.type === "pipeline_start" && body.pipeline_slug) {
+      try {
+        const db = getDefaultDB();
+        const existing = db.getPipelineBySlug(body.pipeline_slug);
+        if (!existing) {
+          db.upsertPipeline({
+            slug: body.pipeline_slug,
+            type: (body.payload as { pipeline_type?: string } | undefined)?.pipeline_type ?? "unknown",
+            status: "running",
+            started_at: new Date().toISOString(),
+          });
+        }
+      } catch (dbErr) {
+        console.error("[bams-server] pipeline_start DB sync failed (non-fatal):", dbErr);
+      }
+    }
+
     return jsonResponse({ ok: true }, 201);
   }
 

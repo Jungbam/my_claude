@@ -72,11 +72,25 @@ interface PipelineTabPanelProps {
 }
 
 // ── AgentsPanel ───────────────────────────────────────────────────────────────
-function AgentsPanel({ pipelineSlug }: { pipelineSlug: string }) {
+interface WUTaskSummary {
+  total_count: number
+  summary: { backlog: number; in_progress: number; in_review: number; done: number; blocked: number; cancelled: number }
+  pipelines: Array<{ slug: string; tasks: Array<{ id: string; title: string; assignee_agent?: string; status: string; label?: string }> }>
+}
+
+function AgentsPanel({ pipelineSlug, wuSlug }: { pipelineSlug: string; wuSlug?: string }) {
   const { data, isLoading, error } = usePolling<PipelineEvent[]>(
     `/api/events/raw/${encodeURIComponent(pipelineSlug)}`,
+    3000
+  )
+
+  // 태스크 로깅 UI: BE agent_end → task 자동 기록 결과를 표시
+  const { data: taskData } = usePolling<WUTaskSummary>(
+    wuSlug ? `/api/workunits/${encodeURIComponent(wuSlug)}/tasks` : null,
     5000
   )
+
+  const pipelineTasks = taskData?.pipelines?.find(p => p.slug === pipelineSlug)?.tasks ?? []
 
   const { stats, activeAgents } = useMemo(() => {
     if (!data || !Array.isArray(data)) return { stats: [], activeAgents: [] }
@@ -94,15 +108,18 @@ function AgentsPanel({ pipelineSlug }: { pipelineSlug: string }) {
     }>
     const endMap = new Map(ends.map(e => [e.call_id, e]))
 
-    // Active = start without matching end
-    const active = starts
-      .filter(s => !endMap.has(s.call_id))
-      .map(s => ({
-        call_id: s.call_id ?? '',
-        agent_type: s.agent_type ?? 'unknown',
-        pipeline_slug: (s as Record<string, unknown>).pipeline_slug as string ?? pipelineSlug,
-        started_at: s.ts,
-      }))
+    // Active = start without matching end (skip if pipeline ended)
+    const pipelineEnded = data.some(e => e.type === 'pipeline_end')
+    const active = pipelineEnded
+      ? []  // pipeline ended — orphaned agents are not truly active
+      : starts
+        .filter(s => !endMap.has(s.call_id))
+        .map(s => ({
+          call_id: s.call_id ?? '',
+          agent_type: s.agent_type ?? 'unknown',
+          pipeline_slug: (s as Record<string, unknown>).pipeline_slug as string ?? pipelineSlug,
+          started_at: s.ts,
+        }))
 
     // Stats per agent_type
     const agentMap = new Map<string, { calls: number; errors: number; totalMs: number; count: number }>()
@@ -188,6 +205,53 @@ function AgentsPanel({ pipelineSlug }: { pipelineSlug: string }) {
           No agent data available
         </div>
       )}
+
+      {/* 태스크 로깅 UI: agent_end로 자동 기록된 task 목록 표시 */}
+      {pipelineTasks.length > 0 && (
+        <div style={{ marginTop: '20px' }}>
+          <h3 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
+            Logged Tasks ({pipelineTasks.length})
+          </h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', textAlign: 'left' }}>
+                <th style={{ padding: '8px 12px', fontWeight: 500 }}>Title</th>
+                <th style={{ padding: '8px 12px', fontWeight: 500 }}>Agent</th>
+                <th style={{ padding: '8px 12px', fontWeight: 500 }}>Status</th>
+                <th style={{ padding: '8px 12px', fontWeight: 500 }}>Label</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pipelineTasks.map(task => (
+                <tr key={task.id} style={{ borderTop: '1px solid var(--border-light)' }}>
+                  <td style={{ padding: '6px 12px', color: 'var(--text-primary)', maxWidth: '260px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {task.title || '-'}
+                  </td>
+                  <td style={{ padding: '6px 12px', color: 'var(--text-secondary)' }}>{task.assignee_agent || '-'}</td>
+                  <td style={{ padding: '6px 12px' }}>
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '1px 7px',
+                      borderRadius: '8px',
+                      fontSize: '10px',
+                      fontWeight: 600,
+                      background: task.status === 'done' ? 'rgba(34,197,94,0.12)' :
+                        task.status === 'in_progress' ? 'rgba(59,130,246,0.12)' :
+                        task.status === 'blocked' ? 'rgba(239,68,68,0.12)' : 'var(--bg-tertiary)',
+                      color: task.status === 'done' ? 'var(--status-done)' :
+                        task.status === 'in_progress' ? 'var(--status-running)' :
+                        task.status === 'blocked' ? 'var(--status-fail)' : 'var(--text-muted)',
+                    }}>
+                      {task.status}
+                    </span>
+                  </td>
+                  <td style={{ padding: '6px 12px', color: 'var(--text-muted)', fontSize: '10px' }}>{task.label || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
@@ -196,7 +260,7 @@ function AgentsPanel({ pipelineSlug }: { pipelineSlug: string }) {
 function DagPanel({ pipelineSlug }: { pipelineSlug: string }) {
   const { data, isLoading, error } = usePolling<PipelineEvent[]>(
     `/api/events/raw/${encodeURIComponent(pipelineSlug)}`,
-    5000
+    3000
   )
 
   const graphData = useMemo(() => {
@@ -752,7 +816,7 @@ export function PipelineTabPanel({
             onSubTabChange={onSubTabChange}
           />
           {activePipelineSubTab === 'agent' && (
-            <AgentsPanel pipelineSlug={selectedPipelineSlug} />
+            <AgentsPanel pipelineSlug={selectedPipelineSlug} wuSlug={wuSlug} />
           )}
           {activePipelineSubTab === 'timeline' && (
             <TimelineTab
