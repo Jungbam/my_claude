@@ -154,6 +154,7 @@ export const SWR_KEYS = {
   workUnits: "/api/workunits",
   activeWorkUnit: "/api/workunits/active",
   workUnitDetail: (slug: string) => `/api/workunits/${encodeURIComponent(slug)}`,
+  pipelineTasks: (slug: string) => `/api/pipelines/${encodeURIComponent(slug)}/tasks`,
   workUnitAgentsActive: (slug: string) =>
     `/api/workunits/${encodeURIComponent(slug)}/agents/active`,
 } as const;

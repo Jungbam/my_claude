@@ -94,7 +94,7 @@ export function WorkCard({ workunit, onClick, compact = true }: WorkCardProps) {
         marginBottom: progressPct !== null ? (compact ? '6px' : '10px') : '0',
       }}>
         <span>{pipelineCount} pipeline{pipelineCount !== 1 ? 's' : ''}</span>
-        <span>{formatRelativeTime(workunit.created_at)}</span>
+        <span>{formatRelativeTime(workunit.startedAt)}</span>
       </div>
 
       {/* Progress bar */}

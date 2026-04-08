@@ -14,9 +14,7 @@ interface RecentItemProps {
 }
 
 export function RecentItem({ workunit }: RecentItemProps) {
-  const timeStr = workunit.completed_at
-    ? formatRelativeTime(workunit.completed_at)
-    : formatRelativeTime(workunit.updated_at)
+  const timeStr = formatRelativeTime(workunit.endedAt ?? workunit.startedAt)
 
   return (
     <div

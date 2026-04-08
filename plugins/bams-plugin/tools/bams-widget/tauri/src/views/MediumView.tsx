@@ -40,7 +40,7 @@ function formatElapsed(ms: number): string {
 
 async function openUrl(url: string): Promise<void> {
   const m = await import('@tauri-apps/plugin-opener')
-  await m.openUrl(url)
+  await m.openUrl(url).catch((err: unknown) => console.error('[bams-widget] openUrl failed:', err))
 }
 
 // ── Active Agents 섹션 ───────────────────────────────────────────
@@ -213,7 +213,7 @@ function PipelinesSection({ wuSlug }: PipelinesSectionProps) {
               type: pl.type,
               status: pl.status,
               command: pl.type,
-              startedAt: pl.started_at,
+              startedAt: pl.linkedAt ?? null,
               endedAt: null,
               durationMs: null,
               steps: [],

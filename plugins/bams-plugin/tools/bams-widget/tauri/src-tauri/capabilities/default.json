@@ -18,6 +18,12 @@
     "global-shortcut:allow-register",
     "global-shortcut:allow-unregister",
     "global-shortcut:allow-is-registered",
-    "opener:allow-open-url"
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        { "url": "http://localhost:*" },
+        { "url": "https://*" }
+      ]
+    }
   ]
 }

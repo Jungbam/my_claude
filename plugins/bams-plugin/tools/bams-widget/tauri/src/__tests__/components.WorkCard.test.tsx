@@ -25,8 +25,7 @@ const baseWorkUnit: WorkUnit = {
   slug: "test-wu",
   name: "테스트 워크유닛",
   status: "active",
-  created_at: new Date(Date.now() - 60_000).toISOString(), // 1분 전
-  updated_at: new Date().toISOString(),
+  startedAt: new Date(Date.now() - 60_000).toISOString(), // 1분 전
 };
 
 const workUnitWithTasks = {

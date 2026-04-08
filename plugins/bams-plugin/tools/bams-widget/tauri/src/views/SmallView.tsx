@@ -44,9 +44,9 @@ export function SmallView({ onSelectWU, onSettings }: SmallViewProps) {
     .slice(0, 3) ?? []
 
   const handleOpenDashboard = () => {
-    void import('@tauri-apps/plugin-opener').then((m) =>
-      m.openUrl('http://localhost:3333')
-    )
+    void import('@tauri-apps/plugin-opener')
+      .then((m) => m.openUrl('http://localhost:3333'))
+      .catch((err: unknown) => console.error('[bams-widget] Open Dashboard failed:', err))
   }
 
   return (
@@ -129,7 +129,7 @@ export function SmallView({ onSelectWU, onSettings }: SmallViewProps) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {activeWUs.map((wu) => (
                     <WorkCard
-                      key={wu.id}
+                      key={wu.slug}
                       workunit={wu}
                       onClick={() => onSelectWU(wu)}
                       compact
@@ -156,7 +156,7 @@ export function SmallView({ onSelectWU, onSettings }: SmallViewProps) {
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {recentWUs.map((wu) => (
-                    <RecentItem key={wu.id} workunit={wu} />
+                    <RecentItem key={wu.slug} workunit={wu} />
                   ))}
                 </div>
               </div>

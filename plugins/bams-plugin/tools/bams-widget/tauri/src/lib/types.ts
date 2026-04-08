@@ -51,14 +51,14 @@ export interface AgentEndEvent extends PipelineEvent {
 export type WorkUnitStatus = "active" | "completed" | "paused" | "cancelled";
 
 export interface WorkUnit {
-  id: number;
+  id?: number;
   slug: string;
   name: string;
   description?: string;
   status: WorkUnitStatus;
-  created_at: string;
-  updated_at: string;
-  completed_at?: string | null;
+  startedAt: string;
+  endedAt?: string | null;
+  pipelineCount?: number;
 }
 
 export type PipelineStatus =
@@ -129,8 +129,14 @@ export interface PipelineDetail {
   slug: string;
   type: string;
   status: PipelineStatus;
-  started_at: string | null;
-  last_event_at: string | null;
+  linkedAt?: string | null;
+  id?: string;
+  totalSteps?: number;
+  completedSteps?: number;
+  failedSteps?: number;
+  durationMs?: number | null;
+  command?: string;
+  arguments?: string;
 }
 
 export interface ActiveAgentsResponse {
@@ -151,4 +157,27 @@ export interface HealthResponse {
   ok: boolean;
   version: string;
   port: number;
+}
+
+// Pipeline tasks (GET /api/pipelines/{slug}/tasks)
+export type TaskStatus = "done" | "in_progress" | "pending" | "failed" | "skipped";
+export type TaskPriority = "high" | "medium" | "low";
+
+export interface Task {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  assignee_agent: string | null;
+  phase: number | null;
+  tags: string;
+  duration_ms: number | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export interface PipelineTasksResponse {
+  pipeline_slug: string;
+  tasks: Task[];
+  count: number;
 }

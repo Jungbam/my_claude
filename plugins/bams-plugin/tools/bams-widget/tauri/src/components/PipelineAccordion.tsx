@@ -4,12 +4,16 @@
  * - bamsApi.patchWorkUnitPipeline 의존성 제거 (위젯은 read-only)
  * - next/* 의존성 없음
  * - CSS custom properties: --color-* (위젯 globals.css 기준)
+ *
+ * [이슈 2 수정] 아코디언 open 시 /api/pipelines/{slug}/tasks SWR lazy-load
  */
 
 import { useState } from 'react'
+import useSWR from 'swr'
+import { fetcher, SWR_KEYS } from '../lib/api'
 import { StatusBadge } from './StatusBadge'
 import { formatDuration } from '../lib/utils'
-import type { Pipeline } from '../lib/types'
+import type { Pipeline, Task, PipelineTasksResponse } from '../lib/types'
 
 interface PipelineAccordionProps {
   pipeline: Pipeline
@@ -25,11 +29,6 @@ export function PipelineAccordion({
   compact = true,
 }: PipelineAccordionProps) {
   const [open, setOpen] = useState(false)
-
-  const totalSteps = pipeline.steps?.length ?? 0
-  const completedSteps = pipeline.steps?.filter(s => s.status === 'done').length ?? 0
-  const failedSteps = pipeline.steps?.filter(s => s.status === 'fail').length ?? 0
-  const progressPct = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0
 
   const rowPad = compact ? '8px 10px' : '10px 14px'
   const nameFontSize = compact ? '11px' : '12px'
@@ -100,28 +99,6 @@ export function PipelineAccordion({
         {/* Status */}
         <StatusBadge status={pipeline.status ?? 'unknown'} size="xs" />
 
-        {/* Progress bar (inline) */}
-        {totalSteps > 0 && (
-          <div style={{
-            width: compact ? '40px' : '60px',
-            height: '3px',
-            borderRadius: '2px',
-            background: 'var(--color-surface-3)',
-            overflow: 'hidden',
-            flexShrink: 0,
-          }}>
-            <div style={{
-              height: '100%',
-              width: `${progressPct}%`,
-              background: failedSteps > 0
-                ? 'var(--color-status-failed)'
-                : 'var(--color-accent)',
-              borderRadius: '2px',
-              transition: 'width 0.3s',
-            }} />
-          </div>
-        )}
-
         {/* Duration */}
         {pipeline.durationMs != null && (
           <span style={{
@@ -134,51 +111,105 @@ export function PipelineAccordion({
         )}
       </div>
 
-      {/* Expanded: Steps list */}
-      {open && pipeline.steps && pipeline.steps.length > 0 && (
-        <div style={{
-          borderTop: '1px solid var(--color-border)',
-          padding: '4px 0',
-        }}>
-          {pipeline.steps.map(step => (
-            <StepRow key={step.number} step={step} compact={compact} />
-          ))}
-        </div>
-      )}
-
-      {/* Expanded: empty */}
-      {open && (!pipeline.steps || pipeline.steps.length === 0) && (
-        <div style={{
-          borderTop: '1px solid var(--color-border)',
-          padding: '8px 10px',
-          fontSize: '10px',
-          color: 'var(--color-text-muted)',
-          textAlign: 'center',
-        }}>
-          스텝 정보 없음
-        </div>
+      {/* Expanded: Tasks list (lazy-load) */}
+      {open && (
+        <TasksPanel slug={pipeline.slug} compact={compact} />
       )}
     </div>
   )
 }
 
-interface StepRowProps {
-  step: {
-    number: number
-    name: string
-    status: string
-    durationMs: number | null
-  }
+// ── TasksPanel — 아코디언 열릴 때만 mount되어 SWR fetch 실행 ──────
+
+interface TasksPanelProps {
+  slug: string
   compact?: boolean
 }
 
-function StepRow({ step, compact }: StepRowProps) {
+function TasksPanel({ slug, compact }: TasksPanelProps) {
+  const { data, isLoading, error } = useSWR<PipelineTasksResponse>(
+    SWR_KEYS.pipelineTasks(slug),
+    fetcher,
+    { revalidateOnFocus: false }
+  )
+
+  if (isLoading) {
+    return (
+      <div style={{
+        borderTop: '1px solid var(--color-border)',
+        padding: '8px 10px',
+        fontSize: '10px',
+        color: 'var(--color-text-muted)',
+        textAlign: 'center',
+      }}>
+        Loading...
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div style={{
+        borderTop: '1px solid var(--color-border)',
+        padding: '8px 10px',
+        fontSize: '10px',
+        color: 'var(--color-text-muted)',
+        textAlign: 'center',
+      }}>
+        Failed to load tasks
+      </div>
+    )
+  }
+
+  const tasks = data?.tasks ?? []
+
+  if (tasks.length === 0) {
+    return (
+      <div style={{
+        borderTop: '1px solid var(--color-border)',
+        padding: '8px 10px',
+        fontSize: '10px',
+        color: 'var(--color-text-muted)',
+        textAlign: 'center',
+      }}>
+        No tasks
+      </div>
+    )
+  }
+
+  return (
+    <div style={{
+      borderTop: '1px solid var(--color-border)',
+      padding: '4px 0',
+    }}>
+      {tasks.map(task => (
+        <TaskRow key={task.id} task={task} compact={compact} />
+      ))}
+    </div>
+  )
+}
+
+// ── TaskRow ─────────────────────────────────────────────────────────
+
+interface TaskRowProps {
+  task: Task
+  compact?: boolean
+}
+
+function TaskRow({ task, compact }: TaskRowProps) {
   const statusColor: Record<string, string> = {
     done: '#22c55e',
-    fail: '#ef4444',
+    in_progress: '#3b82f6',
+    failed: '#ef4444',
     skipped: '#8e8ea0',
+    pending: '#585870',
   }
-  const color = statusColor[step.status] ?? '#585870'
+  const color = statusColor[task.status] ?? '#585870'
+
+  // "TASK-001: 제목" 형식에서 제목만 표시 (콜론 이후)
+  const displayTitle = task.title.includes(': ')
+    ? task.title.split(': ').slice(1).join(': ')
+    : task.title
 
   return (
     <div style={{
@@ -188,6 +219,7 @@ function StepRow({ step, compact }: StepRowProps) {
       padding: compact ? '3px 10px 3px 28px' : '4px 14px 4px 32px',
       fontSize: '10px',
     }}>
+      {/* Status dot */}
       <span style={{
         width: '6px',
         height: '6px',
@@ -195,6 +227,8 @@ function StepRow({ step, compact }: StepRowProps) {
         background: color,
         flexShrink: 0,
       }} />
+
+      {/* Title */}
       <span style={{
         flex: 1,
         color: 'var(--color-text)',
@@ -202,11 +236,29 @@ function StepRow({ step, compact }: StepRowProps) {
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
       }}>
-        {step.number}. {step.name}
+        {displayTitle}
       </span>
-      {step.durationMs != null && (
+
+      {/* Agent */}
+      {task.assignee_agent && (
+        <span style={{
+          fontSize: '9px',
+          color: 'var(--color-text-muted)',
+          flexShrink: 0,
+          fontFamily: 'var(--font-mono)',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          maxWidth: compact ? '60px' : '80px',
+        }}>
+          {task.assignee_agent}
+        </span>
+      )}
+
+      {/* Duration */}
+      {task.duration_ms != null && (
         <span style={{ color: 'var(--color-text-muted)', flexShrink: 0 }}>
-          {formatDuration(step.durationMs)}
+          {formatDuration(task.duration_ms)}
         </span>
       )}
     </div>
