@@ -34,3 +34,8 @@ supabase/.temp/
 plugins/bams-plugin/tools/bams-viz/.next/
 plugins/bams-plugin/tools/bams-viz/node_modules/
 plugins/bams-plugin/tools/bams-viz/package-lock.json
+
+# SQLite DB
+bams.db
+bams.db-shm
+bams.db-wal
