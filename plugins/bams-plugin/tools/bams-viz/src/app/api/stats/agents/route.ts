@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { EventStore } from '@/lib/event-store'
-import { bamsApi } from '@/lib/bams-api'
+
+const BAMS_SERVER = process.env.BAMS_SERVER_URL ?? 'http://localhost:3099'
 
 function headers(source: string) {
   return { 'Access-Control-Allow-Origin': '*', 'X-Data-Source': source }
@@ -8,16 +8,18 @@ function headers(source: string) {
 
 export async function GET() {
   try {
-    const data = await bamsApi.getAgentStats()
-    return NextResponse.json(data, { headers: headers('api') })
-  } catch {
-    try {
-      const store = EventStore.getInstance()
-      const stats = store.getAgentStats()
-      return NextResponse.json(stats, { headers: headers('fallback') })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Internal server error'
-      return NextResponse.json({ error: message }, { status: 500, headers: headers('error') })
+    const res = await fetch(`${BAMS_SERVER}/api/stats/agents`, {
+      signal: AbortSignal.timeout(3000),
+    })
+    if (res.ok) {
+      return new Response(await res.text(), {
+        status: res.status,
+        headers: { 'Content-Type': 'application/json', ...headers('api') },
+      })
     }
+    return NextResponse.json({ byAgentType: [] }, { headers: headers('error') })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Internal server error'
+    return NextResponse.json({ error: message }, { status: 500, headers: headers('error') })
   }
 }

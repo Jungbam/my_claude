@@ -24,14 +24,7 @@ fi
 # Global bams root: all projects share ~/.bams/ for cross-project visibility
 # Override: BAMS_ROOT env var (same name used in event-store.ts, app.ts, global-root.ts)
 BAMS_ROOT="${BAMS_ROOT:-$HOME/.bams}"
-mkdir -p "$BAMS_ROOT" 2>/dev/null || true
-EVENTS_FILE="${BAMS_ROOT}/artifacts/pipeline/${SLUG}-events.jsonl"
-AGENTS_DIR="${BAMS_ROOT}/artifacts/agents"
-mkdir -p "$(dirname "$EVENTS_FILE")" 2>/dev/null || true
-mkdir -p "$AGENTS_DIR" 2>/dev/null || true
 TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-TODAY=$(date -u +%Y-%m-%d)
-AGENTS_FILE="$AGENTS_DIR/${TODAY}.jsonl"
 
 # Active work units JSON array file (supports parallel work units)
 # Format: [{"slug":"...","name":"...","startedAt":"..."},...]
@@ -82,6 +75,15 @@ dept_map() {
   esac
 }
 
+# ── DB 이벤트 전송 ──
+# 서버 미가동 시에도 || true로 emit.sh 실패 방지
+BAMS_SERVER_URL="${BAMS_SERVER_URL:-http://localhost:3099}"
+_post_event() {
+  curl -s --max-time 2 -X POST "${BAMS_SERVER_URL}/api/events" \
+    -H "Content-Type: application/json" \
+    -d "$1" > /dev/null 2>&1 || true
+}
+
 case "$EVENT_TYPE" in
   pipeline_start)
     _PARENT="${6:-}"
@@ -92,15 +94,16 @@ case "$EVENT_TYPE" in
     else
       ACTIVE_WU=$(wu_latest_slug)
     fi
-    jq -cn --arg slug "$SLUG" --arg ptype "${3:-unknown}" --arg cmd "${4:-}" --arg args "${5:-}" --arg parent "$_PARENT" --arg wu "$ACTIVE_WU" --arg ts "$TS" \
+    _PS_EVT=$(jq -cn --arg slug "$SLUG" --arg ptype "${3:-unknown}" --arg cmd "${4:-}" --arg args "${5:-}" --arg parent "$_PARENT" --arg wu "$ACTIVE_WU" --arg ts "$TS" \
       '{type:"pipeline_start",pipeline_slug:$slug,pipeline_type:$ptype,command:$cmd,arguments:$args,ts:$ts}
        + (if $parent != "" then {parent_pipeline_slug:$parent} else {} end)
-       + (if $wu != "" then {work_unit_slug:$wu} else {} end)' >> "$EVENTS_FILE"
+       + (if $wu != "" then {work_unit_slug:$wu} else {} end)')
+    _post_event "$_PS_EVT"
     # Record pipeline link in work unit file
     if [ -n "$ACTIVE_WU" ]; then
-      WU_FILE="${BAMS_ROOT}/artifacts/pipeline/${ACTIVE_WU}-workunit.jsonl"
-      jq -cn --arg wu "$ACTIVE_WU" --arg slug "$SLUG" --arg ptype "${3:-unknown}" --arg ts "$TS" \
-        '{type:"pipeline_linked",work_unit_slug:$wu,pipeline_slug:$slug,pipeline_type:$ptype,ts:$ts}' >> "$WU_FILE"
+      _WU_EVT=$(jq -cn --arg wu "$ACTIVE_WU" --arg slug "$SLUG" --arg ptype "${3:-unknown}" --arg ts "$TS" \
+        '{type:"pipeline_linked",work_unit_slug:$wu,pipeline_slug:$slug,pipeline_type:$ptype,ts:$ts}')
+      _post_event "$_WU_EVT"
     fi
     ;;
   pipeline_end)
@@ -110,40 +113,26 @@ case "$EVENT_TYPE" in
     _P_COMPLETED="${5:-0}"
     _P_FAILED="${6:-0}"
     _P_SKIPPED="${7:-0}"
-    if [ "$_P_TOTAL" = "0" ] && [ -f "$EVENTS_FILE" ]; then
-      # Count unique step_end events by status
-      _P_TOTAL=$(grep -c '"step_start"' "$EVENTS_FILE" 2>/dev/null || echo 0)
-      _P_COMPLETED=$(grep '"step_end"' "$EVENTS_FILE" 2>/dev/null | grep -c '"status":"done"' 2>/dev/null | tr -d '\n' | head -1 || echo 0)
-      _P_FAILED=$(grep '"step_end"' "$EVENTS_FILE" 2>/dev/null | grep -c '"status":"fail"' 2>/dev/null | tr -d '\n' | head -1 || echo 0)
-      _P_SKIPPED=$(grep '"step_end"' "$EVENTS_FILE" 2>/dev/null | grep -c '"status":"skipped"' 2>/dev/null | tr -d '\n' | head -1 || echo 0)
-      # Ensure values are pure integers (strip any trailing newlines or extra output)
-      _P_TOTAL=$(printf '%s' "$_P_TOTAL" | tr -d '\n ' | grep -E '^[0-9]+$' || echo 0)
-      _P_COMPLETED=$(printf '%s' "$_P_COMPLETED" | tr -d '\n ' | grep -E '^[0-9]+$' || echo 0)
-      _P_FAILED=$(printf '%s' "$_P_FAILED" | tr -d '\n ' | grep -E '^[0-9]+$' || echo 0)
-      _P_SKIPPED=$(printf '%s' "$_P_SKIPPED" | tr -d '\n ' | grep -E '^[0-9]+$' || echo 0)
-    fi
-    jq -cn --arg slug "$SLUG" --arg status "$_P_STATUS" --argjson total "$_P_TOTAL" --argjson completed "$_P_COMPLETED" --argjson failed "$_P_FAILED" --argjson skipped "$_P_SKIPPED" --arg ts "$TS" \
-      '{type:"pipeline_end",pipeline_slug:$slug,status:$status,total_steps:$total,completed_steps:$completed,failed_steps:$failed,skipped_steps:$skipped,ts:$ts}' >> "$EVENTS_FILE"
+    _PE_EVT=$(jq -cn --arg slug "$SLUG" --arg status "$_P_STATUS" --argjson total "$_P_TOTAL" --argjson completed "$_P_COMPLETED" --argjson failed "$_P_FAILED" --argjson skipped "$_P_SKIPPED" --arg ts "$TS" \
+      '{type:"pipeline_end",pipeline_slug:$slug,status:$status,total_steps:$total,completed_steps:$completed,failed_steps:$failed,skipped_steps:$skipped,ts:$ts}')
+    _post_event "$_PE_EVT"
     ;;
   step_start)
-    jq -cn --arg slug "$SLUG" --argjson num "${3:-0}" --arg name "${4:-}" --arg phase "${5:-}" --arg ts "$TS" \
-      '{type:"step_start",pipeline_slug:$slug,step_number:$num,step_name:$name,phase:$phase,ts:$ts}' >> "$EVENTS_FILE"
+    _SS_EVT=$(jq -cn --arg slug "$SLUG" --argjson num "${3:-0}" --arg name "${4:-}" --arg phase "${5:-}" --arg ts "$TS" \
+      '{type:"step_start",pipeline_slug:$slug,step_number:$num,step_name:$name,phase:$phase,ts:$ts}')
+    _post_event "$_SS_EVT"
     ;;
   step_end)
-    jq -cn --arg slug "$SLUG" --argjson num "${3:-0}" --arg status "${4:-done}" --argjson dur "${5:-0}" --arg ts "$TS" \
-      '{type:"step_end",pipeline_slug:$slug,step_number:$num,status:$status,duration_ms:$dur,ts:$ts}' >> "$EVENTS_FILE"
+    _SE_EVT=$(jq -cn --arg slug "$SLUG" --argjson num "${3:-0}" --arg status "${4:-done}" --argjson dur "${5:-0}" --arg ts "$TS" \
+      '{type:"step_end",pipeline_slug:$slug,step_number:$num,status:$status,duration_ms:$dur,ts:$ts}')
+    _post_event "$_SE_EVT"
     ;;
   agent_start)
     CALL_ID="${3:-}"
     AGENT_TYPE="${4:-general-purpose}"
     DEPT=$(dept_map "$AGENT_TYPE")
     TRACE_ID="${SLUG}-$(date -u +%Y%m%dT%H%M%SZ)"
-    # Get current step_number from pipeline events
     STEP_NUM="null"
-    if [ -f "$EVENTS_FILE" ]; then
-      STEP_NUM=$(grep '"step_start"' "$EVENTS_FILE" 2>/dev/null | tail -1 | jq -r '.step_number // empty' 2>/dev/null || echo "null")
-      [ -z "$STEP_NUM" ] && STEP_NUM="null"
-    fi
     EVENT=$(jq -cn \
       --arg type "agent_start" \
       --arg call_id "$CALL_ID" \
@@ -160,8 +149,7 @@ case "$EVENT_TYPE" in
       '{type:$type, call_id:$call_id, trace_id:$trace_id, agent_type:$agent_type, department:$department, model:$model, description:$description, prompt_summary:$prompt_summary, input:$input, ts:$ts}
        + (if $step_number != null then {step_number:$step_number} else {} end)
        + (if $pipeline_slug != "" then {pipeline_slug:$pipeline_slug} else {} end)')
-    printf '%s\n' "$EVENT" >> "$EVENTS_FILE"
-    printf '%s\n' "$EVENT" >> "$AGENTS_FILE" 2>/dev/null || true
+    _post_event "$EVENT"
     ;;
   agent_end)
     CALL_ID="${3:-}"
@@ -183,62 +171,25 @@ case "$EVENT_TYPE" in
       --arg pipeline_slug "$SLUG" \
       '{type:$type, call_id:$call_id, agent_type:$agent_type, is_error:$is_error, status:$status, duration_ms:$duration_ms, result_summary:$result_summary, output:$output, token_usage:$token_usage, ts:$ts}
        + (if $pipeline_slug != "" then {pipeline_slug:$pipeline_slug} else {} end)')
-    printf '%s\n' "$EVENT" >> "$EVENTS_FILE"
-    printf '%s\n' "$EVENT" >> "$AGENTS_FILE" 2>/dev/null || true
-    # 토큰 사용량이 전달된 경우 Control Plane에 기록 (B4: CostDB 연동)
-    # 8번째 인자($8): token_usage JSON {"input_tokens":N,"output_tokens":N,"model":"..."} 또는 "null"
-    TOKEN_USAGE="${8:-null}"
-    if [ -n "$TOKEN_USAGE" ] && [ "$TOKEN_USAGE" != "null" ]; then
-      _IN_TOK=$(echo "$TOKEN_USAGE" | jq -r '.input_tokens // 0' 2>/dev/null || echo 0)
-      _OUT_TOK=$(echo "$TOKEN_USAGE" | jq -r '.output_tokens // 0' 2>/dev/null || echo 0)
-      _MODEL=$(echo "$TOKEN_USAGE" | jq -r '.model // empty' 2>/dev/null || echo "")
-      [ -z "$_MODEL" ] && _MODEL="$AGENT_TYPE"
-      curl -s --max-time 1 -X POST http://localhost:3099/api/costs \
-        -H "Content-Type: application/json" \
-        -d "$(jq -cn \
-          --arg slug "$SLUG" \
-          --arg agent "$AGENT_TYPE" \
-          --arg model "$_MODEL" \
-          --argjson input "$_IN_TOK" \
-          --argjson output "$_OUT_TOK" \
-          '{pipeline_slug:$slug,agent_slug:$agent,model:$model,input_tokens:$input,output_tokens:$output,billed_cents:0}')" \
-        > /dev/null 2>&1 || true
-    fi
+    _post_event "$EVENT"
     ;;
   recover)
-    # Scan event file for unmatched start events and emit interrupted end events.
+    # Scan DB for unmatched start events and emit interrupted end events.
     # Usage: bash bams-viz-emit.sh recover <slug>
-    if [ ! -f "$EVENTS_FILE" ]; then
-      exit 0
-    fi
+    # NOTE: Recovery now queries DB via API. Emit interrupted events to DB only.
     RECOVER_TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-    # 1. Find agent_start entries without matching agent_end
-    while IFS= read -r _line; do
-      _CALL_ID=$(printf '%s' "$_line" | jq -r '.call_id // empty' 2>/dev/null)
-      _AGENT_TYPE=$(printf '%s' "$_line" | jq -r '.agent_type // empty' 2>/dev/null)
-      [ -z "$_CALL_ID" ] && continue
-      if ! grep -q '"agent_end"' "$EVENTS_FILE" 2>/dev/null ||          ! grep '"agent_end"' "$EVENTS_FILE" 2>/dev/null | grep -q ""call_id":"$_CALL_ID""; then
-        jq -cn           --arg call_id "$_CALL_ID"           --arg agent_type "$_AGENT_TYPE"           --arg slug "$SLUG"           --arg ts "$RECOVER_TS"           '{type:"agent_end",call_id:$call_id,agent_type:$agent_type,status:"interrupted",is_error:true,duration_ms:null,result_summary:"session interrupted — recovered",output:"",token_usage:null,ts:$ts,pipeline_slug:$slug}' >> "$EVENTS_FILE"
-      fi
-    done < <(grep '"agent_start"' "$EVENTS_FILE" 2>/dev/null || true)
-    # 2. Find step_start entries without matching step_end
-    while IFS= read -r _line; do
-      _STEP_NUM=$(printf '%s' "$_line" | jq -r '.step_number // empty' 2>/dev/null)
-      [ -z "$_STEP_NUM" ] && continue
-      if ! grep -q '"step_end"' "$EVENTS_FILE" 2>/dev/null ||          ! grep '"step_end"' "$EVENTS_FILE" 2>/dev/null | grep -q ""step_number":$_STEP_NUM"; then
-        jq -cn           --argjson num "$_STEP_NUM"           --arg slug "$SLUG"           --arg ts "$RECOVER_TS"           '{type:"step_end",pipeline_slug:$slug,step_number:$num,status:"interrupted",duration_ms:0,ts:$ts}' >> "$EVENTS_FILE"
-      fi
-    done < <(grep '"step_start"' "$EVENTS_FILE" 2>/dev/null || true)
-    # 3. If pipeline_start exists without pipeline_end, emit pipeline_end(interrupted)
-    if grep -q '"pipeline_start"' "$EVENTS_FILE" 2>/dev/null &&        ! grep -q '"pipeline_end"' "$EVENTS_FILE" 2>/dev/null; then
-      jq -cn         --arg slug "$SLUG"         --arg ts "$RECOVER_TS"         '{type:"pipeline_end",pipeline_slug:$slug,status:"interrupted",total_steps:0,completed_steps:0,failed_steps:0,skipped_steps:0,ts:$ts}' >> "$EVENTS_FILE"
-    fi
+    # Emit a recover marker event to DB so the server can handle cleanup
+    _R_RECOVER=$(jq -cn \
+      --arg slug "$SLUG" \
+      --arg ts "$RECOVER_TS" \
+      '{type:"recover",pipeline_slug:$slug,ts:$ts}')
+    _post_event "$_R_RECOVER"
     ;;
   work_unit_start)
-    WU_FILE="${BAMS_ROOT}/artifacts/pipeline/${SLUG}-workunit.jsonl"
     WU_NAME="${3:-$SLUG}"
-    jq -cn --arg slug "$SLUG" --arg name "$WU_NAME" --arg ts "$TS" \
-      '{type:"work_unit_start",work_unit_slug:$slug,work_unit_name:$name,ts:$ts}' >> "$WU_FILE"
+    _WUS_EVT=$(jq -cn --arg slug "$SLUG" --arg name "$WU_NAME" --arg ts "$TS" \
+      '{type:"work_unit_start",work_unit_slug:$slug,work_unit_name:$name,ts:$ts}')
+    _post_event "$_WUS_EVT"
     # Append to active work units JSON array (parallel support)
     _CURRENT_LIST=$(wu_list_read)
     # Remove any existing entry with the same slug (idempotent re-start)
@@ -251,9 +202,9 @@ case "$EVENT_TYPE" in
     echo "$SLUG" > /tmp/bams-active-workunit
     ;;
   work_unit_end)
-    WU_FILE="${BAMS_ROOT}/artifacts/pipeline/${SLUG}-workunit.jsonl"
-    jq -cn --arg slug "$SLUG" --arg status "${3:-completed}" --arg ts "$TS" \
-      '{type:"work_unit_end",work_unit_slug:$slug,status:$status,ts:$ts}' >> "$WU_FILE"
+    _WUE_EVT=$(jq -cn --arg slug "$SLUG" --arg status "${3:-completed}" --arg ts "$TS" \
+      '{type:"work_unit_end",work_unit_slug:$slug,status:$status,ts:$ts}')
+    _post_event "$_WUE_EVT"
     # Remove only this slug from the active work units JSON array
     _CURRENT_LIST=$(wu_list_read)
     _UPDATED=$(printf '%s' "$_CURRENT_LIST" | jq --arg s "$SLUG" '[.[] | select(.slug != $s)]')
@@ -273,8 +224,9 @@ case "$EVENT_TYPE" in
     fi
     ;;
   error)
-    jq -cn --arg slug "$SLUG" --arg msg "${3:-}" --argjson num "${4:-0}" --arg code "${5:-unknown}" --arg ts "$TS" \
-      '{type:"error",pipeline_slug:$slug,message:$msg,step_number:$num,error_code:$code,ts:$ts}' >> "$EVENTS_FILE"
+    _ERR_EVT=$(jq -cn --arg slug "$SLUG" --arg msg "${3:-}" --argjson num "${4:-0}" --arg code "${5:-unknown}" --arg ts "$TS" \
+      '{type:"error",pipeline_slug:$slug,message:$msg,step_number:$num,error_code:$code,ts:$ts}')
+    _post_event "$_ERR_EVT"
     ;;
 esac
 

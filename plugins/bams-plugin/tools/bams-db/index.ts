@@ -22,6 +22,8 @@ import {
   PIPELINES_TABLE_DDL,
   RUN_LOGS_TABLE_DDL,
   HR_REPORTS_TABLE_DDL,
+  PIPELINE_EVENTS_TABLE_DDL,
+  WORK_UNIT_EVENTS_TABLE_DDL,
   type Task,
   type TaskEvent,
   type TaskStatus,
@@ -30,6 +32,8 @@ import {
   type PipelineRow,
   type HrReportRow,
   type WorkUnitRow,
+  type PipelineEventRow,
+  type WorkUnitEventRow,
 } from "./schema.ts";
 
 /** DB 파일 기본 경로 — 글로벌 단일 DB */
@@ -66,6 +70,10 @@ export class TaskDB {
     this.db.exec(TASK_EVENTS_TABLE_DDL);
     this.db.exec(TASKS_INDEXES_DDL);
     this.db.exec(RUN_LOGS_TABLE_DDL);
+    // pipeline_events: 파이프라인 이벤트 소싱 (JSONL 병렬 저장)
+    this.db.exec(PIPELINE_EVENTS_TABLE_DDL);
+    // work_unit_events: WU 이벤트 소싱 (JSONL 병렬 저장)
+    this.db.exec(WORK_UNIT_EVENTS_TABLE_DDL);
     // hr_reports: retro 완료 시 저장되는 HR 보고서 (독립 테이블, FK 없음)
     this.db.exec(HR_REPORTS_TABLE_DDL);
   }
@@ -491,6 +499,265 @@ export class TaskDB {
     ).run(workUnitSlug);
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // Pipeline Events CRUD
+  // ─────────────────────────────────────────────────────────────
+
+  /**
+   * 파이프라인 이벤트를 삽입한다.
+   * pipeline_slug → pipeline_id 자동 해석 (pipelines 테이블 조회).
+   * @returns 삽입된 이벤트 id
+   */
+  insertPipelineEvent(event: {
+    pipeline_slug: string;
+    event_type: string;
+    call_id?: string;
+    agent_type?: string;
+    department?: string;
+    model?: string;
+    step_number?: number;
+    step_name?: string;
+    phase?: string;
+    status?: string;
+    duration_ms?: number;
+    description?: string;
+    result_summary?: string;
+    message?: string;
+    is_error?: boolean;
+    payload?: Record<string, unknown>;
+    ts?: string;
+  }): string {
+    const id = randomUUID();
+    const pipeline = this.getPipelineBySlug(event.pipeline_slug);
+    const pipelineId = pipeline?.id ?? null;
+    const ts = event.ts ?? new Date().toISOString();
+
+    this.db.prepare(`
+      INSERT INTO pipeline_events (
+        id, pipeline_id, event_type, call_id, agent_type, department, model,
+        step_number, step_name, phase, status, duration_ms,
+        description, result_summary, message, is_error, payload, ts
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id,
+      pipelineId,
+      event.event_type,
+      event.call_id ?? null,
+      event.agent_type ?? null,
+      event.department ?? null,
+      event.model ?? null,
+      event.step_number ?? null,
+      event.step_name ?? null,
+      event.phase ?? null,
+      event.status ?? null,
+      event.duration_ms ?? null,
+      event.description ?? null,
+      event.result_summary ?? null,
+      event.message ?? null,
+      event.is_error != null ? (event.is_error ? 1 : 0) : null,
+      event.payload ? JSON.stringify(event.payload) : null,
+      ts
+    );
+    return id;
+  }
+
+  /**
+   * 파이프라인별 이벤트 조회 (slug → pipeline_id 조인).
+   * eventType이 주어지면 해당 타입만 필터링.
+   */
+  getPipelineEvents(pipelineSlug: string, eventType?: string): PipelineEventRow[] {
+    if (eventType) {
+      return this.db
+        .prepare<PipelineEventRow>(`
+          SELECT pe.* FROM pipeline_events pe
+          INNER JOIN pipelines p ON pe.pipeline_id = p.id
+          WHERE p.slug = ? AND pe.event_type = ?
+          ORDER BY pe.ts ASC
+        `)
+        .all(pipelineSlug, eventType);
+    }
+    return this.db
+      .prepare<PipelineEventRow>(`
+        SELECT pe.* FROM pipeline_events pe
+        INNER JOIN pipelines p ON pe.pipeline_id = p.id
+        WHERE p.slug = ?
+        ORDER BY pe.ts ASC
+      `)
+      .all(pipelineSlug);
+  }
+
+  /**
+   * 이벤트 타입별 조회. since(ISO 8601)가 주어지면 해당 시점 이후만 반환.
+   */
+  getEventsByType(eventType: string, since?: string): PipelineEventRow[] {
+    if (since) {
+      return this.db
+        .prepare<PipelineEventRow>(`
+          SELECT * FROM pipeline_events
+          WHERE event_type = ? AND ts >= ?
+          ORDER BY ts ASC
+        `)
+        .all(eventType, since);
+    }
+    return this.db
+      .prepare<PipelineEventRow>(`
+        SELECT * FROM pipeline_events
+        WHERE event_type = ?
+        ORDER BY ts ASC
+      `)
+      .all(eventType);
+  }
+
+  /**
+   * 에이전트 이벤트(agent_start/agent_end) 조회.
+   * date(YYYY-MM-DD)가 주어지면 해당 날짜만, pipelineSlug가 주어지면 해당 파이프라인만 필터링.
+   */
+  getAgentEvents(date?: string, pipelineSlug?: string): PipelineEventRow[] {
+    const conditions: string[] = ["pe.event_type IN ('agent_start', 'agent_end')"];
+    const params: (string | null)[] = [];
+
+    if (date) {
+      conditions.push("pe.ts >= ? AND pe.ts < ?");
+      params.push(`${date}T00:00:00Z`, `${date}T23:59:59Z`);
+    }
+    if (pipelineSlug) {
+      conditions.push("p.slug = ?");
+      params.push(pipelineSlug);
+    }
+
+    const needsJoin = !!pipelineSlug;
+    const joinClause = needsJoin
+      ? "INNER JOIN pipelines p ON pe.pipeline_id = p.id"
+      : "";
+    const sql = `
+      SELECT pe.* FROM pipeline_events pe
+      ${joinClause}
+      WHERE ${conditions.join(" AND ")}
+      ORDER BY pe.ts ASC
+    `;
+
+    return this.db.prepare<PipelineEventRow>(sql).all(...params);
+  }
+
+  /**
+   * 에이전트 이벤트가 존재하는 날짜 목록 반환 (YYYY-MM-DD, 내림차순).
+   */
+  getAgentEventDates(): string[] {
+    const rows = this.db
+      .prepare<{ day: string }>(`
+        SELECT DISTINCT substr(ts, 1, 10) AS day
+        FROM pipeline_events
+        WHERE event_type IN ('agent_start', 'agent_end')
+        ORDER BY day DESC
+      `)
+      .all();
+    return rows.map((r) => r.day);
+  }
+
+  /**
+   * 특정 시점(ISO 8601) 이후의 모든 파이프라인 이벤트를 반환 (polling용).
+   */
+  getEventsSince(since: string): PipelineEventRow[] {
+    return this.db
+      .prepare<PipelineEventRow>(`
+        SELECT * FROM pipeline_events
+        WHERE ts > ?
+        ORDER BY ts ASC
+      `)
+      .all(since);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Work Unit Events CRUD
+  // ─────────────────────────────────────────────────────────────
+
+  /**
+   * Work Unit 이벤트를 삽입한다.
+   * wuSlug → work_unit_id 자동 해석 (work_units 테이블 조회).
+   * @returns 삽입된 이벤트 id
+   */
+  insertWorkUnitEvent(event: {
+    work_unit_slug: string;
+    event_type: string;
+    pipeline_slug?: string;
+    payload?: Record<string, unknown>;
+    ts?: string;
+  }): string {
+    const id = randomUUID();
+    const wu = this.db
+      .prepare<{ id: string }>("SELECT id FROM work_units WHERE slug = ?")
+      .get(event.work_unit_slug);
+    const workUnitId = wu?.id ?? null;
+    const ts = event.ts ?? new Date().toISOString();
+
+    this.db.prepare(`
+      INSERT INTO work_unit_events (id, work_unit_id, event_type, pipeline_slug, payload, ts)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      id,
+      workUnitId,
+      event.event_type,
+      event.pipeline_slug ?? null,
+      event.payload ? JSON.stringify(event.payload) : null,
+      ts
+    );
+    return id;
+  }
+
+  /**
+   * WU별 이벤트 조회 (slug → work_unit_id 조인).
+   */
+  getWorkUnitEvents(wuSlug: string): WorkUnitEventRow[] {
+    return this.db
+      .prepare<WorkUnitEventRow>(`
+        SELECT we.* FROM work_unit_events we
+        INNER JOIN work_units wu ON we.work_unit_id = wu.id
+        WHERE wu.slug = ?
+        ORDER BY we.ts ASC
+      `)
+      .all(wuSlug);
+  }
+
+  /**
+   * 전체 파이프라인의 이벤트 조회 (모든 pipeline_events).
+   * since(ISO 8601)가 주어지면 해당 시점 이후만 반환.
+   */
+  getAllPipelineEvents(since?: string): (PipelineEventRow & { pipeline_slug: string | null })[] {
+    if (since) {
+      return this.db
+        .prepare<PipelineEventRow & { pipeline_slug: string | null }>(`
+          SELECT pe.*, p.slug AS pipeline_slug FROM pipeline_events pe
+          LEFT JOIN pipelines p ON pe.pipeline_id = p.id
+          WHERE pe.ts >= ?
+          ORDER BY pe.ts ASC
+        `)
+        .all(since);
+    }
+    return this.db
+      .prepare<PipelineEventRow & { pipeline_slug: string | null }>(`
+        SELECT pe.*, p.slug AS pipeline_slug FROM pipeline_events pe
+        LEFT JOIN pipelines p ON pe.pipeline_id = p.id
+        ORDER BY pe.ts ASC
+      `)
+      .all();
+  }
+
+  /**
+   * Work Unit에 연결된 파이프라인들의 모든 이벤트 조회.
+   * pipeline_events를 pipelines → work_units 조인으로 필터링.
+   */
+  getPipelineEventsByWorkUnit(workUnitSlug: string): (PipelineEventRow & { pipeline_slug: string })[] {
+    return this.db
+      .prepare<PipelineEventRow & { pipeline_slug: string }>(`
+        SELECT pe.*, p.slug AS pipeline_slug FROM pipeline_events pe
+        INNER JOIN pipelines p ON pe.pipeline_id = p.id
+        INNER JOIN work_units wu ON p.work_unit_id = wu.id
+        WHERE wu.slug = ?
+        ORDER BY pe.ts ASC
+      `)
+      .all(workUnitSlug);
+  }
+
   /** DB 연결 종료 */
   close(): void {
     this.db.close();
@@ -509,8 +776,8 @@ export function getDefaultDB(): TaskDB {
   return _defaultDb;
 }
 
-export { TASK_STATUS, TASK_PRIORITY, TASK_SIZE } from "./schema.ts";
-export type { Task, TaskEvent, TaskStatus, TaskPriority, TaskSize, PipelineRow } from "./schema.ts";
+export { TASK_STATUS, TASK_PRIORITY, TASK_SIZE, PIPELINE_EVENT_TYPE } from "./schema.ts";
+export type { Task, TaskEvent, TaskStatus, TaskPriority, TaskSize, PipelineRow, PipelineEventRow, PipelineEventType, WorkUnitEventRow } from "./schema.ts";
 
 // ─────────────────────────────────────────────────────────────
 // HrReportDB — HR 보고서 CRUD

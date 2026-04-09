@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { EventStore } from '@/lib/event-store'
-import { bamsApi } from '@/lib/bams-api'
+
+const BAMS_SERVER = process.env.BAMS_SERVER_URL ?? 'http://localhost:3099'
 
 function headers(source: string) {
   return { 'Access-Control-Allow-Origin': '*', 'X-Data-Source': source }
@@ -11,14 +11,20 @@ export async function GET(request: NextRequest) {
   const pipeline = request.nextUrl.searchParams.get('pipeline') ?? undefined
 
   if (!since) {
+    // Without since, return pipeline list from bams-server
     try {
-      const data = await bamsApi.getPipelines()
-      return NextResponse.json(
-        { events: data.pipelines, serverTime: new Date().toISOString() },
-        { headers: headers('api') }
-      )
+      const res = await fetch(`${BAMS_SERVER}/api/pipelines`, {
+        signal: AbortSignal.timeout(3000),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        return NextResponse.json(
+          { events: data.pipelines ?? data, serverTime: new Date().toISOString() },
+          { headers: headers('api') }
+        )
+      }
     } catch {
-      // Fallback
+      // fallback
     }
     return NextResponse.json(
       { error: 'Missing required query parameter: since (ISO timestamp)' },
@@ -27,11 +33,20 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const store = EventStore.getInstance()
-    const events = store.getEventsSince(since, pipeline)
+    const qs = new URLSearchParams({ since })
+    if (pipeline) qs.set('pipeline', pipeline)
+    const res = await fetch(`${BAMS_SERVER}/api/events/poll?${qs.toString()}`, {
+      signal: AbortSignal.timeout(3000),
+    })
+    if (res.ok) {
+      return new Response(await res.text(), {
+        status: res.status,
+        headers: { 'Content-Type': 'application/json', ...headers('api') },
+      })
+    }
     return NextResponse.json(
-      { events, serverTime: new Date().toISOString() },
-      { headers: headers('fallback') }
+      { events: [], serverTime: new Date().toISOString() },
+      { headers: headers('error') }
     )
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Internal server error'

@@ -6,13 +6,13 @@
  * Paperclip의 서버 패턴을 bams-plugin에 적용:
  * - Bun.serve() 기반 (Express 의존성 없음)
  * - REST API + SSE 스트리밍
- * - SQLite TaskDB 직접 연동 (FK 기반)
+ * - SQLite TaskDB 직접 연동 (FK 기반) — DB가 primary data source
  * - CORS: * (개발 환경, 모든 origin 허용)
  *
  * 엔드포인트:
- *   GET  /api/pipelines                   — 파이프라인 목록 (DB 우선, JSONL fallback)
- *   GET  /api/pipelines/:slug             — 파이프라인 상세 (DB 우선)
- *   GET  /api/pipelines/:slug/tasks       — 파이프라인 하위 task 조회 (신규)
+ *   GET  /api/pipelines                   — 파이프라인 목록 (DB)
+ *   GET  /api/pipelines/:slug             — 파이프라인 상세 (DB)
+ *   GET  /api/pipelines/:slug/tasks       — 파이프라인 하위 task 조회
  *   GET  /api/tasks                       — 태스크 목록 (쿼리: pipeline=, status=)
  *   PATCH /api/tasks/:id                  — 태스크 상태 업데이트 (atomic)
  *   GET  /api/agents                      — 에이전트 목록
@@ -28,25 +28,22 @@
  *   PATCH /api/workunits/:slug            — work unit 상태 업데이트 (completed/abandoned)
  *   PATCH /api/workunits/:slug/pipelines/:pipelineSlug — pipeline 강제 종료
  *   DELETE /api/workunits/:slug           — work unit 소프트 삭제
+ *   POST /api/events                      — 범용 이벤트 수신 (emit.sh → DB 기록)
  *   GET  /api/hr/reports                  — HR 보고서 목록
  *   GET  /api/hr/reports/:id              — HR 보고서 상세
  */
 
-import { readFileSync, existsSync, readdirSync, appendFileSync } from "fs";
+import { readFileSync, existsSync, readdirSync } from "fs"; // Used by parseAgentInfo(), getAgentSlugs()
 import { join } from "path";
 import { getDefaultDB, getDefaultWorkUnitDB, getDefaultHrReportDB } from "../../tools/bams-db/index.ts";
 import { getBroker } from "./sse-broker.ts";
-import type { TaskStatus, WorkUnitRow } from "../../tools/bams-db/schema.ts";
+import type { TaskStatus } from "../../tools/bams-db/schema.ts";
 
 // ─────────────────────────────────────────────────────────────
 // 설정
 // ─────────────────────────────────────────────────────────────
 
 const PORT = parseInt(process.env.BAMS_SERVER_PORT ?? "3099", 10);
-// 글로벌 bams 루트: BAMS_ROOT 환경변수 → $HOME/.bams (emit.sh, event-store.ts와 동일 로직)
-const HOME_DIR = process.env.HOME ?? process.env.USERPROFILE ?? "";
-const GLOBAL_ROOT = process.env.BAMS_ROOT ?? (HOME_DIR ? `${HOME_DIR}/.bams` : ".crew");
-const PIPELINE_EVENTS_DIR = `${GLOBAL_ROOT}/artifacts/pipeline`;
 const AGENTS_DIR = "plugins/bams-plugin/agents";
 
 /** SSE 이벤트 push — SseBroker 경유 (DB 영구 보존 + 스트리밍) */
@@ -93,7 +90,7 @@ function errorResponse(message: string, status = 400): Response {
 }
 
 // ─────────────────────────────────────────────────────────────
-// 파이프라인 이벤트 파일 파싱
+// 파이프라인 이벤트 타입 (DB 기반, JSONL 파싱 제거됨)
 // ─────────────────────────────────────────────────────────────
 
 interface PipelineEvent {
@@ -101,66 +98,6 @@ interface PipelineEvent {
   pipeline_slug?: string;
   ts?: string;
   [key: string]: unknown;
-}
-
-function parsePipelineEvents(slug: string): PipelineEvent[] {
-  const filePath = join(PIPELINE_EVENTS_DIR, `${slug}-events.jsonl`);
-  if (!existsSync(filePath)) return [];
-  try {
-    return readFileSync(filePath, "utf-8")
-      .split("\n")
-      .filter(Boolean)
-      .map((line) => JSON.parse(line) as PipelineEvent);
-  } catch {
-    return [];
-  }
-}
-
-function getPipelineSlugs(): string[] {
-  if (!existsSync(PIPELINE_EVENTS_DIR)) return [];
-  try {
-    return readdirSync(PIPELINE_EVENTS_DIR)
-      .filter((f) => f.endsWith("-events.jsonl"))
-      .map((f) => f.replace("-events.jsonl", ""));
-  } catch {
-    return [];
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-// Work Unit 이벤트 파일 파싱
-// ─────────────────────────────────────────────────────────────
-
-interface WorkUnitEvent {
-  type: string;
-  work_unit_slug?: string;
-  name?: string;
-  ts?: string;
-  [key: string]: unknown;
-}
-
-function parseWorkUnitEvents(slug: string): WorkUnitEvent[] {
-  const file = join(PIPELINE_EVENTS_DIR, `${slug}-workunit.jsonl`);
-  if (!existsSync(file)) return [];
-  try {
-    return readFileSync(file, "utf-8")
-      .split("\n")
-      .filter(Boolean)
-      .map((line) => JSON.parse(line) as WorkUnitEvent);
-  } catch {
-    return [];
-  }
-}
-
-function getWorkUnitSlugs(): string[] {
-  if (!existsSync(PIPELINE_EVENTS_DIR)) return [];
-  try {
-    return readdirSync(PIPELINE_EVENTS_DIR)
-      .filter((f) => f.endsWith("-workunit.jsonl"))
-      .map((f) => f.replace("-workunit.jsonl", ""));
-  } catch {
-    return [];
-  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -200,83 +137,7 @@ function getAgentSlugs(): string[] {
 }
 
 // ─────────────────────────────────────────────────────────────
-// 이벤트 → DB 동기화 (e5f6a7b8)
-// ─────────────────────────────────────────────────────────────
-
-/**
- * JSONL 이벤트 파일에서 DB에 없는 파이프라인을 자동으로 sync한다.
- * 서버 시작 시 1회 호출.
- */
-function syncPipelinesFromEvents(): void {
-  const db = getDefaultDB();
-  const wuDb = getDefaultWorkUnitDB();
-
-  // Phase 1: WorkUnit sync (Pipeline보다 먼저 — FK 의존성)
-  const wuSlugs = getWorkUnitSlugs();
-  for (const wuSlug of wuSlugs) {
-    const existing = wuDb.getWorkUnit(wuSlug);
-    if (existing) continue; // 이미 DB에 있으면 스킵
-
-    const wuEvents = parseWorkUnitEvents(wuSlug);
-    const startEvt = wuEvents.find((e) => e.type === "work_unit_start");
-    if (!startEvt) continue;
-
-    wuDb.createWorkUnit(
-      wuSlug,
-      (startEvt.name as string) ?? (startEvt.work_unit_name as string) ?? wuSlug,
-      (startEvt.ts as string) ?? new Date().toISOString()
-    );
-
-    const endEvt = wuEvents.find((e) => e.type === "work_unit_end");
-    if (endEvt) {
-      wuDb.endWorkUnit(
-        wuSlug,
-        (endEvt.status as string) ?? "completed",
-        (endEvt.ts as string) ?? new Date().toISOString()
-      );
-    }
-  }
-
-  // Phase 2: Pipeline sync
-  const slugs = getPipelineSlugs();
-
-  for (const slug of slugs) {
-    const events = parsePipelineEvents(slug);
-    const startEvt = events.find((e) => e.type === "pipeline_start");
-    if (!startEvt) continue;
-
-    // work_unit_id 매칭
-    let workUnitId: string | undefined = undefined;
-    if (startEvt.work_unit_slug) {
-      const wu = wuDb.getWorkUnit(startEvt.work_unit_slug as string);
-      workUnitId = wu?.id ?? undefined;
-    }
-
-    // upsertPipeline은 slug UNIQUE로 idempotent — 기존 레코드의 work_unit_id도 업데이트
-    db.upsertPipeline({
-      slug,
-      type: (startEvt.pipeline_type as string) ?? "unknown",
-      command: (startEvt.command as string) ?? undefined,
-      arguments: (startEvt.arguments as string) ?? undefined,
-      started_at: (startEvt.ts as string) ?? undefined,
-      work_unit_id: workUnitId,
-    });
-
-    // pipeline_end 이벤트가 있으면 상태 업데이트
-    const endEvt = events.find((e) => e.type === "pipeline_end");
-    if (endEvt) {
-      db.updatePipelineStatus(
-        slug,
-        (endEvt.status as string) ?? "completed",
-        (endEvt.ts as string) ?? null,
-        (endEvt.duration_ms as number) ?? null
-      );
-    }
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-// 라우터
+// 라우터 (DB가 primary data source — JSONL sync 제거됨)
 // ─────────────────────────────────────────────────────────────
 
 async function handleRequest(req: Request): Promise<Response> {
@@ -297,50 +158,26 @@ async function handleRequest(req: Request): Promise<Response> {
     // DB에 있는 파이프라인을 slug → row 맵으로 변환
     const dbMap = new Map(dbPipelines.map((p) => [p.slug, p]));
 
-    // DB 기반 결과
-    const pipelines = dbPipelines.map((p) => {
-      const summary = db.getPipelineSummary(p.id);
-      return {
-        slug: p.slug,
-        pipeline_type: p.type ?? "unknown",
-        started_at: p.started_at ?? null,
-        last_event_at: p.updated_at ?? p.started_at ?? null,
-        work_unit_slug: null as string | null, // 아래에서 보충
-        status: p.status ?? "active",
-        task_summary: summary,
-      };
-    });
-
     // work_unit_slug 보충 (DB FK → work_units 테이블 조회)
     // M-05: getWorkUnits()를 루프 밖에서 1회만 호출하여 N+1 쿼리 방지
     const wuDb = getDefaultWorkUnitDB();
     const allWorkUnits = wuDb.getWorkUnits();
     const wuById = new Map(allWorkUnits.map((wu) => [wu.id, wu]));
-    for (const p of pipelines) {
-      const dbRow = dbMap.get(p.slug);
-      if (dbRow?.work_unit_id) {
-        const wu = wuById.get(dbRow.work_unit_id);
-        p.work_unit_slug = wu?.slug ?? null;
-      }
-    }
 
-    // JSONL fallback: DB에 없는 파이프라인만 보충
-    const jsonlSlugs = getPipelineSlugs();
-    for (const slug of jsonlSlugs) {
-      if (dbMap.has(slug)) continue; // 이미 DB에 있음
-      const events = parsePipelineEvents(slug);
-      const startEvent = events.find((e) => e.type === "pipeline_start");
-      const lastEvent = events[events.length - 1];
-      (pipelines as Array<Record<string, unknown>>).push({
-        slug,
-        pipeline_type: (startEvent?.pipeline_type as string) ?? "unknown",
-        started_at: startEvent?.ts ?? null,
-        last_event_at: lastEvent?.ts ?? null,
-        work_unit_slug: (startEvent?.work_unit_slug as string) ?? null,
-        status: events.some((e) => e.type === "pipeline_end") ? "completed" : "active",
-        task_summary: { total: 0, backlog: 0, in_progress: 0, in_review: 0, done: 0, blocked: 0, cancelled: 0 },
-      });
-    }
+    // DB 기반 결과
+    const pipelines = dbPipelines.map((p) => {
+      const summary = db.getPipelineSummary(p.id);
+      const wu = p.work_unit_id ? wuById.get(p.work_unit_id) : undefined;
+      return {
+        slug: p.slug,
+        pipeline_type: p.type ?? "unknown",
+        started_at: p.started_at ?? null,
+        last_event_at: p.updated_at ?? p.started_at ?? null,
+        work_unit_slug: wu?.slug ?? null,
+        status: p.status ?? "active",
+        task_summary: summary,
+      };
+    });
 
     return jsonResponse({ pipelines });
   }
@@ -353,12 +190,7 @@ async function handleRequest(req: Request): Promise<Response> {
     const db = getDefaultDB();
     const pipeline = db.getPipelineBySlug(slug);
     if (!pipeline) {
-      // JSONL fallback 확인
-      const events = parsePipelineEvents(slug);
-      if (events.length === 0) {
-        return errorResponse(`Pipeline not found: ${slug}`, 404);
-      }
-      return jsonResponse({ pipeline_slug: slug, tasks: [], count: 0 });
+      return errorResponse(`Pipeline not found: ${slug}`, 404);
     }
     const tasks = db.getTasksByPipelineId(pipeline.id);
     const summary = db.getPipelineSummary(pipeline.id);
@@ -372,20 +204,34 @@ async function handleRequest(req: Request): Promise<Response> {
     const db = getDefaultDB();
     const pipeline = db.getPipelineBySlug(slug);
 
-    if (pipeline) {
-      // DB 우선
-      const tasks = db.getTasksByPipelineId(pipeline.id);
-      const summary = db.getPipelineSummary(pipeline.id);
-      const events = parsePipelineEvents(slug); // 이벤트는 여전히 JSONL에서 읽음
-      return jsonResponse({ slug, pipeline, events, tasks, summary });
-    }
-
-    // JSONL fallback
-    const events = parsePipelineEvents(slug);
-    if (events.length === 0) {
+    if (!pipeline) {
       return errorResponse(`Pipeline not found: ${slug}`, 404);
     }
-    return jsonResponse({ slug, pipeline: null, events, tasks: [], summary: { total: 0, backlog: 0, in_progress: 0, in_review: 0, done: 0, blocked: 0, cancelled: 0 } });
+
+    const tasks = db.getTasksByPipelineId(pipeline.id);
+    const summary = db.getPipelineSummary(pipeline.id);
+    // 이벤트를 DB에서 조회하고 프론트엔드 호환 형식으로 매핑
+    const dbEvents = db.getPipelineEvents(slug);
+    const events = dbEvents.map((e) => ({
+      type: e.event_type,
+      pipeline_slug: slug,
+      ts: e.ts,
+      call_id: e.call_id,
+      agent_type: e.agent_type,
+      department: e.department,
+      model: e.model,
+      step_number: e.step_number,
+      step_name: e.step_name,
+      phase: e.phase,
+      status: e.status,
+      duration_ms: e.duration_ms,
+      description: e.description,
+      result_summary: e.result_summary,
+      message: e.message,
+      is_error: e.is_error ? true : false,
+      ...(e.payload ? JSON.parse(e.payload) : {}),
+    }));
+    return jsonResponse({ slug, pipeline, events, tasks, summary });
   }
 
   // ── GET /api/tasks ──────────────────────────────────────────
@@ -473,29 +319,23 @@ async function handleRequest(req: Request): Promise<Response> {
   const agentStatusMatch = path.match(/^\/api\/agents\/([^/]+)\/status$/);
   if (method === "GET" && agentStatusMatch) {
     const slug = agentStatusMatch[1];
-    const slugs = getPipelineSlugs();
-    let lastEvent: PipelineEvent | null = null;
-    let pipelineSlug: string | null = null;
+    const db = getDefaultDB();
 
-    for (const ps of slugs) {
-      const events = parsePipelineEvents(ps);
-      const agentEvents = events.filter(
-        (e) =>
-          (e.type === "agent_start" || e.type === "agent_end") &&
-          (e.agent_type === slug || e.call_id?.toString().includes(slug))
-      );
-      if (agentEvents.length > 0) {
-        lastEvent = agentEvents[agentEvents.length - 1];
-        pipelineSlug = ps;
-      }
-    }
+    // DB에서 해당 에이전트의 최근 이벤트 조회 (agent_type 또는 call_id에 slug 포함)
+    const allAgentEvents = db.getAllPipelineEvents();
+    const agentEvents = allAgentEvents.filter(
+      (e) =>
+        (e.event_type === "agent_start" || e.event_type === "agent_end") &&
+        (e.agent_type === slug || (e.call_id?.includes(slug) ?? false))
+    );
 
-    if (!lastEvent) {
+    if (agentEvents.length === 0) {
       return jsonResponse({ slug, status: "idle", last_event: null });
     }
 
+    const lastEvent = agentEvents[agentEvents.length - 1];
     const status =
-      lastEvent.type === "agent_start"
+      lastEvent.event_type === "agent_start"
         ? "running"
         : lastEvent.is_error
           ? "error"
@@ -504,8 +344,19 @@ async function handleRequest(req: Request): Promise<Response> {
     return jsonResponse({
       slug,
       status,
-      pipeline_slug: pipelineSlug,
-      last_event: lastEvent,
+      pipeline_slug: lastEvent.pipeline_slug ?? null,
+      last_event: {
+        type: lastEvent.event_type,
+        pipeline_slug: lastEvent.pipeline_slug,
+        ts: lastEvent.ts,
+        call_id: lastEvent.call_id,
+        agent_type: lastEvent.agent_type,
+        is_error: lastEvent.is_error ? true : false,
+        status: lastEvent.status,
+        duration_ms: lastEvent.duration_ms,
+        description: lastEvent.description,
+        result_summary: lastEvent.result_summary,
+      },
     });
   }
 
@@ -534,73 +385,39 @@ async function handleRequest(req: Request): Promise<Response> {
   // ── GET /api/workunits/active ──────────────────────────────────
   // NOTE: /active must match BEFORE the /:slug route
   if (method === "GET" && path === "/api/workunits/active") {
-    const wuSlugs = getWorkUnitSlugs();
+    const wuDb = getDefaultWorkUnitDB();
     const db = getDefaultDB();
-    const active = wuSlugs
-      .map((wuSlug) => {
-        const events = parseWorkUnitEvents(wuSlug);
-        const startEvent = events.find((e) => e.type === "work_unit_start");
-        const endEvent = events.find((e) => e.type === "work_unit_end");
-        if (!startEvent || endEvent) return null; // not active
-        // Count linked pipelines via DB FK
-        const dbPipelines = getDefaultDB().getWorkUnitPipelines(wuSlug);
-        let pipelineCount = dbPipelines.length;
-        // JSONL fallback if DB has no records
-        if (pipelineCount === 0) {
-          const pipelineSlugs = getPipelineSlugs();
-          pipelineCount = pipelineSlugs.filter((ps) => {
-            const pEvents = parsePipelineEvents(ps);
-            const pStart = pEvents.find((e) => e.type === "pipeline_start");
-            return pStart?.work_unit_slug === wuSlug;
-          }).length;
-        }
-        return {
-          slug: wuSlug,
-          name: (startEvent.name as string) ?? wuSlug,
-          status: "active" as const,
-          startedAt: startEvent.ts ?? null,
-          endedAt: null,
-          pipelineCount,
-        };
-      })
-      .filter(Boolean);
+    const allWu = wuDb.getWorkUnits().filter(
+      (wu) => wu.status === "active" && !wu.deleted_at
+    );
+    const active = allWu.map((wu) => {
+      const dbPipelines = db.getWorkUnitPipelines(wu.slug);
+      return {
+        slug: wu.slug,
+        name: wu.name ?? wu.slug,
+        status: "active" as const,
+        startedAt: wu.started_at ?? null,
+        endedAt: null,
+        pipelineCount: dbPipelines.length,
+      };
+    });
     return jsonResponse({ workunits: active });
   }
 
   // ── GET /api/workunits ──────────────────────────────────────
   if (method === "GET" && path === "/api/workunits") {
-    const wuSlugs = getWorkUnitSlugs();
-    // DB에서 소프트 삭제된 WU 슬러그 집합 (deleted_at IS NOT NULL)
-    const deletedWuSlugs = new Set<string>(
-      getDefaultWorkUnitDB().getWorkUnits()
-        .filter((wu) => wu.deleted_at != null)
-        .map((wu) => wu.slug)
-    );
-    const workunits = wuSlugs
-      .filter((wuSlug) => !deletedWuSlugs.has(wuSlug))
-      .map((wuSlug) => {
-      const events = parseWorkUnitEvents(wuSlug);
-      const startEvent = events.find((e) => e.type === "work_unit_start");
-      const endEvent = events.find((e) => e.type === "work_unit_end");
-      // Count linked pipelines via DB FK
-      const dbPipelines = getDefaultDB().getWorkUnitPipelines(wuSlug);
-      let linkedCount = dbPipelines.length;
-      // JSONL fallback if DB has no records
-      if (linkedCount === 0) {
-        const pipelineSlugs = getPipelineSlugs();
-        linkedCount = pipelineSlugs.filter((ps) => {
-          const pEvents = parsePipelineEvents(ps);
-          const pStart = pEvents.find((e) => e.type === "pipeline_start");
-          return pStart?.work_unit_slug === wuSlug;
-        }).length;
-      }
+    const wuDb = getDefaultWorkUnitDB();
+    const db = getDefaultDB();
+    const allWu = wuDb.getWorkUnits().filter((wu) => !wu.deleted_at);
+    const workunits = allWu.map((wu) => {
+      const dbPipelines = db.getWorkUnitPipelines(wu.slug);
       return {
-        slug: wuSlug,
-        name: (startEvent?.name as string) ?? wuSlug,
-        status: endEvent ? "completed" : startEvent ? "active" : "unknown",
-        startedAt: startEvent?.ts ?? null,
-        endedAt: endEvent?.ts ?? null,
-        pipelineCount: linkedCount,
+        slug: wu.slug,
+        name: wu.name ?? wu.slug,
+        status: wu.status ?? "unknown",
+        startedAt: wu.started_at ?? null,
+        endedAt: wu.ended_at ?? null,
+        pipelineCount: dbPipelines.length,
       };
     });
     return jsonResponse({ workunits });
@@ -610,81 +427,45 @@ async function handleRequest(req: Request): Promise<Response> {
   const workunitDetailMatch = path.match(/^\/api\/workunits\/([^/]+)$/);
   if (method === "GET" && workunitDetailMatch) {
     const wuSlug = decodeURIComponent(workunitDetailMatch[1]);
-    const events = parseWorkUnitEvents(wuSlug);
-    if (events.length === 0) {
+    const wuDb = getDefaultWorkUnitDB();
+    const wu = wuDb.getWorkUnit(wuSlug);
+    if (!wu) {
       return errorResponse(`Work unit not found: ${wuSlug}`, 404);
     }
-    const startEvent = events.find((e) => e.type === "work_unit_start");
-    const endEvent = events.find((e) => e.type === "work_unit_end");
 
-    // Find linked pipelines — DB FK 우선, JSONL fallback
-    let pipelines: Array<{
-      slug: string; type: string; linkedAt: string | null; status: string;
-      id: string | null; totalSteps: number; completedSteps: number; failedSteps: number;
-      durationMs: number | null; command: string | null; arguments: string | null;
-    }> = [];
-    try {
-      const dbRows = getDefaultDB().getWorkUnitPipelines(wuSlug);
-      if (dbRows.length > 0) {
-        // DB FK 기반: pipelines.work_unit_id → work_units.id
-        pipelines = dbRows.map((row) => {
-          const pEvents = parsePipelineEvents(row.slug);
-          const pStart = pEvents.find((e) => e.type === "pipeline_start");
-          const pEnd = pEvents.filter((e) => e.type === "pipeline_end").pop();
-          return {
-            slug: row.slug,
-            type: row.type ?? (pStart?.pipeline_type as string) ?? "unknown",
-            linkedAt: row.created_at ?? null,
-            status: row.status ?? (pEnd ? (pEnd.status as string) : "active"),
-            id: row.id ?? null,
-            totalSteps: row.total_steps ?? 0,
-            completedSteps: row.completed_steps ?? 0,
-            failedSteps: row.failed_steps ?? 0,
-            durationMs: row.duration_ms ?? null,
-            command: row.command ?? null,
-            arguments: row.arguments ?? null,
-          };
-        });
-      }
-    } catch {
-      // DB 조회 실패 시 JSONL fallback으로 진행
-    }
+    const db = getDefaultDB();
 
-    // JSONL fallback: DB 레코드 없으면 기존 방식 사용
-    if (pipelines.length === 0) {
-      const pipelineSlugs = getPipelineSlugs();
-      const fallbackDb = getDefaultDB();
-      pipelines = pipelineSlugs
-        .map((ps) => {
-          const pEvents = parsePipelineEvents(ps);
-          const pStart = pEvents.find((e) => e.type === "pipeline_start");
-          if (pStart?.work_unit_slug !== wuSlug) return null;
-          const pEnd = pEvents.filter((e) => e.type === "pipeline_end").pop();
-          const dbRow = fallbackDb.getPipelineBySlug(ps);
-          return {
-            slug: ps,
-            type: (pStart.pipeline_type as string) ?? "unknown",
-            linkedAt: pStart.ts ?? null,
-            status: pEnd ? (pEnd.status as string) : "active",
-            id: dbRow?.id ?? null,
-            totalSteps: dbRow?.total_steps ?? 0,
-            completedSteps: dbRow?.completed_steps ?? 0,
-            failedSteps: dbRow?.failed_steps ?? 0,
-            durationMs: dbRow?.duration_ms ?? null,
-            command: dbRow?.command ?? null,
-            arguments: dbRow?.arguments ?? null,
-          };
-        })
-        .filter((p): p is NonNullable<typeof p> => p !== null);
-    }
+    // WU 이벤트를 DB에서 조회하고 프론트엔드 호환 형식으로 매핑
+    const dbWuEvents = db.getWorkUnitEvents(wuSlug);
+    const events = dbWuEvents.map((e) => ({
+      type: e.event_type,
+      work_unit_slug: wuSlug,
+      ts: e.ts,
+      pipeline_slug: e.pipeline_slug,
+      ...(e.payload ? JSON.parse(e.payload) : {}),
+    }));
+
+    // Find linked pipelines — DB FK 기반
+    const dbRows = db.getWorkUnitPipelines(wuSlug);
+    const pipelines = dbRows.map((row) => ({
+      slug: row.slug,
+      type: row.type ?? "unknown",
+      linkedAt: row.created_at ?? null,
+      status: row.status ?? "active",
+      id: row.id ?? null,
+      totalSteps: row.total_steps ?? 0,
+      completedSteps: row.completed_steps ?? 0,
+      failedSteps: row.failed_steps ?? 0,
+      durationMs: row.duration_ms ?? null,
+      command: row.command ?? null,
+      arguments: row.arguments ?? null,
+    }));
 
     // Work Unit task_summary 집계 (DB FK 기반)
-    const db = getDefaultDB();
     let taskSummary = { total: 0, backlog: 0, in_progress: 0, in_review: 0, done: 0, blocked: 0, cancelled: 0 };
     for (const p of pipelines) {
-      const dbPipeline = db.getPipelineBySlug(p.slug);
-      if (dbPipeline) {
-        const s = db.getPipelineSummary(dbPipeline.id);
+      if (p.id) {
+        const s = db.getPipelineSummary(p.id);
         taskSummary = {
           total: taskSummary.total + s.total,
           backlog: taskSummary.backlog + s.backlog,
@@ -699,10 +480,10 @@ async function handleRequest(req: Request): Promise<Response> {
 
     return jsonResponse({
       slug: wuSlug,
-      name: (startEvent?.name as string) ?? wuSlug,
-      status: endEvent ? "completed" : startEvent ? "active" : "unknown",
-      startedAt: startEvent?.ts ?? null,
-      endedAt: endEvent?.ts ?? null,
+      name: wu.name ?? wuSlug,
+      status: wu.status ?? "unknown",
+      startedAt: wu.started_at ?? null,
+      endedAt: wu.ended_at ?? null,
       events,
       pipelines,
       task_summary: taskSummary,
@@ -713,37 +494,18 @@ async function handleRequest(req: Request): Promise<Response> {
   const workunitTasksMatch = path.match(/^\/api\/workunits\/([^/]+)\/tasks$/);
   if (method === "GET" && workunitTasksMatch) {
     const wuSlug = decodeURIComponent(workunitTasksMatch[1]);
-    const events = parseWorkUnitEvents(wuSlug);
-    if (events.length === 0) {
+    const wuDb = getDefaultWorkUnitDB();
+    const wu = wuDb.getWorkUnit(wuSlug);
+    if (!wu) {
       return errorResponse(`Work unit not found: ${wuSlug}`, 404);
     }
 
     const db = getDefaultDB();
-
-    // DB FK 기반: work_unit에 연결된 pipelines 조회
-    const dbPipelines = getDefaultDB().getWorkUnitPipelines(wuSlug);
-    let pipelinesWithTasks: Array<{ slug: string; tasks: unknown[] }>;
-
-    if (dbPipelines.length > 0) {
-      pipelinesWithTasks = dbPipelines.map((p) => ({
-        slug: p.slug,
-        tasks: db.getTasksByPipelineId(p.id),
-      }));
-    } else {
-      // JSONL fallback
-      const pipelineSlugs = getPipelineSlugs().filter((ps) => {
-        const pEvents = parsePipelineEvents(ps);
-        const pStart = pEvents.find((e) => e.type === "pipeline_start");
-        return pStart?.work_unit_slug === wuSlug;
-      });
-      pipelinesWithTasks = pipelineSlugs.map((ps) => {
-        const pipeline = db.getPipelineBySlug(ps);
-        return {
-          slug: ps,
-          tasks: pipeline ? db.getTasksByPipelineId(pipeline.id) : [],
-        };
-      });
-    }
+    const dbPipelines = db.getWorkUnitPipelines(wuSlug);
+    const pipelinesWithTasks = dbPipelines.map((p) => ({
+      slug: p.slug,
+      tasks: db.getTasksByPipelineId(p.id),
+    }));
 
     const allTasks = pipelinesWithTasks.flatMap((p) => p.tasks) as Array<{ status: string }>;
     const summary = {
@@ -767,45 +529,41 @@ async function handleRequest(req: Request): Promise<Response> {
   const workunitAgentsActiveMatch = path.match(/^\/api\/workunits\/([^/]+)\/agents\/active$/);
   if (method === "GET" && workunitAgentsActiveMatch) {
     const wuSlug = decodeURIComponent(workunitAgentsActiveMatch[1]);
-    const wuEvents = parseWorkUnitEvents(wuSlug);
-    if (wuEvents.length === 0) {
+    const wuDb = getDefaultWorkUnitDB();
+    const wu = wuDb.getWorkUnit(wuSlug);
+    if (!wu) {
       return errorResponse(`Work unit not found: ${wuSlug}`, 404);
     }
 
-    // DB FK 기반 + JSONL fallback
-    const dbPipelines = getDefaultDB().getWorkUnitPipelines(wuSlug);
-    let pipelineSlugs: string[];
-    if (dbPipelines.length > 0) {
-      pipelineSlugs = dbPipelines.map((p) => p.slug);
-    } else {
-      pipelineSlugs = getPipelineSlugs().filter((ps) => {
-        const pEvents = parsePipelineEvents(ps);
-        const pStart = pEvents.find((e) => e.type === "pipeline_start");
-        return pStart?.work_unit_slug === wuSlug;
-      });
-    }
+    const db = getDefaultDB();
+    const wuPipelineEvents = db.getPipelineEventsByWorkUnit(wuSlug);
 
-    const activeAgents: Array<{ call_id: string; agent_type: string; pipeline_slug: string; started_at: string | null }> = [];
-    for (const ps of pipelineSlugs) {
-      const pEvents = parsePipelineEvents(ps);
-      const startEvents = pEvents.filter((e) => e.type === "agent_start" && e.call_id);
-      for (const se of startEvents) {
-        const hasEnd = pEvents.some(
-          (e) => e.type === "agent_end" && e.call_id === se.call_id
-        );
-        if (!hasEnd) {
-          const pipelineEnded = pEvents.some((e) => e.type === "pipeline_end");
-          if (!pipelineEnded) {
-            activeAgents.push({
-              call_id: se.call_id as string,
-              agent_type: (se.agent_type as string) ?? "unknown",
-              pipeline_slug: ps,
-              started_at: (se.ts as string) ?? null,
-            });
-          }
-        }
+    // agent_start가 있고 agent_end가 없는 call_id를 찾음
+    const startedCallIds = new Map<string, { call_id: string; agent_type: string; pipeline_slug: string; started_at: string | null }>();
+    const endedCallIds = new Set<string>();
+    const endedPipelines = new Set<string>();
+
+    for (const e of wuPipelineEvents) {
+      if (e.event_type === "pipeline_end") {
+        endedPipelines.add(e.pipeline_slug);
+      }
+      if (e.event_type === "agent_start" && e.call_id) {
+        startedCallIds.set(e.call_id, {
+          call_id: e.call_id,
+          agent_type: e.agent_type ?? "unknown",
+          pipeline_slug: e.pipeline_slug,
+          started_at: e.ts ?? null,
+        });
+      }
+      if (e.event_type === "agent_end" && e.call_id) {
+        endedCallIds.add(e.call_id);
       }
     }
+
+    const activeAgents = Array.from(startedCallIds.values()).filter(
+      (a) => !endedCallIds.has(a.call_id) && !endedPipelines.has(a.pipeline_slug)
+    );
+
     return jsonResponse({ work_unit_slug: wuSlug, active_agents: activeAgents });
   }
 
@@ -813,41 +571,28 @@ async function handleRequest(req: Request): Promise<Response> {
   const workunitAgentsMatch = path.match(/^\/api\/workunits\/([^/]+)\/agents$/);
   if (method === "GET" && workunitAgentsMatch) {
     const wuSlug = decodeURIComponent(workunitAgentsMatch[1]);
-    const wuEvents = parseWorkUnitEvents(wuSlug);
-    if (wuEvents.length === 0) {
+    const wuDb = getDefaultWorkUnitDB();
+    const wu = wuDb.getWorkUnit(wuSlug);
+    if (!wu) {
       return errorResponse(`Work unit not found: ${wuSlug}`, 404);
     }
 
-    // DB FK 기반 + JSONL fallback
-    const dbPipelines = getDefaultDB().getWorkUnitPipelines(wuSlug);
-    let pipelineSlugs: string[];
-    if (dbPipelines.length > 0) {
-      pipelineSlugs = dbPipelines.map((p) => p.slug);
-    } else {
-      pipelineSlugs = getPipelineSlugs().filter((ps) => {
-        const pEvents = parsePipelineEvents(ps);
-        const pStart = pEvents.find((e) => e.type === "pipeline_start");
-        return pStart?.work_unit_slug === wuSlug;
-      });
-    }
+    const db = getDefaultDB();
+    const wuPipelineEvents = db.getPipelineEventsByWorkUnit(wuSlug);
 
-    // 이벤트 파일 기반 agent 통계 집계
+    // agent 통계 집계 (agent_end 이벤트 기반)
     const agentStatsMap = new Map<string, { call_count: number; error_count: number; total_duration_ms: number; duration_count: number }>();
-    for (const ps of pipelineSlugs) {
-      const pEvents = parsePipelineEvents(ps);
-      const agentEndEvents = pEvents.filter((e) => e.type === "agent_end");
-      for (const ae of agentEndEvents) {
-        const agentType = (ae.agent_type as string) ?? "unknown";
-        const existing = agentStatsMap.get(agentType) ?? { call_count: 0, error_count: 0, total_duration_ms: 0, duration_count: 0 };
-        existing.call_count += 1;
-        if (ae.is_error) existing.error_count += 1;
-        const dur = ae.duration_ms as number | undefined;
-        if (dur != null) {
-          existing.total_duration_ms += dur;
-          existing.duration_count += 1;
-        }
-        agentStatsMap.set(agentType, existing);
+    for (const ae of wuPipelineEvents) {
+      if (ae.event_type !== "agent_end") continue;
+      const agentType = ae.agent_type ?? "unknown";
+      const existing = agentStatsMap.get(agentType) ?? { call_count: 0, error_count: 0, total_duration_ms: 0, duration_count: 0 };
+      existing.call_count += 1;
+      if (ae.is_error) existing.error_count += 1;
+      if (ae.duration_ms != null) {
+        existing.total_duration_ms += ae.duration_ms;
+        existing.duration_count += 1;
       }
+      agentStatsMap.set(agentType, existing);
     }
     const stats = Array.from(agentStatsMap.entries())
       .map(([agent_type, s]) => ({
@@ -859,27 +604,26 @@ async function handleRequest(req: Request): Promise<Response> {
       .sort((a, b) => b.call_count - a.call_count);
 
     // 활성 에이전트 집계
-    const activeAgents: Array<{ call_id: string; agent_type: string; pipeline_slug: string; started_at: string | null }> = [];
-    for (const ps of pipelineSlugs) {
-      const pEvents = parsePipelineEvents(ps);
-      const startEvents = pEvents.filter((e) => e.type === "agent_start" && e.call_id);
-      for (const se of startEvents) {
-        const hasEnd = pEvents.some(
-          (e) => e.type === "agent_end" && e.call_id === se.call_id
-        );
-        if (!hasEnd) {
-          const pipelineEnded = pEvents.some((e) => e.type === "pipeline_end");
-          if (!pipelineEnded) {
-            activeAgents.push({
-              call_id: se.call_id as string,
-              agent_type: (se.agent_type as string) ?? "unknown",
-              pipeline_slug: ps,
-              started_at: (se.ts as string) ?? null,
-            });
-          }
-        }
+    const startedCallIds = new Map<string, { call_id: string; agent_type: string; pipeline_slug: string; started_at: string | null }>();
+    const endedCallIds = new Set<string>();
+    const endedPipelines = new Set<string>();
+
+    for (const e of wuPipelineEvents) {
+      if (e.event_type === "pipeline_end") endedPipelines.add(e.pipeline_slug);
+      if (e.event_type === "agent_start" && e.call_id) {
+        startedCallIds.set(e.call_id, {
+          call_id: e.call_id,
+          agent_type: e.agent_type ?? "unknown",
+          pipeline_slug: e.pipeline_slug,
+          started_at: e.ts ?? null,
+        });
       }
+      if (e.event_type === "agent_end" && e.call_id) endedCallIds.add(e.call_id);
     }
+    const activeAgents = Array.from(startedCallIds.values()).filter(
+      (a) => !endedCallIds.has(a.call_id) && !endedPipelines.has(a.pipeline_slug)
+    );
+
     return jsonResponse({ work_unit_slug: wuSlug, stats, active_agents: activeAgents });
   }
 
@@ -887,24 +631,14 @@ async function handleRequest(req: Request): Promise<Response> {
   const workunitRetroMatch = path.match(/^\/api\/workunits\/([^/]+)\/retro$/);
   if (method === "GET" && workunitRetroMatch) {
     const wuSlug = decodeURIComponent(workunitRetroMatch[1]);
-    const wuEvents = parseWorkUnitEvents(wuSlug);
-    if (wuEvents.length === 0) {
+    const wuDb = getDefaultWorkUnitDB();
+    const wu = wuDb.getWorkUnit(wuSlug);
+    if (!wu) {
       return errorResponse(`Work unit not found: ${wuSlug}`, 404);
     }
 
-    // ── auto_summary: 파이프라인 이벤트 기반 자동 회고 요약 ──
-    // DB FK 기반 + JSONL fallback
-    const dbPipelines = getDefaultDB().getWorkUnitPipelines(wuSlug);
-    let pipelineSlugs: string[];
-    if (dbPipelines.length > 0) {
-      pipelineSlugs = dbPipelines.map((p) => p.slug);
-    } else {
-      pipelineSlugs = getPipelineSlugs().filter((ps) => {
-        const pEvents = parsePipelineEvents(ps);
-        const pStart = pEvents.find((e) => e.type === "pipeline_start");
-        return pStart?.work_unit_slug === wuSlug;
-      });
-    }
+    const db = getDefaultDB();
+    const dbPipelines = db.getWorkUnitPipelines(wuSlug);
 
     let autoSummary: {
       total_pipelines: number;
@@ -934,7 +668,18 @@ async function handleRequest(req: Request): Promise<Response> {
       }>;
     } | null = null;
 
-    if (pipelineSlugs.length > 0) {
+    if (dbPipelines.length > 0) {
+      // 한 번의 쿼리로 WU 하위 모든 이벤트 가져오기
+      const wuPipelineEvents = db.getPipelineEventsByWorkUnit(wuSlug);
+
+      // 파이프라인 slug별 이벤트를 그룹화
+      const eventsByPipeline = new Map<string, typeof wuPipelineEvents>();
+      for (const e of wuPipelineEvents) {
+        const ps = e.pipeline_slug;
+        if (!eventsByPipeline.has(ps)) eventsByPipeline.set(ps, []);
+        eventsByPipeline.get(ps)!.push(e);
+      }
+
       type PipelineDataItem = {
         slug: string;
         type: string;
@@ -956,43 +701,48 @@ async function handleRequest(req: Request): Promise<Response> {
       let failedCount = 0;
       let activeCount = 0;
 
-      for (const ps of pipelineSlugs) {
-        const pEvents = parsePipelineEvents(ps);
-        const pStart = pEvents.find((e) => e.type === "pipeline_start");
-        const pEnd = pEvents.find((e) => e.type === "pipeline_end");
+      for (const pRow of dbPipelines) {
+        const pEvents = eventsByPipeline.get(pRow.slug) ?? [];
 
         let status: "completed" | "failed" | "active" | "paused" = "active";
-        if (pEnd) {
-          const endStatus = (pEnd.status as string) ?? "completed";
-          if (endStatus === "failed") status = "failed";
-          else if (endStatus === "paused") status = "paused";
-          else status = "completed";
+        const pEndStatus = pRow.status;
+        if (pEndStatus === "completed" || pEndStatus === "failed" || pEndStatus === "paused") {
+          status = pEndStatus as "completed" | "failed" | "paused";
+        } else if (pEndStatus !== "running" && pEndStatus !== "active") {
+          // Check events for pipeline_end
+          const pEnd = pEvents.find((e) => e.event_type === "pipeline_end");
+          if (pEnd) {
+            const endStatus = pEnd.status ?? "completed";
+            if (endStatus === "failed") status = "failed";
+            else if (endStatus === "paused") status = "paused";
+            else status = "completed";
+          }
         }
 
         if (status === "completed") completedCount++;
         else if (status === "failed") failedCount++;
         else activeCount++;
 
-        const startedAt = (pStart?.ts as string) ?? null;
-        const endedAt = (pEnd?.ts as string) ?? null;
-        let durationMs: number | null = null;
-        if (startedAt && endedAt) {
+        const startedAt = pRow.started_at ?? null;
+        const endedAt = pRow.ended_at ?? null;
+        let durationMs: number | null = pRow.duration_ms ?? null;
+        if (!durationMs && startedAt && endedAt) {
           durationMs = new Date(endedAt).getTime() - new Date(startedAt).getTime();
-          if (durationMs > 0) totalDurationMs += durationMs;
         }
+        if (durationMs && durationMs > 0) totalDurationMs += durationMs;
 
-        const stepCount = pEvents.filter((e) => e.type === "step_start").length;
-        const agentEndEvents = pEvents.filter((e) => e.type === "agent_end");
+        const stepCount = pEvents.filter((e) => e.event_type === "step_start").length;
+        const agentEndEvents = pEvents.filter((e) => e.event_type === "agent_end");
         let pipelineAgentCalls = 0;
         let pipelineAgentErrors = 0;
 
         for (const ae of agentEndEvents) {
-          const agentType = (ae.agent_type as string) ?? "unknown";
+          const agentType = ae.agent_type ?? "unknown";
           uniqueAgentTypes.add(agentType);
           pipelineAgentCalls++;
           totalAgentCalls++;
 
-          const isError = ae.is_error || ae.status === "error";
+          const isError = !!ae.is_error || ae.status === "error";
           if (isError) {
             pipelineAgentErrors++;
             totalAgentErrors++;
@@ -1001,19 +751,16 @@ async function handleRequest(req: Request): Promise<Response> {
           const existing = agentStatsMap.get(agentType) ?? { call_count: 0, error_count: 0, total_duration_ms: 0, duration_count: 0 };
           existing.call_count += 1;
           if (isError) existing.error_count += 1;
-          const dur = ae.duration_ms as number | undefined;
-          if (dur != null) {
-            existing.total_duration_ms += dur;
+          if (ae.duration_ms != null) {
+            existing.total_duration_ms += ae.duration_ms;
             existing.duration_count += 1;
           }
           agentStatsMap.set(agentType, existing);
         }
 
-        const pipelineType = (pStart?.pipeline_type as string) ?? ps.split("_")[0] ?? "unknown";
-
         pipelinesData.push({
-          slug: ps,
-          type: pipelineType,
+          slug: pRow.slug,
+          type: pRow.type ?? pRow.slug.split("_")[0] ?? "unknown",
           status,
           started_at: startedAt,
           ended_at: endedAt,
@@ -1034,7 +781,7 @@ async function handleRequest(req: Request): Promise<Response> {
         .sort((a, b) => b.call_count - a.call_count);
 
       autoSummary = {
-        total_pipelines: pipelineSlugs.length,
+        total_pipelines: dbPipelines.length,
         completed_pipelines: completedCount,
         failed_pipelines: failedCount,
         active_pipelines: activeCount,
@@ -1071,37 +818,28 @@ async function handleRequest(req: Request): Promise<Response> {
     }
 
     const now = new Date().toISOString();
-    const eventsFile = join(PIPELINE_EVENTS_DIR, `${pipelineSlug}-events.jsonl`);
+    const db = getDefaultDB();
 
-    if (!existsSync(eventsFile)) {
+    // DB에서 파이프라인 존재 확인
+    const pipeline = db.getPipelineBySlug(pipelineSlug);
+    if (!pipeline) {
       return errorResponse(`Pipeline not found: ${pipelineSlug}`, 404);
     }
 
-    // pipeline_end 이벤트 append (forced: true)
-    try {
-      appendFileSync(
-        eventsFile,
-        JSON.stringify({
-          type: "pipeline_end",
-          pipeline_slug: pipelineSlug,
-          work_unit_slug: wuSlug,
-          status: body.status,
-          forced: true,
-          ts: now,
-        }) + "\n",
-        "utf-8"
-      );
-    } catch (err) {
-      return errorResponse(`Failed to write pipeline_end: ${err}`, 500);
-    }
+    // DB: pipeline 상태 업데이트
+    db.updatePipelineStatus(pipelineSlug, body.status, now, undefined);
 
-    // DB 동기화: pipeline 상태 업데이트
-    try {
-      const db = getDefaultDB();
-      db.updatePipelineStatus(pipelineSlug, body.status, now, undefined);
-    } catch {
-      // DB 업데이트 실패해도 JSONL은 기록됨
-    }
+    // DB: pipeline_end 이벤트 기록 (forced: true)
+    db.insertPipelineEvent({
+      pipeline_slug: pipelineSlug,
+      event_type: "pipeline_end",
+      status: body.status,
+      ts: now,
+      payload: {
+        work_unit_slug: wuSlug,
+        forced: true,
+      },
+    });
 
     pushSseEvent(pipelineSlug, "pipeline_end", {
       slug: pipelineSlug,
@@ -1127,49 +865,30 @@ async function handleRequest(req: Request): Promise<Response> {
       return errorResponse("status must be 'completed' or 'abandoned'");
     }
 
-    // status='completed' 시 활성 파이프라인 존재 여부 확인
+    const taskDb = getDefaultDB();
+
+    // status='completed' 시 활성 파이프라인 존재 여부 확인 (DB 기반)
     if (body.status === "completed") {
-      // DB FK 기반 확인
-      const dbPipelines = getDefaultDB().getWorkUnitPipelines(wuSlug);
-      let activePipelines: string[];
-      if (dbPipelines.length > 0) {
-        activePipelines = dbPipelines
-          .filter((p) => p.status === "active" || p.status === "running")
-          .map((p) => p.slug);
-      } else {
-        // JSONL fallback
-        const pipelineSlugs = getPipelineSlugs().filter((ps) => {
-          const pEvents = parsePipelineEvents(ps);
-          const pStart = pEvents.find((e) => e.type === "pipeline_start");
-          return pStart?.work_unit_slug === wuSlug;
-        });
-        activePipelines = pipelineSlugs.filter((ps) => {
-          const pEvents = parsePipelineEvents(ps);
-          const hasStart = pEvents.some((e) => e.type === "pipeline_start");
-          const hasEnd = pEvents.some((e) => e.type === "pipeline_end");
-          return hasStart && !hasEnd;
-        });
-      }
+      const dbPipelines = taskDb.getWorkUnitPipelines(wuSlug);
+      const activePipelines = dbPipelines
+        .filter((p) => p.status === "active" || p.status === "running")
+        .map((p) => p.slug);
       if (activePipelines.length > 0) {
         return errorResponse("active_pipelines_exist", 400);
       }
     }
 
-    const db = getDefaultWorkUnitDB();
+    const wuDb = getDefaultWorkUnitDB();
     const now = new Date().toISOString();
-    db.endWorkUnit(wuSlug, body.status, now);
+    wuDb.endWorkUnit(wuSlug, body.status, now);
 
-    // JSONL append
-    const wuFile = `${PIPELINE_EVENTS_DIR}/${wuSlug}-workunit.jsonl`;
-    try {
-      appendFileSync(
-        wuFile,
-        JSON.stringify({ type: "work_unit_end", work_unit_slug: wuSlug, status: body.status, ts: now }) + "\n",
-        "utf-8"
-      );
-    } catch {
-      // JSONL append 실패해도 DB 업데이트는 완료됨
-    }
+    // DB: work_unit_end 이벤트 기록
+    taskDb.insertWorkUnitEvent({
+      work_unit_slug: wuSlug,
+      event_type: "work_unit_end",
+      payload: { status: body.status },
+      ts: now,
+    });
 
     pushSseEvent("system", "work_unit_end", { slug: wuSlug, status: body.status });
     return jsonResponse({ ok: true });
@@ -1180,35 +899,29 @@ async function handleRequest(req: Request): Promise<Response> {
   if (method === "DELETE" && workunitDeleteMatch) {
     const wuSlug = decodeURIComponent(workunitDeleteMatch[1]);
 
-    // WU 존재 확인: JSONL 우선, DB fallback
-    const wuEvents = parseWorkUnitEvents(wuSlug);
+    // WU 존재 확인 (DB 기반)
     const wuDb = getDefaultWorkUnitDB();
     const wuFromDb = wuDb.getWorkUnit(wuSlug);
-    if (wuEvents.length === 0 && !wuFromDb) {
+    if (!wuFromDb) {
       return errorResponse(`Work unit not found: ${wuSlug}`, 404);
     }
     wuDb.deleteWorkUnit(wuSlug);
 
     // orphan pipeline 처리: WU 삭제 시 연결된 pipeline의 work_unit_id를 null로 초기화
+    const taskDb = getDefaultDB();
     try {
-      const pipelineDb = getDefaultDB();
-      pipelineDb.unlinkPipelinesFromWorkUnit(wuSlug);
+      taskDb.unlinkPipelinesFromWorkUnit(wuSlug);
     } catch (orphanErr) {
       console.warn("[bams-server] orphan pipeline cleanup failed (non-fatal):", orphanErr);
     }
 
-    // JSONL append
-    const wuFile = `${PIPELINE_EVENTS_DIR}/${wuSlug}-workunit.jsonl`;
+    // DB: work_unit_archived 이벤트 기록
     const now = new Date().toISOString();
-    try {
-      appendFileSync(
-        wuFile,
-        JSON.stringify({ type: "work_unit_archived", work_unit_slug: wuSlug, ts: now }) + "\n",
-        "utf-8"
-      );
-    } catch {
-      // graceful
-    }
+    taskDb.insertWorkUnitEvent({
+      work_unit_slug: wuSlug,
+      event_type: "work_unit_archived",
+      ts: now,
+    });
 
     pushSseEvent("system", "work_unit_archived", { slug: wuSlug });
     return new Response(null, { status: 204, headers: corsHeaders() });
@@ -1241,6 +954,409 @@ async function handleRequest(req: Request): Promise<Response> {
     }
   }
 
+  // ── GET /api/events/raw/:slug ──────────────────────────────────
+  // Raw pipeline events for a specific slug (DB → JSONL-compatible array)
+  const eventsRawSlugMatch = path.match(/^\/api\/events\/raw\/([^/]+)$/);
+  if (method === "GET" && eventsRawSlugMatch && eventsRawSlugMatch[1] !== "all") {
+    const slug = decodeURIComponent(eventsRawSlugMatch[1]);
+    const db = getDefaultDB();
+    const dbEvents = db.getPipelineEvents(slug);
+    const events = dbEvents.map((e) => ({
+      type: e.event_type,
+      pipeline_slug: slug,
+      ts: e.ts,
+      call_id: e.call_id,
+      agent_type: e.agent_type,
+      department: e.department,
+      model: e.model,
+      step_number: e.step_number,
+      step_name: e.step_name,
+      phase: e.phase,
+      status: e.status,
+      duration_ms: e.duration_ms,
+      description: e.description,
+      result_summary: e.result_summary,
+      message: e.message,
+      is_error: e.is_error ? true : false,
+      ...(e.payload ? JSON.parse(e.payload) : {}),
+    }));
+    return jsonResponse(events);
+  }
+
+  // ── GET /api/events/raw/all ──────────────────────────────────
+  // All raw pipeline events across all pipelines (DB-based)
+  if (method === "GET" && path === "/api/events/raw/all") {
+    const db = getDefaultDB();
+    const dbEvents = db.getAllPipelineEvents();
+    const events = dbEvents.map((e) => ({
+      type: e.event_type,
+      pipeline_slug: e.pipeline_slug ?? null,
+      ts: e.ts,
+      call_id: e.call_id,
+      agent_type: e.agent_type,
+      department: e.department,
+      model: e.model,
+      step_number: e.step_number,
+      step_name: e.step_name,
+      phase: e.phase,
+      status: e.status,
+      duration_ms: e.duration_ms,
+      description: e.description,
+      result_summary: e.result_summary,
+      message: e.message,
+      is_error: e.is_error ? true : false,
+      ...(e.payload ? JSON.parse(e.payload) : {}),
+    }));
+    return jsonResponse(events);
+  }
+
+  // ── GET /api/events/poll?since= ──────────────────────────────
+  // Polling endpoint: events since a given ISO timestamp
+  if (method === "GET" && path === "/api/events/poll") {
+    const since = url.searchParams.get("since");
+    if (!since) {
+      return errorResponse("Missing required query parameter: since (ISO timestamp)");
+    }
+    const pipelineFilter = url.searchParams.get("pipeline") ?? undefined;
+    const db = getDefaultDB();
+    const allEvents = db.getAllPipelineEvents(since);
+    let events = allEvents.map((e) => ({
+      type: e.event_type,
+      pipeline_slug: e.pipeline_slug ?? null,
+      ts: e.ts,
+      call_id: e.call_id,
+      agent_type: e.agent_type,
+      status: e.status,
+      duration_ms: e.duration_ms,
+      is_error: e.is_error ? true : false,
+      ...(e.payload ? JSON.parse(e.payload) : {}),
+    }));
+    if (pipelineFilter) {
+      events = events.filter((e) => e.pipeline_slug === pipelineFilter);
+    }
+    return jsonResponse({ events, serverTime: new Date().toISOString() });
+  }
+
+  // ── GET /api/agents/data ─────────────────────────────────────
+  // Agent event data (DB-based, replaces JSONL agent file parsing)
+  // Query params: date=YYYY-MM-DD, pipeline=slug, work_unit=slug
+  if (method === "GET" && path === "/api/agents/data") {
+    const date = url.searchParams.get("date") ?? undefined;
+    const pipelineFilter = url.searchParams.get("pipeline") ?? undefined;
+    const workUnitFilter = url.searchParams.get("work_unit") ?? undefined;
+    const db = getDefaultDB();
+
+    let agentEvents: Array<PipelineEvent & { pipeline_slug?: string }>;
+
+    if (workUnitFilter) {
+      // WU-scoped agent events
+      const wuEvents = db.getPipelineEventsByWorkUnit(workUnitFilter);
+      agentEvents = wuEvents
+        .filter((e) => e.event_type === "agent_start" || e.event_type === "agent_end")
+        .map((e) => ({
+          type: e.event_type,
+          pipeline_slug: e.pipeline_slug,
+          ts: e.ts,
+          call_id: e.call_id,
+          agent_type: e.agent_type,
+          department: e.department,
+          model: e.model,
+          status: e.status,
+          duration_ms: e.duration_ms,
+          description: e.description,
+          result_summary: e.result_summary,
+          is_error: e.is_error ? true : false,
+          ...(e.payload ? JSON.parse(e.payload) : {}),
+        })) as Array<PipelineEvent & { pipeline_slug?: string }>;
+    } else {
+      const rawEvents = db.getAgentEvents(
+        date && date !== "all" ? date : undefined,
+        pipelineFilter ?? undefined
+      );
+      agentEvents = rawEvents.map((e) => ({
+        type: e.event_type,
+        pipeline_slug: (e as unknown as { pipeline_slug?: string }).pipeline_slug ?? undefined,
+        ts: e.ts,
+        call_id: e.call_id,
+        agent_type: e.agent_type,
+        department: e.department,
+        model: e.model,
+        status: e.status,
+        duration_ms: e.duration_ms,
+        description: e.description,
+        result_summary: e.result_summary,
+        is_error: e.is_error ? true : false,
+        ...(e.payload ? JSON.parse(e.payload) : {}),
+      })) as Array<PipelineEvent & { pipeline_slug?: string }>;
+    }
+
+    // Build agent calls from paired start/end events
+    const startMap = new Map<string, Record<string, unknown>>();
+    const calls: Record<string, unknown>[] = [];
+
+    for (const e of agentEvents) {
+      const callId = (e as Record<string, unknown>).call_id as string | undefined;
+      if (!callId) continue;
+
+      if (e.type === "agent_start") {
+        startMap.set(callId, {
+          callId,
+          agentType: (e as Record<string, unknown>).agent_type ?? "unknown",
+          department: (e as Record<string, unknown>).department ?? "unknown",
+          model: (e as Record<string, unknown>).model ?? null,
+          pipelineSlug: (e as Record<string, unknown>).pipeline_slug ?? null,
+          description: (e as Record<string, unknown>).description ?? null,
+          startedAt: e.ts,
+          endedAt: null,
+          durationMs: null,
+          isError: false,
+          status: "running",
+          resultSummary: null,
+        });
+      } else if (e.type === "agent_end") {
+        const start = startMap.get(callId);
+        if (start) {
+          start.endedAt = e.ts;
+          start.durationMs = (e as Record<string, unknown>).duration_ms ?? null;
+          start.isError = !!(e as Record<string, unknown>).is_error;
+          start.status = (e as Record<string, unknown>).status ?? "success";
+          start.resultSummary = (e as Record<string, unknown>).result_summary ?? null;
+          calls.push(start);
+          startMap.delete(callId);
+        } else {
+          // orphan agent_end
+          calls.push({
+            callId,
+            agentType: (e as Record<string, unknown>).agent_type ?? "unknown",
+            department: (e as Record<string, unknown>).department ?? "unknown",
+            model: (e as Record<string, unknown>).model ?? null,
+            pipelineSlug: (e as Record<string, unknown>).pipeline_slug ?? null,
+            description: null,
+            startedAt: null,
+            endedAt: e.ts,
+            durationMs: (e as Record<string, unknown>).duration_ms ?? null,
+            isError: !!(e as Record<string, unknown>).is_error,
+            status: (e as Record<string, unknown>).status ?? "success",
+            resultSummary: (e as Record<string, unknown>).result_summary ?? null,
+          });
+        }
+      }
+    }
+    // Running agents (started but not ended)
+    for (const start of startMap.values()) {
+      calls.push(start);
+    }
+
+    // Build stats
+    const statsByType: Record<string, { agentType: string; dept: string; callCount: number; errorCount: number; totalDurationMs: number; minDurationMs: number; maxDurationMs: number; errorRate: number; models: Record<string, number> }> = {};
+    for (const call of calls) {
+      const c = call as { agentType: string; department: string; isError: boolean; durationMs: number | null; model: string | null };
+      if (!statsByType[c.agentType]) {
+        statsByType[c.agentType] = {
+          agentType: c.agentType,
+          dept: c.department || "unknown",
+          callCount: 0, errorCount: 0, totalDurationMs: 0,
+          minDurationMs: Infinity, maxDurationMs: 0, errorRate: 0, models: {},
+        };
+      }
+      const s = statsByType[c.agentType];
+      s.callCount++;
+      if (c.isError) s.errorCount++;
+      if (c.durationMs != null && !c.isError) {
+        s.totalDurationMs += c.durationMs;
+        s.minDurationMs = Math.min(s.minDurationMs, c.durationMs);
+        s.maxDurationMs = Math.max(s.maxDurationMs, c.durationMs);
+      }
+      if (c.model) {
+        s.models[c.model] = (s.models[c.model] || 0) + 1;
+      }
+    }
+
+    const stats = Object.values(statsByType).map((s) => {
+      const completed = s.callCount - s.errorCount;
+      return {
+        ...s,
+        avgDurationMs: completed > 0 ? Math.round(s.totalDurationMs / completed) : 0,
+        minDurationMs: s.minDurationMs === Infinity ? 0 : s.minDurationMs,
+        errorRate: s.callCount > 0 ? Math.round((s.errorCount / s.callCount) * 100) : 0,
+      };
+    }).sort((a, b) => b.callCount - a.callCount);
+
+    // Build collaborations (from/to pairs in same pipeline)
+    const pipelineAgents = new Map<string, Set<string>>();
+    for (const call of calls) {
+      const c = call as { agentType: string; pipelineSlug: string | null };
+      if (!c.pipelineSlug) continue;
+      if (!pipelineAgents.has(c.pipelineSlug)) pipelineAgents.set(c.pipelineSlug, new Set());
+      pipelineAgents.get(c.pipelineSlug)!.add(c.agentType);
+    }
+    const collabPairs = new Map<string, { from: string; to: string; count: number }>();
+    for (const agents of pipelineAgents.values()) {
+      const arr = Array.from(agents);
+      for (let i = 0; i < arr.length; i++) {
+        for (let j = i + 1; j < arr.length; j++) {
+          const key = [arr[i], arr[j]].sort().join("|");
+          const existing = collabPairs.get(key);
+          if (existing) { existing.count++; }
+          else { collabPairs.set(key, { from: arr[i], to: arr[j], count: 1 }); }
+        }
+      }
+    }
+    const collaborations = Array.from(collabPairs.values());
+
+    const runningCount = calls.filter((c) => (c as { endedAt: unknown }).endedAt === null).length;
+    const totalErrors = calls.filter((c) => (c as { isError: boolean }).isError).length;
+
+    return jsonResponse({
+      calls,
+      stats,
+      collaborations,
+      totalCalls: calls.length,
+      totalErrors,
+      runningCount,
+    });
+  }
+
+  // ── GET /api/agents/dates ────────────────────────────────────
+  // Agent event dates (DB-based)
+  if (method === "GET" && path === "/api/agents/dates") {
+    const db = getDefaultDB();
+    const dates = db.getAgentEventDates();
+    return jsonResponse(dates);
+  }
+
+  // ── GET /api/mermaid/:slug ───────────────────────────────────
+  // Mermaid flowchart + gantt for a pipeline (from DB events)
+  const mermaidMatch = path.match(/^\/api\/mermaid\/([^/]+)$/);
+  if (method === "GET" && mermaidMatch) {
+    const slug = decodeURIComponent(mermaidMatch[1]);
+    const db = getDefaultDB();
+    const pipeline = db.getPipelineBySlug(slug);
+    if (!pipeline) {
+      return errorResponse(`Pipeline not found: ${slug}`, 404);
+    }
+    // Return raw events; viz can compute mermaid locally using its parser
+    const dbEvents = db.getPipelineEvents(slug);
+    const events = dbEvents.map((e) => ({
+      type: e.event_type,
+      pipeline_slug: slug,
+      ts: e.ts,
+      call_id: e.call_id,
+      agent_type: e.agent_type,
+      department: e.department,
+      model: e.model,
+      step_number: e.step_number,
+      step_name: e.step_name,
+      phase: e.phase,
+      status: e.status,
+      duration_ms: e.duration_ms,
+      description: e.description,
+      result_summary: e.result_summary,
+      message: e.message,
+      is_error: e.is_error ? true : false,
+      ...(e.payload ? JSON.parse(e.payload) : {}),
+    }));
+    return jsonResponse({ slug, events });
+  }
+
+  // ── GET /api/traces ──────────────────────────────────────────
+  // Trace data (from DB events — viz can compute traces locally)
+  if (method === "GET" && path === "/api/traces") {
+    const pipelineFilter = url.searchParams.get("pipeline") ?? undefined;
+    const db = getDefaultDB();
+    let dbEvents: Array<{ event_type: string; pipeline_slug?: string | null; ts?: string | null; call_id?: string | null; agent_type?: string | null; department?: string | null; model?: string | null; step_number?: number | null; step_name?: string | null; phase?: string | null; status?: string | null; duration_ms?: number | null; description?: string | null; result_summary?: string | null; message?: string | null; is_error?: number | null; payload?: string | null }>;
+
+    if (pipelineFilter) {
+      dbEvents = db.getPipelineEvents(pipelineFilter);
+    } else {
+      dbEvents = db.getAllPipelineEvents();
+    }
+
+    const events = dbEvents.map((e) => ({
+      type: e.event_type,
+      pipeline_slug: (e as Record<string, unknown>).pipeline_slug ?? pipelineFilter ?? null,
+      ts: e.ts,
+      call_id: e.call_id,
+      agent_type: e.agent_type,
+      department: e.department,
+      model: e.model,
+      step_number: e.step_number,
+      step_name: e.step_name,
+      phase: e.phase,
+      status: e.status,
+      duration_ms: e.duration_ms,
+      description: e.description,
+      result_summary: e.result_summary,
+      message: e.message,
+      is_error: e.is_error ? true : false,
+      ...(e.payload ? JSON.parse(e.payload) : {}),
+    }));
+
+    return jsonResponse({ events });
+  }
+
+  // ── GET /api/traces/:traceId ─────────────────────────────────
+  // Single trace lookup (returns all events; viz computes trace locally)
+  const traceDetailMatch = path.match(/^\/api\/traces\/([^/]+)$/);
+  if (method === "GET" && traceDetailMatch) {
+    const traceId = decodeURIComponent(traceDetailMatch[1]);
+    // traceId is typically a pipeline_slug — return its events
+    const db = getDefaultDB();
+    const dbEvents = db.getPipelineEvents(traceId);
+    const events = dbEvents.map((e) => ({
+      type: e.event_type,
+      pipeline_slug: traceId,
+      ts: e.ts,
+      call_id: e.call_id,
+      agent_type: e.agent_type,
+      department: e.department,
+      model: e.model,
+      step_number: e.step_number,
+      step_name: e.step_name,
+      phase: e.phase,
+      status: e.status,
+      duration_ms: e.duration_ms,
+      description: e.description,
+      result_summary: e.result_summary,
+      message: e.message,
+      is_error: e.is_error ? true : false,
+      ...(e.payload ? JSON.parse(e.payload) : {}),
+    }));
+    return jsonResponse({ traceId, events });
+  }
+
+  // ── GET /api/stats/agents ────────────────────────────────────
+  // Agent statistics (DB-based)
+  if (method === "GET" && path === "/api/stats/agents") {
+    const db = getDefaultDB();
+    const allEvents = db.getAllPipelineEvents();
+    const agentEndEvents = allEvents.filter((e) => e.event_type === "agent_end");
+
+    const statsMap = new Map<string, { count: number; errorCount: number; totalDurationMs: number; durationCount: number }>();
+    for (const e of agentEndEvents) {
+      const agentType = e.agent_type ?? "unknown";
+      const existing = statsMap.get(agentType) ?? { count: 0, errorCount: 0, totalDurationMs: 0, durationCount: 0 };
+      existing.count++;
+      if (e.is_error) existing.errorCount++;
+      if (e.duration_ms != null) {
+        existing.totalDurationMs += e.duration_ms;
+        existing.durationCount++;
+      }
+      statsMap.set(agentType, existing);
+    }
+
+    const byAgentType = Array.from(statsMap.entries())
+      .map(([agentType, s]) => ({
+        agentType,
+        count: s.count,
+        avgDurationMs: s.durationCount > 0 ? Math.round(s.totalDurationMs / s.durationCount) : 0,
+        errorRate: s.count > 0 ? s.errorCount / s.count : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    return jsonResponse({ byAgentType });
+  }
+
   // ── Health Check ─────────────────────────────────────────────
   if (method === "GET" && path === "/health") {
     return jsonResponse({ ok: true, version: "1.0.0", port: PORT });
@@ -1266,104 +1382,274 @@ async function handleRequest(req: Request): Promise<Response> {
     return jsonResponse({ agent_slug: agentSlug, logs, count: logs.length });
   }
 
-  // ── POST /api/runs/events ───────────────────────────────────────
-  if (method === "POST" && path === "/api/runs/events") {
-    let body: {
-      type: string;
-      pipeline_slug: string;
-      agent_slug: string;
-      run_id?: string;
-      payload?: unknown;
-      // agent_end 전용 필드
-      call_id?: string;
-      agent_type?: string;
-      status?: string;
-      duration_ms?: number;
-      result_summary?: string;
-      is_error?: boolean;
-    };
+  // ── POST /api/events ────────────────────────────────────────────
+  // 범용 이벤트 수신 엔드포인트: emit.sh가 JSONL append 직후 호출
+  // 모든 이벤트 타입을 수신하여 DB에 기록 (pipeline_events, work_unit_events, tasks 등)
+  if (method === "POST" && path === "/api/events") {
+    let body: Record<string, unknown>;
     try {
-      body = await req.json() as typeof body;
+      body = await req.json() as Record<string, unknown>;
     } catch {
       return errorResponse("Invalid JSON body");
     }
-    const broker = getBroker();
-    broker.pushEvent({
-      type: body.type as import("./sse-broker.ts").SseEventType,
-      pipeline_slug: body.pipeline_slug,
-      agent_slug: body.agent_slug,
-      run_id: body.run_id,
-      ts: new Date().toISOString(),
-      payload: body.payload,
-    });
 
-    // ── agent_end 이벤트: DB에 task 로깅 ──────────────────────────
-    // agent_end 수신 시마다 해당 agent 작업 요약을 tasks 테이블에 기록한다.
-    if (body.type === "agent_end" && body.pipeline_slug) {
-      try {
-        const db = getDefaultDB();
-        const pipeline = db.getPipelineBySlug(body.pipeline_slug);
-        if (pipeline) {
-          const agentType = body.agent_type ?? body.agent_slug ?? "unknown";
-          const resultSummary = body.result_summary ?? (body.payload as { result_summary?: string } | undefined)?.result_summary ?? "";
-          const callId = body.call_id ?? (body.payload as { call_id?: string } | undefined)?.call_id ?? "";
-          const durationMs = body.duration_ms ?? (body.payload as { duration_ms?: number } | undefined)?.duration_ms ?? null;
-          const isError = body.is_error ?? (body.payload as { is_error?: boolean } | undefined)?.is_error ?? false;
-          const agentStatus = body.status ?? (body.payload as { status?: string } | undefined)?.status ?? "success";
-
-          const taskTitle = `[${agentType}] ${resultSummary.slice(0, 120) || "작업 완료"}`;
-          const taskDesc = resultSummary || `Agent: ${agentType}, Call ID: ${callId}`;
-
-          db.createTask({
-            pipeline_id: pipeline.id,
-            title: taskTitle,
-            description: taskDesc,
-            assignee_agent: agentType,
-            label: callId || undefined,
-            duration_ms: durationMs ?? undefined,
-            summary: resultSummary || undefined,
-            tags: [agentType, isError ? "error" : agentStatus],
-          });
-        } else {
-          console.warn("[bams-server] task logging skipped: pipeline not in DB:", body.pipeline_slug);
-        }
-      } catch (taskErr) {
-        // task 로깅 실패는 non-fatal — SSE 이벤트는 이미 push됨
-        console.error("[bams-server] agent_end task logging failed (non-fatal):", taskErr);
-      }
+    const eventType = body.type as string | undefined;
+    if (!eventType) {
+      return errorResponse("type field is required");
     }
 
-    // ── pipeline_end 이벤트: DB pipeline 상태 업데이트 ──────────────
-    if (body.type === "pipeline_end" && body.pipeline_slug) {
-      try {
-        const db = getDefaultDB();
-        const status = body.status ?? (body.payload as { status?: string } | undefined)?.status ?? "completed";
-        const now = new Date().toISOString();
-        db.updatePipelineStatus(body.pipeline_slug, status, now, undefined);
-      } catch (dbErr) {
-        console.error("[bams-server] pipeline_end DB sync failed (non-fatal):", dbErr);
-      }
-    }
+    try {
+      const db = getDefaultDB();
+      const wuDb = getDefaultWorkUnitDB();
+      const pipelineSlug = (body.pipeline_slug as string) ?? "";
+      const ts = (body.ts as string) ?? new Date().toISOString();
+      let eventId: string | undefined;
 
-    // ── pipeline_start 이벤트: DB pipeline 생성/업데이트 ─────────────
-    if (body.type === "pipeline_start" && body.pipeline_slug) {
-      try {
-        const db = getDefaultDB();
-        const existing = db.getPipelineBySlug(body.pipeline_slug);
-        if (!existing) {
+      switch (eventType) {
+        // ── pipeline_start ──────────────────────────────────────────
+        case "pipeline_start": {
+          const pType = (body.pipeline_type as string) ?? "unknown";
+          const command = (body.command as string) ?? undefined;
+          const args = (body.arguments as string) ?? undefined;
+          const wuSlug = (body.work_unit_slug as string) ?? "";
+
+          // 1. pipeline upsert (FK 해석을 위해 먼저 생성)
           db.upsertPipeline({
-            slug: body.pipeline_slug,
-            type: (body.payload as { pipeline_type?: string } | undefined)?.pipeline_type ?? "unknown",
+            slug: pipelineSlug,
+            type: pType,
+            command,
+            arguments: args,
             status: "running",
-            started_at: new Date().toISOString(),
+            started_at: ts,
           });
-        }
-      } catch (dbErr) {
-        console.error("[bams-server] pipeline_start DB sync failed (non-fatal):", dbErr);
-      }
-    }
 
-    return jsonResponse({ ok: true }, 201);
+          // 2. pipeline_events 기록
+          eventId = db.insertPipelineEvent({
+            pipeline_slug: pipelineSlug,
+            event_type: "pipeline_start",
+            status: "running",
+            ts,
+            payload: body,
+          });
+
+          // 3. work unit 연결
+          if (wuSlug) {
+            db.upsertWorkUnit(wuSlug);
+            db.linkPipelineToWorkUnit(pipelineSlug, wuSlug);
+            db.insertWorkUnitEvent({
+              work_unit_slug: wuSlug,
+              event_type: "pipeline_linked",
+              pipeline_slug: pipelineSlug,
+              payload: { pipeline_type: pType },
+              ts,
+            });
+          }
+
+          // SSE push
+          pushSseEvent(pipelineSlug, "pipeline_start", body);
+          break;
+        }
+
+        // ── pipeline_end ────────────────────────────────────────────
+        case "pipeline_end": {
+          const status = (body.status as string) ?? "completed";
+          const durationMs = (body.duration_ms as number) ?? undefined;
+
+          db.updatePipelineStatus(pipelineSlug, status, ts, durationMs);
+          eventId = db.insertPipelineEvent({
+            pipeline_slug: pipelineSlug,
+            event_type: "pipeline_end",
+            status,
+            duration_ms: durationMs,
+            ts,
+            payload: body,
+          });
+
+          pushSseEvent(pipelineSlug, "pipeline_end", body);
+          break;
+        }
+
+        // ── step_start ──────────────────────────────────────────────
+        case "step_start": {
+          eventId = db.insertPipelineEvent({
+            pipeline_slug: pipelineSlug,
+            event_type: "step_start",
+            step_number: (body.step_number as number) ?? undefined,
+            step_name: (body.step_name as string) ?? undefined,
+            phase: (body.phase as string) ?? undefined,
+            ts,
+          });
+          pushSseEvent(pipelineSlug, "step_start", body);
+          break;
+        }
+
+        // ── step_end ────────────────────────────────────────────────
+        case "step_end": {
+          eventId = db.insertPipelineEvent({
+            pipeline_slug: pipelineSlug,
+            event_type: "step_end",
+            step_number: (body.step_number as number) ?? undefined,
+            status: (body.status as string) ?? "done",
+            duration_ms: (body.duration_ms as number) ?? undefined,
+            ts,
+          });
+          pushSseEvent(pipelineSlug, "step_end", body);
+          break;
+        }
+
+        // ── agent_start ─────────────────────────────────────────────
+        case "agent_start": {
+          eventId = db.insertPipelineEvent({
+            pipeline_slug: pipelineSlug,
+            event_type: "agent_start",
+            call_id: (body.call_id as string) ?? undefined,
+            agent_type: (body.agent_type as string) ?? undefined,
+            department: (body.department as string) ?? undefined,
+            model: (body.model as string) ?? undefined,
+            step_number: (body.step_number as number) ?? undefined,
+            description: (body.description as string) ?? undefined,
+            ts,
+          });
+          pushSseEvent(pipelineSlug, "agent_start", body);
+          break;
+        }
+
+        // ── agent_end ───────────────────────────────────────────────
+        case "agent_end": {
+          const agentType = (body.agent_type as string) ?? "unknown";
+          const callId = (body.call_id as string) ?? "";
+          const resultSummary = (body.result_summary as string) ?? "";
+          const durationMs = (body.duration_ms as number) ?? undefined;
+          const isError = body.is_error === true || body.is_error === "true";
+          const agentStatus = (body.status as string) ?? "success";
+
+          // pipeline_events 기록
+          eventId = db.insertPipelineEvent({
+            pipeline_slug: pipelineSlug,
+            event_type: "agent_end",
+            call_id: callId || undefined,
+            agent_type: agentType,
+            status: agentStatus,
+            duration_ms: durationMs,
+            result_summary: resultSummary || undefined,
+            is_error: isError,
+            ts,
+          });
+
+          // tasks 테이블 기록 (기존 POST /api/runs/events 로직 통합)
+          if (pipelineSlug) {
+            try {
+              const pipeline = db.getPipelineBySlug(pipelineSlug);
+              if (pipeline) {
+                const taskTitle = `[${agentType}] ${resultSummary.slice(0, 120) || "작업 완료"}`;
+                const taskDesc = resultSummary || `Agent: ${agentType}, Call ID: ${callId}`;
+                db.createTask({
+                  pipeline_id: pipeline.id,
+                  title: taskTitle,
+                  description: taskDesc,
+                  assignee_agent: agentType,
+                  label: callId || undefined,
+                  duration_ms: durationMs ?? undefined,
+                  summary: resultSummary || undefined,
+                  tags: [agentType, isError ? "error" : agentStatus],
+                });
+              }
+            } catch (taskErr) {
+              console.error("[bams-server] agent_end task logging failed (non-fatal):", taskErr);
+            }
+          }
+
+          pushSseEvent(pipelineSlug, "agent_end", body);
+          break;
+        }
+
+        // ── error ───────────────────────────────────────────────────
+        case "error": {
+          eventId = db.insertPipelineEvent({
+            pipeline_slug: pipelineSlug,
+            event_type: "error",
+            message: (body.message as string) ?? undefined,
+            step_number: (body.step_number as number) ?? undefined,
+            ts,
+            payload: body,
+          });
+          pushSseEvent(pipelineSlug, "error", body);
+          break;
+        }
+
+        // ── work_unit_start ─────────────────────────────────────────
+        case "work_unit_start": {
+          const wuSlug = (body.work_unit_slug as string) ?? pipelineSlug;
+          const wuName = (body.work_unit_name as string) ?? (body.name as string) ?? wuSlug;
+          wuDb.createWorkUnit(wuSlug, wuName, ts);
+          eventId = db.insertWorkUnitEvent({
+            work_unit_slug: wuSlug,
+            event_type: "work_unit_start",
+            payload: body,
+            ts,
+          });
+          break;
+        }
+
+        // ── work_unit_end ───────────────────────────────────────────
+        case "work_unit_end": {
+          const wuSlug = (body.work_unit_slug as string) ?? pipelineSlug;
+          const wuStatus = (body.status as string) ?? "completed";
+          wuDb.endWorkUnit(wuSlug, wuStatus, ts);
+          eventId = db.insertWorkUnitEvent({
+            work_unit_slug: wuSlug,
+            event_type: "work_unit_end",
+            payload: { status: wuStatus },
+            ts,
+          });
+          break;
+        }
+
+        // ── pipeline_linked ─────────────────────────────────────────
+        case "pipeline_linked": {
+          const wuSlug = (body.work_unit_slug as string) ?? "";
+          if (wuSlug && pipelineSlug) {
+            db.upsertWorkUnit(wuSlug);
+            db.linkPipelineToWorkUnit(pipelineSlug, wuSlug);
+            eventId = db.insertWorkUnitEvent({
+              work_unit_slug: wuSlug,
+              event_type: "pipeline_linked",
+              pipeline_slug: pipelineSlug,
+              payload: body,
+              ts,
+            });
+          }
+          break;
+        }
+
+        // ── recover ─────────────────────────────────────────────────
+        case "recover": {
+          eventId = db.insertPipelineEvent({
+            pipeline_slug: pipelineSlug,
+            event_type: "recover",
+            ts,
+            payload: body,
+          });
+          break;
+        }
+
+        // ── unknown event type — still record it ────────────────────
+        default: {
+          eventId = db.insertPipelineEvent({
+            pipeline_slug: pipelineSlug,
+            event_type: eventType,
+            ts,
+            payload: body,
+          });
+          break;
+        }
+      }
+
+      return jsonResponse({ ok: true, id: eventId ?? null });
+    } catch (err) {
+      console.error("[bams-server] POST /api/events error:", err);
+      return jsonResponse({ ok: false, error: String(err) }, 500);
+    }
   }
 
   // 404
@@ -1374,13 +1660,8 @@ async function handleRequest(req: Request): Promise<Response> {
 // 서버 시작
 // ─────────────────────────────────────────────────────────────
 
-// 이벤트 → DB 동기화 (서버 시작 시 1회)
-try {
-  syncPipelinesFromEvents();
-  console.log("[bams-server] Pipeline sync from JSONL completed");
-} catch (err) {
-  console.error("[bams-server] Pipeline sync failed (non-fatal):", err);
-}
+// DB is the primary data source — JSONL legacy sync and helpers removed
+console.log("[bams-server] DB is primary data source");
 
 const server = Bun.serve({
   port: PORT,

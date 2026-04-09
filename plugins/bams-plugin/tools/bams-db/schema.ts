@@ -304,6 +304,127 @@ export interface PipelineRow {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Pipeline Events 스키마
+// 파이프라인 이벤트 소싱 — JSONL에 저장되던 모든 이벤트를 DB에 영구 보존
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * pipeline_events 테이블 DDL
+ * 모든 파이프라인 이벤트(pipeline_start/end, step_start/end, agent_start/end, error, recover)를
+ * 하나의 범용 테이블에 저장한다. JSONL 파일과 병렬 저장하며, DB가 primary source.
+ */
+export const PIPELINE_EVENTS_TABLE_DDL = `
+  CREATE TABLE IF NOT EXISTS pipeline_events (
+    id              TEXT PRIMARY KEY,
+    pipeline_id     TEXT REFERENCES pipelines(id),
+    event_type      TEXT NOT NULL,
+    call_id         TEXT,
+    agent_type      TEXT,
+    department      TEXT,
+    model           TEXT,
+    step_number     INTEGER,
+    step_name       TEXT,
+    phase           TEXT,
+    status          TEXT,
+    duration_ms     INTEGER,
+    description     TEXT,
+    result_summary  TEXT,
+    message         TEXT,
+    is_error        INTEGER,
+    payload         TEXT,
+    ts              TEXT NOT NULL,
+    created_at      DATETIME NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS pipeline_events_pipeline_type_idx
+    ON pipeline_events(pipeline_id, event_type);
+
+  CREATE INDEX IF NOT EXISTS pipeline_events_type_ts_idx
+    ON pipeline_events(event_type, ts);
+
+  CREATE INDEX IF NOT EXISTS pipeline_events_call_id_idx
+    ON pipeline_events(call_id);
+`;
+
+/**
+ * 유효한 pipeline event type 값
+ */
+export const PIPELINE_EVENT_TYPE = {
+  PIPELINE_START: "pipeline_start",
+  PIPELINE_END: "pipeline_end",
+  STEP_START: "step_start",
+  STEP_END: "step_end",
+  AGENT_START: "agent_start",
+  AGENT_END: "agent_end",
+  ERROR: "error",
+  RECOVER: "recover",
+} as const;
+
+export type PipelineEventType = (typeof PIPELINE_EVENT_TYPE)[keyof typeof PIPELINE_EVENT_TYPE];
+
+/**
+ * PipelineEvent 레코드 타입
+ */
+export interface PipelineEventRow {
+  id: string;
+  pipeline_id: string | null;
+  event_type: string;
+  call_id: string | null;
+  agent_type: string | null;
+  department: string | null;
+  model: string | null;
+  step_number: number | null;
+  step_name: string | null;
+  phase: string | null;
+  status: string | null;
+  duration_ms: number | null;
+  description: string | null;
+  result_summary: string | null;
+  message: string | null;
+  is_error: number | null;
+  payload: string | null;
+  ts: string;
+  created_at: string;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Work Unit Events 스키마
+// WU 관련 이벤트 소싱 — JSONL에 저장되던 WU 이벤트를 DB에 영구 보존
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * work_unit_events 테이블 DDL
+ * work_unit_start/end, pipeline_linked, work_unit_archived 이벤트 저장.
+ */
+export const WORK_UNIT_EVENTS_TABLE_DDL = `
+  CREATE TABLE IF NOT EXISTS work_unit_events (
+    id              TEXT PRIMARY KEY,
+    work_unit_id    TEXT REFERENCES work_units(id),
+    event_type      TEXT NOT NULL,
+    pipeline_slug   TEXT,
+    payload         TEXT,
+    ts              TEXT NOT NULL,
+    created_at      DATETIME NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS work_unit_events_wu_type_idx
+    ON work_unit_events(work_unit_id, event_type);
+`;
+
+/**
+ * WorkUnitEvent 레코드 타입
+ */
+export interface WorkUnitEventRow {
+  id: string;
+  work_unit_id: string | null;
+  event_type: string;
+  pipeline_slug: string | null;
+  payload: string | null;
+  ts: string;
+  created_at: string;
+}
+
+// ─────────────────────────────────────────────────────────────
 // Work Unit 스키마
 // 작업 단위(Work Unit) — 여러 파이프라인을 하나의 논리적 작업으로 묶는다
 // ─────────────────────────────────────────────────────────────

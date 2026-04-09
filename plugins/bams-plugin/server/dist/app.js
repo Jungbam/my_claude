@@ -1,17 +1,17 @@
 // @bun
 var __require = import.meta.require;
 
-// src/app.ts
-import { readFileSync, existsSync as existsSync2, readdirSync, appendFileSync } from "fs";
+// plugins/bams-plugin/server/src/app.ts
+import { readFileSync, existsSync as existsSync2, readdirSync } from "fs";
 import { join as join3 } from "path";
 
-// ../tools/bams-db/index.ts
+// plugins/bams-plugin/tools/bams-db/index.ts
 import { Database } from "bun:sqlite";
 import { homedir } from "os";
 import { join } from "path";
 import { randomUUID } from "crypto";
 
-// ../tools/bams-db/schema.ts
+// plugins/bams-plugin/tools/bams-db/schema.ts
 var TASKS_TABLE_DDL = `
   CREATE TABLE IF NOT EXISTS tasks (
     id                  TEXT PRIMARY KEY,           -- UUID (crypto.randomUUID())
@@ -127,6 +127,52 @@ var PIPELINES_TABLE_DDL = `
   CREATE INDEX IF NOT EXISTS pipelines_work_unit_idx ON pipelines(work_unit_id);
   CREATE INDEX IF NOT EXISTS pipelines_status_idx ON pipelines(status);
 `;
+var PIPELINE_EVENTS_TABLE_DDL = `
+  CREATE TABLE IF NOT EXISTS pipeline_events (
+    id              TEXT PRIMARY KEY,
+    pipeline_id     TEXT REFERENCES pipelines(id),
+    event_type      TEXT NOT NULL,
+    call_id         TEXT,
+    agent_type      TEXT,
+    department      TEXT,
+    model           TEXT,
+    step_number     INTEGER,
+    step_name       TEXT,
+    phase           TEXT,
+    status          TEXT,
+    duration_ms     INTEGER,
+    description     TEXT,
+    result_summary  TEXT,
+    message         TEXT,
+    is_error        INTEGER,
+    payload         TEXT,
+    ts              TEXT NOT NULL,
+    created_at      DATETIME NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS pipeline_events_pipeline_type_idx
+    ON pipeline_events(pipeline_id, event_type);
+
+  CREATE INDEX IF NOT EXISTS pipeline_events_type_ts_idx
+    ON pipeline_events(event_type, ts);
+
+  CREATE INDEX IF NOT EXISTS pipeline_events_call_id_idx
+    ON pipeline_events(call_id);
+`;
+var WORK_UNIT_EVENTS_TABLE_DDL = `
+  CREATE TABLE IF NOT EXISTS work_unit_events (
+    id              TEXT PRIMARY KEY,
+    work_unit_id    TEXT REFERENCES work_units(id),
+    event_type      TEXT NOT NULL,
+    pipeline_slug   TEXT,
+    payload         TEXT,
+    ts              TEXT NOT NULL,
+    created_at      DATETIME NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS work_unit_events_wu_type_idx
+    ON work_unit_events(work_unit_id, event_type);
+`;
 var WORK_UNITS_TABLE_DDL = `
   CREATE TABLE IF NOT EXISTS work_units (
     id              TEXT PRIMARY KEY,
@@ -140,7 +186,7 @@ var WORK_UNITS_TABLE_DDL = `
   );
 `;
 
-// ../tools/bams-db/index.ts
+// plugins/bams-plugin/tools/bams-db/index.ts
 var DEFAULT_DB_PATH = join(homedir(), ".claude", "plugins", "marketplaces", "my-claude", "bams.db");
 
 class TaskDB {
@@ -164,6 +210,8 @@ class TaskDB {
     this.db.exec(TASK_EVENTS_TABLE_DDL);
     this.db.exec(TASKS_INDEXES_DDL);
     this.db.exec(RUN_LOGS_TABLE_DDL);
+    this.db.exec(PIPELINE_EVENTS_TABLE_DDL);
+    this.db.exec(WORK_UNIT_EVENTS_TABLE_DDL);
     this.db.exec(HR_REPORTS_TABLE_DDL);
   }
   upsertPipeline(input) {
@@ -357,6 +405,130 @@ class TaskDB {
   unlinkPipelinesFromWorkUnit(workUnitSlug) {
     this.db.prepare("UPDATE pipelines SET work_unit_id = NULL WHERE work_unit_id = (SELECT id FROM work_units WHERE slug = ?)").run(workUnitSlug);
   }
+  insertPipelineEvent(event) {
+    const id = randomUUID();
+    const pipeline = this.getPipelineBySlug(event.pipeline_slug);
+    const pipelineId = pipeline?.id ?? null;
+    const ts = event.ts ?? new Date().toISOString();
+    this.db.prepare(`
+      INSERT INTO pipeline_events (
+        id, pipeline_id, event_type, call_id, agent_type, department, model,
+        step_number, step_name, phase, status, duration_ms,
+        description, result_summary, message, is_error, payload, ts
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, pipelineId, event.event_type, event.call_id ?? null, event.agent_type ?? null, event.department ?? null, event.model ?? null, event.step_number ?? null, event.step_name ?? null, event.phase ?? null, event.status ?? null, event.duration_ms ?? null, event.description ?? null, event.result_summary ?? null, event.message ?? null, event.is_error != null ? event.is_error ? 1 : 0 : null, event.payload ? JSON.stringify(event.payload) : null, ts);
+    return id;
+  }
+  getPipelineEvents(pipelineSlug, eventType) {
+    if (eventType) {
+      return this.db.prepare(`
+          SELECT pe.* FROM pipeline_events pe
+          INNER JOIN pipelines p ON pe.pipeline_id = p.id
+          WHERE p.slug = ? AND pe.event_type = ?
+          ORDER BY pe.ts ASC
+        `).all(pipelineSlug, eventType);
+    }
+    return this.db.prepare(`
+        SELECT pe.* FROM pipeline_events pe
+        INNER JOIN pipelines p ON pe.pipeline_id = p.id
+        WHERE p.slug = ?
+        ORDER BY pe.ts ASC
+      `).all(pipelineSlug);
+  }
+  getEventsByType(eventType, since) {
+    if (since) {
+      return this.db.prepare(`
+          SELECT * FROM pipeline_events
+          WHERE event_type = ? AND ts >= ?
+          ORDER BY ts ASC
+        `).all(eventType, since);
+    }
+    return this.db.prepare(`
+        SELECT * FROM pipeline_events
+        WHERE event_type = ?
+        ORDER BY ts ASC
+      `).all(eventType);
+  }
+  getAgentEvents(date, pipelineSlug) {
+    const conditions = ["pe.event_type IN ('agent_start', 'agent_end')"];
+    const params = [];
+    if (date) {
+      conditions.push("pe.ts >= ? AND pe.ts < ?");
+      params.push(`${date}T00:00:00Z`, `${date}T23:59:59Z`);
+    }
+    if (pipelineSlug) {
+      conditions.push("p.slug = ?");
+      params.push(pipelineSlug);
+    }
+    const needsJoin = !!pipelineSlug;
+    const joinClause = needsJoin ? "INNER JOIN pipelines p ON pe.pipeline_id = p.id" : "";
+    const sql = `
+      SELECT pe.* FROM pipeline_events pe
+      ${joinClause}
+      WHERE ${conditions.join(" AND ")}
+      ORDER BY pe.ts ASC
+    `;
+    return this.db.prepare(sql).all(...params);
+  }
+  getAgentEventDates() {
+    const rows = this.db.prepare(`
+        SELECT DISTINCT substr(ts, 1, 10) AS day
+        FROM pipeline_events
+        WHERE event_type IN ('agent_start', 'agent_end')
+        ORDER BY day DESC
+      `).all();
+    return rows.map((r) => r.day);
+  }
+  getEventsSince(since) {
+    return this.db.prepare(`
+        SELECT * FROM pipeline_events
+        WHERE ts > ?
+        ORDER BY ts ASC
+      `).all(since);
+  }
+  insertWorkUnitEvent(event) {
+    const id = randomUUID();
+    const wu = this.db.prepare("SELECT id FROM work_units WHERE slug = ?").get(event.work_unit_slug);
+    const workUnitId = wu?.id ?? null;
+    const ts = event.ts ?? new Date().toISOString();
+    this.db.prepare(`
+      INSERT INTO work_unit_events (id, work_unit_id, event_type, pipeline_slug, payload, ts)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(id, workUnitId, event.event_type, event.pipeline_slug ?? null, event.payload ? JSON.stringify(event.payload) : null, ts);
+    return id;
+  }
+  getWorkUnitEvents(wuSlug) {
+    return this.db.prepare(`
+        SELECT we.* FROM work_unit_events we
+        INNER JOIN work_units wu ON we.work_unit_id = wu.id
+        WHERE wu.slug = ?
+        ORDER BY we.ts ASC
+      `).all(wuSlug);
+  }
+  getAllPipelineEvents(since) {
+    if (since) {
+      return this.db.prepare(`
+          SELECT pe.*, p.slug AS pipeline_slug FROM pipeline_events pe
+          LEFT JOIN pipelines p ON pe.pipeline_id = p.id
+          WHERE pe.ts >= ?
+          ORDER BY pe.ts ASC
+        `).all(since);
+    }
+    return this.db.prepare(`
+        SELECT pe.*, p.slug AS pipeline_slug FROM pipeline_events pe
+        LEFT JOIN pipelines p ON pe.pipeline_id = p.id
+        ORDER BY pe.ts ASC
+      `).all();
+  }
+  getPipelineEventsByWorkUnit(workUnitSlug) {
+    return this.db.prepare(`
+        SELECT pe.*, p.slug AS pipeline_slug FROM pipeline_events pe
+        INNER JOIN pipelines p ON pe.pipeline_id = p.id
+        INNER JOIN work_units wu ON p.work_unit_id = wu.id
+        WHERE wu.slug = ?
+        ORDER BY pe.ts ASC
+      `).all(workUnitSlug);
+  }
   close() {
     this.db.close();
   }
@@ -475,7 +647,7 @@ function getDefaultWorkUnitDB() {
   return _defaultWorkUnitDb;
 }
 
-// src/sse-broker.ts
+// plugins/bams-plugin/server/src/sse-broker.ts
 import { Database as Database2 } from "bun:sqlite";
 import { randomUUID as randomUUID2 } from "crypto";
 import { existsSync, mkdirSync } from "fs";
@@ -648,7 +820,7 @@ function getBroker() {
   return _broker;
 }
 
-// src/app.ts
+// plugins/bams-plugin/server/src/app.ts
 var PORT = parseInt(process.env.BAMS_SERVER_PORT ?? "3099", 10);
 var HOME_DIR = process.env.HOME ?? process.env.USERPROFILE ?? "";
 var GLOBAL_ROOT = process.env.BAMS_ROOT ?? (HOME_DIR ? `${HOME_DIR}/.bams` : ".crew");
@@ -684,46 +856,6 @@ function jsonResponse(data, status = 200) {
 function errorResponse(message, status = 400) {
   return jsonResponse({ error: message }, status);
 }
-function parsePipelineEvents(slug) {
-  const filePath = join3(PIPELINE_EVENTS_DIR, `${slug}-events.jsonl`);
-  if (!existsSync2(filePath))
-    return [];
-  try {
-    return readFileSync(filePath, "utf-8").split(`
-`).filter(Boolean).map((line) => JSON.parse(line));
-  } catch {
-    return [];
-  }
-}
-function getPipelineSlugs() {
-  if (!existsSync2(PIPELINE_EVENTS_DIR))
-    return [];
-  try {
-    return readdirSync(PIPELINE_EVENTS_DIR).filter((f) => f.endsWith("-events.jsonl")).map((f) => f.replace("-events.jsonl", ""));
-  } catch {
-    return [];
-  }
-}
-function parseWorkUnitEvents(slug) {
-  const file = join3(PIPELINE_EVENTS_DIR, `${slug}-workunit.jsonl`);
-  if (!existsSync2(file))
-    return [];
-  try {
-    return readFileSync(file, "utf-8").split(`
-`).filter(Boolean).map((line) => JSON.parse(line));
-  } catch {
-    return [];
-  }
-}
-function getWorkUnitSlugs() {
-  if (!existsSync2(PIPELINE_EVENTS_DIR))
-    return [];
-  try {
-    return readdirSync(PIPELINE_EVENTS_DIR).filter((f) => f.endsWith("-workunit.jsonl")).map((f) => f.replace("-workunit.jsonl", ""));
-  } catch {
-    return [];
-  }
-}
 function parseAgentInfo(slug) {
   const filePath = join3(AGENTS_DIR, `${slug}.md`);
   if (!existsSync2(filePath)) {
@@ -747,49 +879,6 @@ function getAgentSlugs() {
     return [];
   }
 }
-function syncPipelinesFromEvents() {
-  const db = getDefaultDB();
-  const wuDb = getDefaultWorkUnitDB();
-  const wuSlugs = getWorkUnitSlugs();
-  for (const wuSlug of wuSlugs) {
-    const existing = wuDb.getWorkUnit(wuSlug);
-    if (existing)
-      continue;
-    const wuEvents = parseWorkUnitEvents(wuSlug);
-    const startEvt = wuEvents.find((e) => e.type === "work_unit_start");
-    if (!startEvt)
-      continue;
-    wuDb.createWorkUnit(wuSlug, startEvt.name ?? startEvt.work_unit_name ?? wuSlug, startEvt.ts ?? new Date().toISOString());
-    const endEvt = wuEvents.find((e) => e.type === "work_unit_end");
-    if (endEvt) {
-      wuDb.endWorkUnit(wuSlug, endEvt.status ?? "completed", endEvt.ts ?? new Date().toISOString());
-    }
-  }
-  const slugs = getPipelineSlugs();
-  for (const slug of slugs) {
-    const events = parsePipelineEvents(slug);
-    const startEvt = events.find((e) => e.type === "pipeline_start");
-    if (!startEvt)
-      continue;
-    let workUnitId = undefined;
-    if (startEvt.work_unit_slug) {
-      const wu = wuDb.getWorkUnit(startEvt.work_unit_slug);
-      workUnitId = wu?.id ?? undefined;
-    }
-    db.upsertPipeline({
-      slug,
-      type: startEvt.pipeline_type ?? "unknown",
-      command: startEvt.command ?? undefined,
-      arguments: startEvt.arguments ?? undefined,
-      started_at: startEvt.ts ?? undefined,
-      work_unit_id: workUnitId
-    });
-    const endEvt = events.find((e) => e.type === "pipeline_end");
-    if (endEvt) {
-      db.updatePipelineStatus(slug, endEvt.status ?? "completed", endEvt.ts ?? null, endEvt.duration_ms ?? null);
-    }
-  }
-}
 async function handleRequest(req) {
   const url = new URL(req.url);
   const path = url.pathname;
@@ -801,45 +890,22 @@ async function handleRequest(req) {
     const db = getDefaultDB();
     const dbPipelines = db.getPipelines();
     const dbMap = new Map(dbPipelines.map((p) => [p.slug, p]));
+    const wuDb = getDefaultWorkUnitDB();
+    const allWorkUnits = wuDb.getWorkUnits();
+    const wuById = new Map(allWorkUnits.map((wu) => [wu.id, wu]));
     const pipelines = dbPipelines.map((p) => {
       const summary = db.getPipelineSummary(p.id);
+      const wu = p.work_unit_id ? wuById.get(p.work_unit_id) : undefined;
       return {
         slug: p.slug,
         pipeline_type: p.type ?? "unknown",
         started_at: p.started_at ?? null,
         last_event_at: p.updated_at ?? p.started_at ?? null,
-        work_unit_slug: null,
+        work_unit_slug: wu?.slug ?? null,
         status: p.status ?? "active",
         task_summary: summary
       };
     });
-    const wuDb = getDefaultWorkUnitDB();
-    const allWorkUnits = wuDb.getWorkUnits();
-    const wuById = new Map(allWorkUnits.map((wu) => [wu.id, wu]));
-    for (const p of pipelines) {
-      const dbRow = dbMap.get(p.slug);
-      if (dbRow?.work_unit_id) {
-        const wu = wuById.get(dbRow.work_unit_id);
-        p.work_unit_slug = wu?.slug ?? null;
-      }
-    }
-    const jsonlSlugs = getPipelineSlugs();
-    for (const slug of jsonlSlugs) {
-      if (dbMap.has(slug))
-        continue;
-      const events = parsePipelineEvents(slug);
-      const startEvent = events.find((e) => e.type === "pipeline_start");
-      const lastEvent = events[events.length - 1];
-      pipelines.push({
-        slug,
-        pipeline_type: startEvent?.pipeline_type ?? "unknown",
-        started_at: startEvent?.ts ?? null,
-        last_event_at: lastEvent?.ts ?? null,
-        work_unit_slug: startEvent?.work_unit_slug ?? null,
-        status: events.some((e) => e.type === "pipeline_end") ? "completed" : "active",
-        task_summary: { total: 0, backlog: 0, in_progress: 0, in_review: 0, done: 0, blocked: 0, cancelled: 0 }
-      });
-    }
     return jsonResponse({ pipelines });
   }
   const pipelineTasksMatch = path.match(/^\/api\/pipelines\/([^/]+)\/tasks$/);
@@ -848,11 +914,7 @@ async function handleRequest(req) {
     const db = getDefaultDB();
     const pipeline = db.getPipelineBySlug(slug);
     if (!pipeline) {
-      const events = parsePipelineEvents(slug);
-      if (events.length === 0) {
-        return errorResponse(`Pipeline not found: ${slug}`, 404);
-      }
-      return jsonResponse({ pipeline_slug: slug, tasks: [], count: 0 });
+      return errorResponse(`Pipeline not found: ${slug}`, 404);
     }
     const tasks = db.getTasksByPipelineId(pipeline.id);
     const summary = db.getPipelineSummary(pipeline.id);
@@ -863,17 +925,32 @@ async function handleRequest(req) {
     const slug = decodeURIComponent(pipelineDetailMatch[1]);
     const db = getDefaultDB();
     const pipeline = db.getPipelineBySlug(slug);
-    if (pipeline) {
-      const tasks = db.getTasksByPipelineId(pipeline.id);
-      const summary = db.getPipelineSummary(pipeline.id);
-      const events2 = parsePipelineEvents(slug);
-      return jsonResponse({ slug, pipeline, events: events2, tasks, summary });
-    }
-    const events = parsePipelineEvents(slug);
-    if (events.length === 0) {
+    if (!pipeline) {
       return errorResponse(`Pipeline not found: ${slug}`, 404);
     }
-    return jsonResponse({ slug, pipeline: null, events, tasks: [], summary: { total: 0, backlog: 0, in_progress: 0, in_review: 0, done: 0, blocked: 0, cancelled: 0 } });
+    const tasks = db.getTasksByPipelineId(pipeline.id);
+    const summary = db.getPipelineSummary(pipeline.id);
+    const dbEvents = db.getPipelineEvents(slug);
+    const events = dbEvents.map((e) => ({
+      type: e.event_type,
+      pipeline_slug: slug,
+      ts: e.ts,
+      call_id: e.call_id,
+      agent_type: e.agent_type,
+      department: e.department,
+      model: e.model,
+      step_number: e.step_number,
+      step_name: e.step_name,
+      phase: e.phase,
+      status: e.status,
+      duration_ms: e.duration_ms,
+      description: e.description,
+      result_summary: e.result_summary,
+      message: e.message,
+      is_error: e.is_error ? true : false,
+      ...e.payload ? JSON.parse(e.payload) : {}
+    }));
+    return jsonResponse({ slug, pipeline, events, tasks, summary });
   }
   if (method === "GET" && path === "/api/tasks") {
     const pipelineSlug = url.searchParams.get("pipeline");
@@ -932,26 +1009,30 @@ async function handleRequest(req) {
   const agentStatusMatch = path.match(/^\/api\/agents\/([^/]+)\/status$/);
   if (method === "GET" && agentStatusMatch) {
     const slug = agentStatusMatch[1];
-    const slugs = getPipelineSlugs();
-    let lastEvent = null;
-    let pipelineSlug = null;
-    for (const ps of slugs) {
-      const events = parsePipelineEvents(ps);
-      const agentEvents = events.filter((e) => (e.type === "agent_start" || e.type === "agent_end") && (e.agent_type === slug || e.call_id?.toString().includes(slug)));
-      if (agentEvents.length > 0) {
-        lastEvent = agentEvents[agentEvents.length - 1];
-        pipelineSlug = ps;
-      }
-    }
-    if (!lastEvent) {
+    const db = getDefaultDB();
+    const allAgentEvents = db.getAllPipelineEvents();
+    const agentEvents = allAgentEvents.filter((e) => (e.event_type === "agent_start" || e.event_type === "agent_end") && (e.agent_type === slug || (e.call_id?.includes(slug) ?? false)));
+    if (agentEvents.length === 0) {
       return jsonResponse({ slug, status: "idle", last_event: null });
     }
-    const status = lastEvent.type === "agent_start" ? "running" : lastEvent.is_error ? "error" : "idle";
+    const lastEvent = agentEvents[agentEvents.length - 1];
+    const status = lastEvent.event_type === "agent_start" ? "running" : lastEvent.is_error ? "error" : "idle";
     return jsonResponse({
       slug,
       status,
-      pipeline_slug: pipelineSlug,
-      last_event: lastEvent
+      pipeline_slug: lastEvent.pipeline_slug ?? null,
+      last_event: {
+        type: lastEvent.event_type,
+        pipeline_slug: lastEvent.pipeline_slug,
+        ts: lastEvent.ts,
+        call_id: lastEvent.call_id,
+        agent_type: lastEvent.agent_type,
+        is_error: lastEvent.is_error ? true : false,
+        status: lastEvent.status,
+        duration_ms: lastEvent.duration_ms,
+        description: lastEvent.description,
+        result_summary: lastEvent.result_summary
+      }
     });
   }
   if (method === "GET" && path === "/api/events/stream") {
@@ -973,59 +1054,35 @@ async function handleRequest(req) {
     });
   }
   if (method === "GET" && path === "/api/workunits/active") {
-    const wuSlugs = getWorkUnitSlugs();
+    const wuDb = getDefaultWorkUnitDB();
     const db = getDefaultDB();
-    const active = wuSlugs.map((wuSlug) => {
-      const events = parseWorkUnitEvents(wuSlug);
-      const startEvent = events.find((e) => e.type === "work_unit_start");
-      const endEvent = events.find((e) => e.type === "work_unit_end");
-      if (!startEvent || endEvent)
-        return null;
-      const dbPipelines = getDefaultDB().getWorkUnitPipelines(wuSlug);
-      let pipelineCount = dbPipelines.length;
-      if (pipelineCount === 0) {
-        const pipelineSlugs = getPipelineSlugs();
-        pipelineCount = pipelineSlugs.filter((ps) => {
-          const pEvents = parsePipelineEvents(ps);
-          const pStart = pEvents.find((e) => e.type === "pipeline_start");
-          return pStart?.work_unit_slug === wuSlug;
-        }).length;
-      }
+    const allWu = wuDb.getWorkUnits().filter((wu) => wu.status === "active" && !wu.deleted_at);
+    const active = allWu.map((wu) => {
+      const dbPipelines = db.getWorkUnitPipelines(wu.slug);
       return {
-        slug: wuSlug,
-        name: startEvent.name ?? wuSlug,
+        slug: wu.slug,
+        name: wu.name ?? wu.slug,
         status: "active",
-        startedAt: startEvent.ts ?? null,
+        startedAt: wu.started_at ?? null,
         endedAt: null,
-        pipelineCount
+        pipelineCount: dbPipelines.length
       };
-    }).filter(Boolean);
+    });
     return jsonResponse({ workunits: active });
   }
   if (method === "GET" && path === "/api/workunits") {
-    const wuSlugs = getWorkUnitSlugs();
-    const deletedWuSlugs = new Set(getDefaultWorkUnitDB().getWorkUnits().filter((wu) => wu.deleted_at != null).map((wu) => wu.slug));
-    const workunits = wuSlugs.filter((wuSlug) => !deletedWuSlugs.has(wuSlug)).map((wuSlug) => {
-      const events = parseWorkUnitEvents(wuSlug);
-      const startEvent = events.find((e) => e.type === "work_unit_start");
-      const endEvent = events.find((e) => e.type === "work_unit_end");
-      const dbPipelines = getDefaultDB().getWorkUnitPipelines(wuSlug);
-      let linkedCount = dbPipelines.length;
-      if (linkedCount === 0) {
-        const pipelineSlugs = getPipelineSlugs();
-        linkedCount = pipelineSlugs.filter((ps) => {
-          const pEvents = parsePipelineEvents(ps);
-          const pStart = pEvents.find((e) => e.type === "pipeline_start");
-          return pStart?.work_unit_slug === wuSlug;
-        }).length;
-      }
+    const wuDb = getDefaultWorkUnitDB();
+    const db = getDefaultDB();
+    const allWu = wuDb.getWorkUnits().filter((wu) => !wu.deleted_at);
+    const workunits = allWu.map((wu) => {
+      const dbPipelines = db.getWorkUnitPipelines(wu.slug);
       return {
-        slug: wuSlug,
-        name: startEvent?.name ?? wuSlug,
-        status: endEvent ? "completed" : startEvent ? "active" : "unknown",
-        startedAt: startEvent?.ts ?? null,
-        endedAt: endEvent?.ts ?? null,
-        pipelineCount: linkedCount
+        slug: wu.slug,
+        name: wu.name ?? wu.slug,
+        status: wu.status ?? "unknown",
+        startedAt: wu.started_at ?? null,
+        endedAt: wu.ended_at ?? null,
+        pipelineCount: dbPipelines.length
       };
     });
     return jsonResponse({ workunits });
@@ -1033,67 +1090,38 @@ async function handleRequest(req) {
   const workunitDetailMatch = path.match(/^\/api\/workunits\/([^/]+)$/);
   if (method === "GET" && workunitDetailMatch) {
     const wuSlug = decodeURIComponent(workunitDetailMatch[1]);
-    const events = parseWorkUnitEvents(wuSlug);
-    if (events.length === 0) {
+    const wuDb = getDefaultWorkUnitDB();
+    const wu = wuDb.getWorkUnit(wuSlug);
+    if (!wu) {
       return errorResponse(`Work unit not found: ${wuSlug}`, 404);
     }
-    const startEvent = events.find((e) => e.type === "work_unit_start");
-    const endEvent = events.find((e) => e.type === "work_unit_end");
-    let pipelines = [];
-    try {
-      const dbRows = getDefaultDB().getWorkUnitPipelines(wuSlug);
-      if (dbRows.length > 0) {
-        pipelines = dbRows.map((row) => {
-          const pEvents = parsePipelineEvents(row.slug);
-          const pStart = pEvents.find((e) => e.type === "pipeline_start");
-          const pEnd = pEvents.filter((e) => e.type === "pipeline_end").pop();
-          return {
-            slug: row.slug,
-            type: row.type ?? pStart?.pipeline_type ?? "unknown",
-            linkedAt: row.created_at ?? null,
-            status: row.status ?? (pEnd ? pEnd.status : "active"),
-            id: row.id ?? null,
-            totalSteps: row.total_steps ?? 0,
-            completedSteps: row.completed_steps ?? 0,
-            failedSteps: row.failed_steps ?? 0,
-            durationMs: row.duration_ms ?? null,
-            command: row.command ?? null,
-            arguments: row.arguments ?? null
-          };
-        });
-      }
-    } catch {}
-    if (pipelines.length === 0) {
-      const pipelineSlugs = getPipelineSlugs();
-      const fallbackDb = getDefaultDB();
-      pipelines = pipelineSlugs.map((ps) => {
-        const pEvents = parsePipelineEvents(ps);
-        const pStart = pEvents.find((e) => e.type === "pipeline_start");
-        if (pStart?.work_unit_slug !== wuSlug)
-          return null;
-        const pEnd = pEvents.filter((e) => e.type === "pipeline_end").pop();
-        const dbRow = fallbackDb.getPipelineBySlug(ps);
-        return {
-          slug: ps,
-          type: pStart.pipeline_type ?? "unknown",
-          linkedAt: pStart.ts ?? null,
-          status: pEnd ? pEnd.status : "active",
-          id: dbRow?.id ?? null,
-          totalSteps: dbRow?.total_steps ?? 0,
-          completedSteps: dbRow?.completed_steps ?? 0,
-          failedSteps: dbRow?.failed_steps ?? 0,
-          durationMs: dbRow?.duration_ms ?? null,
-          command: dbRow?.command ?? null,
-          arguments: dbRow?.arguments ?? null
-        };
-      }).filter((p) => p !== null);
-    }
     const db = getDefaultDB();
+    const dbWuEvents = db.getWorkUnitEvents(wuSlug);
+    const events = dbWuEvents.map((e) => ({
+      type: e.event_type,
+      work_unit_slug: wuSlug,
+      ts: e.ts,
+      pipeline_slug: e.pipeline_slug,
+      ...e.payload ? JSON.parse(e.payload) : {}
+    }));
+    const dbRows = db.getWorkUnitPipelines(wuSlug);
+    const pipelines = dbRows.map((row) => ({
+      slug: row.slug,
+      type: row.type ?? "unknown",
+      linkedAt: row.created_at ?? null,
+      status: row.status ?? "active",
+      id: row.id ?? null,
+      totalSteps: row.total_steps ?? 0,
+      completedSteps: row.completed_steps ?? 0,
+      failedSteps: row.failed_steps ?? 0,
+      durationMs: row.duration_ms ?? null,
+      command: row.command ?? null,
+      arguments: row.arguments ?? null
+    }));
     let taskSummary = { total: 0, backlog: 0, in_progress: 0, in_review: 0, done: 0, blocked: 0, cancelled: 0 };
     for (const p of pipelines) {
-      const dbPipeline = db.getPipelineBySlug(p.slug);
-      if (dbPipeline) {
-        const s = db.getPipelineSummary(dbPipeline.id);
+      if (p.id) {
+        const s = db.getPipelineSummary(p.id);
         taskSummary = {
           total: taskSummary.total + s.total,
           backlog: taskSummary.backlog + s.backlog,
@@ -1107,10 +1135,10 @@ async function handleRequest(req) {
     }
     return jsonResponse({
       slug: wuSlug,
-      name: startEvent?.name ?? wuSlug,
-      status: endEvent ? "completed" : startEvent ? "active" : "unknown",
-      startedAt: startEvent?.ts ?? null,
-      endedAt: endEvent?.ts ?? null,
+      name: wu.name ?? wuSlug,
+      status: wu.status ?? "unknown",
+      startedAt: wu.started_at ?? null,
+      endedAt: wu.ended_at ?? null,
       events,
       pipelines,
       task_summary: taskSummary
@@ -1119,32 +1147,17 @@ async function handleRequest(req) {
   const workunitTasksMatch = path.match(/^\/api\/workunits\/([^/]+)\/tasks$/);
   if (method === "GET" && workunitTasksMatch) {
     const wuSlug = decodeURIComponent(workunitTasksMatch[1]);
-    const events = parseWorkUnitEvents(wuSlug);
-    if (events.length === 0) {
+    const wuDb = getDefaultWorkUnitDB();
+    const wu = wuDb.getWorkUnit(wuSlug);
+    if (!wu) {
       return errorResponse(`Work unit not found: ${wuSlug}`, 404);
     }
     const db = getDefaultDB();
-    const dbPipelines = getDefaultDB().getWorkUnitPipelines(wuSlug);
-    let pipelinesWithTasks;
-    if (dbPipelines.length > 0) {
-      pipelinesWithTasks = dbPipelines.map((p) => ({
-        slug: p.slug,
-        tasks: db.getTasksByPipelineId(p.id)
-      }));
-    } else {
-      const pipelineSlugs = getPipelineSlugs().filter((ps) => {
-        const pEvents = parsePipelineEvents(ps);
-        const pStart = pEvents.find((e) => e.type === "pipeline_start");
-        return pStart?.work_unit_slug === wuSlug;
-      });
-      pipelinesWithTasks = pipelineSlugs.map((ps) => {
-        const pipeline = db.getPipelineBySlug(ps);
-        return {
-          slug: ps,
-          tasks: pipeline ? db.getTasksByPipelineId(pipeline.id) : []
-        };
-      });
-    }
+    const dbPipelines = db.getWorkUnitPipelines(wuSlug);
+    const pipelinesWithTasks = dbPipelines.map((p) => ({
+      slug: p.slug,
+      tasks: db.getTasksByPipelineId(p.id)
+    }));
     const allTasks = pipelinesWithTasks.flatMap((p) => p.tasks);
     const summary = {
       backlog: allTasks.filter((t) => t.status === "backlog").length,
@@ -1164,77 +1177,59 @@ async function handleRequest(req) {
   const workunitAgentsActiveMatch = path.match(/^\/api\/workunits\/([^/]+)\/agents\/active$/);
   if (method === "GET" && workunitAgentsActiveMatch) {
     const wuSlug = decodeURIComponent(workunitAgentsActiveMatch[1]);
-    const wuEvents = parseWorkUnitEvents(wuSlug);
-    if (wuEvents.length === 0) {
+    const wuDb = getDefaultWorkUnitDB();
+    const wu = wuDb.getWorkUnit(wuSlug);
+    if (!wu) {
       return errorResponse(`Work unit not found: ${wuSlug}`, 404);
     }
-    const dbPipelines = getDefaultDB().getWorkUnitPipelines(wuSlug);
-    let pipelineSlugs;
-    if (dbPipelines.length > 0) {
-      pipelineSlugs = dbPipelines.map((p) => p.slug);
-    } else {
-      pipelineSlugs = getPipelineSlugs().filter((ps) => {
-        const pEvents = parsePipelineEvents(ps);
-        const pStart = pEvents.find((e) => e.type === "pipeline_start");
-        return pStart?.work_unit_slug === wuSlug;
-      });
-    }
-    const activeAgents = [];
-    for (const ps of pipelineSlugs) {
-      const pEvents = parsePipelineEvents(ps);
-      const startEvents = pEvents.filter((e) => e.type === "agent_start" && e.call_id);
-      for (const se of startEvents) {
-        const hasEnd = pEvents.some((e) => e.type === "agent_end" && e.call_id === se.call_id);
-        if (!hasEnd) {
-          const pipelineEnded = pEvents.some((e) => e.type === "pipeline_end");
-          if (!pipelineEnded) {
-            activeAgents.push({
-              call_id: se.call_id,
-              agent_type: se.agent_type ?? "unknown",
-              pipeline_slug: ps,
-              started_at: se.ts ?? null
-            });
-          }
-        }
+    const db = getDefaultDB();
+    const wuPipelineEvents = db.getPipelineEventsByWorkUnit(wuSlug);
+    const startedCallIds = new Map;
+    const endedCallIds = new Set;
+    const endedPipelines = new Set;
+    for (const e of wuPipelineEvents) {
+      if (e.event_type === "pipeline_end") {
+        endedPipelines.add(e.pipeline_slug);
+      }
+      if (e.event_type === "agent_start" && e.call_id) {
+        startedCallIds.set(e.call_id, {
+          call_id: e.call_id,
+          agent_type: e.agent_type ?? "unknown",
+          pipeline_slug: e.pipeline_slug,
+          started_at: e.ts ?? null
+        });
+      }
+      if (e.event_type === "agent_end" && e.call_id) {
+        endedCallIds.add(e.call_id);
       }
     }
+    const activeAgents = Array.from(startedCallIds.values()).filter((a) => !endedCallIds.has(a.call_id) && !endedPipelines.has(a.pipeline_slug));
     return jsonResponse({ work_unit_slug: wuSlug, active_agents: activeAgents });
   }
   const workunitAgentsMatch = path.match(/^\/api\/workunits\/([^/]+)\/agents$/);
   if (method === "GET" && workunitAgentsMatch) {
     const wuSlug = decodeURIComponent(workunitAgentsMatch[1]);
-    const wuEvents = parseWorkUnitEvents(wuSlug);
-    if (wuEvents.length === 0) {
+    const wuDb = getDefaultWorkUnitDB();
+    const wu = wuDb.getWorkUnit(wuSlug);
+    if (!wu) {
       return errorResponse(`Work unit not found: ${wuSlug}`, 404);
     }
-    const dbPipelines = getDefaultDB().getWorkUnitPipelines(wuSlug);
-    let pipelineSlugs;
-    if (dbPipelines.length > 0) {
-      pipelineSlugs = dbPipelines.map((p) => p.slug);
-    } else {
-      pipelineSlugs = getPipelineSlugs().filter((ps) => {
-        const pEvents = parsePipelineEvents(ps);
-        const pStart = pEvents.find((e) => e.type === "pipeline_start");
-        return pStart?.work_unit_slug === wuSlug;
-      });
-    }
+    const db = getDefaultDB();
+    const wuPipelineEvents = db.getPipelineEventsByWorkUnit(wuSlug);
     const agentStatsMap = new Map;
-    for (const ps of pipelineSlugs) {
-      const pEvents = parsePipelineEvents(ps);
-      const agentEndEvents = pEvents.filter((e) => e.type === "agent_end");
-      for (const ae of agentEndEvents) {
-        const agentType = ae.agent_type ?? "unknown";
-        const existing = agentStatsMap.get(agentType) ?? { call_count: 0, error_count: 0, total_duration_ms: 0, duration_count: 0 };
-        existing.call_count += 1;
-        if (ae.is_error)
-          existing.error_count += 1;
-        const dur = ae.duration_ms;
-        if (dur != null) {
-          existing.total_duration_ms += dur;
-          existing.duration_count += 1;
-        }
-        agentStatsMap.set(agentType, existing);
+    for (const ae of wuPipelineEvents) {
+      if (ae.event_type !== "agent_end")
+        continue;
+      const agentType = ae.agent_type ?? "unknown";
+      const existing = agentStatsMap.get(agentType) ?? { call_count: 0, error_count: 0, total_duration_ms: 0, duration_count: 0 };
+      existing.call_count += 1;
+      if (ae.is_error)
+        existing.error_count += 1;
+      if (ae.duration_ms != null) {
+        existing.total_duration_ms += ae.duration_ms;
+        existing.duration_count += 1;
       }
+      agentStatsMap.set(agentType, existing);
     }
     const stats = Array.from(agentStatsMap.entries()).map(([agent_type, s]) => ({
       agent_type,
@@ -1242,47 +1237,46 @@ async function handleRequest(req) {
       error_count: s.error_count,
       avg_duration_ms: s.duration_count > 0 ? Math.round(s.total_duration_ms / s.duration_count) : null
     })).sort((a, b) => b.call_count - a.call_count);
-    const activeAgents = [];
-    for (const ps of pipelineSlugs) {
-      const pEvents = parsePipelineEvents(ps);
-      const startEvents = pEvents.filter((e) => e.type === "agent_start" && e.call_id);
-      for (const se of startEvents) {
-        const hasEnd = pEvents.some((e) => e.type === "agent_end" && e.call_id === se.call_id);
-        if (!hasEnd) {
-          const pipelineEnded = pEvents.some((e) => e.type === "pipeline_end");
-          if (!pipelineEnded) {
-            activeAgents.push({
-              call_id: se.call_id,
-              agent_type: se.agent_type ?? "unknown",
-              pipeline_slug: ps,
-              started_at: se.ts ?? null
-            });
-          }
-        }
+    const startedCallIds = new Map;
+    const endedCallIds = new Set;
+    const endedPipelines = new Set;
+    for (const e of wuPipelineEvents) {
+      if (e.event_type === "pipeline_end")
+        endedPipelines.add(e.pipeline_slug);
+      if (e.event_type === "agent_start" && e.call_id) {
+        startedCallIds.set(e.call_id, {
+          call_id: e.call_id,
+          agent_type: e.agent_type ?? "unknown",
+          pipeline_slug: e.pipeline_slug,
+          started_at: e.ts ?? null
+        });
       }
+      if (e.event_type === "agent_end" && e.call_id)
+        endedCallIds.add(e.call_id);
     }
+    const activeAgents = Array.from(startedCallIds.values()).filter((a) => !endedCallIds.has(a.call_id) && !endedPipelines.has(a.pipeline_slug));
     return jsonResponse({ work_unit_slug: wuSlug, stats, active_agents: activeAgents });
   }
   const workunitRetroMatch = path.match(/^\/api\/workunits\/([^/]+)\/retro$/);
   if (method === "GET" && workunitRetroMatch) {
     const wuSlug = decodeURIComponent(workunitRetroMatch[1]);
-    const wuEvents = parseWorkUnitEvents(wuSlug);
-    if (wuEvents.length === 0) {
+    const wuDb = getDefaultWorkUnitDB();
+    const wu = wuDb.getWorkUnit(wuSlug);
+    if (!wu) {
       return errorResponse(`Work unit not found: ${wuSlug}`, 404);
     }
-    const dbPipelines = getDefaultDB().getWorkUnitPipelines(wuSlug);
-    let pipelineSlugs;
-    if (dbPipelines.length > 0) {
-      pipelineSlugs = dbPipelines.map((p) => p.slug);
-    } else {
-      pipelineSlugs = getPipelineSlugs().filter((ps) => {
-        const pEvents = parsePipelineEvents(ps);
-        const pStart = pEvents.find((e) => e.type === "pipeline_start");
-        return pStart?.work_unit_slug === wuSlug;
-      });
-    }
+    const db = getDefaultDB();
+    const dbPipelines = db.getWorkUnitPipelines(wuSlug);
     let autoSummary = null;
-    if (pipelineSlugs.length > 0) {
+    if (dbPipelines.length > 0) {
+      const wuPipelineEvents = db.getPipelineEventsByWorkUnit(wuSlug);
+      const eventsByPipeline = new Map;
+      for (const e of wuPipelineEvents) {
+        const ps = e.pipeline_slug;
+        if (!eventsByPipeline.has(ps))
+          eventsByPipeline.set(ps, []);
+        eventsByPipeline.get(ps).push(e);
+      }
       const pipelinesData = [];
       const agentStatsMap = new Map;
       const uniqueAgentTypes = new Set;
@@ -1292,19 +1286,23 @@ async function handleRequest(req) {
       let completedCount = 0;
       let failedCount = 0;
       let activeCount = 0;
-      for (const ps of pipelineSlugs) {
-        const pEvents = parsePipelineEvents(ps);
-        const pStart = pEvents.find((e) => e.type === "pipeline_start");
-        const pEnd = pEvents.find((e) => e.type === "pipeline_end");
+      for (const pRow of dbPipelines) {
+        const pEvents = eventsByPipeline.get(pRow.slug) ?? [];
         let status = "active";
-        if (pEnd) {
-          const endStatus = pEnd.status ?? "completed";
-          if (endStatus === "failed")
-            status = "failed";
-          else if (endStatus === "paused")
-            status = "paused";
-          else
-            status = "completed";
+        const pEndStatus = pRow.status;
+        if (pEndStatus === "completed" || pEndStatus === "failed" || pEndStatus === "paused") {
+          status = pEndStatus;
+        } else if (pEndStatus !== "running" && pEndStatus !== "active") {
+          const pEnd = pEvents.find((e) => e.event_type === "pipeline_end");
+          if (pEnd) {
+            const endStatus = pEnd.status ?? "completed";
+            if (endStatus === "failed")
+              status = "failed";
+            else if (endStatus === "paused")
+              status = "paused";
+            else
+              status = "completed";
+          }
         }
         if (status === "completed")
           completedCount++;
@@ -1312,16 +1310,16 @@ async function handleRequest(req) {
           failedCount++;
         else
           activeCount++;
-        const startedAt = pStart?.ts ?? null;
-        const endedAt = pEnd?.ts ?? null;
-        let durationMs = null;
-        if (startedAt && endedAt) {
+        const startedAt = pRow.started_at ?? null;
+        const endedAt = pRow.ended_at ?? null;
+        let durationMs = pRow.duration_ms ?? null;
+        if (!durationMs && startedAt && endedAt) {
           durationMs = new Date(endedAt).getTime() - new Date(startedAt).getTime();
-          if (durationMs > 0)
-            totalDurationMs += durationMs;
         }
-        const stepCount = pEvents.filter((e) => e.type === "step_start").length;
-        const agentEndEvents = pEvents.filter((e) => e.type === "agent_end");
+        if (durationMs && durationMs > 0)
+          totalDurationMs += durationMs;
+        const stepCount = pEvents.filter((e) => e.event_type === "step_start").length;
+        const agentEndEvents = pEvents.filter((e) => e.event_type === "agent_end");
         let pipelineAgentCalls = 0;
         let pipelineAgentErrors = 0;
         for (const ae of agentEndEvents) {
@@ -1329,7 +1327,7 @@ async function handleRequest(req) {
           uniqueAgentTypes.add(agentType);
           pipelineAgentCalls++;
           totalAgentCalls++;
-          const isError = ae.is_error || ae.status === "error";
+          const isError = !!ae.is_error || ae.status === "error";
           if (isError) {
             pipelineAgentErrors++;
             totalAgentErrors++;
@@ -1338,17 +1336,15 @@ async function handleRequest(req) {
           existing.call_count += 1;
           if (isError)
             existing.error_count += 1;
-          const dur = ae.duration_ms;
-          if (dur != null) {
-            existing.total_duration_ms += dur;
+          if (ae.duration_ms != null) {
+            existing.total_duration_ms += ae.duration_ms;
             existing.duration_count += 1;
           }
           agentStatsMap.set(agentType, existing);
         }
-        const pipelineType = pStart?.pipeline_type ?? ps.split("_")[0] ?? "unknown";
         pipelinesData.push({
-          slug: ps,
-          type: pipelineType,
+          slug: pRow.slug,
+          type: pRow.type ?? pRow.slug.split("_")[0] ?? "unknown",
           status,
           started_at: startedAt,
           ended_at: endedAt,
@@ -1365,7 +1361,7 @@ async function handleRequest(req) {
         avg_duration_ms: s.duration_count > 0 ? Math.round(s.total_duration_ms / s.duration_count) : null
       })).sort((a, b) => b.call_count - a.call_count);
       autoSummary = {
-        total_pipelines: pipelineSlugs.length,
+        total_pipelines: dbPipelines.length,
         completed_pipelines: completedCount,
         failed_pipelines: failedCount,
         active_pipelines: activeCount,
@@ -1396,27 +1392,22 @@ async function handleRequest(req) {
       return errorResponse("status must be 'completed', 'failed', or 'paused'");
     }
     const now = new Date().toISOString();
-    const eventsFile = join3(PIPELINE_EVENTS_DIR, `${pipelineSlug}-events.jsonl`);
-    if (!existsSync2(eventsFile)) {
+    const db = getDefaultDB();
+    const pipeline = db.getPipelineBySlug(pipelineSlug);
+    if (!pipeline) {
       return errorResponse(`Pipeline not found: ${pipelineSlug}`, 404);
     }
-    try {
-      appendFileSync(eventsFile, JSON.stringify({
-        type: "pipeline_end",
-        pipeline_slug: pipelineSlug,
+    db.updatePipelineStatus(pipelineSlug, body.status, now, undefined);
+    db.insertPipelineEvent({
+      pipeline_slug: pipelineSlug,
+      event_type: "pipeline_end",
+      status: body.status,
+      ts: now,
+      payload: {
         work_unit_slug: wuSlug,
-        status: body.status,
-        forced: true,
-        ts: now
-      }) + `
-`, "utf-8");
-    } catch (err) {
-      return errorResponse(`Failed to write pipeline_end: ${err}`, 500);
-    }
-    try {
-      const db = getDefaultDB();
-      db.updatePipelineStatus(pipelineSlug, body.status, now, undefined);
-    } catch {}
+        forced: true
+      }
+    });
     pushSseEvent(pipelineSlug, "pipeline_end", {
       slug: pipelineSlug,
       work_unit_slug: wuSlug,
@@ -1437,61 +1428,47 @@ async function handleRequest(req) {
     if (!body.status || !["completed", "abandoned"].includes(body.status)) {
       return errorResponse("status must be 'completed' or 'abandoned'");
     }
+    const taskDb = getDefaultDB();
     if (body.status === "completed") {
-      const dbPipelines = getDefaultDB().getWorkUnitPipelines(wuSlug);
-      let activePipelines;
-      if (dbPipelines.length > 0) {
-        activePipelines = dbPipelines.filter((p) => p.status === "active" || p.status === "running").map((p) => p.slug);
-      } else {
-        const pipelineSlugs = getPipelineSlugs().filter((ps) => {
-          const pEvents = parsePipelineEvents(ps);
-          const pStart = pEvents.find((e) => e.type === "pipeline_start");
-          return pStart?.work_unit_slug === wuSlug;
-        });
-        activePipelines = pipelineSlugs.filter((ps) => {
-          const pEvents = parsePipelineEvents(ps);
-          const hasStart = pEvents.some((e) => e.type === "pipeline_start");
-          const hasEnd = pEvents.some((e) => e.type === "pipeline_end");
-          return hasStart && !hasEnd;
-        });
-      }
+      const dbPipelines = taskDb.getWorkUnitPipelines(wuSlug);
+      const activePipelines = dbPipelines.filter((p) => p.status === "active" || p.status === "running").map((p) => p.slug);
       if (activePipelines.length > 0) {
         return errorResponse("active_pipelines_exist", 400);
       }
     }
-    const db = getDefaultWorkUnitDB();
+    const wuDb = getDefaultWorkUnitDB();
     const now = new Date().toISOString();
-    db.endWorkUnit(wuSlug, body.status, now);
-    const wuFile = `${PIPELINE_EVENTS_DIR}/${wuSlug}-workunit.jsonl`;
-    try {
-      appendFileSync(wuFile, JSON.stringify({ type: "work_unit_end", work_unit_slug: wuSlug, status: body.status, ts: now }) + `
-`, "utf-8");
-    } catch {}
+    wuDb.endWorkUnit(wuSlug, body.status, now);
+    taskDb.insertWorkUnitEvent({
+      work_unit_slug: wuSlug,
+      event_type: "work_unit_end",
+      payload: { status: body.status },
+      ts: now
+    });
     pushSseEvent("system", "work_unit_end", { slug: wuSlug, status: body.status });
     return jsonResponse({ ok: true });
   }
   const workunitDeleteMatch = path.match(/^\/api\/workunits\/([^/]+)$/);
   if (method === "DELETE" && workunitDeleteMatch) {
     const wuSlug = decodeURIComponent(workunitDeleteMatch[1]);
-    const wuEvents = parseWorkUnitEvents(wuSlug);
     const wuDb = getDefaultWorkUnitDB();
     const wuFromDb = wuDb.getWorkUnit(wuSlug);
-    if (wuEvents.length === 0 && !wuFromDb) {
+    if (!wuFromDb) {
       return errorResponse(`Work unit not found: ${wuSlug}`, 404);
     }
     wuDb.deleteWorkUnit(wuSlug);
+    const taskDb = getDefaultDB();
     try {
-      const pipelineDb = getDefaultDB();
-      pipelineDb.unlinkPipelinesFromWorkUnit(wuSlug);
+      taskDb.unlinkPipelinesFromWorkUnit(wuSlug);
     } catch (orphanErr) {
       console.warn("[bams-server] orphan pipeline cleanup failed (non-fatal):", orphanErr);
     }
-    const wuFile = `${PIPELINE_EVENTS_DIR}/${wuSlug}-workunit.jsonl`;
     const now = new Date().toISOString();
-    try {
-      appendFileSync(wuFile, JSON.stringify({ type: "work_unit_archived", work_unit_slug: wuSlug, ts: now }) + `
-`, "utf-8");
-    } catch {}
+    taskDb.insertWorkUnitEvent({
+      work_unit_slug: wuSlug,
+      event_type: "work_unit_archived",
+      ts: now
+    });
     pushSseEvent("system", "work_unit_archived", { slug: wuSlug });
     return new Response(null, { status: 204, headers: corsHeaders() });
   }
@@ -1518,6 +1495,363 @@ async function handleRequest(req) {
       return errorResponse(`Failed to get HR report: ${err}`, 500);
     }
   }
+  const eventsRawSlugMatch = path.match(/^\/api\/events\/raw\/([^/]+)$/);
+  if (method === "GET" && eventsRawSlugMatch && eventsRawSlugMatch[1] !== "all") {
+    const slug = decodeURIComponent(eventsRawSlugMatch[1]);
+    const db = getDefaultDB();
+    const dbEvents = db.getPipelineEvents(slug);
+    const events = dbEvents.map((e) => ({
+      type: e.event_type,
+      pipeline_slug: slug,
+      ts: e.ts,
+      call_id: e.call_id,
+      agent_type: e.agent_type,
+      department: e.department,
+      model: e.model,
+      step_number: e.step_number,
+      step_name: e.step_name,
+      phase: e.phase,
+      status: e.status,
+      duration_ms: e.duration_ms,
+      description: e.description,
+      result_summary: e.result_summary,
+      message: e.message,
+      is_error: e.is_error ? true : false,
+      ...e.payload ? JSON.parse(e.payload) : {}
+    }));
+    return jsonResponse(events);
+  }
+  if (method === "GET" && path === "/api/events/raw/all") {
+    const db = getDefaultDB();
+    const dbEvents = db.getAllPipelineEvents();
+    const events = dbEvents.map((e) => ({
+      type: e.event_type,
+      pipeline_slug: e.pipeline_slug ?? null,
+      ts: e.ts,
+      call_id: e.call_id,
+      agent_type: e.agent_type,
+      department: e.department,
+      model: e.model,
+      step_number: e.step_number,
+      step_name: e.step_name,
+      phase: e.phase,
+      status: e.status,
+      duration_ms: e.duration_ms,
+      description: e.description,
+      result_summary: e.result_summary,
+      message: e.message,
+      is_error: e.is_error ? true : false,
+      ...e.payload ? JSON.parse(e.payload) : {}
+    }));
+    return jsonResponse(events);
+  }
+  if (method === "GET" && path === "/api/events/poll") {
+    const since = url.searchParams.get("since");
+    if (!since) {
+      return errorResponse("Missing required query parameter: since (ISO timestamp)");
+    }
+    const pipelineFilter = url.searchParams.get("pipeline") ?? undefined;
+    const db = getDefaultDB();
+    const allEvents = db.getAllPipelineEvents(since);
+    let events = allEvents.map((e) => ({
+      type: e.event_type,
+      pipeline_slug: e.pipeline_slug ?? null,
+      ts: e.ts,
+      call_id: e.call_id,
+      agent_type: e.agent_type,
+      status: e.status,
+      duration_ms: e.duration_ms,
+      is_error: e.is_error ? true : false,
+      ...e.payload ? JSON.parse(e.payload) : {}
+    }));
+    if (pipelineFilter) {
+      events = events.filter((e) => e.pipeline_slug === pipelineFilter);
+    }
+    return jsonResponse({ events, serverTime: new Date().toISOString() });
+  }
+  if (method === "GET" && path === "/api/agents/data") {
+    const date = url.searchParams.get("date") ?? undefined;
+    const pipelineFilter = url.searchParams.get("pipeline") ?? undefined;
+    const workUnitFilter = url.searchParams.get("work_unit") ?? undefined;
+    const db = getDefaultDB();
+    let agentEvents;
+    if (workUnitFilter) {
+      const wuEvents = db.getPipelineEventsByWorkUnit(workUnitFilter);
+      agentEvents = wuEvents.filter((e) => e.event_type === "agent_start" || e.event_type === "agent_end").map((e) => ({
+        type: e.event_type,
+        pipeline_slug: e.pipeline_slug,
+        ts: e.ts,
+        call_id: e.call_id,
+        agent_type: e.agent_type,
+        department: e.department,
+        model: e.model,
+        status: e.status,
+        duration_ms: e.duration_ms,
+        description: e.description,
+        result_summary: e.result_summary,
+        is_error: e.is_error ? true : false,
+        ...e.payload ? JSON.parse(e.payload) : {}
+      }));
+    } else {
+      const rawEvents = db.getAgentEvents(date && date !== "all" ? date : undefined, pipelineFilter ?? undefined);
+      agentEvents = rawEvents.map((e) => ({
+        type: e.event_type,
+        pipeline_slug: e.pipeline_slug ?? undefined,
+        ts: e.ts,
+        call_id: e.call_id,
+        agent_type: e.agent_type,
+        department: e.department,
+        model: e.model,
+        status: e.status,
+        duration_ms: e.duration_ms,
+        description: e.description,
+        result_summary: e.result_summary,
+        is_error: e.is_error ? true : false,
+        ...e.payload ? JSON.parse(e.payload) : {}
+      }));
+    }
+    const startMap = new Map;
+    const calls = [];
+    for (const e of agentEvents) {
+      const callId = e.call_id;
+      if (!callId)
+        continue;
+      if (e.type === "agent_start") {
+        startMap.set(callId, {
+          callId,
+          agentType: e.agent_type ?? "unknown",
+          department: e.department ?? "unknown",
+          model: e.model ?? null,
+          pipelineSlug: e.pipeline_slug ?? null,
+          description: e.description ?? null,
+          startedAt: e.ts,
+          endedAt: null,
+          durationMs: null,
+          isError: false,
+          status: "running",
+          resultSummary: null
+        });
+      } else if (e.type === "agent_end") {
+        const start = startMap.get(callId);
+        if (start) {
+          start.endedAt = e.ts;
+          start.durationMs = e.duration_ms ?? null;
+          start.isError = !!e.is_error;
+          start.status = e.status ?? "success";
+          start.resultSummary = e.result_summary ?? null;
+          calls.push(start);
+          startMap.delete(callId);
+        } else {
+          calls.push({
+            callId,
+            agentType: e.agent_type ?? "unknown",
+            department: e.department ?? "unknown",
+            model: e.model ?? null,
+            pipelineSlug: e.pipeline_slug ?? null,
+            description: null,
+            startedAt: null,
+            endedAt: e.ts,
+            durationMs: e.duration_ms ?? null,
+            isError: !!e.is_error,
+            status: e.status ?? "success",
+            resultSummary: e.result_summary ?? null
+          });
+        }
+      }
+    }
+    for (const start of startMap.values()) {
+      calls.push(start);
+    }
+    const statsByType = {};
+    for (const call of calls) {
+      const c = call;
+      if (!statsByType[c.agentType]) {
+        statsByType[c.agentType] = {
+          agentType: c.agentType,
+          dept: c.department || "unknown",
+          callCount: 0,
+          errorCount: 0,
+          totalDurationMs: 0,
+          minDurationMs: Infinity,
+          maxDurationMs: 0,
+          errorRate: 0,
+          models: {}
+        };
+      }
+      const s = statsByType[c.agentType];
+      s.callCount++;
+      if (c.isError)
+        s.errorCount++;
+      if (c.durationMs != null && !c.isError) {
+        s.totalDurationMs += c.durationMs;
+        s.minDurationMs = Math.min(s.minDurationMs, c.durationMs);
+        s.maxDurationMs = Math.max(s.maxDurationMs, c.durationMs);
+      }
+      if (c.model) {
+        s.models[c.model] = (s.models[c.model] || 0) + 1;
+      }
+    }
+    const stats = Object.values(statsByType).map((s) => {
+      const completed = s.callCount - s.errorCount;
+      return {
+        ...s,
+        avgDurationMs: completed > 0 ? Math.round(s.totalDurationMs / completed) : 0,
+        minDurationMs: s.minDurationMs === Infinity ? 0 : s.minDurationMs,
+        errorRate: s.callCount > 0 ? Math.round(s.errorCount / s.callCount * 100) : 0
+      };
+    }).sort((a, b) => b.callCount - a.callCount);
+    const pipelineAgents = new Map;
+    for (const call of calls) {
+      const c = call;
+      if (!c.pipelineSlug)
+        continue;
+      if (!pipelineAgents.has(c.pipelineSlug))
+        pipelineAgents.set(c.pipelineSlug, new Set);
+      pipelineAgents.get(c.pipelineSlug).add(c.agentType);
+    }
+    const collabPairs = new Map;
+    for (const agents of pipelineAgents.values()) {
+      const arr = Array.from(agents);
+      for (let i = 0;i < arr.length; i++) {
+        for (let j = i + 1;j < arr.length; j++) {
+          const key = [arr[i], arr[j]].sort().join("|");
+          const existing = collabPairs.get(key);
+          if (existing) {
+            existing.count++;
+          } else {
+            collabPairs.set(key, { from: arr[i], to: arr[j], count: 1 });
+          }
+        }
+      }
+    }
+    const collaborations = Array.from(collabPairs.values());
+    const runningCount = calls.filter((c) => c.endedAt === null).length;
+    const totalErrors = calls.filter((c) => c.isError).length;
+    return jsonResponse({
+      calls,
+      stats,
+      collaborations,
+      totalCalls: calls.length,
+      totalErrors,
+      runningCount
+    });
+  }
+  if (method === "GET" && path === "/api/agents/dates") {
+    const db = getDefaultDB();
+    const dates = db.getAgentEventDates();
+    return jsonResponse(dates);
+  }
+  const mermaidMatch = path.match(/^\/api\/mermaid\/([^/]+)$/);
+  if (method === "GET" && mermaidMatch) {
+    const slug = decodeURIComponent(mermaidMatch[1]);
+    const db = getDefaultDB();
+    const pipeline = db.getPipelineBySlug(slug);
+    if (!pipeline) {
+      return errorResponse(`Pipeline not found: ${slug}`, 404);
+    }
+    const dbEvents = db.getPipelineEvents(slug);
+    const events = dbEvents.map((e) => ({
+      type: e.event_type,
+      pipeline_slug: slug,
+      ts: e.ts,
+      call_id: e.call_id,
+      agent_type: e.agent_type,
+      department: e.department,
+      model: e.model,
+      step_number: e.step_number,
+      step_name: e.step_name,
+      phase: e.phase,
+      status: e.status,
+      duration_ms: e.duration_ms,
+      description: e.description,
+      result_summary: e.result_summary,
+      message: e.message,
+      is_error: e.is_error ? true : false,
+      ...e.payload ? JSON.parse(e.payload) : {}
+    }));
+    return jsonResponse({ slug, events });
+  }
+  if (method === "GET" && path === "/api/traces") {
+    const pipelineFilter = url.searchParams.get("pipeline") ?? undefined;
+    const db = getDefaultDB();
+    let dbEvents;
+    if (pipelineFilter) {
+      dbEvents = db.getPipelineEvents(pipelineFilter);
+    } else {
+      dbEvents = db.getAllPipelineEvents();
+    }
+    const events = dbEvents.map((e) => ({
+      type: e.event_type,
+      pipeline_slug: e.pipeline_slug ?? pipelineFilter ?? null,
+      ts: e.ts,
+      call_id: e.call_id,
+      agent_type: e.agent_type,
+      department: e.department,
+      model: e.model,
+      step_number: e.step_number,
+      step_name: e.step_name,
+      phase: e.phase,
+      status: e.status,
+      duration_ms: e.duration_ms,
+      description: e.description,
+      result_summary: e.result_summary,
+      message: e.message,
+      is_error: e.is_error ? true : false,
+      ...e.payload ? JSON.parse(e.payload) : {}
+    }));
+    return jsonResponse({ events });
+  }
+  const traceDetailMatch = path.match(/^\/api\/traces\/([^/]+)$/);
+  if (method === "GET" && traceDetailMatch) {
+    const traceId = decodeURIComponent(traceDetailMatch[1]);
+    const db = getDefaultDB();
+    const dbEvents = db.getPipelineEvents(traceId);
+    const events = dbEvents.map((e) => ({
+      type: e.event_type,
+      pipeline_slug: traceId,
+      ts: e.ts,
+      call_id: e.call_id,
+      agent_type: e.agent_type,
+      department: e.department,
+      model: e.model,
+      step_number: e.step_number,
+      step_name: e.step_name,
+      phase: e.phase,
+      status: e.status,
+      duration_ms: e.duration_ms,
+      description: e.description,
+      result_summary: e.result_summary,
+      message: e.message,
+      is_error: e.is_error ? true : false,
+      ...e.payload ? JSON.parse(e.payload) : {}
+    }));
+    return jsonResponse({ traceId, events });
+  }
+  if (method === "GET" && path === "/api/stats/agents") {
+    const db = getDefaultDB();
+    const allEvents = db.getAllPipelineEvents();
+    const agentEndEvents = allEvents.filter((e) => e.event_type === "agent_end");
+    const statsMap = new Map;
+    for (const e of agentEndEvents) {
+      const agentType = e.agent_type ?? "unknown";
+      const existing = statsMap.get(agentType) ?? { count: 0, errorCount: 0, totalDurationMs: 0, durationCount: 0 };
+      existing.count++;
+      if (e.is_error)
+        existing.errorCount++;
+      if (e.duration_ms != null) {
+        existing.totalDurationMs += e.duration_ms;
+        existing.durationCount++;
+      }
+      statsMap.set(agentType, existing);
+    }
+    const byAgentType = Array.from(statsMap.entries()).map(([agentType, s]) => ({
+      agentType,
+      count: s.count,
+      avgDurationMs: s.durationCount > 0 ? Math.round(s.totalDurationMs / s.durationCount) : 0,
+      errorRate: s.count > 0 ? s.errorCount / s.count : 0
+    })).sort((a, b) => b.count - a.count);
+    return jsonResponse({ byAgentType });
+  }
   if (method === "GET" && path === "/health") {
     return jsonResponse({ ok: true, version: "1.0.0", port: PORT });
   }
@@ -1537,6 +1871,230 @@ async function handleRequest(req) {
     const logs = broker.getAgentLogs(agentSlug, limit);
     return jsonResponse({ agent_slug: agentSlug, logs, count: logs.length });
   }
+  if (method === "POST" && path === "/api/events") {
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return errorResponse("Invalid JSON body");
+    }
+    const eventType = body.type;
+    if (!eventType) {
+      return errorResponse("type field is required");
+    }
+    try {
+      const db = getDefaultDB();
+      const wuDb = getDefaultWorkUnitDB();
+      const pipelineSlug = body.pipeline_slug ?? "";
+      const ts = body.ts ?? new Date().toISOString();
+      let eventId;
+      switch (eventType) {
+        case "pipeline_start": {
+          const pType = body.pipeline_type ?? "unknown";
+          const command = body.command ?? undefined;
+          const args = body.arguments ?? undefined;
+          const wuSlug = body.work_unit_slug ?? "";
+          db.upsertPipeline({
+            slug: pipelineSlug,
+            type: pType,
+            command,
+            arguments: args,
+            status: "running",
+            started_at: ts
+          });
+          eventId = db.insertPipelineEvent({
+            pipeline_slug: pipelineSlug,
+            event_type: "pipeline_start",
+            status: "running",
+            ts,
+            payload: body
+          });
+          if (wuSlug) {
+            db.upsertWorkUnit(wuSlug);
+            db.linkPipelineToWorkUnit(pipelineSlug, wuSlug);
+            db.insertWorkUnitEvent({
+              work_unit_slug: wuSlug,
+              event_type: "pipeline_linked",
+              pipeline_slug: pipelineSlug,
+              payload: { pipeline_type: pType },
+              ts
+            });
+          }
+          pushSseEvent(pipelineSlug, "pipeline_start", body);
+          break;
+        }
+        case "pipeline_end": {
+          const status = body.status ?? "completed";
+          const durationMs = body.duration_ms ?? undefined;
+          db.updatePipelineStatus(pipelineSlug, status, ts, durationMs);
+          eventId = db.insertPipelineEvent({
+            pipeline_slug: pipelineSlug,
+            event_type: "pipeline_end",
+            status,
+            duration_ms: durationMs,
+            ts,
+            payload: body
+          });
+          pushSseEvent(pipelineSlug, "pipeline_end", body);
+          break;
+        }
+        case "step_start": {
+          eventId = db.insertPipelineEvent({
+            pipeline_slug: pipelineSlug,
+            event_type: "step_start",
+            step_number: body.step_number ?? undefined,
+            step_name: body.step_name ?? undefined,
+            phase: body.phase ?? undefined,
+            ts
+          });
+          pushSseEvent(pipelineSlug, "step_start", body);
+          break;
+        }
+        case "step_end": {
+          eventId = db.insertPipelineEvent({
+            pipeline_slug: pipelineSlug,
+            event_type: "step_end",
+            step_number: body.step_number ?? undefined,
+            status: body.status ?? "done",
+            duration_ms: body.duration_ms ?? undefined,
+            ts
+          });
+          pushSseEvent(pipelineSlug, "step_end", body);
+          break;
+        }
+        case "agent_start": {
+          eventId = db.insertPipelineEvent({
+            pipeline_slug: pipelineSlug,
+            event_type: "agent_start",
+            call_id: body.call_id ?? undefined,
+            agent_type: body.agent_type ?? undefined,
+            department: body.department ?? undefined,
+            model: body.model ?? undefined,
+            step_number: body.step_number ?? undefined,
+            description: body.description ?? undefined,
+            ts
+          });
+          pushSseEvent(pipelineSlug, "agent_start", body);
+          break;
+        }
+        case "agent_end": {
+          const agentType = body.agent_type ?? "unknown";
+          const callId = body.call_id ?? "";
+          const resultSummary = body.result_summary ?? "";
+          const durationMs = body.duration_ms ?? undefined;
+          const isError = body.is_error === true || body.is_error === "true";
+          const agentStatus = body.status ?? "success";
+          eventId = db.insertPipelineEvent({
+            pipeline_slug: pipelineSlug,
+            event_type: "agent_end",
+            call_id: callId || undefined,
+            agent_type: agentType,
+            status: agentStatus,
+            duration_ms: durationMs,
+            result_summary: resultSummary || undefined,
+            is_error: isError,
+            ts
+          });
+          if (pipelineSlug) {
+            try {
+              const pipeline = db.getPipelineBySlug(pipelineSlug);
+              if (pipeline) {
+                const taskTitle = `[${agentType}] ${resultSummary.slice(0, 120) || "\uC791\uC5C5 \uC644\uB8CC"}`;
+                const taskDesc = resultSummary || `Agent: ${agentType}, Call ID: ${callId}`;
+                db.createTask({
+                  pipeline_id: pipeline.id,
+                  title: taskTitle,
+                  description: taskDesc,
+                  assignee_agent: agentType,
+                  label: callId || undefined,
+                  duration_ms: durationMs ?? undefined,
+                  summary: resultSummary || undefined,
+                  tags: [agentType, isError ? "error" : agentStatus]
+                });
+              }
+            } catch (taskErr) {
+              console.error("[bams-server] agent_end task logging failed (non-fatal):", taskErr);
+            }
+          }
+          pushSseEvent(pipelineSlug, "agent_end", body);
+          break;
+        }
+        case "error": {
+          eventId = db.insertPipelineEvent({
+            pipeline_slug: pipelineSlug,
+            event_type: "error",
+            message: body.message ?? undefined,
+            step_number: body.step_number ?? undefined,
+            ts,
+            payload: body
+          });
+          pushSseEvent(pipelineSlug, "error", body);
+          break;
+        }
+        case "work_unit_start": {
+          const wuSlug = body.work_unit_slug ?? pipelineSlug;
+          const wuName = body.work_unit_name ?? body.name ?? wuSlug;
+          wuDb.createWorkUnit(wuSlug, wuName, ts);
+          eventId = db.insertWorkUnitEvent({
+            work_unit_slug: wuSlug,
+            event_type: "work_unit_start",
+            payload: body,
+            ts
+          });
+          break;
+        }
+        case "work_unit_end": {
+          const wuSlug = body.work_unit_slug ?? pipelineSlug;
+          const wuStatus = body.status ?? "completed";
+          wuDb.endWorkUnit(wuSlug, wuStatus, ts);
+          eventId = db.insertWorkUnitEvent({
+            work_unit_slug: wuSlug,
+            event_type: "work_unit_end",
+            payload: { status: wuStatus },
+            ts
+          });
+          break;
+        }
+        case "pipeline_linked": {
+          const wuSlug = body.work_unit_slug ?? "";
+          if (wuSlug && pipelineSlug) {
+            db.upsertWorkUnit(wuSlug);
+            db.linkPipelineToWorkUnit(pipelineSlug, wuSlug);
+            eventId = db.insertWorkUnitEvent({
+              work_unit_slug: wuSlug,
+              event_type: "pipeline_linked",
+              pipeline_slug: pipelineSlug,
+              payload: body,
+              ts
+            });
+          }
+          break;
+        }
+        case "recover": {
+          eventId = db.insertPipelineEvent({
+            pipeline_slug: pipelineSlug,
+            event_type: "recover",
+            ts,
+            payload: body
+          });
+          break;
+        }
+        default: {
+          eventId = db.insertPipelineEvent({
+            pipeline_slug: pipelineSlug,
+            event_type: eventType,
+            ts,
+            payload: body
+          });
+          break;
+        }
+      }
+      return jsonResponse({ ok: true, id: eventId ?? null });
+    } catch (err) {
+      console.error("[bams-server] POST /api/events error:", err);
+      return jsonResponse({ ok: false, error: String(err) }, 500);
+    }
+  }
   if (method === "POST" && path === "/api/runs/events") {
     let body;
     try {
@@ -1547,78 +2105,17 @@ async function handleRequest(req) {
     const broker = getBroker();
     broker.pushEvent({
       type: body.type,
-      pipeline_slug: body.pipeline_slug,
-      agent_slug: body.agent_slug,
-      run_id: body.run_id,
+      pipeline_slug: body.pipeline_slug ?? "",
+      agent_slug: body.agent_slug ?? "system",
+      run_id: body.run_id ?? undefined,
       ts: new Date().toISOString(),
       payload: body.payload
     });
-    if (body.type === "agent_end" && body.pipeline_slug) {
-      try {
-        const db = getDefaultDB();
-        const pipeline = db.getPipelineBySlug(body.pipeline_slug);
-        if (pipeline) {
-          const agentType = body.agent_type ?? body.agent_slug ?? "unknown";
-          const resultSummary = body.result_summary ?? body.payload?.result_summary ?? "";
-          const callId = body.call_id ?? body.payload?.call_id ?? "";
-          const durationMs = body.duration_ms ?? body.payload?.duration_ms ?? null;
-          const isError = body.is_error ?? body.payload?.is_error ?? false;
-          const agentStatus = body.status ?? body.payload?.status ?? "success";
-          const taskTitle = `[${agentType}] ${resultSummary.slice(0, 120) || "\uC791\uC5C5 \uC644\uB8CC"}`;
-          const taskDesc = resultSummary || `Agent: ${agentType}, Call ID: ${callId}`;
-          db.createTask({
-            pipeline_id: pipeline.id,
-            title: taskTitle,
-            description: taskDesc,
-            assignee_agent: agentType,
-            label: callId || undefined,
-            duration_ms: durationMs ?? undefined,
-            summary: resultSummary || undefined,
-            tags: [agentType, isError ? "error" : agentStatus]
-          });
-        } else {
-          console.warn("[bams-server] task logging skipped: pipeline not in DB:", body.pipeline_slug);
-        }
-      } catch (taskErr) {
-        console.error("[bams-server] agent_end task logging failed (non-fatal):", taskErr);
-      }
-    }
-    if (body.type === "pipeline_end" && body.pipeline_slug) {
-      try {
-        const db = getDefaultDB();
-        const status = body.status ?? body.payload?.status ?? "completed";
-        const now = new Date().toISOString();
-        db.updatePipelineStatus(body.pipeline_slug, status, now, undefined);
-      } catch (dbErr) {
-        console.error("[bams-server] pipeline_end DB sync failed (non-fatal):", dbErr);
-      }
-    }
-    if (body.type === "pipeline_start" && body.pipeline_slug) {
-      try {
-        const db = getDefaultDB();
-        const existing = db.getPipelineBySlug(body.pipeline_slug);
-        if (!existing) {
-          db.upsertPipeline({
-            slug: body.pipeline_slug,
-            type: body.payload?.pipeline_type ?? "unknown",
-            status: "running",
-            started_at: new Date().toISOString()
-          });
-        }
-      } catch (dbErr) {
-        console.error("[bams-server] pipeline_start DB sync failed (non-fatal):", dbErr);
-      }
-    }
     return jsonResponse({ ok: true }, 201);
   }
   return errorResponse(`Not found: ${method} ${path}`, 404);
 }
-try {
-  syncPipelinesFromEvents();
-  console.log("[bams-server] Pipeline sync from JSONL completed");
-} catch (err) {
-  console.error("[bams-server] Pipeline sync failed (non-fatal):", err);
-}
+console.log("[bams-server] DB is primary data source (JSONL sync disabled)");
 var server = Bun.serve({
   port: PORT,
   fetch: handleRequest,

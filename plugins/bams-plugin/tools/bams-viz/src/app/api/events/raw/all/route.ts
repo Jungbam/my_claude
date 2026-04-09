@@ -1,15 +1,21 @@
 import { NextResponse } from 'next/server'
-import { EventStore } from '@/lib/event-store'
 
+const BAMS_SERVER = process.env.BAMS_SERVER_URL ?? 'http://localhost:3099'
 const corsHeaders = { 'Access-Control-Allow-Origin': '*' }
 
 export async function GET() {
   try {
-    const store = EventStore.getInstance()
-    const events = store.getAllRawEvents()
-    return NextResponse.json(events, { headers: corsHeaders })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error'
-    return NextResponse.json({ error: message }, { status: 500, headers: corsHeaders })
+    const res = await fetch(`${BAMS_SERVER}/api/events/raw/all`, {
+      signal: AbortSignal.timeout(5000),
+    })
+    if (res.ok) {
+      return new Response(await res.text(), {
+        status: res.status,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      })
+    }
+    return NextResponse.json([], { headers: corsHeaders })
+  } catch {
+    return NextResponse.json([], { headers: corsHeaders })
   }
 }

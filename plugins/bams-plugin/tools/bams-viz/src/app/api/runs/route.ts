@@ -9,7 +9,6 @@
  */
 
 import type { NextRequest } from "next/server";
-import { EventStore } from "@/lib/event-store";
 
 const BAMS_SERVER = process.env.BAMS_SERVER_URL ?? "http://localhost:3099";
 
@@ -67,25 +66,37 @@ export async function GET(req: NextRequest): Promise<Response> {
     const limit = searchParams.get("limit") ?? "100";
     try {
       const res = await fetch(
-        `${BAMS_SERVER}/api/runs/${pipeline}/logs?limit=${limit}`
+        `${BAMS_SERVER}/api/runs/${pipeline}/logs?limit=${limit}`,
+        { signal: AbortSignal.timeout(3000) }
       );
-      const data = await res.json();
-      return Response.json(data, { headers: { "X-Data-Source": "api" } });
+      if (res.ok) {
+        const data = await res.json();
+        return Response.json(data, { headers: { "X-Data-Source": "api" } });
+      }
     } catch {
-      try {
-        const store = EventStore.getInstance();
-        const events = store.getRawEvents(pipeline);
+      // fallback: return raw events from bams-server
+    }
+
+    try {
+      const res = await fetch(
+        `${BAMS_SERVER}/api/events/raw/${encodeURIComponent(pipeline)}`,
+        { signal: AbortSignal.timeout(3000) }
+      );
+      if (res.ok) {
+        const events = await res.json();
         return Response.json(
-          { logs: events, count: events.length },
-          { headers: { "X-Data-Source": "fallback" } }
-        );
-      } catch {
-        return Response.json(
-          { logs: [], count: 0 },
-          { headers: { "X-Data-Source": "fallback" } }
+          { logs: events, count: Array.isArray(events) ? events.length : 0 },
+          { headers: { "X-Data-Source": "api-fallback" } }
         );
       }
+    } catch {
+      // empty
     }
+
+    return Response.json(
+      { logs: [], count: 0 },
+      { headers: { "X-Data-Source": "fallback" } }
+    );
   }
 
   // 에이전트 로그 프록시
@@ -93,28 +104,21 @@ export async function GET(req: NextRequest): Promise<Response> {
     const limit = searchParams.get("limit") ?? "50";
     try {
       const res = await fetch(
-        `${BAMS_SERVER}/api/runs/agent/${agent}/logs?limit=${limit}`
+        `${BAMS_SERVER}/api/runs/agent/${agent}/logs?limit=${limit}`,
+        { signal: AbortSignal.timeout(3000) }
       );
-      const data = await res.json();
-      return Response.json(data, { headers: { "X-Data-Source": "api" } });
-    } catch {
-      try {
-        const store = EventStore.getInstance();
-        const allEvents = store.getAllRawEvents();
-        const agentEvents = allEvents.filter((e: Record<string, unknown>) =>
-          e.agent_type === agent || String(e.call_id ?? "").startsWith(agent)
-        );
-        return Response.json(
-          { logs: agentEvents, count: agentEvents.length },
-          { headers: { "X-Data-Source": "fallback" } }
-        );
-      } catch {
-        return Response.json(
-          { logs: [], count: 0 },
-          { headers: { "X-Data-Source": "fallback" } }
-        );
+      if (res.ok) {
+        const data = await res.json();
+        return Response.json(data, { headers: { "X-Data-Source": "api" } });
       }
+    } catch {
+      // empty
     }
+
+    return Response.json(
+      { logs: [], count: 0 },
+      { headers: { "X-Data-Source": "fallback" } }
+    );
   }
 
   return Response.json(
