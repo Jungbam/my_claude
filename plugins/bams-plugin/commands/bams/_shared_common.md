@@ -242,6 +242,39 @@ fi
 
 ---
 
+## ★ dev-hotfix 모드 (멀티이슈 배치 수정)
+
+`/bams:hotfix`에서 4건 이상의 이슈가 감지되어 dev 파이프라인으로 전환된 경우에 적용됩니다.
+
+### 진입 조건
+- hotfix preflight Step 0.55에서 "배치 dev" 선택
+- 또는 `/bams:dev`에 직접 멀티이슈 목록 전달 시 자동 감지
+
+### 라우팅 규칙
+1. Phase 0(초기화): `dev/phase-0-init.md` 실행 (기존 동일)
+2. **Phase 0.8~0.95**: `dev/mode-hotfix-init.md` 실행 (이슈 파싱 + 배치 분할)
+3. Phase 1(기획): **생략** — 이슈가 이미 정의되어 있으므로 PRD 불필요
+4. Phase 1.5(Git): `dev/phase-1-5-git.md` 실행 (브랜치 생성)
+5. Phase 2(구현): `dev/phase-2-implementation.md` 실행 (배치별 순차 실행)
+6. Phase 2.5~4: 기존 dev 흐름 동일
+
+### 배치 검증 규칙
+- 각 배치 완료 후: `bun run build && bun run typecheck` 중간 검증
+- 중간 검증 실패 시: 해당 배치만 롤백, 이전 배치 유지
+- 전체 배치 완료 후: Phase 2.5 풀 테스트
+
+### 네이밍 규칙
+- slug: `dev_{WU관련요약}` (일반 dev와 동일 형식)
+- pipeline_type: `dev-hotfix` (viz에서 구분 표시)
+- 배치 계획: `.crew/artifacts/pipeline/{slug}-batch-plan.md`
+
+### context rot 방지
+- 배치당 최대 4건으로 제한
+- 5배치 이상 시 배치 3 완료 후 `/compact` 제안 (completion-protocol Step 4.9 적용)
+- 각 배치 완료 시점이 자연스러운 compact 포인트
+
+---
+
 ## 부록: 표준 2단 오케스트레이션 루프 템플릿 (하위 커맨드 참조용)
 
 모든 `/bams:*` 커맨드는 아래 루프 중 하나를 따른다. `커맨드 → 부서장` 2단이 기본이며, orchestrator 조언은 복잡도에 따라 선택한다.

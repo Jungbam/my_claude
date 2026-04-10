@@ -45,6 +45,7 @@ export const DEPT_INFO: Record<string, { color: string; label: string }> = {
   design: { color: '#ec4899', label: 'Design' },
   evaluation: { color: '#f97316', label: 'Evaluation' },
   qa: { color: '#a855f7', label: 'QA' },
+  engineering: { color: '#10b981', label: 'Engineering' },
 }
 
 /** Build agent-type → department mapping from ALL_AGENTS */

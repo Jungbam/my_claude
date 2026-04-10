@@ -46,6 +46,28 @@ import type { TaskStatus } from "../../tools/bams-db/schema.ts";
 const PORT = parseInt(process.env.BAMS_SERVER_PORT ?? "3099", 10);
 const AGENTS_DIR = "plugins/bams-plugin/agents";
 
+/**
+ * N-m3: insertRunLog try/catch 헬퍼 — 4곳 반복 패턴 추출.
+ * 실패해도 이벤트 처리 흐름을 중단하지 않는다 (non-fatal).
+ */
+function safeInsertRunLog(
+  db: ReturnType<typeof getDefaultDB>,
+  input: {
+    pipeline_slug: string;
+    pipeline_id?: string;
+    run_id?: string;
+    agent_slug: string;
+    event_type: string;
+    payload?: unknown;
+  }
+): void {
+  try {
+    db.insertRunLog(input);
+  } catch (err) {
+    console.error(`[bams-server] ${input.event_type} run_log insert failed (non-fatal):`, err);
+  }
+}
+
 /** SSE 이벤트 push — SseBroker 경유 (DB 영구 보존 + 스트리밍) */
 export function pushSseEvent(
   pipelineSlug: string,
@@ -69,9 +91,11 @@ export function pushSseEvent(
 // CORS 헤더
 // ─────────────────────────────────────────────────────────────
 
+const CORS_ORIGIN = process.env.CORS_ORIGIN ?? "http://localhost:3333";
+
 function corsHeaders(): Record<string, string> {
   return {
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": CORS_ORIGIN,
     "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
   };
@@ -1487,16 +1511,12 @@ async function handleRequest(req: Request): Promise<Response> {
 
           // run_logs 기록 — Logs 탭에서 step 흐름 표시
           if (pipelineSlug) {
-            try {
-              db.insertRunLog({
-                pipeline_slug: pipelineSlug,
-                agent_slug: "pipeline",
-                event_type: "step_start",
-                payload: body,
-              });
-            } catch (runLogErr) {
-              console.error("[bams-server] step_start run_log insert failed (non-fatal):", runLogErr);
-            }
+            safeInsertRunLog(db, {
+              pipeline_slug: pipelineSlug,
+              agent_slug: "pipeline",
+              event_type: "step_start",
+              payload: body,
+            });
           }
 
           pushSseEvent(pipelineSlug, "step_start", body);
@@ -1516,16 +1536,12 @@ async function handleRequest(req: Request): Promise<Response> {
 
           // run_logs 기록 — Logs 탭에서 step 흐름 표시
           if (pipelineSlug) {
-            try {
-              db.insertRunLog({
-                pipeline_slug: pipelineSlug,
-                agent_slug: "pipeline",
-                event_type: "step_end",
-                payload: body,
-              });
-            } catch (runLogErr) {
-              console.error("[bams-server] step_end run_log insert failed (non-fatal):", runLogErr);
-            }
+            safeInsertRunLog(db, {
+              pipeline_slug: pipelineSlug,
+              agent_slug: "pipeline",
+              event_type: "step_end",
+              payload: body,
+            });
           }
 
           pushSseEvent(pipelineSlug, "step_end", body);
@@ -1548,17 +1564,13 @@ async function handleRequest(req: Request): Promise<Response> {
 
           // run_logs 기록 — Logs 탭 데이터 소스
           if (pipelineSlug) {
-            try {
-              db.insertRunLog({
-                pipeline_slug: pipelineSlug,
-                run_id: (body.call_id as string) ?? undefined,
-                agent_slug: (body.agent_type as string) ?? "unknown",
-                event_type: "agent_start",
-                payload: body,
-              });
-            } catch (runLogErr) {
-              console.error("[bams-server] agent_start run_log insert failed (non-fatal):", runLogErr);
-            }
+            safeInsertRunLog(db, {
+              pipeline_slug: pipelineSlug,
+              run_id: (body.call_id as string) ?? undefined,
+              agent_slug: (body.agent_type as string) ?? "unknown",
+              event_type: "agent_start",
+              payload: body,
+            });
           }
 
           pushSseEvent(pipelineSlug, "agent_start", body);
@@ -1589,17 +1601,13 @@ async function handleRequest(req: Request): Promise<Response> {
 
           // run_logs 기록 — Logs 탭 데이터 소스
           if (pipelineSlug) {
-            try {
-              db.insertRunLog({
-                pipeline_slug: pipelineSlug,
-                run_id: callId || undefined,
-                agent_slug: agentType,
-                event_type: "agent_end",
-                payload: body,
-              });
-            } catch (runLogErr) {
-              console.error("[bams-server] agent_end run_log insert failed (non-fatal):", runLogErr);
-            }
+            safeInsertRunLog(db, {
+              pipeline_slug: pipelineSlug,
+              run_id: callId || undefined,
+              agent_slug: agentType,
+              event_type: "agent_end",
+              payload: body,
+            });
           }
 
           // tasks 테이블 기록 (기존 POST /api/runs/events 로직 통합)

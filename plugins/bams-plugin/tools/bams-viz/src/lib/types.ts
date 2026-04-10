@@ -390,6 +390,7 @@ export interface WorkUnitDetailResponse {
       done: number
     }
   }
+  pipelines?: PipelineDetail[]
 }
 
 // ── Work Unit 상세 탭 타입 ──────────────────────────────────

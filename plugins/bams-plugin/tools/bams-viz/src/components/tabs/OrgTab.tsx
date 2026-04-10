@@ -2,6 +2,7 @@
 
 import { usePolling } from '@/hooks/usePolling'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { DEPT_INFO } from '@/lib/agents-config'
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                               */
@@ -39,15 +40,6 @@ interface OrgResponse {
 /*  Constants                                                           */
 /* ------------------------------------------------------------------ */
 
-const DEPT_COLORS: Record<string, string> = {
-  executive: '#ec4899',
-  planning: '#3b82f6',
-  engineering: '#22c55e',
-  design: '#6b7280',
-  evaluation: '#f97316',
-  qa: '#a855f7',
-}
-
 const ROLE_BADGE: Record<string, { label: string; color: string }> = {
   commander:        { label: 'Commander',  color: '#ef4444' },
   department_lead:  { label: 'Dept Lead',  color: '#3b82f6' },
@@ -56,7 +48,7 @@ const ROLE_BADGE: Record<string, { label: string; color: string }> = {
 }
 
 function deptColor(deptId: string): string {
-  return DEPT_COLORS[deptId] ?? '#6b7280'
+  return DEPT_INFO[deptId]?.color ?? '#6b7280'
 }
 
 function roleBadge(role: string): { label: string; color: string } {

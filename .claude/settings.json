@@ -8,7 +8,8 @@
       "Agent(*)",
       "WebFetch(*)",
       "WebSearch(*)",
-      "AskUserQuestion(*)"
+      "AskUserQuestion(*)",
+      "Edit(~/.claude/skills/strategic-compact/**)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
@@ -19,7 +20,8 @@
       "/tmp",
       "/private/tmp",
       "~/Library/Application Support/SwiftBar",
-      "/Users/bamjung/Documents/ezar/claude/my_claude/.git"
+      "/Users/bamjung/Documents/ezar/claude/my_claude/.git",
+      "/Users/bamjung/.claude/skills"
     ]
   }
 }

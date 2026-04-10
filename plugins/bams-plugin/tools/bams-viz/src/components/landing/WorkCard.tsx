@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { formatRelativeTime } from '@/lib/utils'
 import type { WorkUnit } from '@/lib/types'
@@ -16,7 +17,7 @@ interface WorkCardProps {
   onClick: () => void
 }
 
-export function WorkCard({ workunit, onClick }: WorkCardProps) {
+export const WorkCard = memo(function WorkCard({ workunit, onClick }: WorkCardProps) {
   const pipelineCount = workunit.pipelineCount ?? workunit.pipelines?.length ?? 0
   const taskSummary = workunit.task_summary
   const progressPct = taskSummary && taskSummary.total > 0
@@ -112,4 +113,4 @@ export function WorkCard({ workunit, onClick }: WorkCardProps) {
       )}
     </div>
   )
-}
+})

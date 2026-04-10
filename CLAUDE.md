@@ -144,6 +144,12 @@ hr_reports (독립)
 3. 에러 시 `status="error"`로 보고 (근본 원인 + 영향 범위 포함)
 4. 마지막 에이전트는 `pipeline_end` emit
 
+### Context 관리
+- 파이프라인 완료 후: completion-protocol Step 4.9에 따라 context health를 평가하고 `/compact` 제안
+- 비파이프라인 장기 작업 완료 후: Edit/Write 30회 이상 수행했으면 `/compact` 제안
+- `/compact` 제안 시 반드시 요약 메시지를 포함: `/compact {작업 요약 — 완료 상태, 다음 단계}`
+- context rot 징후 감지 시 (이전 대화 참조 실패, 파일 경로 혼동 등): 즉시 `/compact` 제안
+
 ### Critical Gotchas
 - **[G-A]** FE 배치 분할 필수: 변경 10파일 초과 또는 600초 이상 예상 시
 - **[G-B]** Agent tool 호출 시 `subagent_type` 필수 지정

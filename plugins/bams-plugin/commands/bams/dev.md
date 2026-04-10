@@ -72,6 +72,13 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 - **아티팩트가 존재하면**: "기존 계획 발견" 알림, Phase 2로 진행
 - **아티팩트가 없으면** -> Phase 0 (파이프라인 초기화)으로 진행
 
+**$ARGUMENTS가 멀티이슈 hotfix 목록인 경우 (dev-hotfix 모드):**
+- 입력에 2건 이상의 버그/이슈가 포함된 경우 (줄바꿈 구분, 번호 목록, retro Problem 참조 등)
+- 또는 hotfix에서 "배치 dev" 전환으로 진입한 경우
+- pipeline_type을 `dev-hotfix`로 설정
+- Phase 0(초기화) 실행 후 `plugins/bams-plugin/commands/bams/dev/mode-hotfix-init.md`를 Read
+- Phase 1(기획) 생략 → Phase 1.5(Git) → Phase 2(구현)으로 진행
+
 ## Phase 라우팅
 
 현재 상태 또는 $ARGUMENTS 분석 결과에 따라 해당 서브파일을 Read하여 지시를 따릅니다:
@@ -79,6 +86,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 | Phase | 서브파일 경로 |
 |-------|-------------|
 | Phase 0 (초기화) | `plugins/bams-plugin/commands/bams/dev/phase-0-init.md` |
+| Phase 0.8~0.95 (dev-hotfix 초기화) | `plugins/bams-plugin/commands/bams/dev/mode-hotfix-init.md` |
 | Phase 1 (기획) | `plugins/bams-plugin/commands/bams/dev/phase-1-planning.md` |
 | Phase 1.5 (Git) | `plugins/bams-plugin/commands/bams/dev/phase-1-5-git.md` |
 | Phase 2 (구현) | `plugins/bams-plugin/commands/bams/dev/phase-2-implementation.md` |

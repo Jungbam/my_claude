@@ -15,12 +15,7 @@ function safeDecodeSlug(raw: string): string {
   }
 }
 
-
-const BAMS_SERVER = process.env.BAMS_SERVER_URL ?? 'http://localhost:3099'
-
-function headers() {
-  return { 'Access-Control-Allow-Origin': '*', 'X-Data-Source': 'bams-server' }
-}
+import { BAMS_SERVER, headers } from '@/lib/server-config'
 
 export async function PATCH(
   request: Request,

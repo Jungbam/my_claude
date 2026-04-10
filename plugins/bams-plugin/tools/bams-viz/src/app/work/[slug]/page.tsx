@@ -11,7 +11,7 @@ import { PipelineTabPanel } from '@/components/work-detail/PipelineTabPanel'
 import { MetaverseTab } from '@/components/tabs/MetaverseTab'
 import { bamsApi } from '@/lib/bams-api'
 import { formatDuration } from '@/lib/utils'
-import type { DetailTab, PipelineSubTab, WorkUnit, WorkUnitDetailResponse } from '@/lib/types'
+import type { DetailTab, PipelineSubTab, WorkUnitDetailResponse } from '@/lib/types'
 
 export default function WorkDetailPage() {
   const params = useParams()
@@ -22,18 +22,18 @@ export default function WorkDetailPage() {
   const [selectedPipelineSlug, setSelectedPipelineSlug] = useState<string | null>(null)
   const [activePipelineSubTab, setActivePipelineSubTab] = useState<PipelineSubTab>('agent')
 
-  const { data, error, isLoading, mutate } = usePolling<WorkUnitDetailResponse & { pipelines?: unknown[] }>(
+  const { data, error, isLoading, mutate } = usePolling<WorkUnitDetailResponse>(
     slug ? `/api/workunits/${encodeURIComponent(slug)}` : null,
     3000
   )
 
-  const workunit = data?.workunit as (WorkUnit & { pipelines?: WorkUnit['pipelines'] }) | undefined
+  const workunit = data?.workunit
   const pipelines = workunit?.pipelines ?? []
 
   // 파이프라인 목록이 로드되면 첫 번째를 자동 선택
   useEffect(() => {
     if (pipelines.length > 0 && selectedPipelineSlug === null) {
-      setSelectedPipelineSlug((pipelines[0] as any).slug ?? null)
+      setSelectedPipelineSlug(pipelines[0].slug ?? null)
     }
   }, [pipelines, selectedPipelineSlug])
 
@@ -142,7 +142,7 @@ export default function WorkDetailPage() {
         )}
         {activeTab === 'pipeline' && (
           <PipelineTabPanel
-            pipelines={pipelines as any}
+            pipelines={pipelines}
             wuSlug={slug}
             selectedPipelineSlug={selectedPipelineSlug}
             onSelectPipeline={setSelectedPipelineSlug}

@@ -4,6 +4,7 @@ import { Database } from 'bun:sqlite'
 import { randomUUID } from 'crypto'
 import type { AgentImprovement, HRAgent, HRDepartment, HRReport, HRReportSummary, RetroMetadata } from './types'
 import { getHrDir } from './global-root'
+import { AGENT_DEPT_MAP } from './agents-config'
 
 // ---------------------------------------------------------------------------
 // Trend calculation
@@ -43,19 +44,11 @@ function calculateTrend(
 }
 
 // ---------------------------------------------------------------------------
-// Agent → department mapping (matches bams-viz-emit.sh dept_map)
+// Agent → department mapping (sourced from agents-config.ts — single source of truth)
 // ---------------------------------------------------------------------------
 
-const DEPT_MAP: Record<string, string> = {
-  'product-strategy': 'planning', 'business-analysis': 'planning', 'ux-research': 'planning', 'project-governance': 'planning',
-  'frontend-engineering': 'engineering', 'backend-engineering': 'engineering', 'platform-devops': 'engineering', 'data-integration': 'engineering',
-  'product-analytics': 'evaluation', 'experimentation': 'evaluation', 'performance-evaluation': 'evaluation', 'business-kpi': 'evaluation',
-  'qa-strategy': 'qa', 'automation-qa': 'qa', 'defect-triage': 'qa', 'release-quality-gate': 'qa',
-  'pipeline-orchestrator': 'management', 'cross-department-coordinator': 'management', 'executive-reporter': 'management', 'resource-optimizer': 'management', 'hr-agent': 'management',
-}
-
 function inferDepartment(agentId: string): string {
-  return DEPT_MAP[agentId] ?? 'unknown'
+  return AGENT_DEPT_MAP[agentId] ?? 'unknown'
 }
 
 // ---------------------------------------------------------------------------

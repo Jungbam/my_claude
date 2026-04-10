@@ -76,6 +76,40 @@ fi
 
 서버가 미실행 중이거나 조회 실패 시 이 단계를 스킵합니다.
 
+## Step 4.9: Context Health 평가 및 /compact 제안
+
+파이프라인 완료 시점의 context 상태를 평가하고, 필요 시 `/compact`를 제안합니다.
+
+**평가 기준 (Bash로 확인):**
+```bash
+# 세션 도구 호출 횟수 확인
+SESSION_ID="${CLAUDE_SESSION_ID:-${PPID:-default}}"
+COUNTER_FILE="/tmp/claude-tool-count-${SESSION_ID}"
+TOOL_COUNT=$(cat "$COUNTER_FILE" 2>/dev/null || echo 0)
+echo "[Context Health] 세션 도구 호출: ${TOOL_COUNT}회"
+```
+
+**판단:**
+- Edit/Write 50회 이상 **또는** 파이프라인 총 Step 5개 이상 → `/compact` 강력 권고
+- Edit/Write 30회 이상 → `/compact` 제안
+- 그 외 → 스킵
+
+**제안 시 출력 형식:**
+```
+[Context Health] 세션 도구 호출: {N}회, 파이프라인 Steps: {M}개
+→ /compact 권장: 다음 작업 전에 context를 정리하면 응답 품질이 향상됩니다.
+  /compact {slug} 파이프라인 완료 — {1줄 요약}
+```
+
+**주의:**
+- `/compact`는 사용자/AI가 직접 입력해야 합니다 (프로그래밍적 자동 실행 불가)
+- compact 제안 시 **요약 메시지**를 함께 제공하여, compact 후에도 맥락이 보존되도록 합니다
+- Step 5(완료 요약) 출력 **직후** 제안합니다 (완료 요약을 compact으로 손실시키지 않기 위해)
+
+**안전한 compact 시점 (금지 구간 주의):**
+- 금지: Step 실행 중, retro KPT 작성 중, pipeline_end emit 전
+- 권장: completion-protocol 저장 완료 직후 또는 pipeline_end + retro 완료 후
+
 ## Step 5: 완료 요약 출력
 
 통일된 형식:

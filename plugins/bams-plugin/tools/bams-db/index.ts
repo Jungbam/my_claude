@@ -40,6 +40,29 @@ import {
 /** DB 파일 기본 경로 — 글로벌 단일 DB */
 const DEFAULT_DB_PATH = join(homedir(), ".claude", "plugins", "marketplaces", "my-claude", "bams.db");
 
+/**
+ * N-M6: run_log payload 화이트리스트 검증.
+ * 허용된 필드만 추출하여 JSON 문자열로 반환한다.
+ */
+const RUN_LOG_ALLOWED_KEYS = [
+  "step_number", "step_name", "phase", "status", "duration_ms",
+  "agent_type", "model", "description", "call_id", "is_error",
+  "error_message", "result_summary", "department", "type",
+  "pipeline_slug", "pipeline_type", "command", "work_unit_slug",
+] as const;
+
+function sanitizeRunLogPayload(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const src = payload as Record<string, unknown>;
+  const safe: Record<string, unknown> = {};
+  for (const key of RUN_LOG_ALLOWED_KEYS) {
+    if (key in src) {
+      safe[key] = src[key];
+    }
+  }
+  return Object.keys(safe).length > 0 ? JSON.stringify(safe) : null;
+}
+
 export class TaskDB {
   private db: Database;
 
@@ -532,19 +555,29 @@ export class TaskDB {
     const ts = event.ts ?? new Date().toISOString();
 
     // pipeline_slug → pipeline_id resolve (auto-create if missing)
+    // N-m4: upsertPipeline이 id를 반환하므로 getPipelineBySlug 재호출 제거 (3회→1회)
     let pipeline = this.getPipelineBySlug(event.pipeline_slug);
+    let pipelineId: string | null;
     if (!pipeline && event.pipeline_slug) {
       // pipeline_start 이벤트 없이 다른 이벤트가 먼저 도착한 경우
       // 최소한의 pipeline 레코드를 자동 생성하여 FK 연결 보장
-      this.upsertPipeline({
+      // N-M2: auto-create 시 현재 이벤트 타입에 따라 status 결정
+      const autoStatus = event.event_type === "pipeline_end"
+        ? (event.status ?? "completed")
+        : "running";
+      pipelineId = this.upsertPipeline({
         slug: event.pipeline_slug,
         type: "auto-created",
-        status: "running",
+        status: autoStatus,
         started_at: ts,
       });
-      pipeline = this.getPipelineBySlug(event.pipeline_slug);
+    } else {
+      pipelineId = pipeline?.id ?? null;
+      // N-M2: 기존 pipeline이 있고, pipeline_end 이벤트가 도착하면 status 업데이트
+      if (pipeline && event.event_type === "pipeline_end" && event.status) {
+        this.updatePipelineStatus(event.pipeline_slug, event.status, ts, event.duration_ms);
+      }
     }
-    const pipelineId = pipeline?.id ?? null;
 
     this.db.prepare(`
       INSERT INTO pipeline_events (
@@ -779,19 +812,34 @@ export class TaskDB {
   /**
    * run_logs에 실행 로그를 insert한다.
    * agent_start/agent_end 이벤트 수신 시 호출.
+   * pipeline 미존재 시 auto-create (insertPipelineEvent와 동일 패턴).
    * @returns 생성된 run_log id
    */
   insertRunLog(input: {
     pipeline_slug: string;
+    pipeline_id?: string;
     run_id?: string;
     agent_slug: string;
     event_type: string;
     payload?: unknown;
   }): string {
-    const pipeline = this.getPipelineBySlug(input.pipeline_slug);
-    if (!pipeline) {
-      throw new Error(`Pipeline not found for slug: ${input.pipeline_slug}`);
+    let pipelineId = input.pipeline_id ?? null;
+
+    if (!pipelineId) {
+      const pipeline = this.getPipelineBySlug(input.pipeline_slug);
+      if (!pipeline && input.pipeline_slug) {
+        // N-M1: auto-create pipeline (insertPipelineEvent와 동일 패턴)
+        pipelineId = this.upsertPipeline({
+          slug: input.pipeline_slug,
+          type: "auto-created",
+          status: "running",
+          started_at: new Date().toISOString(),
+        });
+      } else {
+        pipelineId = pipeline?.id ?? null;
+      }
     }
+
     const id = randomUUID();
     this.db
       .prepare(
@@ -800,11 +848,11 @@ export class TaskDB {
       )
       .run(
         id,
-        pipeline.id,
+        pipelineId,
         input.run_id ?? null,
         input.agent_slug,
         input.event_type,
-        input.payload ? JSON.stringify(input.payload) : null
+        sanitizeRunLogPayload(input.payload)
       );
     return id;
   }

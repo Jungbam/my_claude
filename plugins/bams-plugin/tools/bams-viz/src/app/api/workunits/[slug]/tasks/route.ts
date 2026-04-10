@@ -15,8 +15,7 @@ function safeDecodeSlug(raw: string): string {
   }
 }
 
-const corsHeaders = { 'Access-Control-Allow-Origin': '*' }
-const BAMS_SERVER = process.env.BAMS_SERVER_URL ?? 'http://localhost:3099'
+import { BAMS_SERVER, corsHeaders } from '@/lib/server-config'
 
 export async function GET(
   _request: Request,

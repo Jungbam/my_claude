@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server'
 import { buildTraces } from '@/lib/parser'
 import type { PipelineEvent } from '@/lib/types'
 
-const BAMS_SERVER = process.env.BAMS_SERVER_URL ?? 'http://localhost:3099'
-const corsHeaders = { 'Access-Control-Allow-Origin': '*' }
+import { BAMS_SERVER, corsHeaders } from '@/lib/server-config'
 
 export async function GET(
   _request: Request,

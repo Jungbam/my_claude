@@ -113,17 +113,58 @@ describe('parseAgentEvents', () => {
   })
 })
 
+describe('parseEvents — duration_ms ?? 연산자 (C-1 수정)', () => {
+  test('duration_ms: 0인 agent_end 이벤트는 durationMs가 0이다 (falsy 방어)', () => {
+    const lines = [
+      JSON.stringify({ type: 'pipeline_start', pipeline_slug: 'test', pipeline_type: 'dev', ts: '2026-04-10T10:00:00Z' }),
+      JSON.stringify({ type: 'agent_start', call_id: 'dur0', agent_type: 'automation-qa', model: 'sonnet', step_number: 1, ts: '2026-04-10T10:00:00Z' }),
+      JSON.stringify({ type: 'agent_end', call_id: 'dur0', status: 'done', duration_ms: 0, ts: '2026-04-10T10:00:01Z' }),
+    ].join('\n')
+    const result = parseEvents(lines)
+    const agent = result.agents.find(a => a.callId === 'dur0')
+    expect(agent).toBeDefined()
+    // duration_ms: 0은 ?? 연산자로 보존되어야 함 (이전에는 계산값으로 덮어씌워짐)
+    expect(agent!.durationMs).toBe(0)
+  })
+
+  test('duration_ms: null인 agent_end는 폴백 계산(ts 차이)으로 durationMs를 산출한다', () => {
+    const lines = [
+      JSON.stringify({ type: 'pipeline_start', pipeline_slug: 'test', pipeline_type: 'dev', ts: '2026-04-10T10:00:00Z' }),
+      JSON.stringify({ type: 'agent_start', call_id: 'durnull', agent_type: 'automation-qa', model: 'sonnet', step_number: 1, ts: '2026-04-10T10:00:00.000Z' }),
+      JSON.stringify({ type: 'agent_end', call_id: 'durnull', status: 'done', duration_ms: null, ts: '2026-04-10T10:00:05.000Z' }),
+    ].join('\n')
+    const result = parseEvents(lines)
+    const agent = result.agents.find(a => a.callId === 'durnull')
+    expect(agent).toBeDefined()
+    // null이면 ts 차이로 계산: 5초 = 5000ms
+    expect(agent!.durationMs).toBe(5000)
+  })
+
+  test('duration_ms 필드 자체가 없는 agent_end도 폴백 계산으로 durationMs를 산출한다', () => {
+    const lines = [
+      JSON.stringify({ type: 'pipeline_start', pipeline_slug: 'test', pipeline_type: 'dev', ts: '2026-04-10T10:00:00Z' }),
+      JSON.stringify({ type: 'agent_start', call_id: 'durabs', agent_type: 'qa-strategy', model: 'sonnet', step_number: 1, ts: '2026-04-10T10:00:00.000Z' }),
+      JSON.stringify({ type: 'agent_end', call_id: 'durabs', status: 'done', ts: '2026-04-10T10:00:10.000Z' }),
+    ].join('\n')
+    const result = parseEvents(lines)
+    const agent = result.agents.find(a => a.callId === 'durabs')
+    expect(agent).toBeDefined()
+    // duration_ms 없으면 ts 차이: 10초 = 10000ms
+    expect(agent!.durationMs).toBe(10000)
+  })
+})
+
 describe('DEPT_MAP', () => {
   test('maps all known agent types', () => {
-    expect(DEPT_MAP['frontend-engineering']).toBe('engineering')
+    expect(DEPT_MAP['frontend-engineering']).toBe('engineering-frontend')
     expect(DEPT_MAP['qa-strategy']).toBe('qa')
     expect(DEPT_MAP['product-strategy']).toBe('planning')
     expect(DEPT_MAP['product-analytics']).toBe('evaluation')
   })
 
   test('includes general-purpose agents', () => {
-    expect(DEPT_MAP['general-purpose']).toBe('engineering')
-    expect(DEPT_MAP['Explore']).toBe('engineering')
+    expect(DEPT_MAP['general-purpose']).toBe('engineering')  // fallback for non-org agents
+    expect(DEPT_MAP['Explore']).toBe('engineering')  // fallback for non-org agents
     expect(DEPT_MAP['Plan']).toBe('planning')
   })
 })

@@ -17,8 +17,8 @@ import { AGENT_DEPT_MAP } from './agents-config'
 export const DEPT_MAP: Record<string, string> = {
   ...AGENT_DEPT_MAP,
   // Non-org agents (Claude Code built-in agent types)
-  'general-purpose': 'engineering-frontend',
-  'Explore': 'engineering-frontend',
+  'general-purpose': 'engineering',
+  'Explore': 'engineering',
   'Plan': 'planning',
 }
 
@@ -345,7 +345,7 @@ function buildPipeline(events: PipelineEvent[]): Pipeline {
           agent.errorMessage = e.error_message
           agent.output = e.output
           agent.tokenUsage = e.token_usage
-          agent.durationMs = e.duration_ms ||
+          agent.durationMs = e.duration_ms ??
             (agent.startedAt ? new Date(e.ts).getTime() - new Date(agent.startedAt).getTime() : null)
         }
         break
@@ -482,7 +482,7 @@ export function buildTraces(events: PipelineEvent[]): Trace[] {
         span.endedAt = e.ts
         span.output = e.output || ''
         span.status = e.is_error ? 'error' : 'success'
-        span.durationMs = e.duration_ms ||
+        span.durationMs = e.duration_ms ??
           (span.startedAt ? new Date(e.ts).getTime() - new Date(span.startedAt).getTime() : null)
         span.tokenUsage = e.token_usage ?? null
 

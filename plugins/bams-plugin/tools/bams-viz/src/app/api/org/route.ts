@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server'
 import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { generateOrgChart } from '@/lib/org-gen'
-
-const corsHeaders = { 'Access-Control-Allow-Origin': '*' }
+import { corsHeaders } from '@/lib/server-config'
 
 /**
  * Find jojikdo.json by searching known relative paths.

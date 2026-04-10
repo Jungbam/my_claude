@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server'
-
-const BAMS_SERVER = process.env.BAMS_SERVER_URL ?? 'http://localhost:3099'
-const corsHeaders = { 'Access-Control-Allow-Origin': '*' }
+import { BAMS_SERVER, corsHeaders } from '@/lib/server-config'
 
 /**
  * GET /api/hr/retro-journal

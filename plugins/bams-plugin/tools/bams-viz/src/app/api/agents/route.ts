@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-const BAMS_SERVER = process.env.BAMS_SERVER_URL ?? 'http://localhost:3099'
-
-function headers(source: string) {
-  return { 'Access-Control-Allow-Origin': '*', 'X-Data-Source': source }
-}
+import { BAMS_SERVER, headers } from '@/lib/server-config'
 
 export async function GET(request: NextRequest) {
   const date = request.nextUrl.searchParams.get('date') ?? undefined

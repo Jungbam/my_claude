@@ -23,10 +23,6 @@ import type {
   WorkUnitPatchRequest,
 } from "./types";
 
-/** bams-server 직접 접근이 필요한 경우에만 사용 (SSE, health 등 proxy 불가 경로) */
-const BAMS_SERVER_BASE =
-  process.env.NEXT_PUBLIC_BAMS_SERVER_URL ?? "http://localhost:3099";
-
 /**
  * 공통 fetch 래퍼 — Next.js proxy 경유 (상대 URL)
  * 모든 /api/* 경로는 Next.js API route를 통해 bams-server에 프록시된다.
@@ -37,29 +33,6 @@ async function apiFetch<T>(
   options?: RequestInit
 ): Promise<T> {
   const res = await fetch(path, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options?.headers ?? {}),
-    },
-  });
-
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`bams-api: ${res.status} ${res.statusText} — ${body}`);
-  }
-
-  return res.json() as Promise<T>;
-}
-
-/**
- * bams-server 직접 호출 래퍼 — SSE, health 등 Next.js proxy를 경유할 수 없는 경로 전용
- */
-async function directFetch<T>(
-  path: string,
-  options?: RequestInit
-): Promise<T> {
-  const res = await fetch(`${BAMS_SERVER_BASE}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -182,60 +155,6 @@ export const bamsApi = {
     return apiFetch<unknown>("/api/stats/agents");
   },
 
-  // ── SSE 스트리밍 (C2) ─────────────────────────────────────────
-
-  connectEventStream(params: {
-    pipeline?: string;
-    agent?: string;
-    onEvent: (type: string, data: unknown) => void;
-    onError?: (err: Event) => void;
-  }): EventSource {
-    const qs = new URLSearchParams();
-    if (params.pipeline) qs.set("pipeline", params.pipeline);
-    if (params.agent) qs.set("agent", params.agent);
-    const url = `${BAMS_SERVER_BASE}/api/events/stream?${qs.toString()}`;
-
-    const es = new EventSource(url);
-
-    es.addEventListener("connected", (e: MessageEvent) => {
-      params.onEvent("connected", JSON.parse(e.data));
-    });
-
-    es.addEventListener("task_updated", (e: MessageEvent) => {
-      params.onEvent("task_updated", JSON.parse(e.data));
-    });
-
-es.addEventListener("agent_start", (e: MessageEvent) => {
-      params.onEvent("agent_start", JSON.parse(e.data));
-    });
-
-    es.addEventListener("agent_end", (e: MessageEvent) => {
-      params.onEvent("agent_end", JSON.parse(e.data));
-    });
-
-    es.addEventListener("tool_call", (e: MessageEvent) => {
-      params.onEvent("tool_call", JSON.parse(e.data));
-    });
-
-    es.addEventListener("tool_result", (e: MessageEvent) => {
-      params.onEvent("tool_result", JSON.parse(e.data));
-    });
-
-    es.addEventListener("text_chunk", (e: MessageEvent) => {
-      params.onEvent("text_chunk", JSON.parse(e.data));
-    });
-
-    es.addEventListener("error_event", (e: MessageEvent) => {
-      params.onEvent("error_event", JSON.parse(e.data));
-    });
-
-    if (params.onError) {
-      es.addEventListener("error", params.onError as EventListener);
-    }
-
-    return es;
-  },
-
   // ── 워크유닛 ─────────────────────────────────────────────────
 
   async getWorkUnits(): Promise<{ workunits: WorkUnit[] }> {
@@ -335,9 +254,4 @@ es.addEventListener("agent_start", (e: MessageEvent) => {
   },
 
 
-  // ── Health ───────────────────────────────────────────────────
-
-  async health(): Promise<{ ok: boolean; version: string; port: number }> {
-    return directFetch<{ ok: boolean; version: string; port: number }>("/health");
-  },
 };

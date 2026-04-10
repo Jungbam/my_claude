@@ -2,11 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { buildTraces } from '@/lib/parser'
 import type { PipelineEvent } from '@/lib/types'
 
-const BAMS_SERVER = process.env.BAMS_SERVER_URL ?? 'http://localhost:3099'
-
-function headers(source: string) {
-  return { 'Access-Control-Allow-Origin': '*', 'X-Data-Source': source }
-}
+import { BAMS_SERVER, headers } from '@/lib/server-config'
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams

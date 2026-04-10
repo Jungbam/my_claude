@@ -9,8 +9,7 @@
  */
 
 import type { NextRequest } from "next/server";
-
-const BAMS_SERVER = process.env.BAMS_SERVER_URL ?? "http://localhost:3099";
+import { BAMS_SERVER, CORS_ORIGIN } from "@/lib/server-config";
 
 export async function GET(req: NextRequest): Promise<Response> {
   const { searchParams } = new URL(req.url);
@@ -40,7 +39,7 @@ export async function GET(req: NextRequest): Promise<Response> {
           "Content-Type": "text/event-stream",
           "Cache-Control": "no-cache",
           Connection: "keep-alive",
-          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Origin": CORS_ORIGIN,
         },
       });
     } catch {

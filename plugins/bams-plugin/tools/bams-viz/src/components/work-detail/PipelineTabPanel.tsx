@@ -78,13 +78,14 @@ interface WUTaskSummary {
   pipelines: Array<{ slug: string; tasks: Array<{ id: string; title: string; assignee_agent?: string; status: string; label?: string }> }>
 }
 
-function AgentsPanel({ pipelineSlug, wuSlug }: { pipelineSlug: string; wuSlug?: string }) {
-  const { data, isLoading, error } = usePolling<PipelineEvent[]>(
-    `/api/events/raw/${encodeURIComponent(pipelineSlug)}`,
-    3000
-  )
-
-  // 태스크 로깅 UI: BE agent_end → task 자동 기록 결과를 표시
+function AgentsPanel({ pipelineSlug, wuSlug, events, eventsLoading, eventsError }: {
+  pipelineSlug: string
+  wuSlug?: string
+  events: PipelineEvent[] | null
+  eventsLoading: boolean
+  eventsError: Error | null
+}) {
+  // Task logging UI: separate polling for tasks (different endpoint)
   const { data: taskData } = usePolling<WUTaskSummary>(
     wuSlug ? `/api/workunits/${encodeURIComponent(wuSlug)}/tasks` : null,
     5000
@@ -93,13 +94,13 @@ function AgentsPanel({ pipelineSlug, wuSlug }: { pipelineSlug: string; wuSlug?: 
   const pipelineTasks = taskData?.pipelines?.find(p => p.slug === pipelineSlug)?.tasks ?? []
 
   const { stats, activeAgents } = useMemo(() => {
-    if (!data || !Array.isArray(data)) return { stats: [], activeAgents: [] }
+    if (!events || !Array.isArray(events)) return { stats: [], activeAgents: [] }
 
-    const starts = data.filter(e => e.type === 'agent_start') as Array<PipelineEvent & {
+    const starts = events.filter(e => e.type === 'agent_start') as Array<PipelineEvent & {
       call_id?: string
       agent_type?: string
     }>
-    const ends = data.filter(e => e.type === 'agent_end') as Array<PipelineEvent & {
+    const ends = events.filter(e => e.type === 'agent_end') as Array<PipelineEvent & {
       call_id?: string
       agent_type?: string
       is_error?: boolean
@@ -109,7 +110,7 @@ function AgentsPanel({ pipelineSlug, wuSlug }: { pipelineSlug: string; wuSlug?: 
     const endMap = new Map(ends.map(e => [e.call_id, e]))
 
     // Active = start without matching end (skip if pipeline ended)
-    const pipelineEnded = data.some(e => e.type === 'pipeline_end')
+    const pipelineEnded = events.some(e => e.type === 'pipeline_end')
     const active = pipelineEnded
       ? []  // pipeline ended — orphaned agents are not truly active
       : starts
@@ -143,12 +144,12 @@ function AgentsPanel({ pipelineSlug, wuSlug }: { pipelineSlug: string; wuSlug?: 
     }))
 
     return { stats: computedStats, activeAgents: active }
-  }, [data, pipelineSlug])
+  }, [events, pipelineSlug])
 
-  if (isLoading && !data) {
+  if (eventsLoading && !events) {
     return <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>Loading agents...</div>
   }
-  if (error) {
+  if (eventsError) {
     return <div style={{ padding: '20px', textAlign: 'center', color: 'var(--status-fail)', fontSize: '12px' }}>Failed to load agents</div>
   }
 
@@ -206,7 +207,7 @@ function AgentsPanel({ pipelineSlug, wuSlug }: { pipelineSlug: string; wuSlug?: 
         </div>
       )}
 
-      {/* 태스크 로깅 UI: agent_end로 자동 기록된 task 목록 표시 */}
+      {/* Task logging UI: agent_end auto-recorded task list */}
       {pipelineTasks.length > 0 && (
         <div style={{ marginTop: '20px' }}>
           <h3 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
@@ -257,21 +258,21 @@ function AgentsPanel({ pipelineSlug, wuSlug }: { pipelineSlug: string; wuSlug?: 
 }
 
 // ── DagPanel ──────────────────────────────────────────────────────────────────
-function DagPanel({ pipelineSlug }: { pipelineSlug: string }) {
-  const { data, isLoading, error } = usePolling<PipelineEvent[]>(
-    `/api/events/raw/${encodeURIComponent(pipelineSlug)}`,
-    3000
-  )
-
+function DagPanel({ pipelineSlug, events, eventsLoading, eventsError }: {
+  pipelineSlug: string
+  events: PipelineEvent[] | null
+  eventsLoading: boolean
+  eventsError: Error | null
+}) {
   const graphData = useMemo(() => {
-    if (!data || !Array.isArray(data)) return null
+    if (!events || !Array.isArray(events)) return null
 
-    const starts = data.filter(e => e.type === 'agent_start') as Array<PipelineEvent & {
+    const starts = events.filter(e => e.type === 'agent_start') as Array<PipelineEvent & {
       agent_type?: string
       call_id?: string
       pipeline_slug?: string
     }>
-    const ends = data.filter(e => e.type === 'agent_end') as Array<PipelineEvent & {
+    const ends = events.filter(e => e.type === 'agent_end') as Array<PipelineEvent & {
       agent_type?: string
       call_id?: string
       is_error?: boolean
@@ -317,12 +318,12 @@ function DagPanel({ pipelineSlug }: { pipelineSlug: string }) {
     const mermaidCode = lines.join('\n')
 
     return { pipelines, errorAgents, mermaidCode }
-  }, [data, pipelineSlug])
+  }, [events, pipelineSlug])
 
-  if (isLoading && !data) {
+  if (eventsLoading && !events) {
     return <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>Loading DAG...</div>
   }
-  if (error) {
+  if (eventsError) {
     return <div style={{ padding: '20px', textAlign: 'center', color: 'var(--status-fail)', fontSize: '12px' }}>Failed to load DAG data</div>
   }
   if (!graphData) {
@@ -689,37 +690,42 @@ function LogRow({ event, index }: { event: PipelineEvent; index: number }) {
 }
 
 // ── LogsPanel ─────────────────────────────────────────────────────────────────
-function LogsPanel({ pipelineSlug }: { pipelineSlug: string }) {
+function LogsPanel({ events, eventsLoading, eventsError }: {
+  events: PipelineEvent[] | null
+  eventsLoading: boolean
+  eventsError: Error | null
+}) {
   const [filter, setFilter] = useState('')
   const [autoScroll, setAutoScroll] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  const { data, isLoading, error } = usePolling<PipelineEvent[]>(
-    `/api/events/raw/${encodeURIComponent(pipelineSlug)}`,
-    3000
-  )
-
-  const events = useMemo(() => {
-    if (!data || !Array.isArray(data)) return []
-    if (!filter) return data
+  const filteredEvents = useMemo(() => {
+    if (!events || !Array.isArray(events)) return []
+    if (!filter) return events
     const lower = filter.toLowerCase()
-    return data.filter(e =>
+    return events.filter(e =>
       e.type.toLowerCase().includes(lower) ||
       (e.pipeline_slug && String(e.pipeline_slug).toLowerCase().includes(lower)) ||
-      JSON.stringify(e).toLowerCase().includes(lower)
+      [
+        (e as Record<string, unknown>).agent_type,
+        (e as Record<string, unknown>).call_id,
+        (e as Record<string, unknown>).message,
+        (e as Record<string, unknown>).step_name,
+        (e as Record<string, unknown>).description,
+      ].some(f => typeof f === 'string' && f.toLowerCase().includes(lower))
     )
-  }, [data, filter])
+  }, [events, filter])
 
   useEffect(() => {
     if (autoScroll && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [events, autoScroll])
+  }, [filteredEvents, autoScroll])
 
-  if (isLoading && !data) {
+  if (eventsLoading && !events) {
     return <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>Loading logs...</div>
   }
-  if (error) {
+  if (eventsError) {
     return <div style={{ padding: '20px', textAlign: 'center', color: 'var(--status-fail)', fontSize: '12px' }}>Failed to load logs</div>
   }
 
@@ -744,7 +750,7 @@ function LogsPanel({ pipelineSlug }: { pipelineSlug: string }) {
           }}
         />
         <span style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-          {events.length} event{events.length !== 1 ? 's' : ''}
+          {filteredEvents.length} event{filteredEvents.length !== 1 ? 's' : ''}
         </span>
         <button
           onClick={() => setAutoScroll(p => !p)}
@@ -764,7 +770,7 @@ function LogsPanel({ pipelineSlug }: { pipelineSlug: string }) {
       </div>
 
       {/* Events list */}
-      {events.length > 0 ? (
+      {filteredEvents.length > 0 ? (
         <div
           ref={scrollRef}
           style={{
@@ -775,7 +781,7 @@ function LogsPanel({ pipelineSlug }: { pipelineSlug: string }) {
             maxHeight: '600px',
           }}
         >
-          {events.map((event, i) => (
+          {filteredEvents.map((event, i) => (
             <LogRow key={`${event.ts}-${i}`} event={event} index={i} />
           ))}
         </div>
@@ -797,6 +803,12 @@ export function PipelineTabPanel({
   activePipelineSubTab,
   onSubTabChange,
 }: PipelineTabPanelProps) {
+  // Single polling point for raw events — shared across AgentsPanel, DagPanel, LogsPanel
+  const { data: rawEvents, isLoading: eventsLoading, error: eventsError } = usePolling<PipelineEvent[]>(
+    selectedPipelineSlug ? `/api/events/raw/${encodeURIComponent(selectedPipelineSlug)}` : null,
+    3000
+  )
+
   if (pipelines.length === 0) {
     return <PipelinesPanel pipelines={[]} wuSlug={wuSlug} />
   }
@@ -816,7 +828,13 @@ export function PipelineTabPanel({
             onSubTabChange={onSubTabChange}
           />
           {activePipelineSubTab === 'agent' && (
-            <AgentsPanel pipelineSlug={selectedPipelineSlug} wuSlug={wuSlug} />
+            <AgentsPanel
+              pipelineSlug={selectedPipelineSlug}
+              wuSlug={wuSlug}
+              events={rawEvents ?? null}
+              eventsLoading={eventsLoading}
+              eventsError={eventsError}
+            />
           )}
           {activePipelineSubTab === 'timeline' && (
             <TimelineTab
@@ -825,10 +843,19 @@ export function PipelineTabPanel({
             />
           )}
           {activePipelineSubTab === 'dag' && (
-            <DagPanel pipelineSlug={selectedPipelineSlug} />
+            <DagPanel
+              pipelineSlug={selectedPipelineSlug}
+              events={rawEvents ?? null}
+              eventsLoading={eventsLoading}
+              eventsError={eventsError}
+            />
           )}
           {activePipelineSubTab === 'logs' && (
-            <LogsPanel pipelineSlug={selectedPipelineSlug} />
+            <LogsPanel
+              events={rawEvents ?? null}
+              eventsLoading={eventsLoading}
+              eventsError={eventsError}
+            />
           )}
         </>
       )}

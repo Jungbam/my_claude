@@ -24,7 +24,7 @@ interface TimelineTabProps {
   onNavigateToLogs?: (timestamp?: string) => void
 }
 
-function EventCard({ event, onNavigateToLogs }: { event: PipelineEvent; onNavigateToLogs?: (ts: string) => void }) {
+function EventCard({ event, allEvents, onNavigateToLogs }: { event: PipelineEvent; allEvents: PipelineEvent[]; onNavigateToLogs?: (ts: string) => void }) {
   const icon = EVENT_ICONS[event.type] || '📌'
   const time = new Date(event.ts).toLocaleTimeString('ko-KR', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
 
@@ -64,7 +64,20 @@ function EventCard({ event, onNavigateToLogs }: { event: PipelineEvent; onNaviga
   }
 
   const isError = event.type === 'error' || (ev.is_error as boolean)
-  const isRunning = event.type === 'agent_start' || event.type === 'step_start'
+
+  // Only show ACTIVE badge if there is no corresponding end event
+  let isRunning = false
+  if (event.type === 'agent_start') {
+    const callId = (ev.call_id as string)
+    isRunning = callId
+      ? !allEvents.some(e => e.type === 'agent_end' && (e as Record<string, unknown>).call_id === callId)
+      : false
+  } else if (event.type === 'step_start') {
+    const stepNum = (ev.step_number as number)
+    isRunning = stepNum != null
+      ? !allEvents.some(e => e.type === 'step_end' && (e as Record<string, unknown>).step_number === stepNum)
+      : false
+  }
 
   return (
     <div style={{
@@ -173,7 +186,7 @@ export function TimelineTab({ pipelineSlug, onNavigateToLogs }: TimelineTabProps
       {/* Event list */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {filtered.map((event, i) => (
-          <EventCard key={`${event.ts}-${i}`} event={event} onNavigateToLogs={onNavigateToLogs} />
+          <EventCard key={`${event.ts}-${i}`} event={event} allEvents={data} onNavigateToLogs={onNavigateToLogs} />
         ))}
         {filtered.length === 0 && (
           <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>

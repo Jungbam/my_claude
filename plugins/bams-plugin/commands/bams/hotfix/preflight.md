@@ -57,6 +57,43 @@ Options:
 
 ---
 
+## Step 0.55: 멀티이슈 감지 및 모드 결정
+
+$ARGUMENTS에 복수 이슈가 포함되었는지 판별합니다.
+
+**멀티이슈 판별 기준:**
+- 줄바꿈으로 구분된 복수 항목 (2줄 이상)
+- 번호 목록 형식 (1. / 2. / - 등)
+- "그리고", "또한", "추가로" 등 연결어로 나열된 복수 이슈
+- retro Problem 목록 참조 (P-01, P-02 등)
+
+**단일 이슈 (1건):** 기존 hotfix 흐름 계속 진행 → Step 0.6으로.
+
+**멀티이슈 (2건 이상) 감지 시:** AskUserQuestion으로 처리 방식 선택:
+
+Question: "{N}건의 이슈가 감지되었습니다. 처리 방식을 선택하세요."
+Header: "Hotfix 모드"
+Options:
+- **순차 hotfix (1~3건 권장)** — "각 이슈별 독립 hotfix 파이프라인 실행. 롤백 단위가 명확하고 context rot 없음."
+- **배치 dev (4건+ 권장)** — "dev-hotfix 모드로 전환. 이슈를 배치로 분할하여 효율적 처리. 의존성 DAG + 배치 검증 내장."
+- **긴급 1건만** — "가장 긴급한 이슈 1건만 hotfix, 나머지는 board.md에 등록하여 추후 처리."
+
+**선택에 따른 분기:**
+
+1. **순차 hotfix 선택**: 이슈 목록을 파싱하여 첫 번째 이슈로 Step 0.6 진행. 나머지 이슈는 `{slug}-remaining-issues.md`에 기록하고, 파이프라인 완료 시 다음 이슈 안내.
+
+2. **배치 dev 선택**: 현재 hotfix 파이프라인을 `pipeline_end(status="paused", reason="dev-hotfix 모드 전환")`으로 종료하고, 사용자에게 다음 안내:
+   ```
+   [모드 전환] dev-hotfix 파이프라인으로 전환합니다.
+   → /bams:dev {이슈 목록 요약}
+   
+   또는 수동으로: dev/mode-hotfix-init.md의 지시를 따릅니다.
+   ```
+
+3. **긴급 1건만 선택**: 가장 긴급한 이슈를 AskUserQuestion으로 확인 후, 해당 이슈로 Step 0.6 진행. 나머지는 board.md에 pending으로 등록.
+
+---
+
 ## Step 0.6: Parent Pipeline 연결
 
 이 핫픽스가 수정하는 원본 파이프라인을 연결합니다.
