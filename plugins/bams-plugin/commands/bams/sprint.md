@@ -39,6 +39,8 @@ Glob으로 `.crew/config.md`가 존재하는지 확인합니다. 없으면:
 
 Glob으로 `.crew/sprints/sprint-*.md`를 찾아 기존 스프린트를 확인합니다. 활성 스프린트는 YAML 프론트매터에 `completed: null`이 있습니다.
 
+> **위임 체계 (Canonical)**: 이 커맨드는 `_shared_common.md` §위임 원칙 + 부록 **루프 A**(Simple, 단일 도메인)를 따른다. 메인(커맨드)이 project-governance(기획부 소속)를 **직접** Task tool로 spawn한다. orchestrator를 경유한 중첩 spawn 금지(harness 깊이 2 제약).
+
 ## 액션별 라우팅
 
 ---

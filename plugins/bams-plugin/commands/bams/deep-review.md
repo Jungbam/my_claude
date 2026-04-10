@@ -66,6 +66,8 @@ Options:
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "deep-review" "/bams:deep-review" "{arguments}" "{parent_pipeline_slug}"
 ```
 
+> **위임 체계 (Canonical)**: 이 커맨드는 `_shared_common.md` §위임 원칙 + 부록 **루프 B**(Advised 병렬)를 따른다. Step 1-3의 5관점 리뷰·구조적 리뷰·Codex 리뷰는 메인이 qa-strategy 부서장 및 리뷰 스킬을 **직접** 병렬 spawn한다. Step 4는 orchestrator를 조언자로 1회 호출한다. orchestrator를 경유한 중첩 spawn 금지(harness 깊이 2 제약).
+
 ## Step 1-2-3: 리뷰 실행 전략 선택
 
 **AskUserQuestion** — "리뷰 범위를 선택하세요:"
@@ -118,15 +120,18 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 3. 고유 발견 분류
 4. 심각도 정렬 (Critical → Major → Minor)
 
-## Step 4: 에이전트 개선점 수집
+## Step 4: 에이전트 개선점 수집 — 루프 A (Advisor 단독 호출)
 
-리뷰에서 발견된 이슈 중 에이전트 개선 가능한 항목을 기록합니다.
+리뷰에서 발견된 이슈 중 에이전트 개선 가능한 항목을 기록합니다. 이 단계는 코드 수정이 없는 분석/파일 기록 전용 작업이므로 pipeline-orchestrator를 **조언자(Advisor) 모드 1회**로 직접 호출하여 개선 레코드를 수집합니다. 부서장 spawn은 발생하지 않습니다.
 
-pipeline-orchestrator에게 개선점 수집을 지시합니다.
+Bash로 agent_start emit:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-4-$(date -u +%Y%m%d)" "pipeline-orchestrator" "opus" "Step 4: 에이전트 개선점 분석 (Advisor)"
+```
 
-서브에이전트 실행 (Agent tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"opus"**):
+Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"opus"** — **조언자 모드**:
 
-> **코드 품질 관점 에이전트 개선점 분석 모드** — 리뷰에서 반복적으로 발견된 패턴을 에이전트 개선 기회로 기록합니다.
+> **코드 품질 관점 에이전트 개선점 분석 모드 (Advisor)** — 리뷰에서 반복적으로 발견된 패턴을 에이전트 개선 기회로 기록합니다.
 >
 > **수행할 작업:**
 > 1. 종합 리포트에서 에이전트가 유발했을 가능성이 있는 이슈를 식별:
@@ -165,6 +170,11 @@ pipeline-orchestrator에게 개선점 수집을 지시합니다.
 >    - AskUserQuestion: "이 패턴이 반복되고 있습니다. 에이전트 개선을 진행할까요?"
 >    - Yes → `references/agent-improvement-protocol.md`의 Evolution Hook 실행
 >    - No → 기록만 남기고 종료
+
+반환 후 agent_end emit + CHAIN_VIOLATION 체크:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-4-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 4 개선점 분석 완료"
+```
 
 ## 마무리
 

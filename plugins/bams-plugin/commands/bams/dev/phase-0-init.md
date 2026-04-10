@@ -19,44 +19,41 @@ Bash로 다음을 실행합니다:
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 0 "파이프라인 초기화" "Phase 0: 초기화"
 ```
 
-pipeline-orchestrator에게 파이프라인 초기화를 지시합니다.
+**루프 A (Simple) — 메인이 resource-optimizer를 직접 spawn합니다.** (orchestrator 조언 생략, `_shared_common.md` 부록 참조)
 
 Bash로 agent_start를 emit합니다:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-0-$(date -u +%Y%m%d)" "pipeline-orchestrator" "sonnet" "Step 0: 파이프라인 초기화 위임"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "resource-optimizer-0-$(date -u +%Y%m%d)" "resource-optimizer" "sonnet" "Step 0: 파이프라인 초기화 전략 수립"
 ```
 
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**):
+서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:resource-optimizer"**, model: **"sonnet"**):
 
-> **파이프라인 초기화 모드**로 dev 파이프라인을 준비합니다.
+> **파이프라인 초기화 — dev 파이프라인 전략 수립**
 >
-> **위임 메시지:**
+> **컨텍스트:**
 > ```
 > phase: 0
 > slug: {slug}
 > pipeline_type: dev
-> context:
->   config: .crew/config.md
->   board: .crew/board.md
->   feature_description: {$ARGUMENTS}
-> constraints:
->   user_note: "{사용자 지시사항이 있으면 삽입}"
+> config: .crew/config.md
+> board: .crew/board.md
+> feature_description: {$ARGUMENTS}
+> user_note: "{사용자 지시사항이 있으면 삽입}"
 > ```
 >
 > **수행할 작업:**
-> 1. resource-optimizer를 호출하여 파이프라인 유형(dev)과 규모를 전달하고, 각 에이전트별 모델 선택(opus/sonnet/haiku)과 병렬화 전략을 조회합니다.
-> 2. executive-reporter를 호출하여 `pipeline_start` 이벤트를 기록 요청합니다.
-> 3. Pre-flight 체크리스트를 확인합니다: config.md, gotchas, 기존 아티팩트 존재 여부.
-> 4. 파이프라인 실행 계획을 수립하여 보고합니다.
+> 1. 파이프라인 유형(dev)과 규모를 분석하여 각 에이전트별 모델 선택(opus/sonnet/haiku)과 병렬화 전략을 수립합니다.
+> 2. Pre-flight 체크리스트를 확인합니다: config.md, gotchas, 기존 아티팩트 존재 여부.
+> 3. 파이프라인 실행 계획을 수립하여 보고합니다.
 >
 > **기대 산출물**: 파이프라인 실행 계획 (모델 전략, 병렬화 가능 구간, 예상 Phase 수, 게이트 조건)
 
-orchestrator 반환 후, Bash로 agent_end를 emit합니다:
+resource-optimizer 반환 후, Bash로 agent_end를 emit합니다:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-0-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 0 완료: 파이프라인 실행 계획 수립"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "resource-optimizer-0-$(date -u +%Y%m%d)" "resource-optimizer" "success" {duration_ms} "Step 0 완료: 파이프라인 실행 계획 수립"
 ```
 
-pipeline-orchestrator의 실행 계획을 수신하고, 이후 Phase에서 이 계획(모델 전략, 병렬화 전략)을 참조합니다.
+실행 계획을 수신하고, 이후 Phase에서 이 계획(모델 전략, 병렬화 전략)을 참조합니다.
 
 Step 0 완료 시, Bash로 다음을 실행합니다:
 ```bash

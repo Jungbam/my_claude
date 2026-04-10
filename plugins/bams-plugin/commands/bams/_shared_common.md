@@ -5,14 +5,36 @@
 
 ---
 
-## ★ 위임 원칙 — 커맨드 레벨 직접 수정 금지
+## ★ 위임 원칙 — 2단 위임 + Orchestrator 조언자 모드 (Canonical)
 
-**이 커맨드에서 직접 Read/Edit/Write로 코드를 수정하지 않는다.**
-모든 코드 수정은 `pipeline-orchestrator → 부서장 → 에이전트` 위임 체계를 통해 수행한다.
+**이 커맨드에서 직접 Edit/Write로 코드를 수정하지 않는다.**
+모든 코드 수정은 `커맨드 → 부서장 → (선택적) 도메인 specialist` **2단 위임 체계**를 통해 수행한다.
 
-- 허용: Bash, Glob으로 상태 확인, viz 이벤트 emit, 사용자 질문
-- 금지: Edit/Write로 소스 코드 직접 변경
-- **위반 시**: 즉시 중단하고 pipeline-orchestrator에게 해당 작업을 위임할 것
+```
+사용자 커맨드(메인 대화) → 부서장 → (선택적) 도메인 specialist
+                       ↑
+                  pipeline-orchestrator는 계획/게이트 판정만 반환하는
+                  "조언자(Advisor)" 모드로 동작 — 직접 spawn하지 않음
+```
+
+### 배경 — harness 제약
+Claude Code harness에서 서브에이전트는 또 다른 서브에이전트를 Task tool로 중첩 spawn할 수 없다(깊이 2까지만 허용). 따라서 기존 3단 위임(`orchestrator → 부서장 → 에이전트`)은 구조적으로 실행 불가이며, **2단 위임 + orchestrator 조언자 모드**가 canonical이다.
+
+### 오케스트레이션 루프 (표준)
+1. **(선택) orchestrator 조언 요청**: 커맨드가 Task tool로 `pipeline-orchestrator`를 **1회** 호출하여 Advisor Response(Phase 계획 / 부서장 라우팅 / 게이트 조건 / 롤백 권고)를 수신한다. orchestrator는 부서장을 직접 spawn하지 않는다.
+2. **부서장 직접 spawn**: 커맨드가 Advisor Response를 파싱하여 권고된 부서장을 **메인 대화에서 직접** Task tool로 호출한다. 병렬 트랙은 단일 메시지에 복수 Task 호출로 처리.
+3. **부서장 내부 specialist (선택)**: 부서장은 자신의 도메인 내에서 specialist를 최대 1회 추가 spawn 가능(harness 깊이 2 한도).
+
+### 허용 / 금지
+- 허용: Bash, Glob, Grep, Read로 상태 확인 / viz 이벤트 emit / 사용자 질문(AskUserQuestion) / orchestrator 조언 호출 1회
+- 허용: 커맨드 메인 대화에서 Task tool로 부서장을 **직접** spawn
+- 금지: 메인 대화가 Edit/Write로 소스 코드 직접 변경
+- 금지: orchestrator(서브에이전트) 내부에서 Task tool을 중첩 호출하여 부서장을 spawn하는 시도 — harness 제약
+- 금지: "내가 직접 하면 더 빠르다"는 판단으로 부서장 위임을 건너뛰는 행위
+
+### CHAIN_VIOLATION 처리
+- orchestrator가 응답 상단에 **"CHAIN_VIOLATION"** 경고를 반환하면: 즉시 해당 Phase를 중단하고 메인(커맨드) 대화로 에스컬레이션한다. 재시도 금지.
+- 메인이 부서장 spawn을 건너뛰고 직접 Edit/Write를 시도한 정황 감지 시도 동일하게 중단 + 에스컬레이션.
 
 ---
 
@@ -215,3 +237,46 @@ else
   echo "[bams] Control Plane 서버 이미 실행 중 (http://localhost:3099)"
 fi
 ```
+
+---
+
+## 부록: 표준 2단 오케스트레이션 루프 템플릿 (하위 커맨드 참조용)
+
+모든 `/bams:*` 커맨드는 아래 루프 중 하나를 따른다. `커맨드 → 부서장` 2단이 기본이며, orchestrator 조언은 복잡도에 따라 선택한다.
+
+### 루프 A — Simple (단일 도메인 / 복잡도 낮음)
+orchestrator 조언을 생략하고 커맨드가 부서장을 직접 spawn한다.
+
+```
+1. step_start emit
+2. agent_start emit (부서장)
+3. Task tool → 부서장 1회 직접 호출
+4. agent_end emit
+5. step_end emit
+```
+
+### 루프 B — Advised (다부서 / 복잡도 높음 / Phase 게이트 필요)
+orchestrator를 조언자로 1회 호출하여 Advisor Response를 수신한 뒤, 커맨드가 권고된 부서장을 직접 spawn한다.
+
+```
+1. step_start emit (Phase N 계획)
+2. agent_start emit (pipeline-orchestrator)
+3. Task tool → pipeline-orchestrator 1회 호출 (조언 요청)
+4. agent_end emit
+5. Advisor Response 파싱 → 부서장 라우팅 / 게이트 조건 추출
+6. CHAIN_VIOLATION 체크 → 발견 시 즉시 중단 + 메인 에스컬레이션
+7. step_end emit (계획 Phase)
+
+8. step_start emit (Phase N 실행)
+9. 권고된 부서장들에 대해 agent_start 일괄 emit
+10. Task tool 병렬 호출 → 부서장들 직접 spawn (단일 메시지 복수 Task)
+11. 완료 후 agent_end 일괄 emit
+12. step_end emit (실행 Phase)
+```
+
+### 공통 규칙
+- orchestrator는 Advisor 역할만 수행. 서브에이전트 내부에서 부서장을 spawn하지 않는다(harness 깊이 2 제약).
+- 부서장은 자신의 도메인 내 specialist를 최대 1회 추가 spawn 가능.
+- 병렬 트랙은 단일 메시지에 복수 Task 호출로 처리한다.
+- 모든 호출 전후 `agent_start`/`agent_end` emit 의무.
+- Phase 경계는 반드시 `step_start`/`step_end`로 감싼다(DAG/Gantt 표시 조건).

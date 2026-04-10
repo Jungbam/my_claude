@@ -25,31 +25,31 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 ## Step 5: 정량 평가 (평가부서 3에이전트 병렬)
 
-pipeline-orchestrator에게 정량 평가를 지시합니다.
+**2단 위임 — 루프 A**: orchestrator 조언 → 메인이 3에이전트 병렬 직접 spawn.
 
-Bash로 agent_start를 emit합니다 (3개 동시 — 먼저 모두 emit한 뒤 병렬 호출):
+**Step 5a: Advisor 호출** — Agent tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, 조언자 모드. 컨텍스트: phase1-pipeline-metrics.md, phase1-agent-metrics.md, phase2-kpt-consolidated.md, 이전 retro 디렉터리. Advisor Response: 3에이전트(product-analytics/performance-evaluation/business-kpi)별 task_description·quality_criteria·등급 기준 검증, 베이스라인 처리 규칙. spawn 지시 금지. (agent_start/end: `orchestrator-advisor-step5-{date}`)
+
+**Step 5b: 메인이 3에이전트 병렬 spawn**
+
+Bash로 3개 agent_start를 일괄 emit:
 ```bash
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-5-$(date -u +%Y%m%d)" "pipeline-orchestrator" "sonnet" "Step 5: 정량 평가 3에이전트 병렬 위임"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "product-analytics-5-$(date -u +%Y%m%d)" "product-analytics" "sonnet" "Step 5: 정량 평가"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "performance-evaluation-5-$(date -u +%Y%m%d)" "performance-evaluation" "sonnet" "Step 5: 성능 벤치마크"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "business-kpi-5-$(date -u +%Y%m%d)" "business-kpi" "sonnet" "Step 5: 비용 효율"
 ```
 
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**):
+이어서 Agent tool을 **단일 메시지에서 3개 병렬 호출** (subagent_type: `bams-plugin:product-analytics`, `bams-plugin:performance-evaluation`, `bams-plugin:business-kpi`). 각 위임 메시지는 아래 원본을 따릅니다:
 
 > **Phase 3 Step 5 — 정량 평가 3에이전트 병렬 실행**
 >
-> **위임 메시지:**
-> ```
-> phase: 3-step5
-> slug: {slug}
-> pipeline_type: retro
-> context:
+> 컨텍스트:
 >   pipeline_metrics: .crew/artifacts/retro/{slug}/phase1-pipeline-metrics.md
 >   agent_metrics: .crew/artifacts/retro/{slug}/phase1-agent-metrics.md
 >   kpt_consolidated: .crew/artifacts/retro/{slug}/phase2-kpt-consolidated.md
 >   previous_retro_reports: .crew/artifacts/retro/ (이전 retro slug 디렉터리, 존재 시)
-> ```
 >
-> **수행할 작업 (3개 에이전트 동시 병렬 — agent_start 먼저 모두 emit 후 병렬 호출):**
+> **3개 에이전트 개별 위임 내역:**
 >
 > **1. product-analytics: 종합 등급 산출 (A/B/C/D)**
 > ```
@@ -108,25 +108,38 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 > - `.crew/artifacts/retro/{slug}/phase3-performance-eval.md`
 > - `.crew/artifacts/retro/{slug}/phase3-cost-eval.md`
 
-orchestrator 반환 후, Bash로 agent_end를 emit합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-5-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 5 완료: 정량 평가 3에이전트 완료"
-```
+각 병렬 호출 종료 후, 메인이 3개 agent_end를 개별 emit합니다 (`product-analytics-5`, `performance-evaluation-5`, `business-kpi-5`).
 
 ---
 
-## Step 6: 정성 평가 (각 부서장 병렬)
+## Step 6: 정성 평가 (각 부서장 병렬, 2단 위임 — 루프 B)
 
-pipeline-orchestrator에게 정성 평가를 지시합니다.
+**Step 6a: Advisor 호출 (참여 부서장 동적 결정)**
 
-Bash로 agent_start를 emit합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-6-$(date -u +%Y%m%d)" "pipeline-orchestrator" "sonnet" "Step 6: 정성 평가 각 부서장 병렬 위임"
-```
+Agent tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, 조언자 모드. (agent_start/end: `orchestrator-advisor-step6-{date}`)
 
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**):
+> **조언자 요청 — Phase 3 Step 6 정성 평가 참여 부서장 결정**
+>
+> 컨텍스트: phase1-agent-metrics.md, phase3-quantitative-eval.md, agents 정의 디렉터리, phase2-kpt-{부서명}.md
+>
+> **Advisor Response 반환 항목:**
+> 1. 호출 이력이 있는 에이전트의 소속 부서장 목록 (동적)
+> 2. 각 부서장별 task_description + input_artifacts + expected_output 경로
+> 3. 병렬 호출 그룹(소수 부서는 단일 그룹, 많으면 배치 분할)
+> 4. 정량/정성 불일치 검증 지시
+>
+> spawn 지시 금지. 메인이 파싱 후 각 부서장을 직접 병렬 spawn합니다.
 
-> **Phase 3 Step 6 — 정성 평가 각 부서장 병렬 실행**
+**Step 6b: 메인이 부서장 병렬 spawn**
+
+Advisor Response의 부서장 목록을 파싱하여:
+1. 전원의 `agent_start`를 Bash로 일괄 emit (각 ID: `{부서장명}-6-{date}`)
+2. Agent tool 병렬 호출 (subagent_type: `bams-plugin:{부서장명}`)
+3. 각 호출 완료 후 `agent_end` emit
+
+각 부서장 위임 메시지(공통 템플릿) — 원본:
+
+> **Phase 3 Step 6 — 정성 평가 (자기 부서 관점)**
 >
 > **위임 메시지:**
 > ```
@@ -184,10 +197,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 >
 > **기대 산출물**: `.crew/artifacts/retro/{slug}/phase3-qualitative-{부서명}.md` (참여 부서장별)
 
-orchestrator 반환 후, Bash로 agent_end를 emit합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-6-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 6 완료: 정성 평가 부서장별 완료"
-```
+(각 부서장 호출별 agent_end emit은 메인이 개별 수행)
 
 ---
 

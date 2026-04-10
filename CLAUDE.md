@@ -1,16 +1,34 @@
 ## 1. 위임 원칙 (최우선 — 예외 없음)
 
-**모든 코드 수정은 반드시 `pipeline-orchestrator → 부서장 → 에이전트` 3단 위임을 통해 수행한다.**
+**모든 코드 수정은 반드시 `커맨드 → 부서장 → (선택적) 도메인 에이전트` 2단 위임을 통해 수행한다.**
 
 ```
-사용자 커맨드 → pipeline-orchestrator → 부서장 → 에이전트
+사용자 커맨드 → 부서장 → (선택적) 도메인 에이전트
+              ↑
+         pipeline-orchestrator는 계획/게이트 판정을 반환하는 "조언자" 모드로 동작
 ```
 
-- 허용: Bash/Glob으로 상태 확인, 사용자에게 질문, 읽기 전용 응답
-- 금지: Edit/Write로 소스 코드 직접 변경, 에이전트 역할 대신 수행
-- "내가 직접 하면 더 빠르다"는 판단으로 위임을 건너뛰지 않는다
-- 위반 감지 시: 즉시 중단하고 pipeline-orchestrator에게 해당 작업을 위임
-- **Work Unit 선택 규칙 준수 필수**: 활성 WU가 2개 이상이면 반드시 AskUserQuestion으로 사용자에게 선택을 요청한다. 커맨드 레벨에서 임의로 WU를 결정하지 않는다 (`_shared_common.md` §Work Unit 선택 참조)
+> **배경**: Claude Code harness에서 서브에이전트가 또 다른 서브에이전트를 Task tool로 spawn할 수 없다(중첩 제한). 따라서 기존 3단 위임(`orchestrator → 부서장 → 에이전트`)은 구조적으로 실행 불가이며, 2단 위임 + orchestrator 조언자 모드로 전환한다.
+
+### 위임 규칙
+- 허용: 커맨드 스킬(메인 대화)이 Agent tool로 부서장을 직접 spawn. 부서장이 자신의 도메인 내에서 specialist를 최대 1회 추가 spawn 가능.
+- 금지: 메인 대화가 Edit/Write로 소스 코드 직접 변경 (읽기 전용 Bash/Glob/Grep/Read는 허용).
+- 금지: 커맨드 레벨에서 Task tool을 중첩 호출하여 서브에이전트가 또 다른 서브에이전트를 spawn하는 시도 (harness 제약).
+- 허용: Bash/Glob으로 상태 확인, 사용자에게 질문, 읽기 전용 응답.
+- "내가 직접 하면 더 빠르다"는 판단으로 위임을 건너뛰지 않는다.
+- 위반 감지 시: 즉시 중단하고 적절한 부서장에게 해당 작업을 위임.
+
+### pipeline-orchestrator 역할 (조언자 모드)
+- orchestrator는 **Task tool 호출자가 아님**. 서브에이전트 레벨에서 중첩 Task tool이 차단되기 때문.
+- 역할:
+  1. Phase 단위 실행 계획 수립 → 메인(커맨드)에 JSON/텍스트로 반환
+  2. Phase 게이트 Go/No-Go 판단 → 메인에 보고
+  3. 부서장 라우팅 조언 → 메인이 실제 spawn 수행
+  4. 롤백 결정 및 회고 트리거 권고
+
+### Work Unit 선택 규칙 준수 필수 (불변)
+- 활성 WU 2개 이상이면 AskUserQuestion으로 사용자에게 선택 요청
+- 커맨드 레벨에서 임의로 WU 결정 금지 (`_shared_common.md` §Work Unit 선택 참조)
 
 ## 2. 조직도 (6부서 27에이전트)
 
@@ -74,8 +92,8 @@
 ## 4. viz 이벤트 규칙
 
 ### emit 원칙
-- 커맨드 레벨: `pipeline_start`/`pipeline_end`만 emit 가능
-- 나머지(`step_*`, `agent_*`, `error`): orchestrator → 부서장 → 에이전트 위임 체계 내에서만 emit
+- 커맨드 레벨(메인): `pipeline_start`/`pipeline_end`만 emit 가능
+- 나머지(`step_*`, `agent_*`, `error`): 커맨드 → 부서장 → (선택적) 도메인 에이전트 2단 위임 체계 내에서만 emit
 
 ### 이벤트 타입 (8종)
 
@@ -132,7 +150,7 @@ hr_reports (독립)
 - **[G-A]** FE 배치 분할 필수: 변경 10파일 초과 또는 600초 이상 예상 시
 - **[G-B]** Agent tool 호출 시 `subagent_type` 필수 지정
 - **[G-C]** PRD DoD에 `pipeline_end` 기록 조건 포함 필수
-- **[G-D]** 모든 에이전트 `agent_start` emit 의무화
+- **[G-D]** 부서장이 spawn한 모든 에이전트는 `agent_start` emit 의무화 (부서장 자신도 커맨드에 의해 spawn될 때 emit)
 - Tool 권한 에러(`Write`/`Edit` 금지) → **재시도 0회, 즉시 에스컬레이션**
 - 위임 20회 이상 예상 → **사전 분할 전략 필수** (Phase당 max 8회)
 

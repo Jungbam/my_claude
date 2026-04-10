@@ -21,31 +21,50 @@ Bash로 step_start를 emit합니다:
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 3 "부서장 KPT 수집" "Phase 2: KPT 회고"
 ```
 
-**병렬 실행 준비**: agent_start를 먼저 모두 emit한 뒤 Agent tool을 병렬 호출합니다.
+**2단 위임 — 루프 B (동적 부서장)**: orchestrator가 참여 부서장 목록을 Advisor Response로 반환하면, 메인이 파싱 후 각 부서장을 직접 병렬 spawn합니다.
 
-Bash로 각 참여 부서장의 agent_start를 emit합니다 (예: 4개 부서장):
+**Phase 3a: Advisor 호출 (참여 부서장 결정)**
+
+Bash로 agent_start를 emit합니다:
 ```bash
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "orchestrator-phase2-kpt-$(date -u +%Y%m%d)" "pipeline-orchestrator" "sonnet" "Step 3: 부서장 KPT 병렬 수집 위임"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "orchestrator-advisor-step3-$(date -u +%Y%m%d)" "pipeline-orchestrator" "sonnet" "Step 3 advisor: 참여 부서장 결정"
 ```
 
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**):
+서브에이전트 실행 (Agent tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**, **조언자 모드**):
 
-> **Phase 2 KPT 수집 — 참여 부서장 병렬 위임**
+> **조언자 요청 — Phase 2 KPT 참여 부서장 동적 결정**
 >
-> **위임 메시지:**
-> ```
-> phase: 2
-> slug: {slug}
-> pipeline_type: retro
-> context:
->   metrics: .crew/artifacts/retro/{slug}/phase1-agent-metrics.md
->   pipeline_data: .crew/artifacts/retro/{slug}/phase1-pipeline-metrics.md
->   retro_protocol: plugins/bams-plugin/references/retro-protocol.md
-> ```
+> 컨텍스트: phase1-agent-metrics.md (부서 매핑), phase1-pipeline-metrics.md, retro-protocol.md
 >
-> **수행할 작업:**
-> phase1-agent-metrics.md에서 참여 부서장 목록을 확인하고, 아래 부서장들에게 KPT를 병렬 요청합니다:
+> **Advisor Response 계약으로 반환:**
+> 1. 호출 이력이 있는 부서장 목록 (예: product-strategy, backend-engineering, qa-strategy, product-analytics ...)
+> 2. 각 부서장별 task_description 초안 + expected_output 경로
+> 3. 병렬 vs 순차 권장
+> 4. 50% 제출 CONDITIONAL-GO 조건 재확인
+>
+> spawn 지시 금지. 메인이 파싱 후 직접 병렬 호출합니다.
+
+Bash로 agent_end를 emit합니다:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "orchestrator-advisor-step3-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 3 advisor 완료"
+```
+
+**Phase 3b: 메인이 부서장 병렬 spawn**
+
+Advisor Response에서 반환된 참여 부서장 목록을 파싱 후, 메인이 다음을 수행합니다:
+1. 부서장 전원의 `agent_start` Bash emit (병렬 호출 직전 일괄)
+2. Agent tool 병렬 호출 — 각 subagent_type은 `bams-plugin:{부서장명}`
+3. 각 호출 종료 후 `agent_end` emit
+
+각 부서장에게 전달할 공통 위임 메시지 템플릿:
+
+> **KPT 제출 요청 — {부서명}**
+>
+> 컨텍스트: phase1-agent-metrics.md, phase1-pipeline-metrics.md, retro-protocol.md §3-1
+>
+> 대상 부서장 예시(Advisor가 동적 선정):
 >
 > 1. **product-strategy (기획부장)**: 기획 프로세스 KPT
 >    ```
@@ -91,21 +110,24 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 >
 > **기대 산출물**: 참여 부서장별 `phase2-kpt-{부서명}.md`
 
-Bash로 agent_end를 emit합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "orchestrator-phase2-kpt-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 3 완료: 부서장 KPT 수집"
-```
+(각 부서장 호출별 agent_end emit은 메인이 개별 수행)
 
 ---
 
-## Step 4: KPT 종합
+## Step 4: KPT 종합 (2단 위임 — 루프 A)
 
-Bash로 agent_start를 emit합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "orchestrator-phase2-synthesize-$(date -u +%Y%m%d)" "pipeline-orchestrator" "sonnet" "Step 4: KPT 종합"
-```
+**Phase 4a: Advisor 호출** — Agent tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, 조언자 모드. 컨텍스트: phase2-kpt-*.md 전체, retro-protocol.md. Advisor Response: 병합/우선순위 전략, 교차 검증 항목, 담당자 할당 기준. spawn 지시 금지. (agent_start/end: `orchestrator-advisor-step4-{date}`)
 
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**):
+**Phase 4b: 메인이 종합 직접 수행 또는 executive-reporter 위임**
+
+Advisor가 별도 실행 에이전트를 지목하지 않은 경우 메인이 직접 수행:
+1. 수집된 phase2-kpt-*.md 전체를 Read
+2. 병합/우선순위 정렬/교차 검증
+3. `.crew/artifacts/retro/{slug}/phase2-kpt-consolidated.md` Write
+
+Advisor가 executive-reporter 등을 지목한 경우 해당 에이전트를 메인이 직접 spawn (agent_start/end emit은 대상 에이전트명으로).
+
+참조 지시 원본:
 
 > **Phase 2 KPT 종합 — 우선순위 결정 및 액션 아이템 확정**
 >
@@ -134,10 +156,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 >
 > **기대 산출물**: `.crew/artifacts/retro/{slug}/phase2-kpt-consolidated.md`
 
-Bash로 agent_end를 emit합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "orchestrator-phase2-synthesize-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 4 완료: KPT 종합"
-```
+(agent_end emit은 메인이 실행 주체별로 수행)
 
 KPT 종합 완료 후 사용자에게 다음을 제시합니다:
 - Top 3 Problem 요약

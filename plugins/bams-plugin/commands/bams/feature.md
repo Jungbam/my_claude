@@ -5,23 +5,27 @@ argument-hint: <기능 설명 또는 기존 slug>
 
 # Bams: Feature
 
-총괄팀 중심 위임 구조의 풀 피처 생명주기를 관리합니다. 6개 Phase, 최대 13단계.
-커맨드는 pipeline-orchestrator에게 Phase 단위 지시를 내리고, orchestrator가 부서장에게, 부서장이 에이전트에게 위임하는 3단 구조입니다.
+풀 피처 생명주기를 **2단 위임 + orchestrator 조언자 모드**로 관리합니다. 6개 Phase, 최대 13단계.
+커맨드(메인)가 각 Phase에서 pipeline-orchestrator를 조언자로 1회 호출하여 Advisor Response(부서장 라우팅/게이트 조건)를 받고, 메인이 권고된 부서장을 Task tool로 **직접 spawn**합니다. (`_shared_common.md` §위임 원칙 및 부록 루프 B 참조)
 
 ```
-feature.md → pipeline-orchestrator
-               → [Phase 0] resource-optimizer (전략)
-               → [Phase 1] product-strategy(기획부장) → BA, UX, PG
-               → [Phase 1→2 핸드오프] cross-department-coordinator
-               → [Phase 2] 개발부장 → FE, BE, devops, data-integration
-               → [Phase 3 Step 4] qa-strategy(QA부장) → automation-qa (5관점 코드 리뷰)
-               → [Phase 3 Step 5-7] qa-strategy(QA부장) + product-analytics(평가부장) (병렬)
-               → [Phase 3 Step 8] platform-devops (CI/CD)
-               → [Phase 4] executive-reporter (보고) + Ship/Deploy
-               → [Phase 5 Step 11] product-strategy(기획부장) → 문서 갱신
-               → [Phase 5 Step 12] project-governance → 스프린트 종료
-               → [Phase 5 Step 13] executive-reporter + 부서장들 (자동 강제 회고)
+feature.md (메인) ─ advise ─▶ pipeline-orchestrator (Advisor)
+     │
+     └─ spawn(직접) ─▶ 부서장 ─▶ (선택) specialist
+         [Phase 0] resource-optimizer (전략)
+         [Phase 1] product-strategy(기획부장) → BA/UX/PG
+         [Phase 1→2] cross-department-coordinator (핸드오프 조율)
+         [Phase 2] FE/BE/devops/data-integration 부서장 (병렬 직접 spawn)
+         [Phase 3 Step 4] qa-strategy(QA부장) → automation-qa (5관점 리뷰)
+         [Phase 3 Step 5-7] qa-strategy + product-analytics (병렬)
+         [Phase 3 Step 8] platform-devops (CI/CD)
+         [Phase 4] executive-reporter + Ship/Deploy
+         [Phase 5 Step 11] product-strategy → 문서 갱신
+         [Phase 5 Step 12] project-governance → 스프린트 종료
+         [Phase 5 Step 13] executive-reporter + 부서장들 (자동 강제 회고)
 ```
+
+> harness 깊이 2 제약: orchestrator는 부서장을 직접 spawn할 수 없고 Advisor Response만 반환합니다. 메인이 그 권고를 파싱하여 직접 부서장을 호출합니다.
 
 입력: $ARGUMENTS
 

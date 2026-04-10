@@ -17,16 +17,34 @@ Bash로 다음을 실행합니다:
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 5 "배포" "Phase 4: 배포"
 ```
 
-Bash로 agent_start를 emit합니다:
+**루프 A — 단일 부서장 직접 spawn (배포 환경 점검은 platform-devops 단일 책임).**
+
+Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-5-$(date -u +%Y%m%d)" "pipeline-orchestrator" "sonnet" "Step 5: 배포 환경 점검 위임"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "platform-devops-5-$(date -u +%Y%m%d)" "platform-devops" "sonnet" "Step 5: 배포 환경 점검"
 ```
 
-pipeline-orchestrator에게 배포 환경 점검을 지시합니다. orchestrator는 개발부장을 통해 `platform-devops` 에이전트로 배포 환경을 점검합니다.
+Task tool, subagent_type: **"bams-plugin:platform-devops"**, model: **"sonnet"** — 메인이 직접 호출:
 
-orchestrator 반환 후, Bash로 agent_end를 emit합니다:
+> **Hotfix Step 5 — 배포 환경 점검**
+>
+> ```
+> task_description: "핫픽스 배포 환경을 점검하라"
+> input_artifacts:
+>   - .crew/config.md
+> expected_output:
+>   type: deploy_precheck
+> quality_criteria:
+>   - 배포 환경 상태 확인
+>   - 롤백 준비 확인
+>   - 즉시 배포 가능 여부 판정
+> constraints:
+>   urgency: critical
+> ```
+
+반환 후 agent_end emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-5-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 5 완료: 배포 환경 점검 완료"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "platform-devops-5-$(date -u +%Y%m%d)" "platform-devops" "success" {duration_ms} "Step 5 배포 환경 점검 완료"
 ```
 
 AskUserQuestion — "즉시 배포할까요?"

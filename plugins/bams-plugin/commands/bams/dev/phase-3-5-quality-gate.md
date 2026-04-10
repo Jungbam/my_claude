@@ -31,36 +31,32 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 **iteration 1 (최초)**: 전체 구현 파일 검증.
 **iteration 2-3 (반복)**: `git diff --name-only {qg_baseline_commit}..HEAD`로 **변경된 파일만** 검증 대상으로 전달. 이전 QG에서 PASS된 파일은 재검증하지 않습니다.
 
-pipeline-orchestrator에게 Quality Gate를 지시합니다.
+**루프 A (Simple) — 단일 부서장(project-governance)이므로 메인이 직접 spawn합니다.** (orchestrator 조언 생략, `_shared_common.md` 부록 참조)
 
-Bash로 agent_start를 emit합니다:
+Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-8-$(date -u +%Y%m%d)" "pipeline-orchestrator" "sonnet" "Step 8: Quality Gate 위임"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "project-governance-8-$(date -u +%Y%m%d)" "project-governance" "sonnet" "Step 8: Quality Gate iteration {iteration}"
 ```
 
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**):
+Task tool, subagent_type: **"bams-plugin:project-governance"**, model: **"sonnet"** — 메인이 직접 호출:
 
-> **Phase 3.5 Quality Gate 실행**
+> **Phase 3.5 Quality Gate 검증 (iteration {iteration}/3)**
 >
-> **위임 메시지:**
+> **컨텍스트:**
 > ```
 > phase: 3.5
 > slug: {slug}
 > pipeline_type: dev
-> context:
->   prd: .crew/artifacts/prd/{slug}-prd.md
->   design: .crew/artifacts/design/{slug}-design.md
->   review_report: .crew/artifacts/review/{slug}-review.md
->   evaluation_report: .crew/artifacts/evaluation/{slug}-eval.md
->   test_results: .crew/artifacts/test/{slug}-tests.md
->   iteration: {iteration}
->   max_iterations: 3
->   verification_files: [{iteration 1이면 전체 파일, 2-3이면 변경된 파일만}]
->   previous_qg_result: [{iteration 2-3이면 이전 QG의 PASS/FAIL 파일별 상세}]
+> prd: .crew/artifacts/prd/{slug}-prd.md
+> design: .crew/artifacts/design/{slug}-design.md
+> review_report: .crew/artifacts/review/{slug}-review.md
+> evaluation_report: .crew/artifacts/evaluation/{slug}-eval.md
+> test_results: .crew/artifacts/test/{slug}-tests.md
+> iteration: {iteration}
+> max_iterations: 3
+> verification_files: [{iteration 1이면 전체 파일, 2-3이면 변경된 파일만}]
+> previous_qg_result: [{iteration 2-3이면 이전 QG의 PASS/FAIL 파일별 상세}]
 > ```
->
-> **수행할 작업:**
-> project-governance에게 Quality Gate 검증을 위임합니다:
 >
 > ```
 > task_description: "구현 결과물의 최종 품질을 검증하라 (iteration {iteration}/3)"
@@ -83,16 +79,16 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 >
 > **기대 산출물**: Quality Gate 판단 (PASS/FAIL), 파일별 상세 결과
 
-orchestrator 반환 후, Bash로 agent_end를 emit합니다:
+반환 후 agent_end emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-8-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 8 완료: Quality Gate 완료"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "project-governance-8-$(date -u +%Y%m%d)" "project-governance" "success" {duration_ms} "Step 8 완료: Quality Gate iteration {iteration}"
 ```
 
 **PASS인 경우:** board.md에서 태스크를 `## Done`으로 이동. Phase 4로 진행.
 
 **FAIL인 경우 (iteration <= 3):**
 - `qg_baseline_commit`을 현재 HEAD로 업데이트
-- pipeline-orchestrator에게 재작업을 지시 (QG에서 지적한 이슈를 해당 부서장에게 위임)
+- QG에서 지적한 이슈를 메인이 해당 부서장(frontend-engineering / backend-engineering 등)에게 직접 Task tool로 재작업 spawn (루프 A)
 - 완료 후 Quality Gate 루프 재시작 (변경된 파일만 재검증)
 
 **iteration > 3:** 사용자에게 수동 확인 안내. Phase 4로 진행.

@@ -31,34 +31,30 @@ Options:
 
 **Skip 선택 시**: Phase 2.5를 건너뛰고 Phase 3으로 진행합니다.
 
-### Step 6b. 테스트 작성 (QA부장 위임)
+### Step 6b. 테스트 작성 (루프 A — 메인이 qa-strategy 직접 spawn)
 
-pipeline-orchestrator에게 테스트 작성을 지시합니다.
+단일 도메인/낮은 복잡도이므로 orchestrator 조언을 생략하고 메인이 qa-strategy(QA부장)를 **직접** spawn합니다. (`_shared_common.md` 부록 루프 A 참조)
 
 Bash로 agent_start를 emit합니다:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-6-$(date -u +%Y%m%d)" "pipeline-orchestrator" "sonnet" "Step 6: 테스트 작성 위임"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "qa-strategy-6-$(date -u +%Y%m%d)" "qa-strategy" "sonnet" "Step 6: 테스트 작성"
 ```
 
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**):
+Task tool, subagent_type: **"bams-plugin:qa-strategy"**, model: **"sonnet"** — 메인이 직접 호출:
 
-> **Phase 2.5 테스트 작성 실행**
+> **Phase 2.5 테스트 작성**
 >
-> **위임 메시지:**
+> **컨텍스트:**
 > ```
 > phase: 2.5
 > slug: {slug}
-> pipeline_type: dev
-> context:
->   prd: .crew/artifacts/prd/{slug}-prd.md
->   design: .crew/artifacts/design/{slug}-design.md
->   changed_files: [{구현에서 수정/생성된 파일 목록}]
->   test_dir: {config.md의 test_dir 설정}
+> prd: .crew/artifacts/prd/{slug}-prd.md
+> design: .crew/artifacts/design/{slug}-design.md
+> changed_files: [{구현에서 수정/생성된 파일 목록}]
+> test_dir: {config.md의 test_dir 설정}
 > ```
 >
-> **수행할 작업:**
-> qa-strategy(QA부장)에게 테스트 작성을 위임합니다:
->
+> **위임:**
 > ```
 > task_description: "최근 구현된 코드에 대한 테스트를 작성하라"
 > input_artifacts:
@@ -73,14 +69,14 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 >   - 인수 기준 검증
 > ```
 >
-> QA부장은 automation-qa 에이전트에게 테스트 작성을 분배합니다.
+> qa-strategy는 자신의 도메인 내에서 automation-qa specialist를 최대 1회 추가 spawn 가능(harness 깊이 2 한도).
 > 테스트 러너가 있으면 실행하여 결과를 보고합니다.
 >
 > **기대 산출물**: 테스트 코드, 테스트 계획 (.crew/artifacts/test/{slug}-tests.md), 실행 결과
 
-orchestrator 반환 후, Bash로 agent_end를 emit합니다:
+qa-strategy 반환 후, Bash로 agent_end를 emit합니다:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-6-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 6 완료: 테스트 작성 완료"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "qa-strategy-6-$(date -u +%Y%m%d)" "qa-strategy" "success" {duration_ms} "Step 6 완료: 테스트 작성 완료"
 ```
 
 **Yes 선택 시**: 배치별 오버랩 - `배치 N 테스트 작성 || 배치 N+1 구현`이 병렬로 진행됩니다.

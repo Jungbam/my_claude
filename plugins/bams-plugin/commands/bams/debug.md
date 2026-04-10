@@ -75,6 +75,8 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 **`references/viz-agent-protocol.md` 참조.** 모든 서브에이전트 호출 전후에 반드시 agent_start/agent_end 이벤트를 emit한다. orchestrator 내부에서 부서장/에이전트를 호출할 때도 동일하게 적용한다.
 
+> **위임 체계 (Canonical)**: 이 커맨드는 `_shared_common.md` §위임 원칙 + 부록 **루프 B**(Advised)를 따른다. 메인(커맨드)이 qa-strategy / frontend-engineering / backend-engineering 부서장을 **직접** Task tool로 spawn한다. pipeline-orchestrator를 경유한 중첩 spawn 금지(harness 깊이 2 제약). 부서장은 도메인 내 specialist(defect-triage, automation-qa 등)를 최대 1회 추가 spawn 가능.
+
 ## Phase 1: 버그 분류 및 재현 (defect-triage)
 
 ### 1a. 버그 정보 파싱

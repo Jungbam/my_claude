@@ -30,42 +30,22 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 ## Step 10: 종합 보고서
 
-pipeline-orchestrator에게 종합 보고서 작성을 지시합니다.
+**2단 위임 — 루프 A**: orchestrator 조언 → 메인이 executive-reporter 직접 spawn.
+
+**Step 10a: Advisor 호출** — Agent tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, 조언자 모드. 컨텍스트: `.crew/artifacts/retro/{slug}/` 전체 Phase 1-4 산출물, retro-protocol.md. Advisor Response: 보고서 6개 섹션 검증, 신호등 임계값, 1페이지 요약 포맷, tracking.yml 스키마 재확인. spawn 지시 금지. (agent_start/end: `orchestrator-advisor-step10-{date}`)
+
+**Step 10b: 메인이 executive-reporter 직접 spawn**
 
 Bash로 agent_start를 emit합니다:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-10-$(date -u +%Y%m%d)" "pipeline-orchestrator" "sonnet" "Step 10: 종합 보고서 executive-reporter 위임"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "executive-reporter-10-$(date -u +%Y%m%d)" "executive-reporter" "sonnet" "Step 10: 종합 보고서 생성"
 ```
 
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**):
+서브에이전트 실행 (Agent tool, subagent_type: **"bams-plugin:executive-reporter"**, model: **"sonnet"**):
 
 > **Phase 5 Step 10 — 종합 보고서 생성**
 >
 > **위임 메시지:**
-> ```
-> phase: 5-step10
-> slug: {slug}
-> pipeline_type: retro
-> context:
->   artifacts_dir: .crew/artifacts/retro/{slug}/
->   all_phase_outputs:
->     - phase1-pipeline-metrics.md
->     - phase1-agent-metrics.md
->     - phase2-kpt-consolidated.md
->     - phase3-quantitative-eval.md
->     - phase3-performance-eval.md
->     - phase3-cost-eval.md
->     - phase3-qualitative-*.md
->     - phase4-improvements-summary.md
->     - phase4-improvement-*.md
->   retro_protocol: plugins/bams-plugin/references/retro-protocol.md
-> ```
->
-> **수행할 작업:**
->
-> executive-reporter에게 다음을 요청합니다.
->
-> **executive-reporter 위임 메시지:**
 > ```
 > task_description: "회고/평가/개선 전체 결과를 종합 보고서로 작성하라"
 > input_artifacts: [Phase 1-4 전체 산출물 목록]
@@ -124,9 +104,9 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 > - `.crew/artifacts/retro/{slug}/phase5-retro-summary.md`
 > - tracking 파일 retro 섹션 기록
 
-orchestrator 반환 후, Bash로 agent_end를 emit합니다:
+Bash로 agent_end를 emit합니다:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-10-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 10 완료: 종합 보고서 생성 완료"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "executive-reporter-10-$(date -u +%Y%m%d)" "executive-reporter" "success" {duration_ms} "Step 10 완료: 종합 보고서 생성"
 ```
 
 Phase 5 완료 시, Bash로 다음을 실행합니다:

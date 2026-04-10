@@ -24,29 +24,16 @@ Bash로 다음을 실행합니다:
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 11 "문서 갱신" "Phase 5: 마무리"
 ```
 
-pipeline-orchestrator에게 문서 갱신을 지시합니다.
+**루프 A — 단일 부서장 직접 spawn (문서 갱신은 product-strategy 단일 책임).**
 
-Bash로 agent_start를 emit합니다:
+Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-11-$(date -u +%Y%m%d)" "pipeline-orchestrator" "sonnet" "Step 11: 문서 갱신 위임"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "product-strategy-11-$(date -u +%Y%m%d)" "product-strategy" "sonnet" "Step 11: 문서 갱신"
 ```
 
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**):
+Task tool, subagent_type: **"bams-plugin:product-strategy"**, model: **"sonnet"** — 메인이 직접 호출:
 
-> **Phase 5 마무리 실행 — 문서 갱신**
->
-> **위임 메시지:**
-> ```
-> phase: 5
-> slug: {slug}
-> pipeline_type: feature
-> context:
->   all_artifacts: .crew/artifacts/
->   config: .crew/config.md
-> ```
->
-> **수행할 작업:**
-> product-strategy(기획부장)에게 문서 갱신을 위임합니다:
+> **Phase 5 Step 11 — 문서 갱신**
 >
 > ```
 > task_description: "Ship된 피처에 맞춰 프로젝트 문서를 갱신하라"
@@ -62,13 +49,13 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 >   - 아키텍처 문서 변경 반영 (해당 시)
 > ```
 >
-> 기획부장은 `_DOCRELEASE_SKILL`을 활용하여 문서를 갱신합니다.
+> 기획부장은 `_DOCRELEASE_SKILL`을 활용하여 문서를 갱신합니다. 내부에서 specialist를 최대 1회 추가 spawn 가능(harness 깊이 2 한도).
 >
 > **기대 산출물**: 갱신된 문서 파일 목록
 
-orchestrator 반환 후, Bash로 agent_end를 emit합니다:
+반환 후 agent_end emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-11-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 11 완료: 문서 갱신 완료"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "product-strategy-11-$(date -u +%Y%m%d)" "product-strategy" "success" {duration_ms} "Step 11 문서 갱신 완료"
 ```
 
 Step 11 완료 시, Bash로 다음을 실행합니다:
@@ -85,29 +72,16 @@ Bash로 다음을 실행합니다:
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 12 "스프린트 종료" "Phase 5: 마무리"
 ```
 
-pipeline-orchestrator에게 스프린트 종료를 지시합니다.
+**루프 A — 단일 부서장 직접 spawn (스프린트 종료는 product-strategy 단일 책임, 내부에서 project-governance specialist 호출).**
 
-Bash로 agent_start를 emit합니다:
+Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-12-$(date -u +%Y%m%d)" "pipeline-orchestrator" "sonnet" "Step 12: 스프린트 종료 위임"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "product-strategy-12-$(date -u +%Y%m%d)" "product-strategy" "sonnet" "Step 12: 스프린트 종료"
 ```
 
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**):
+Task tool, subagent_type: **"bams-plugin:product-strategy"**, model: **"sonnet"** — 메인이 직접 호출:
 
-> **Phase 5 마무리 실행 — 스프린트 종료**
->
-> **위임 메시지:**
-> ```
-> phase: 5
-> slug: {slug}
-> pipeline_type: feature
-> context:
->   board: .crew/board.md
->   config: .crew/config.md
-> ```
->
-> **수행할 작업:**
-> project-governance에게 스프린트 종료를 위임합니다:
+> **Phase 5 Step 12 — 스프린트 종료**
 >
 > ```
 > task_description: "이 피처의 스프린트를 종료하라"
@@ -121,13 +95,13 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 >   - 스프린트 통계 기록
 > ```
 >
-> `.crew/board.md`에서 이 feature의 모든 태스크 완료 시 `/bams:sprint close` 제안.
+> 기획부장은 project-governance specialist를 최대 1회 추가 spawn 가능(harness 깊이 2 한도). `.crew/board.md`에서 이 feature의 모든 태스크 완료 시 `/bams:sprint close` 제안.
 >
 > **기대 산출물**: 스프린트 종료 결과, 업데이트된 board.md
 
-orchestrator 반환 후, Bash로 agent_end를 emit합니다:
+반환 후 agent_end emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-12-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 12 완료: 스프린트 종료 완료"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "product-strategy-12-$(date -u +%Y%m%d)" "product-strategy" "success" {duration_ms} "Step 12 스프린트 종료 완료"
 ```
 
 Step 12 완료 시, Bash로 다음을 실행합니다:
@@ -146,86 +120,113 @@ Bash로 다음을 실행합니다:
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 13 "자동 강제 회고" "Phase 5: 마무리"
 ```
 
-pipeline-orchestrator에게 회고를 지시합니다.
+**루프 B — Advisor 조언 후 메인이 executive-reporter + 참여 부서장들 병렬 직접 spawn.** 이 단계는 스킵할 수 없습니다.
 
-Bash로 agent_start를 emit합니다:
+### Step 13-a. pipeline-orchestrator 조언 요청 (Advisor)
+
+Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-13-$(date -u +%Y%m%d)" "pipeline-orchestrator" "sonnet" "Step 13: 자동 강제 회고 위임"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-13-$(date -u +%Y%m%d)" "pipeline-orchestrator" "opus" "Step 13: 회고 조언 요청"
 ```
 
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**):
+Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"opus"** — **조언자 모드**:
 
-> **Phase 5 자동 강제 회고 실행**
+> **Phase 5 Step 13 Advisor 호출 — 자동 강제 회고 라우팅 권고**
 >
-> retro-protocol.md에 따라 파이프라인 회고를 **반드시** 실행합니다. 이 단계는 스킵할 수 없습니다.
->
-> **위임 메시지:**
+> **컨텍스트:**
 > ```
 > phase: 5-retro
 > slug: {slug}
 > pipeline_type: feature
-> context:
->   all_artifacts: .crew/artifacts/
->   board: .crew/board.md
->   history: .crew/history.md
->   review_report: .crew/artifacts/review/{slug}-review.md
->   evaluation_report: .crew/artifacts/evaluation/{slug}-eval.md
->   qa_report: .crew/artifacts/qa/{slug}-qa.md
->   performance_report: .crew/artifacts/performance/{slug}-performance.md
->   security_report: .crew/artifacts/security/{slug}-security.md
+> all_artifacts: .crew/artifacts/
+> board: .crew/board.md
+> history: .crew/history.md
+> review_report: .crew/artifacts/review/{slug}-review.md
+> evaluation_report: .crew/artifacts/evaluation/{slug}-eval.md
+> qa_report: .crew/artifacts/qa/{slug}-qa.md
+> performance_report: .crew/artifacts/performance/{slug}-performance.md
+> security_report: .crew/artifacts/security/{slug}-security.md
 > ```
 >
-> **수행할 작업 (retro-protocol.md 절차):**
-> 1. executive-reporter에게 정량 데이터 수집 요청:
->    - 총 소요 시간, Phase별 소요 시간
->    - Step 성공률, 재시도 횟수
->    - 에이전트별 호출 통계
->    - 품질 지표 요약 (리뷰 Critical/Major/Minor 건수, QA 결과, 성능 수치, 보안 스캔 결과)
->    - 이전 3회 feature 파이프라인 대비 트렌드
->
-> 2. 각 부서장에게 KPT 항목 제출 요청: Keep(유지), Problem(문제), Try(시도).
->    이 파이프라인에 참여한 부서장만 대상:
->    - 기획부장 (Phase 1 참여)
->    - 개발부장 (Phase 2 참여)
->    - QA부장 (Phase 3 참여)
->    - 평가부장 (Phase 3 참여, 해당 시)
->
-> 3. 합의 도출:
->    - 수집된 KPT를 종합하여 Problem 우선순위 정렬
->    - 액션 아이템 확정
->    - 교차 검증
->
-> 4. 피드백 반영:
->    - 에이전트 교훈 저장
->    - gotchas 승격 검사
->    - Pipeline Learnings 갱신
->    - 프로세스 개선 제안
->
-> 5. 보드 및 히스토리 업데이트:
->    - 완료된 모든 태스크를 board.md의 `## Done`으로 이동
->    - **DB 상태 업데이트 (board.md Done 이동과 동시에 실행)**: `~/.claude/plugins/marketplaces/my-claude/bams.db`가 존재하면 각 태스크의 상태를 `done`으로 업데이트한다:
->      ```bash
->      if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
->        bun -e "
->          import { TaskDB } from './plugins/bams-plugin/tools/bams-db/index.ts';
->          const db = new TaskDB();
->          // 완료된 각 태스크 ID에 대해 호출:
->          // db.updateTaskStatus('{task_id}', 'done', 'pipeline-orchestrator');
->          db.close();
->        "
->      fi
->      ```
->    - `.crew/history.md`에 타임스탬프와 함께 추가
->    - board.md의 `> Last updated:` 업데이트
->
-> 6. 회고 결과를 tracking 파일에 기록
->
-> **기대 산출물**: 회고 결과 (KPT 요약, 액션 아이템, 피드백 반영 내역), 업데이트된 board.md/history.md
+> **요청:** retro-protocol.md에 따라, 메인이 병렬 spawn할 부서장 목록(executive-reporter — 정량 데이터 수집, + 이 파이프라인에 참여한 부서장 — KPT 제출: 기획부장/개발부장/QA부장/평가부장 중 해당자)과 각각의 위임 메시지 템플릿, 합의 도출/피드백 반영/board+history 업데이트 절차를 Advisor Response로 반환하세요. 직접 spawn 금지(harness 깊이 2 제약).
 
-orchestrator 반환 후, Bash로 agent_end를 emit합니다:
+반환 후 agent_end emit + Advisor Response 파싱 + CHAIN_VIOLATION 체크:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-13-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 13 완료: 회고 완료"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-13-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 13 Advisor 응답 수신"
 ```
+
+### Step 13-b. 메인이 executive-reporter + 참여 부서장들 병렬 직접 spawn (단일 메시지 복수 Task)
+
+Advisor가 권고한 부서장들에 대해 agent_start를 일괄 emit한 뒤, **단일 메시지에 복수 Task tool 호출**로 병렬 spawn합니다:
+
+1. Task tool, subagent_type: **"bams-plugin:executive-reporter"**, model: **"sonnet"** — 정량 데이터 수집:
+
+> **Step 13 — 회고 정량 데이터 수집**
+> ```
+> task_description: "파이프라인 회고용 정량 데이터를 수집하라"
+> input_artifacts:
+>   - .crew/artifacts/
+> expected_output:
+>   type: retro_metrics
+> quality_criteria:
+>   - 총 소요 시간, Phase별 소요 시간
+>   - Step 성공률, 재시도 횟수
+>   - 에이전트별 호출 통계
+>   - 품질 지표 요약 (리뷰 Critical/Major/Minor 건수, QA 결과, 성능 수치, 보안 스캔 결과)
+>   - 이전 3회 feature 파이프라인 대비 트렌드
+> ```
+
+2. Task tool, subagent_type: **"bams-plugin:{dept}"** — 각 참여 부서장에게 KPT 제출 요청 (해당자만):
+   - `bams-plugin:product-strategy` (Phase 1 참여)
+   - `bams-plugin:frontend-engineering` 또는 `bams-plugin:backend-engineering` 또는 `bams-plugin:platform-devops` (Phase 2 참여)
+   - `bams-plugin:qa-strategy` (Phase 3 참여)
+   - `bams-plugin:product-analytics` (Phase 3 참여, 해당 시)
+
+> **Step 13 — KPT 제출**
+> ```
+> task_description: "이 파이프라인에 대한 KPT(Keep/Problem/Try)를 제출하라"
+> input_artifacts:
+>   - .crew/artifacts/
+> expected_output:
+>   type: retro_kpt
+> quality_criteria:
+>   - Keep: 잘 된 점
+>   - Problem: 문제점
+>   - Try: 다음에 시도할 개선
+> ```
+
+병렬 완료 후 각 부서장에 대해 agent_end를 일괄 emit:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "executive-reporter-13-$(date -u +%Y%m%d)" "executive-reporter" "success" {duration_ms} "정량 데이터 수집 완료"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "{dept}-13-$(date -u +%Y%m%d)" "{dept}" "success" {duration_ms} "KPT 제출 완료"
+```
+
+### Step 13-c. 메인이 합의 도출 + 피드백 반영 + 보드/히스토리 업데이트
+
+메인 세션에서 retro-protocol.md 절차에 따라 직접 수행:
+
+1. 합의 도출: 수집된 KPT를 종합하여 Problem 우선순위 정렬, 액션 아이템 확정, 교차 검증
+2. 피드백 반영: 에이전트 교훈 저장, gotchas 승격 검사, Pipeline Learnings 갱신, 프로세스 개선 제안
+3. 보드 및 히스토리 업데이트:
+   - 완료된 모든 태스크를 board.md의 `## Done`으로 이동
+   - **DB 상태 업데이트 (board.md Done 이동과 동시에 실행)**: `~/.claude/plugins/marketplaces/my-claude/bams.db`가 존재하면 각 태스크의 상태를 `done`으로 업데이트한다:
+     ```bash
+     if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
+       bun -e "
+         import { TaskDB } from './plugins/bams-plugin/tools/bams-db/index.ts';
+         const db = new TaskDB();
+         // 완료된 각 태스크 ID에 대해 호출:
+         // db.updateTaskStatus('{task_id}', 'done', 'pipeline-orchestrator');
+         db.close();
+       "
+     fi
+     ```
+   - `.crew/history.md`에 타임스탬프와 함께 추가
+   - board.md의 `> Last updated:` 업데이트
+4. 회고 결과를 tracking 파일에 기록
+
+**기대 산출물**: 회고 결과 (KPT 요약, 액션 아이템, 피드백 반영 내역), 업데이트된 board.md/history.md
 
 Step 13 완료 시, Bash로 다음을 실행합니다:
 ```bash

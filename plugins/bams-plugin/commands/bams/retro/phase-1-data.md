@@ -22,29 +22,32 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 **산출물 확인**: `.crew/artifacts/retro/{slug}/phase1-pipeline-metrics.md` 존재 시 건너뜁니다.
 
-pipeline-orchestrator에게 executive-reporter 위임을 지시합니다.
+**2단 위임 — 루프 A**: orchestrator를 조언자로 먼저 호출한 뒤, 메인이 직접 executive-reporter를 spawn합니다.
+
+**Phase 1a: Advisor 호출**
 
 Bash로 agent_start를 emit합니다:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "executive-reporter-1-$(date -u +%Y%m%d)" "executive-reporter" "sonnet" "Step 1: 파이프라인 지표 수집 위임"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "orchestrator-advisor-step1-$(date -u +%Y%m%d)" "pipeline-orchestrator" "sonnet" "Step 1 advisor: 파이프라인 지표 수집 전략 조언"
 ```
 
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**):
+서브에이전트 실행 (Agent tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**, **조언자 모드**): Advisor Response 계약 준수(spawn 지시 금지). 컨텍스트: scope={TARGET_SCOPE}, events_dir=~/.bams/artifacts/pipeline/. 반환 항목: (1) 필터 규칙, (2) executive-reporter 태스크 초안, (3) 주의사항(자기참조·마커 제외).
+
+Bash로 agent_end를 emit합니다:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "orchestrator-advisor-step1-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 1 advisor 완료"
+```
+
+**Phase 1b: 메인이 executive-reporter 직접 spawn**
+
+Bash로 agent_start를 emit합니다:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "executive-reporter-1-$(date -u +%Y%m%d)" "executive-reporter" "sonnet" "Step 1: 파이프라인 지표 수집"
+```
+
+서브에이전트 실행 (Agent tool, subagent_type: **"bams-plugin:executive-reporter"**, model: **"sonnet"**):
 
 > **Phase 1 데이터 수집 — 파이프라인 지표 집계**
->
-> **위임 메시지:**
-> ```
-> phase: 1
-> slug: {slug}
-> pipeline_type: retro
-> context:
->   scope: {TARGET_SCOPE}
->   events_dir: ~/.bams/artifacts/pipeline/
-> ```
->
-> **수행할 작업:**
-> executive-reporter에게 다음을 위임합니다:
 >
 > ```
 > task_description: "TARGET_SCOPE에 해당하는 JSONL 파일을 파싱하여 파이프라인 수준 지표 집계"
@@ -79,29 +82,20 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 **산출물 확인**: `.crew/artifacts/retro/{slug}/phase1-agent-metrics.md` 존재 시 건너뜁니다.
 
-pipeline-orchestrator에게 product-analytics 위임을 지시합니다.
+**2단 위임 — 루프 A**: orchestrator 조언 → 메인이 product-analytics 직접 spawn.
+
+**Phase 2a: Advisor 호출** — Agent tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, 조언자 모드. 컨텍스트: pipeline_metrics, agents_dir. Advisor Response: 등급 산출 가중치 검증, 부서 매핑 테이블 포맷, 자기참조 제외 규칙 확인. spawn 지시 금지. (agent_start/end emit: `orchestrator-advisor-step2-{date}`)
+
+**Phase 2b: 메인이 product-analytics 직접 spawn**
 
 Bash로 agent_start를 emit합니다:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "product-analytics-1-$(date -u +%Y%m%d)" "product-analytics" "sonnet" "Step 2: 에이전트 성과 지표 산출 위임"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "product-analytics-1-$(date -u +%Y%m%d)" "product-analytics" "sonnet" "Step 2: 에이전트 성과 지표 산출"
 ```
 
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**):
+서브에이전트 실행 (Agent tool, subagent_type: **"bams-plugin:product-analytics"**, model: **"sonnet"**):
 
 > **Phase 1 데이터 수집 — 에이전트 수준 지표 산출**
->
-> **위임 메시지:**
-> ```
-> phase: 1
-> slug: {slug}
-> pipeline_type: retro
-> context:
->   pipeline_metrics: .crew/artifacts/retro/{slug}/phase1-pipeline-metrics.md
->   agents_dir: ~/.bams/artifacts/agents/
-> ```
->
-> **수행할 작업:**
-> product-analytics에게 다음을 위임합니다:
 >
 > ```
 > task_description: "agent_start/agent_end 이벤트 기반 에이전트 수준 KPI 산출 및 등급 부여"

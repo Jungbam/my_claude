@@ -5,22 +5,24 @@ argument-hint: <피처 설명 또는 태스크 ID>
 
 # Bams Dev
 
-총괄팀 중심 위임 구조의 완전한 개발 파이프라인을 실행합니다.
-커맨드는 pipeline-orchestrator에게 Phase 단위 지시를 내리고, orchestrator가 부서장에게, 부서장이 에이전트에게 위임하는 3단 구조입니다.
+완전한 개발 파이프라인을 **2단 위임 + orchestrator 조언자 모드**로 실행합니다.
+커맨드(메인)가 각 Phase에서 pipeline-orchestrator를 조언자로 1회 호출하여 Advisor Response(부서장 라우팅/게이트 조건)를 받고, 메인이 권고된 부서장을 Task tool로 **직접 spawn**합니다. (`_shared_common.md` §위임 원칙 및 부록 루프 B 참조)
 
 ```
-dev.md → pipeline-orchestrator
-           → [Phase 0] resource-optimizer (전략)
-           → [Phase 1] product-strategy(부서장) → business-analysis, ux-research, project-governance
-           → [Phase 1→2 핸드오프] cross-department-coordinator
-           → [Phase 2] 개발부장 → FE, BE, devops, data-integration
-           → [Phase 2.5] qa-strategy(부서장) → automation-qa
-           → [Phase 3] qa-strategy(부서장) → automation-qa, defect-triage, release-quality-gate
-           → [Phase 3] product-analytics(부서장) → performance-evaluation, business-kpi
-           → [Phase 3.5] project-governance (QG)
-           → [Phase 4] executive-reporter (성과 집계)
-           → [Phase 4] 자동 회고 (retro-protocol.md)
+dev.md (메인) ─ advise ─▶ pipeline-orchestrator (Advisor)
+     │
+     └─ spawn(직접) ─▶ 부서장 ─▶ (선택) specialist
+         [Phase 0] resource-optimizer (전략, 직접 spawn 루프 A)
+         [Phase 1] product-strategy(기획부장) → BA/UX/PG
+         [Phase 1→2] cross-department-coordinator (핸드오프 조율)
+         [Phase 2] FE/BE/devops/data-integration 부서장 (병렬 직접 spawn)
+         [Phase 2.5] qa-strategy(QA부장) → automation-qa
+         [Phase 3] qa-strategy + product-analytics (병렬)
+         [Phase 3.5] project-governance (QG)
+         [Phase 4] executive-reporter + 자동 회고
 ```
+
+> harness 깊이 2 제약: orchestrator는 부서장을 직접 spawn할 수 없고 Advisor Response만 반환합니다. 메인이 그 권고를 파싱하여 직접 부서장을 호출합니다.
 
 입력: $ARGUMENTS
 

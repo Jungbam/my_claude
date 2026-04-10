@@ -1,33 +1,55 @@
-# 위임 프로토콜
+# 위임 프로토콜 (2단 위임 + Orchestrator 조언자 모드)
 
 파이프라인의 작업 위임 구조를 정의합니다.
-커맨드 → pipeline-orchestrator → 부서장 → 에이전트의 3단 위임 체계를 따르며,
+**커맨드 → 부서장 → (선택적) 도메인 specialist** 2단 위임 체계를 따르며,
+pipeline-orchestrator는 Task 호출자가 아닌 **조언자(advisor)** 로서 계획·게이트 판정·라우팅 권고를 반환합니다.
 각 단계의 메시지 형식, 결정 규칙, 핸드오프 체크리스트, 에스컬레이션 경로를 규정합니다.
+
+> **근거**: Claude Code harness는 서브에이전트가 또 다른 서브에이전트를 Task tool로 spawn하는 **중첩 Task tool을 지원하지 않습니다**. 따라서 기존 3단 위임(`orchestrator → 부서장 → 에이전트`)은 구조적으로 실행 불가이며, 본 문서는 CLAUDE.md §1 (2단 위임 원칙) 및 `agents/pipeline-orchestrator.md` (조언자 모드) 개정과 정합합니다.
 
 ## 1. 위임 구조 개요
 
 ```
-사용자 커맨드 (/bams:dev, /bams:feature 등)
-  │
+사용자 커맨드 (/bams:dev, /bams:feature 등) — 메인 대화 (SlashCommand)
+  │  ① (읽기 전용) pipeline-orchestrator 호출 → 계획/게이트/라우팅 조언 수신
+  │  ② Agent tool로 부서장 직접 spawn (깊이 1)
   ▼
-pipeline-orchestrator (총괄 지휘)
-  │
-  ├─▶ 기획부장 (product-strategy, business-analysis, ux-research, project-governance)
-  ├─▶ 개발부장 (frontend-engineering, backend-engineering, platform-devops, data-integration)
-  ├─▶ 디자인부장 (ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent)
-  ├─▶ QA부장 (qa-strategy, automation-qa, defect-triage, release-quality-gate)
-  ├─▶ 평가부장 (product-analytics, experimentation, performance-evaluation, business-kpi)
-  ├─▶ 인사 관리 (hr-agent — 에이전트 생명주기 관리)
-  └─▶ 경영지원 (executive-reporter, cross-department-coordinator, resource-optimizer)
+부서장 (department lead)
+  │  ③ (선택적) Agent tool로 도메인 specialist 1회 추가 spawn (깊이 2, harness 허용 시)
+  ▼
+도메인 specialist (선택)
 ```
 
-각 부서장은 자신의 에이전트 팀에 하위 작업을 분배하고, 결과를 종합하여 오케스트레이터에 보고합니다.
+**부서장 목록 (27개 에이전트 전체 보존):**
+
+- 기획부장: **product-strategy** — 산하 specialist: business-analysis, ux-research, project-governance
+- 개발부장: **frontend-engineering**, **backend-engineering** (각 부서는 직접 구현 중심)
+- 인프라부장: **platform-devops** — 산하 specialist: data-integration
+- 디자인부장: **design-director** — 산하 specialist: ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent
+- QA부장: **qa-strategy** — 산하 specialist: automation-qa, defect-triage, release-quality-gate
+- 평가부장: **product-analytics** — 산하 specialist: experimentation, performance-evaluation, business-kpi
+- 경영지원(독립): **executive-reporter**, **resource-optimizer**, **hr-agent**, **cross-department-coordinator**
+- 조언자(Task 비호출): **pipeline-orchestrator**
+
+> TODO (Phase B): 조직도 개편 시 engineering 부서를 FE/BE/인프라로 공식 분할 예정. 현재는 jojikdo.json의 단일 engineering 부서 표현을 유지합니다.
+
+각 부서장은 자신의 도메인 내에서 산출물을 직접 생성하거나, 필요 시 소속 specialist 1명을 추가 spawn하여 하위 작업을 수행하고, 결과를 종합해 **메인 대화**에 보고합니다. pipeline-orchestrator는 이 과정 중간에 **메인이 호출할 때만** 조언을 반환합니다 (Task 호출자 아님).
+
+## 1-A. pipeline-orchestrator 조언자 모드
+
+- orchestrator는 **Task tool 직접 호출자가 아닙니다**. 메인이 orchestrator를 호출하면 다음을 반환합니다:
+  1. Phase 단위 실행 계획 (JSON/텍스트)
+  2. Phase 게이트 Go/No-Go 판단
+  3. 부서장 라우팅 조언 (어떤 부서장에게, 어떤 메시지로)
+  4. 롤백/회고 트리거 권고
+- 메인은 orchestrator의 조언을 파싱해 **직접 Agent tool로 부서장을 spawn** 합니다.
+- 상세 계약: `agents/pipeline-orchestrator.md` §"★★ 조언자 모드(Advisor Mode) 운영 원칙" 및 §"출력 형식 (조언자 응답 계약)" 참조.
 
 ## 2. 위임 메시지 형식
 
-### 2-1. 커맨드 → pipeline-orchestrator
+### 2-1. 커맨드 → pipeline-orchestrator (조언 요청)
 
-커맨드 스킬이 오케스트레이터를 호출할 때 전달하는 항목입니다.
+커맨드 스킬이 orchestrator에게 **계획/게이트 조언**을 요청할 때 전달하는 항목입니다. orchestrator는 Task tool을 호출하지 않고 구조화된 조언 응답만 반환합니다.
 
 | 항목 | 필수 | 설명 |
 |------|------|------|
@@ -50,9 +72,9 @@ pipeline-orchestrator (총괄 지휘)
     user_note: "결제 모듈만 구현, 관리자 화면은 제외"
 ```
 
-### 2-2. pipeline-orchestrator → 부서장
+### 2-2. 커맨드(메인) → 부서장 (실제 spawn)
 
-오케스트레이터가 부서장 역할의 에이전트를 호출할 때 전달하는 항목입니다.
+메인 대화가 Agent tool로 부서장을 **직접 spawn**할 때 전달하는 항목입니다. (orchestrator가 아닌 메인이 호출자입니다. 메시지 본문은 orchestrator 조언을 기반으로 메인이 구성합니다.)
 
 | 항목 | 필수 | 설명 |
 |------|------|------|
@@ -82,9 +104,9 @@ pipeline-orchestrator (총괄 지휘)
     - "결제 API 응답 지연 시 타임아웃 처리 필수 (이전 hotfix 참조)"
 ```
 
-### 2-3. 부서장 → 에이전트
+### 2-3. 부서장 → 도메인 specialist (선택적, 깊이 2)
 
-부서장이 소속 에이전트에게 하위 작업을 분배할 때 전달하는 항목입니다.
+부서장이 도메인 내 specialist에게 **최대 1회** 하위 작업을 위임할 때 전달하는 항목입니다. harness가 중첩 Task tool을 차단하면 부서장이 직접 수행하거나 메인에 재라우팅을 에스컬레이션합니다.
 
 | 항목 | 필수 | 설명 |
 |------|------|------|
@@ -94,9 +116,9 @@ pipeline-orchestrator (총괄 지휘)
 | `quality_criteria` | O | 이 하위 작업의 품질 기준 |
 | `reference` | - | 참고할 기존 코드, 패턴, 문서 |
 
-### 2-4. 에이전트 → 부서장 (보고)
+### 2-4. specialist → 부서장 (보고)
 
-에이전트가 작업 완료 후 부서장에게 보고하는 항목입니다.
+도메인 specialist가 작업 완료 후 부서장에게 보고하는 항목입니다. (부서장이 specialist를 spawn하지 않은 경우 이 단계는 생략됩니다.)
 
 | 항목 | 필수 | 설명 |
 |------|------|------|
@@ -106,9 +128,9 @@ pipeline-orchestrator (총괄 지휘)
 | `status` | O | `done` / `fail` / `partial` |
 | `notes` | - | 특이사항, 결정 근거, 후속 작업 제안 |
 
-### 2-5. 부서장 → pipeline-orchestrator (종합 보고)
+### 2-5. 부서장 → 커맨드(메인) (종합 보고)
 
-부서장이 오케스트레이터에게 종합 결과를 보고하는 항목입니다.
+부서장이 **메인 대화**에 종합 결과를 보고하는 항목입니다. 메인은 이 결과를 받아 필요 시 orchestrator에게 다음 Phase 게이트 조언을 재요청합니다.
 
 | 항목 | 필수 | 설명 |
 |------|------|------|
@@ -120,10 +142,10 @@ pipeline-orchestrator (총괄 지휘)
 
 **품질 상태 정의:**
 
-| 상태 | 의미 | 오케스트레이터 행동 |
-|------|------|---------------------|
+| 상태 | 의미 | 메인(orchestrator 조언 반영) 행동 |
+|------|------|------------------------------------|
 | `PASS` | 모든 품질 기준 충족 | 다음 Phase 진행 |
-| `FAIL` | 필수 품질 기준 미충족 | 재작업 지시 또는 에스컬레이션 |
+| `FAIL` | 필수 품질 기준 미충족 | 재작업 지시 또는 에스컬레이션 (메인이 orchestrator에 게이트 재판정 요청) |
 | `CONDITIONAL` | 필수 충족, 권장 미충족 | 조건부 진행 (이슈 기록 후 계속) |
 
 ## 3. 부서장 결정 규칙
@@ -148,7 +170,7 @@ pipeline-orchestrator (총괄 지휘)
 
 ### 3-2. 파일 패턴 기반 결정 (태그 없을 때)
 
-태그가 없으면 pipeline-orchestrator가 변경 대상 파일 패턴으로 판단합니다.
+태그가 없으면 메인이 pipeline-orchestrator에게 라우팅 조언을 요청하고, orchestrator는 변경 대상 파일 패턴을 기준으로 부서장을 권고합니다. 메인은 조언에 따라 직접 Agent tool로 부서장을 spawn합니다.
 
 | 파일 패턴 | 부서장 |
 |-----------|--------|
@@ -162,13 +184,13 @@ pipeline-orchestrator (총괄 지휘)
 ### 3-3. 혼합 패턴 (복수 부서)
 
 변경 대상이 여러 부서에 걸치면:
-1. 파일 수 기준 **주요 부서장**을 1명 선정 (전체 조율 책임)
-2. 나머지 부서장은 **협력 부서장**으로 병렬 위임
-3. cross-department-coordinator가 부서 간 인터페이스 조율
+1. orchestrator가 파일 수 기준 **주요 부서장**을 1명 조언 (전체 조율 책임)
+2. 나머지 부서장은 **협력 부서장**으로 권고 — 메인이 순차 또는 병렬로 직접 spawn
+3. cross-department-coordinator가 부서 간 인터페이스 조율 (메인이 필요 시 별도 spawn)
 
 ## 4. 핸드오프 체크리스트
 
-Phase 전환 시 pipeline-orchestrator가 확인하는 항목입니다.
+Phase 전환 시 메인이 pipeline-orchestrator에게 게이트 조언을 요청하면서 함께 확인하는 항목입니다. (orchestrator는 체크리스트 판정 결과를 조언 응답에 포함해 반환하며, 실제 Phase 전환 실행은 메인이 수행합니다.)
 
 ### Phase 전환 공통 체크리스트
 
@@ -192,28 +214,34 @@ Phase 전환 시 pipeline-orchestrator가 확인하는 항목입니다.
 
 ## 5. 에스컬레이션 경로
 
-문제 발생 시 단계적으로 상위로 에스컬레이션합니다.
+문제 발생 시 단계적으로 상위로 에스컬레이션합니다. 2단 위임 구조에서는 에스컬레이션의 최종 실행 주체가 **메인 대화**이며, orchestrator는 조언 반환을 통해 메인의 판단을 돕습니다.
 
 ```
-에이전트 (자체 해결 시도)
+도메인 specialist (자체 해결 시도, 선택적 레벨)
   │ 실패
   ▼
-부서장 (대안 전략 수립, 다른 에이전트 재배정)
-  │ 실패
+부서장 (대안 전략 수립, specialist 재호출 1회 또는 직접 수행)
+  │ 실패 또는 부서 범위 초과
   ▼
-pipeline-orchestrator (Phase 재설계, 롤백, 스킵 판단)
-  │ 실패 또는 사용자 판단 필요
+커맨드(메인 대화)
+  │  ├─ pipeline-orchestrator에 조언 요청 (Phase 재설계/롤백/스킵 판단 권고)
+  │  └─ 필요 시 cross-department-coordinator 또는 타 부서장 추가 spawn
+  │ 실패 또는 전략 판단 필요
   ▼
 사용자 (AskUserQuestion으로 최종 결정)
 ```
+
+**중첩 Task tool 위반 감지 시 (CHAIN_VIOLATION):**
+- 서브에이전트(orchestrator 포함)가 Task tool을 호출하려 시도하는 정황이 감지되면 **즉시 중단** 하고 `agents/pipeline-orchestrator.md` §"에스컬레이션 경고 반환 조건"에 따라 `CHAIN_VIOLATION` 경고를 응답 상단에 반환합니다. 메인이 해당 경고를 파싱해 직접 부서장을 spawn합니다.
 
 ### 에스컬레이션 트리거 조건
 
 | 레벨 | 트리거 | 예시 |
 |------|--------|------|
-| 에이전트 → 부서장 | 작업 실패, 모호한 요구사항, 권한 밖 작업 | 빌드 실패, API 스키마 불일치 |
-| 부서장 → 오케스트레이터 | 부서 내 해결 불가, 부서 간 충돌, 품질 기준 미달 | 프론트-백엔드 인터페이스 불일치, 테스트 커버리지 기준 미달 |
-| 오케스트레이터 → 사용자 | Phase 전체 실패, 롤백 필요, 전략적 판단 필요 | 핵심 기능 구현 불가, 일정 초과, 아키텍처 변경 필요 |
+| specialist → 부서장 | 작업 실패, 모호한 요구사항, 권한 밖 작업 | 빌드 실패, API 스키마 불일치 |
+| 부서장 → 메인 | 부서 내 해결 불가, 부서 간 충돌, 품질 기준 미달, specialist spawn 실패 | 프론트-백엔드 인터페이스 불일치, 테스트 커버리지 기준 미달, harness가 중첩 spawn 차단 |
+| 메인 → orchestrator(조언) | Phase 재설계/롤백 판단 필요 | 핵심 기능 구현 불가, 일정 초과, 아키텍처 변경 필요 |
+| 메인 → 사용자 | orchestrator 조언 반영 후에도 전략 판단 필요 | 스코프 확장, 파이프라인 중단 판단 |
 
 ### 에스컬레이션 메시지 형식
 
@@ -231,9 +259,22 @@ pipeline-orchestrator (Phase 재설계, 롤백, 스킵 판단)
 
 | 상황 | 행동 |
 |------|------|
-| 린트/타입 에러 | 에이전트가 자동 수정 → 재검증 |
-| 테스트 1~2개 실패 | 에이전트가 수정 시도 (최대 2회) → 실패 시 부서장 |
-| 빌드 실패 | 부서장이 원인 분석 → 에이전트 재배정 |
-| 전체 테스트 실패 | 즉시 오케스트레이터 에스컬레이션 |
-| 보안 Critical 발견 | 즉시 오케스트레이터 에스컬레이션 → 사용자 보고 |
+| 린트/타입 에러 | 부서장/specialist가 자동 수정 → 재검증 |
+| 테스트 1~2개 실패 | 부서장이 수정 시도 (최대 2회) → 실패 시 메인 보고 |
+| 빌드 실패 | 부서장이 원인 분석 → 필요 시 specialist 1회 재spawn, 그래도 실패 시 메인 보고 |
+| 전체 테스트 실패 | 즉시 메인 에스컬레이션 → orchestrator 조언 요청 |
+| 보안 Critical 발견 | 즉시 메인 에스컬레이션 → orchestrator 조언 + 사용자 보고 |
 | 요구사항 모호 | 즉시 사용자 에스컬레이션 (AskUserQuestion) |
+| 중첩 Task tool 호출 시도 감지 | **CHAIN_VIOLATION 경고 반환, 계획 수립 중단** — 메인이 직접 부서장 spawn |
+| Write/Edit 권한 에러 | **재시도 0회, 즉시 메인 에스컬레이션** (CLAUDE.md §6 Critical Gotchas) |
+
+## 6. viz 이벤트 emit 책임
+
+각 레벨에서 emit해야 하는 viz 이벤트 타입을 명시합니다. 세부 규약은 CLAUDE.md §4, `references/_shared_common.md`를 따릅니다.
+
+| 레벨 | 허용 이벤트 | 비고 |
+|------|------------|------|
+| 커맨드(메인) | `pipeline_start`, `pipeline_end`, `step_start`, `step_end`, `error`, `recover` | 커맨드 레벨에서만 pipeline_*/step_* emit 가능 |
+| 부서장 | 자기 자신의 `agent_start`, `agent_end` | call_id는 spawn 시 메인이 할당 전달 |
+| 도메인 specialist | 자기 자신의 `agent_start`, `agent_end` | 부서장이 spawn한 경우에만 |
+| pipeline-orchestrator (조언자) | emit 직접 수행 없음 | 조언 응답 안에 **emit 권고 커맨드를 텍스트로 포함**하여 메인이 실행하도록 지시 |

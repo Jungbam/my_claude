@@ -27,26 +27,22 @@ Glob으로 `.crew/config.md`가 존재하는지 확인합니다. 없으면:
 
 `.crew/config.md`와 `.crew/board.md`를 읽어 현재 상태를 파악합니다.
 
-## Phase 1: PRD 작성 (기획부장 위임)
+> **위임 체계 (Canonical)**: 이 커맨드는 `_shared_common.md` §위임 원칙 + 부록 **루프 B**(Advised)를 따른다. 메인(커맨드)이 부서장을 **직접** Task tool로 spawn하며, pipeline-orchestrator는 조언자(Advisor) 모드로 1회만 호출된다. orchestrator를 경유한 중첩 spawn 금지(harness 깊이 2 제약).
 
-pipeline-orchestrator에게 PRD 작성을 지시합니다.
+## Phase 1: PRD 작성 — 루프 A (Simple, 단일 부서장 직접 spawn)
 
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**):
+Phase 1은 단일 도메인(기획)이므로 **루프 A**를 따른다. orchestrator 조언을 생략하고 메인이 product-strategy(기획부장)를 직접 호출한다.
 
-> **기획 시작 — PRD 작성**
->
-> **위임 메시지:**
-> ```
-> phase: 1
-> slug: {slug}
-> pipeline_type: plan
-> context:
->   config: .crew/config.md
->   feature_description: {$ARGUMENTS}
-> ```
->
-> **수행할 작업:**
-> product-strategy(기획부장)에게 PRD 작성을 위임합니다:
+Bash로 step_start + agent_start emit:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
+[ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 1 "PRD 작성" "Phase 1: 기획"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "product-strategy-1-$(date -u +%Y%m%d)" "product-strategy" "sonnet" "Phase 1: PRD 작성"
+```
+
+Task tool, subagent_type: **"bams-plugin:product-strategy"**, model: **"sonnet"** — 메인이 직접 호출:
+
+> **기획 Phase 1 — PRD 작성**
 >
 > ```
 > task_description: "피처 요청을 분석하고 구조화된 PRD를 작성하라"
@@ -65,70 +61,117 @@ pipeline-orchestrator에게 PRD 작성을 지시합니다.
 >   - 미결 질문 명시
 > ```
 >
-> product-strategy는 내부적으로 business-analysis, ux-research 에이전트를 활용하여 PRD를 작성합니다.
-> 기존 코드베이스 구조는 Glob과 Read 도구로 직접 파악합니다.
+> 기획부장은 도메인 내 business-analysis / ux-research specialist를 **최대 1회** 추가 spawn 가능(harness 깊이 2 한도).
 >
 > **미결 질문이 있으면** 반드시 보고하세요.
 
-pipeline-orchestrator가 반환한 후, 출력을 주의 깊게 읽습니다.
+반환 후 agent_end + step_end emit:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "product-strategy-1-$(date -u +%Y%m%d)" "product-strategy" "success" {duration_ms} "PRD 작성 완료"
+[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 1 "done" {duration_ms}
+```
 
 **미결 질문이 있으면**: 불릿 포인트로 사용자에게 제시합니다. Phase 2로 진행하기 전에 사용자의 답변을 기다립니다. 이 단계를 절대 건너뛰지 마세요. 답변을 받은 후 PRD에 반영합니다.
 
-## Phase 2: 기능 명세 + 기술 설계 (기획부장 + 개발부장 병렬 위임)
+## Phase 2: 기능 명세 + 기술 설계 — 루프 B (Advised, 다부서 병렬 직접 spawn)
 
-pipeline-orchestrator에게 기능 명세와 기술 설계를 지시합니다.
+Phase 2는 기획/개발 **다부서** 병렬 트랙이므로 **루프 B**를 따른다. orchestrator를 Advisor로 1회 호출하여 라우팅/게이트 권고를 받은 뒤, 메인이 권고된 부서장들을 단일 메시지 내 복수 Task 호출로 **직접 병렬 spawn**한다.
 
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**):
+### Phase 2-a. pipeline-orchestrator 조언 요청 (Advisor)
 
-> **기획 Phase 2 — 기능 명세 + 기술 설계 (병렬)**
+Bash로 step_start + agent_start emit:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
+[ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 2 "명세+설계 계획" "Phase 2: Advisor"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-2-$(date -u +%Y%m%d)" "pipeline-orchestrator" "sonnet" "Phase 2: 기능명세+기술설계 조언 요청"
+```
+
+Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"** — **조언자 모드**:
+
+> **Plan Phase 2 Advisor 호출 — 기능 명세 + 기술 설계 라우팅 권고**
 >
-> **위임 메시지:**
+> **컨텍스트:**
 > ```
 > phase: 2
 > slug: {slug}
 > pipeline_type: plan
-> context:
->   prd: .crew/artifacts/prd/{slug}-prd.md
->   config: .crew/config.md
+> prd: .crew/artifacts/prd/{slug}-prd.md
+> config: .crew/config.md
 > ```
 >
-> **수행할 작업 (병렬 위임):**
->
-> 1. product-strategy(기획부장)에게 business-analysis를 통한 기능 명세 작성을 위임:
-> ```
-> task_description: "PRD를 기반으로 상세 기능 명세를 작성하라"
-> input_artifacts:
->   - .crew/artifacts/prd/{slug}-prd.md
->   - .crew/config.md
-> expected_output:
->   type: functional_spec
->   paths: [.crew/artifacts/design/{slug}-spec.md]
-> quality_criteria:
->   - 화면/API별 상세 동작 명세 완성
->   - 데이터 모델 정의
->   - 상태 전이 다이어그램 (필요 시)
->   - 에러 시나리오 및 처리 방법
->   - 외부 시스템 연동 명세
-> ```
->
-> 2. 개발부장에게 프론트엔드/백엔드 기술 설계를 병렬 위임:
->    - frontend-engineering: 컴포넌트 구조, 상태 관리, 라우팅, 스타일링, 파일 목록
->    - backend-engineering: API 엔드포인트, DB 스키마, 비즈니스 로직, 인증/권한, 파일 목록
-> ```
-> task_description: "PRD를 기반으로 프론트엔드/백엔드 기술 설계를 병렬로 작성하라"
-> input_artifacts:
->   - .crew/artifacts/prd/{slug}-prd.md
->   - .crew/config.md
-> expected_output:
->   type: technical_design
->   paths: [.crew/artifacts/design/{slug}-design.md]
-> quality_criteria:
->   - 컴포넌트 구조 명확
->   - API 엔드포인트 정의 완료
->   - 데이터 흐름 명시
-> ```
->
-> **기대 산출물**: 기능 명세, 기술 설계 (기획부장 + 개발부장 병렬 결과)
+> **요청:** 메인이 병렬 spawn할 부서장 목록과 위임 메시지 템플릿(기능 명세는 product-strategy, FE/BE 기술 설계는 frontend-engineering / backend-engineering), 산출물 경로, 게이트 조건을 Advisor Response로 반환하세요. 직접 spawn 금지(harness 깊이 2 제약).
+
+반환 후 agent_end emit + Advisor Response 파싱 + CHAIN_VIOLATION 체크:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-2-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Phase 2 Advisor 응답 수신"
+[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 2 "done" {duration_ms}
+```
+
+### Phase 2-b. 메인이 부서장 3트랙 병렬 직접 spawn
+
+Bash로 step_start + 3개 agent_start 일괄 emit:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
+[ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 3 "명세+설계 병렬 실행" "Phase 2: 실행"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "product-strategy-2-$(date -u +%Y%m%d)" "product-strategy" "sonnet" "Phase 2: 기능 명세"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "frontend-engineering-2-$(date -u +%Y%m%d)" "frontend-engineering" "sonnet" "Phase 2: FE 기술 설계"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "backend-engineering-2-$(date -u +%Y%m%d)" "backend-engineering" "sonnet" "Phase 2: BE 기술 설계"
+```
+
+**단일 메시지에 3개 Task tool 호출을 동시에 발행하여 메인이 직접 병렬 spawn:**
+
+1. Task tool, subagent_type: **"bams-plugin:product-strategy"**, model: **"sonnet"**
+   > **Plan Phase 2 — 기능 명세**
+   > ```
+   > task_description: "PRD를 기반으로 상세 기능 명세를 작성하라"
+   > input_artifacts: [.crew/artifacts/prd/{slug}-prd.md, .crew/config.md]
+   > expected_output: { type: functional_spec, paths: [.crew/artifacts/design/{slug}-spec.md] }
+   > quality_criteria:
+   >   - 화면/API별 상세 동작 명세 완성
+   >   - 데이터 모델 정의
+   >   - 상태 전이 다이어그램 (필요 시)
+   >   - 에러 시나리오 및 처리 방법
+   >   - 외부 시스템 연동 명세
+   > ```
+   > 기획부장은 business-analysis specialist를 최대 1회 추가 spawn 가능.
+
+2. Task tool, subagent_type: **"bams-plugin:frontend-engineering"**, model: **"sonnet"**
+   > **Plan Phase 2 — FE 기술 설계**
+   > ```
+   > task_description: "PRD를 기반으로 프론트엔드 기술 설계를 작성하라"
+   > input_artifacts: [.crew/artifacts/prd/{slug}-prd.md, .crew/config.md]
+   > expected_output: { type: technical_design_fe, paths: [.crew/artifacts/design/{slug}-design-fe.md] }
+   > quality_criteria:
+   >   - 컴포넌트 구조 명확
+   >   - 상태 관리/라우팅/스타일링 전략
+   >   - 파일 목록
+   > ```
+
+3. Task tool, subagent_type: **"bams-plugin:backend-engineering"**, model: **"sonnet"**
+   > **Plan Phase 2 — BE 기술 설계**
+   > ```
+   > task_description: "PRD를 기반으로 백엔드 기술 설계를 작성하라"
+   > input_artifacts: [.crew/artifacts/prd/{slug}-prd.md, .crew/config.md]
+   > expected_output: { type: technical_design_be, paths: [.crew/artifacts/design/{slug}-design-be.md] }
+   > quality_criteria:
+   >   - API 엔드포인트 정의 완료
+   >   - DB 스키마 / 비즈니스 로직
+   >   - 인증/권한
+   >   - 파일 목록
+   > ```
+
+3개 반환 후 agent_end 일괄 emit + step_end:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "product-strategy-2-$(date -u +%Y%m%d)" "product-strategy" "success" {duration_ms} "기능 명세 완료"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "frontend-engineering-2-$(date -u +%Y%m%d)" "frontend-engineering" "success" {duration_ms} "FE 설계 완료"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "backend-engineering-2-$(date -u +%Y%m%d)" "backend-engineering" "success" {duration_ms} "BE 설계 완료"
+[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 3 "done" {duration_ms}
+```
+
+**기대 산출물**: 기능 명세, FE 기술 설계, BE 기술 설계 (3트랙 병렬 결과)
 
 ## Phase 3: 태스크 분해
 

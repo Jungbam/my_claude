@@ -37,31 +37,47 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 **dev 리뷰 캐시**: `/bams:dev`에서 이미 리뷰 완료된 경우 `.crew/artifacts/review/[slug]-review.md`가 존재하고, 리뷰 이후 코드 변경이 없으면 (`git diff --stat [review-commit]..HEAD`가 비어있으면) **5관점 리뷰를 스킵**하고 기존 리뷰 결과를 재활용합니다. 변경이 있으면 변경분만 리뷰합니다.
 
-리뷰 캐시가 없으면 pipeline-orchestrator에게 5관점 리뷰를 지시합니다.
+리뷰 캐시가 없으면 **루프 B — Advisor 조언 후 메인이 qa-strategy 직접 spawn, QA부장은 내부에서 5관점 specialist 병렬 실행.**
 
-Bash로 agent_start를 emit합니다:
+### Step 4-a. pipeline-orchestrator 조언 요청 (Advisor)
+
+Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-4-$(date -u +%Y%m%d)" "pipeline-orchestrator" "sonnet" "Step 4: 5관점 코드 리뷰 위임"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-4-$(date -u +%Y%m%d)" "pipeline-orchestrator" "opus" "Step 4: 5관점 리뷰 조언 요청"
 ```
 
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**):
+Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"opus"** — **조언자 모드**:
 
-> **Phase 3 검증 실행 — 5관점 코드 리뷰**
+> **Phase 3 Step 4 Advisor 호출 — 5관점 코드 리뷰 라우팅 권고**
 >
-> **위임 메시지:**
+> **컨텍스트:**
 > ```
 > phase: 3
 > slug: {slug}
 > pipeline_type: feature
-> context:
->   prd: .crew/artifacts/prd/{slug}-prd.md
->   design: .crew/artifacts/design/{slug}-design.md
->   changed_files: [{수정/생성된 모든 파일 목록}]
->   config: .crew/config.md
+> prd: .crew/artifacts/prd/{slug}-prd.md
+> design: .crew/artifacts/design/{slug}-design.md
+> changed_files: [{수정/생성된 모든 파일 목록}]
+> config: .crew/config.md
 > ```
 >
-> **수행할 작업:**
-> qa-strategy(QA부장)에게 5관점 코드 리뷰를 위임합니다:
+> **요청:** 메인이 직접 spawn할 부서장(qa-strategy 권고)과 위임 메시지 템플릿, 5관점(기능적 정확성, 보안, 성능, 코드 품질, 유지보수성) 커버리지 요구사항, Phase 3 게이트 기준을 Advisor Response로 반환하세요. 직접 spawn 금지(harness 깊이 2 제약).
+
+반환 후 agent_end emit + Advisor Response 파싱 + CHAIN_VIOLATION 체크:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-4-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 4 Advisor 응답 수신"
+```
+
+### Step 4-b. 메인이 qa-strategy(QA부장) 직접 spawn
+
+Bash로 agent_start emit:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "qa-strategy-4-$(date -u +%Y%m%d)" "qa-strategy" "sonnet" "Step 4: 5관점 코드 리뷰"
+```
+
+Task tool, subagent_type: **"bams-plugin:qa-strategy"**, model: **"sonnet"** — 메인이 직접 호출:
+
+> **Phase 3 Step 4 — 5관점 병렬 코드 리뷰**
 >
 > ```
 > task_description: "5관점 병렬 코드 리뷰를 실행하라"
@@ -79,13 +95,13 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 >   - {관련 gotchas를 중점 확인 대상으로 전달}
 > ```
 >
-> QA부장은 내부적으로 automation-qa 에이전트를 활용하여 5관점 리뷰를 병렬 실행합니다.
+> QA부장은 자신의 도메인 내에서 automation-qa specialist를 최대 1회 추가 spawn 가능(harness 깊이 2 한도). 5관점 리뷰는 QA부장 내부에서 단일 specialist 호출 또는 순차 분석으로 병합 처리합니다.
 >
 > **기대 산출물**: 5관점 리뷰 리포트
 
-orchestrator 반환 후, Bash로 agent_end를 emit합니다:
+반환 후 agent_end emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-4-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 4 완료: 5관점 코드 리뷰 완료"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "qa-strategy-4-$(date -u +%Y%m%d)" "qa-strategy" "success" {duration_ms} "Step 4 완료: 5관점 코드 리뷰 완료"
 ```
 
 **Critical 이슈 발견 시:** 사용자에게 제시 후 수정+재리뷰 제안.
@@ -106,35 +122,47 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 7 "보안 감사" "Phase 3: 검증"
 ```
 
-pipeline-orchestrator에게 3개 검증을 병렬로 지시합니다.
+**루프 B — Advisor 조언 후 메인이 qa-strategy + product-analytics 병렬 직접 spawn.**
 
-Bash로 agent_start를 emit합니다:
+### Step 5-6-7-a. pipeline-orchestrator 조언 요청 (Advisor)
+
+Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-567-$(date -u +%Y%m%d)" "pipeline-orchestrator" "sonnet" "Step 5-6-7: QA + 성능 + 보안 병렬 위임"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-567-$(date -u +%Y%m%d)" "pipeline-orchestrator" "opus" "Step 5-6-7: QA/성능/보안 조언 요청"
 ```
 
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**):
+Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"opus"** — **조언자 모드**:
 
-> **Phase 3 검증 실행 — QA + 성능 + 보안 병렬**
+> **Phase 3 Step 5-6-7 Advisor 호출 — QA + 성능 + 보안 라우팅 권고**
 >
-> **위임 메시지:**
+> **컨텍스트:**
 > ```
 > phase: 3
 > slug: {slug}
 > pipeline_type: feature
-> context:
->   prd: .crew/artifacts/prd/{slug}-prd.md
->   design: .crew/artifacts/design/{slug}-design.md
->   changed_files: [{수정/생성된 모든 파일 목록}]
->   config: .crew/config.md
->   review_report: .crew/artifacts/review/{slug}-review.md
+> prd: .crew/artifacts/prd/{slug}-prd.md
+> design: .crew/artifacts/design/{slug}-design.md
+> changed_files: [{수정/생성된 모든 파일 목록}]
+> config: .crew/config.md
+> review_report: .crew/artifacts/review/{slug}-review.md
 > ```
 >
-> **수행할 작업 (2개 부서장 병렬 위임):**
->
-> **1. qa-strategy(QA부장)에게 브라우저 QA + 보안 감사 위임:**
->
-> Step 5 — 브라우저 QA:
+> **요청:** 병렬 spawn할 부서장 목록(qa-strategy — 브라우저 QA + 보안 감사, product-analytics — 성능 베이스라인 권고), 각 부서장별 위임 메시지 템플릿, 스킵 조건(보안 관련 파일 변경 없음, 기존 성능 베이스라인 존재), Phase 3 게이트 기준을 Advisor Response로 반환하세요. 직접 spawn 금지.
+
+반환 후 agent_end emit + Advisor Response 파싱 + CHAIN_VIOLATION 체크:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-567-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 5-6-7 Advisor 응답 수신"
+```
+
+### Step 5-6-7-b. 메인이 QA부장 + 평가부장 병렬 직접 spawn (단일 메시지 복수 Task)
+
+병렬 호출 전 2개의 agent_start를 일괄 emit (qa-strategy / product-analytics).
+
+**단일 메시지에 2개 Task tool 호출을 묶어** 병렬 spawn합니다:
+
+1. Task tool, subagent_type: **"bams-plugin:qa-strategy"**, model: **"sonnet"** — 브라우저 QA + 보안 감사 (Step 5 + Step 7):
+
+> **Step 5 — 브라우저 QA:**
 > ```
 > task_description: "브라우저 기반 QA 테스트를 실행하라"
 > input_artifacts:
@@ -149,7 +177,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 > ```
 > URL 있으면 `_QA_SKILL` 실행. URL은 config.md에서 확인하거나 AskUserQuestion.
 >
-> Step 7 — 보안 감사:
+> **Step 7 — 보안 감사:**
 > ```
 > task_description: "보안 감사를 실행하라"
 > input_artifacts:
@@ -161,12 +189,13 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 >   - OWASP Top 10 체크
 >   - 시크릿 노출 확인
 > ```
-> `git diff --name-only` 기반으로 보안 관련 파일(인증, 암호화, .env, 의존성 등) 변경 여부 확인.
-> 변경 없으면 건너뜀. 변경 있거나 이전 감사 없으면 `_CSO_SKILL` 실행 (일일 모드).
+> `git diff --name-only` 기반으로 보안 관련 파일(인증, 암호화, .env, 의존성 등) 변경 여부 확인. 변경 없으면 건너뜀. 변경 있거나 이전 감사 없으면 `_CSO_SKILL` 실행(일일 모드).
 >
-> **2. product-analytics(평가부장)에게 성능 베이스라인 위임:**
->
-> Step 6 — 성능 베이스라인:
+> QA부장은 automation-qa / defect-triage specialist를 최대 1회 추가 spawn 가능(harness 깊이 2).
+
+2. Task tool, subagent_type: **"bams-plugin:product-analytics"**, model: **"sonnet"** — 성능 베이스라인 (Step 6):
+
+> **Step 6 — 성능 베이스라인:**
 > ```
 > task_description: "성능 베이스라인을 측정하라"
 > input_artifacts:
@@ -178,14 +207,15 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 >   - Core Web Vitals 측정
 >   - 이전 베이스라인 대비 비교 (있는 경우)
 > ```
-> `performance-*.md` 중 `mode: baseline`, `status: completed` 파일 확인.
-> 없으면 `_BENCHMARK_SKILL`로 `--baseline` 캡처, 있으면 비교 모드.
+> `performance-*.md` 중 `mode: baseline`, `status: completed` 파일 확인. 없으면 `_BENCHMARK_SKILL`로 `--baseline` 캡처, 있으면 비교 모드.
 >
-> **기대 산출물**: QA 리포트, 성능 리포트, 보안 리포트
+> 평가부장은 performance-evaluation specialist를 최대 1회 추가 spawn 가능.
 
-orchestrator 반환 후, Bash로 agent_end를 emit합니다:
+병렬 완료 후 2개의 agent_end를 일괄 emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-567-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 5-6-7 완료: QA + 성능 + 보안 검증 완료"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "qa-strategy-567-$(date -u +%Y%m%d)" "qa-strategy" "success" {duration_ms} "QA + 보안 감사 완료"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "product-analytics-567-$(date -u +%Y%m%d)" "product-analytics" "success" {duration_ms} "성능 베이스라인 완료"
 ```
 
 3개 결과를 모두 수집한 후, 각 Step의 완료 이벤트를 Bash로 실행합니다:
@@ -205,44 +235,85 @@ Bash로 다음을 실행합니다:
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 8 "CI/CD 프리플라이트" "Phase 3: 검증"
 ```
 
-pipeline-orchestrator에게 Phase 전환 핸드오프를 지시합니다.
+**루프 B — Advisor 조언 + 게이트 판정 후 메인이 platform-devops → cross-department-coordinator 순차/병렬 직접 spawn.**
 
-Bash로 agent_start를 emit합니다:
+### Step 8-a. pipeline-orchestrator 조언 요청 (Advisor)
+
+Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-8-$(date -u +%Y%m%d)" "pipeline-orchestrator" "sonnet" "Step 8: CI/CD + 검증→배포 핸드오프 위임"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-8-$(date -u +%Y%m%d)" "pipeline-orchestrator" "opus" "Step 8: CI/CD + 검증→배포 게이트 조언"
 ```
 
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**):
+Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"opus"** — **조언자 모드**:
 
-> **Phase 3 CI/CD + Phase 3 → Phase 4 핸드오프 실행**
+> **Phase 3 CI/CD + Phase 3 → Phase 4 Advisor 호출**
 >
-> **위임 메시지:**
+> **컨텍스트:**
 > ```
 > phase: 3→4 handoff
 > slug: {slug}
 > pipeline_type: feature
-> context:
->   prd: .crew/artifacts/prd/{slug}-prd.md
->   review_report: .crew/artifacts/review/{slug}-review.md
->   qa_report: .crew/artifacts/qa/{slug}-qa.md
->   performance_report: .crew/artifacts/performance/{slug}-performance.md
->   security_report: .crew/artifacts/security/{slug}-security.md
->   config: .crew/config.md
+> prd: .crew/artifacts/prd/{slug}-prd.md
+> review_report: .crew/artifacts/review/{slug}-review.md
+> qa_report: .crew/artifacts/qa/{slug}-qa.md
+> performance_report: .crew/artifacts/performance/{slug}-performance.md
+> security_report: .crew/artifacts/security/{slug}-security.md
+> config: .crew/config.md
 > ```
 >
-> **수행할 작업:**
-> 1. platform-devops에게 CI/CD 프리플라이트를 위임 (`/bams:verify` 실행):
->    - 빌드, 린트, 타입체크, 테스트 실행
->    - FAIL 시 자동 수정 (최대 2회) / 수동 / 무시 선택
-> 2. Phase 게이트 판단: Phase 3 완료 조건 검증 (테스트 전체 통과, QA 리포트 생성, 성능 기준 충족, 코드 리뷰 승인, 보안 스캔 통과)
-> 3. cross-department-coordinator에게 검증→배포 핸드오프 조율 위임
-> 4. executive-reporter에게 Phase 3 완료 상태 보고 요청
+> **요청:**
+> 1. 메인이 spawn할 부서장 목록(platform-devops — CI/CD 프리플라이트 `/bams:verify`, cross-department-coordinator — 검증→배포 핸드오프 조율 권고)과 위임 메시지 템플릿.
+> 2. Phase 3 완료 조건 판정(GO/NO-GO/CONDITIONAL-GO) — 테스트 전체 통과, QA 리포트 생성, 성능 기준 충족, 코드 리뷰 승인, 보안 스캔 통과.
 >
-> **기대 산출물**: CI/CD 결과, Phase 게이트 판단 결과 (GO/NO-GO/CONDITIONAL-GO)
+> 직접 spawn 금지. Advisor Response로 반환.
 
-orchestrator 반환 후, Bash로 agent_end를 emit합니다:
+반환 후 agent_end emit + Advisor Response 파싱 + CHAIN_VIOLATION 체크:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-8-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 8 완료: CI/CD + 검증→배포 핸드오프 완료"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-8-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 8 Advisor 응답 수신"
+```
+
+### Step 8-b. 메인이 platform-devops 직접 spawn (CI/CD 프리플라이트)
+
+Bash로 agent_start emit:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "platform-devops-8-$(date -u +%Y%m%d)" "platform-devops" "sonnet" "Step 8: CI/CD 프리플라이트"
+```
+
+Task tool, subagent_type: **"bams-plugin:platform-devops"**, model: **"sonnet"** — 메인이 직접 호출:
+
+> **CI/CD 프리플라이트 실행 (`/bams:verify`)**
+>
+> - 빌드, 린트, 타입체크, 테스트 실행
+> - FAIL 시 자동 수정(최대 2회) / 수동 / 무시 선택 — 결과 보고
+>
+> **기대 산출물**: CI/CD 결과 리포트
+
+반환 후 agent_end emit:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "platform-devops-8-$(date -u +%Y%m%d)" "platform-devops" "success" {duration_ms} "Step 8 CI/CD 완료"
+```
+
+### Step 8-c. 메인이 cross-department-coordinator 직접 spawn (검증→배포 핸드오프)
+
+Advisor 판정이 GO 또는 CONDITIONAL-GO인 경우에 진행. NO-GO이면 미충족 항목을 사용자에게 보고하고 해결 후 재시도.
+
+Bash로 agent_start emit:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "cross-department-coordinator-8-$(date -u +%Y%m%d)" "cross-department-coordinator" "sonnet" "Step 8: 검증→배포 핸드오프 조율"
+```
+
+Task tool, subagent_type: **"bams-plugin:cross-department-coordinator"**, model: **"sonnet"** — 메인이 직접 호출:
+
+> **Phase 3→4 핸드오프 조율**
+>
+> - QA부장/평가부장 산출물이 배포 단계에 올바르게 전달되는지 확인
+> - 배포 대상 아티팩트, 릴리스 노트 입력 확인
+>
+> **기대 산출물**: 핸드오프 체크리스트 결과
+
+반환 후 agent_end emit:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "cross-department-coordinator-8-$(date -u +%Y%m%d)" "cross-department-coordinator" "success" {duration_ms} "Step 8 검증→배포 핸드오프 완료"
 ```
 
 **Phase 게이트 결과가 NO-GO이면**: 미충족 항목을 사용자에게 보고하고, 해결 후 재시도합니다.

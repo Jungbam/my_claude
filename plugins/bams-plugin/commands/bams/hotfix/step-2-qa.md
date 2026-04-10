@@ -20,31 +20,17 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 **스킬 미설치 시**: `skipped` 기록.
 
-pipeline-orchestrator에게 QA 검증을 지시합니다.
+**루프 A — 단일 부서장 직접 spawn (QA 검증은 qa-strategy 단일 책임).**
 
-Bash로 agent_start를 emit합니다:
+Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-2-$(date -u +%Y%m%d)" "pipeline-orchestrator" "sonnet" "Step 2: QA 검증 위임"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "qa-strategy-2-$(date -u +%Y%m%d)" "qa-strategy" "sonnet" "Step 2: 핫픽스 QA 검증"
 ```
 
-서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"sonnet"**):
+Task tool, subagent_type: **"bams-plugin:qa-strategy"**, model: **"sonnet"** — 메인이 직접 호출:
 
-> **핫픽스 QA 검증 모드** — 수정 사항의 회귀 여부를 빠르게 검증합니다.
+> **Hotfix Step 2 — 핫픽스 회귀 테스트**
 >
-> **위임 메시지:**
-> ```
-> phase: 2
-> slug: {slug}
-> pipeline_type: hotfix
-> context:
->   fix_artifacts: .crew/artifacts/hotfix/{slug}-triage.md
-> constraints:
->   urgency: critical
->   scope: regression_only
-> ```
->
-> **수행할 작업:**
-> qa-strategy(QA부장)에게 테스트 계획 수립을 위임합니다:
 > ```
 > task_description: "핫픽스 회귀 테스트 계획을 수립하고 automation-qa로 실행하라"
 > input_artifacts:
@@ -54,13 +40,16 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 > quality_criteria:
 >   - 수정된 영역 회귀 테스트 포함
 >   - 관련 사이드 이펙트 체크 포함
+> constraints:
+>   urgency: critical
+>   scope: regression_only
 > ```
 >
-> qa-strategy는 내부적으로 automation-qa 에이전트를 활용하여 테스트를 실행합니다.
+> QA부장은 automation-qa specialist를 최대 1회 추가 spawn 가능(harness 깊이 2 한도)하여 테스트를 실행합니다.
 
-orchestrator 반환 후, Bash로 agent_end를 emit합니다:
+반환 후 agent_end emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-2-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 2 완료: QA 검증 완료"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "qa-strategy-2-$(date -u +%Y%m%d)" "qa-strategy" "success" {duration_ms} "Step 2 QA 검증 완료"
 ```
 
 AskUserQuestion — "브라우저 QA 테스트를 진행할까요?"

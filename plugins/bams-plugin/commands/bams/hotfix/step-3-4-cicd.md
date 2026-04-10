@@ -19,36 +19,82 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 4 "출시 준비 검토" "Phase 3: 배포 준비"
 ```
 
-### Step 3 — CI/CD 프리플라이트
+**루프 B — Advisor 조언 후 메인이 platform-devops + qa-strategy 병렬 직접 spawn.**
 
-Bash로 agent_start를 emit합니다:
+### Step 3-4-a. pipeline-orchestrator 조언 요청 (Advisor)
+
+Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-3-$(date -u +%Y%m%d)" "pipeline-orchestrator" "sonnet" "Step 3: CI/CD 프리플라이트 위임"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-34-$(date -u +%Y%m%d)" "pipeline-orchestrator" "opus" "Step 3-4: CI/CD + RQG 조언 요청"
 ```
 
-pipeline-orchestrator에게 CI/CD 검증을 지시합니다. orchestrator는 개발부장에게 `/bams:verify` 실행을 위임합니다. FAIL 시 자동 수정(최대 2회) / 수동 / 무시.
+Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, model: **"opus"** — **조언자 모드**:
 
-orchestrator 반환 후, Bash로 agent_end를 emit합니다:
+> **Hotfix Step 3-4 Advisor 호출 — CI/CD + 출시 준비 검토 라우팅 권고**
+>
+> **컨텍스트:**
+> ```
+> phase: 3-4
+> slug: {slug}
+> pipeline_type: hotfix
+> fix_artifacts: .crew/artifacts/hotfix/{slug}-triage.md
+> config: .crew/config.md
+> urgency: critical
+> ```
+>
+> **요청:** 메인이 병렬 spawn할 부서장 목록(platform-devops — `/bams:verify` CI/CD 프리플라이트, qa-strategy — release-quality-gate)과 각각의 위임 메시지 템플릿, 최적화 권고(verify PASS 전제 즉시 RQG 시작), Step 3-4 게이트 기준을 Advisor Response로 반환하세요. 직접 spawn 금지(harness 깊이 2 제약).
+
+반환 후 agent_end emit + Advisor Response 파싱 + CHAIN_VIOLATION 체크:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-3-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 3 완료: CI/CD 검증 완료"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-34-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 3-4 Advisor 응답 수신"
 ```
 
-### Step 4 — 출시 준비 검토 (Step 3 PASS 시)
+### Step 3-4-b. 메인이 platform-devops + qa-strategy 병렬 직접 spawn (단일 메시지 복수 Task)
 
-**스킬 미설치 시**: "수동 PR 생성" 안내 후 `skipped`.
+**스킬 미설치 시**: Step 4는 "수동 PR 생성" 안내 후 `skipped`.
 
-Bash로 agent_start를 emit합니다:
+병렬 호출 전 2개의 agent_start를 일괄 emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-4-$(date -u +%Y%m%d)" "pipeline-orchestrator" "sonnet" "Step 4: 출시 준비 검토 위임"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "platform-devops-3-$(date -u +%Y%m%d)" "platform-devops" "sonnet" "Step 3: CI/CD 프리플라이트"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "qa-strategy-4-$(date -u +%Y%m%d)" "qa-strategy" "sonnet" "Step 4: 출시 준비 검토"
 ```
 
-pipeline-orchestrator에게 출시 준비 검토를 지시합니다. orchestrator는 qa-strategy(QA부장)에게 release-quality-gate 실행을 위임합니다.
+**단일 메시지에 2개 Task tool 호출을 묶어** 병렬 spawn합니다:
 
-**최적화**: verify PASS 판정이 나오면 release-quality-gate는 verify 결과를 기다리지 않고 즉시 코드 리뷰 기반 검토를 시작합니다. verify 결과는 RQG에 후속 전달됩니다.
+1. Task tool, subagent_type: **"bams-plugin:platform-devops"**, model: **"sonnet"** — CI/CD 프리플라이트 (Step 3):
 
-orchestrator 반환 후, Bash로 agent_end를 emit합니다:
+> **Step 3 — CI/CD 프리플라이트 (`/bams:verify`)**
+> ```
+> task_description: "빌드/린트/타입체크/테스트를 실행하고 FAIL 시 자동 수정하라"
+> expected_output:
+>   type: verify_report
+> quality_criteria:
+>   - 빌드, 린트, 타입체크, 테스트 PASS
+>   - FAIL 시 자동 수정(최대 2회) / 수동 / 무시 결과 보고
+> ```
+
+2. Task tool, subagent_type: **"bams-plugin:qa-strategy"**, model: **"sonnet"** — 출시 준비 검토 (Step 4):
+
+> **Step 4 — 출시 준비 검토 (release-quality-gate)**
+> ```
+> task_description: "release-quality-gate를 실행하여 출시 준비를 검토하라"
+> input_artifacts:
+>   - .crew/artifacts/hotfix/{slug}-triage.md
+> expected_output:
+>   type: rqg_report
+> quality_criteria:
+>   - 출시 GO/NO-GO 판정
+>   - Critical 이슈 0건
+> ```
+>
+> **최적화**: verify PASS 전제로 즉시 코드 리뷰 기반 검토를 시작합니다. verify 결과는 RQG에 후속 전달됩니다. QA부장은 release-quality-gate specialist를 최대 1회 추가 spawn 가능.
+
+병렬 완료 후 2개의 agent_end를 일괄 emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-4-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 4 완료: 출시 준비 검토 완료"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "platform-devops-3-$(date -u +%Y%m%d)" "platform-devops" "success" {duration_ms} "Step 3 CI/CD 완료"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "qa-strategy-4-$(date -u +%Y%m%d)" "qa-strategy" "success" {duration_ms} "Step 4 RQG 완료"
 ```
 
 AskUserQuestion — "PR을 생성할까요?"

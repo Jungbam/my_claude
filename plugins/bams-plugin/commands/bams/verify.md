@@ -22,6 +22,8 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 `.crew/config.md`가 있으면 읽어서 프로젝트 설정(테스트 명령어, 빌드 명령어 등)을 파악합니다.
 `CLAUDE.md`가 있으면 읽어서 빌드/테스트 가이드라인을 파악합니다.
 
+> **위임 체계 (Canonical)**: 이 커맨드는 `_shared_common.md` §위임 원칙 + 부록 **루프 A**(Simple, 단일 도메인)를 따른다. 메인(커맨드)이 automation-qa와 release-quality-gate 에이전트를 **직접** Task tool로 spawn한다. orchestrator를 경유한 중첩 spawn 금지(harness 깊이 2 제약).
+
 ## Phase 1: 자동화 QA 검증
 
 Task tool을 사용하여 서브에이전트를 실행합니다 (subagent_type: **"bams-plugin:automation-qa"**, model: **"sonnet"**):

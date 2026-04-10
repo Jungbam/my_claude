@@ -5,15 +5,17 @@ argument-hint: "[all | {slug} | 빈값=최근5개]"
 
 # Bams: Retro
 
-파이프라인 이력 기반 에이전트 회고·평가·개선을 독립 실행합니다. 5개 Phase, 평가부서(product-analytics) + 총괄팀(pipeline-orchestrator) 주도.
+파이프라인 이력 기반 에이전트 회고·평가·개선을 독립 실행합니다. 5개 Phase, 평가부서(product-analytics) + 조언자(pipeline-orchestrator) 주도. **2단 위임 체계**: orchestrator는 조언자로만 호출되고, 메인이 각 Phase 파일의 지시에 따라 대상 에이전트를 직접 spawn합니다 (`_shared_common.md` §위임 원칙 + 부록 루프 A/B 준수).
 
 ```
-retro.md → pipeline-orchestrator
-             → [Phase 1] executive-reporter (이벤트 파싱) → product-analytics (지표 산출)
-             → [Phase 2] 각 부서장 병렬 (KPT 제출) → pipeline-orchestrator (종합)
-             → [Phase 3] product-analytics + performance-evaluation + business-kpi (병렬) + 각 부서장 (정성)
-             → [Phase 4] 각 부서장 (개선안) → pipeline-orchestrator (승인) → hr-agent (파일 수정)
-             → [Phase 5] executive-reporter (종합 보고서)
+retro.md (main) → [Phase N] pipeline-orchestrator (advisor)
+                         ↓ Advisor Response
+                  main → 대상 에이전트(들) 직접 spawn
+                    - Phase 1: executive-reporter, product-analytics
+                    - Phase 2: 참여 부서장(동적, 루프 B) 병렬
+                    - Phase 3: product-analytics/performance-evaluation/business-kpi 병렬 + 부서장(동적) 병렬
+                    - Phase 4: 부서장(동적) 개선안 → hr-agent 적용
+                    - Phase 5: executive-reporter 종합 보고서
 ```
 
 입력: $ARGUMENTS
