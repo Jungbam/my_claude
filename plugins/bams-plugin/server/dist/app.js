@@ -206,7 +206,8 @@ var RUN_LOG_ALLOWED_KEYS = [
   "pipeline_slug",
   "pipeline_type",
   "command",
-  "work_unit_slug"
+  "work_unit_slug",
+  "arguments"
 ];
 function sanitizeRunLogPayload(payload) {
   if (!payload || typeof payload !== "object")
@@ -580,10 +581,11 @@ class TaskDB {
     if (!pipelineId) {
       const pipeline = this.getPipelineBySlug(input.pipeline_slug);
       if (!pipeline && input.pipeline_slug) {
+        const autoStatus = input.event_type === "pipeline_end" ? "completed" : "running";
         pipelineId = this.upsertPipeline({
           slug: input.pipeline_slug,
           type: "auto-created",
-          status: "running",
+          status: autoStatus,
           started_at: new Date().toISOString()
         });
       } else {
@@ -916,7 +918,7 @@ function pushSseEvent(pipelineSlug, eventType, data) {
     payload: data
   });
 }
-var CORS_ORIGIN = process.env.CORS_ORIGIN ?? "http://localhost:3333";
+var CORS_ORIGIN = process.env.CORS_ORIGIN ?? "*";
 function corsHeaders() {
   return {
     "Access-Control-Allow-Origin": CORS_ORIGIN,
@@ -935,6 +937,69 @@ function jsonResponse(data, status = 200) {
 }
 function errorResponse(message, status = 400) {
   return jsonResponse({ error: message }, status);
+}
+var SAFE_PAYLOAD_KEYS = [
+  "step_number",
+  "step_name",
+  "phase",
+  "status",
+  "duration_ms",
+  "agent_type",
+  "model",
+  "description",
+  "call_id",
+  "is_error",
+  "error_message",
+  "result_summary",
+  "department",
+  "type",
+  "pipeline_slug",
+  "pipeline_type",
+  "command",
+  "work_unit_slug",
+  "arguments",
+  "message",
+  "total_steps",
+  "completed_steps",
+  "failed_steps"
+];
+function safeParsePayload(raw) {
+  if (!raw)
+    return {};
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+      return {};
+    const safe = Object.create(null);
+    for (const key of SAFE_PAYLOAD_KEYS) {
+      if (key in parsed)
+        safe[key] = parsed[key];
+    }
+    return safe;
+  } catch {
+    return {};
+  }
+}
+function mapPipelineEvent(e, fallbackSlug) {
+  return {
+    type: e.event_type,
+    pipeline_slug: e.pipeline_slug ?? fallbackSlug ?? null,
+    ts: e.ts,
+    call_id: e.call_id,
+    agent_type: e.agent_type,
+    department: e.department,
+    model: e.model,
+    step_number: e.step_number,
+    step_name: e.step_name,
+    phase: e.phase,
+    status: e.status,
+    duration_ms: e.duration_ms,
+    description: e.description,
+    result_summary: e.result_summary,
+    message: e.message,
+    is_error: e.is_error ? true : false,
+    ...safeParsePayload(e.payload)
+  };
 }
 function parseAgentInfo(slug) {
   const filePath = join3(AGENTS_DIR, `${slug}.md`);
@@ -1011,25 +1076,7 @@ async function handleRequest(req) {
     const tasks = db.getTasksByPipelineId(pipeline.id);
     const summary = db.getPipelineSummary(pipeline.id);
     const dbEvents = db.getPipelineEvents(slug);
-    const events = dbEvents.map((e) => ({
-      type: e.event_type,
-      pipeline_slug: slug,
-      ts: e.ts,
-      call_id: e.call_id,
-      agent_type: e.agent_type,
-      department: e.department,
-      model: e.model,
-      step_number: e.step_number,
-      step_name: e.step_name,
-      phase: e.phase,
-      status: e.status,
-      duration_ms: e.duration_ms,
-      description: e.description,
-      result_summary: e.result_summary,
-      message: e.message,
-      is_error: e.is_error ? true : false,
-      ...e.payload ? JSON.parse(e.payload) : {}
-    }));
+    const events = dbEvents.map((e) => mapPipelineEvent(e, slug));
     return jsonResponse({ slug, pipeline, events, tasks, summary });
   }
   if (method === "GET" && path === "/api/tasks") {
@@ -1182,7 +1229,7 @@ async function handleRequest(req) {
       work_unit_slug: wuSlug,
       ts: e.ts,
       pipeline_slug: e.pipeline_slug,
-      ...e.payload ? JSON.parse(e.payload) : {}
+      ...safeParsePayload(e.payload)
     }));
     const dbRows = db.getWorkUnitPipelines(wuSlug);
     const pipelines = dbRows.map((row) => ({
@@ -1580,49 +1627,13 @@ async function handleRequest(req) {
     const slug = decodeURIComponent(eventsRawSlugMatch[1]);
     const db = getDefaultDB();
     const dbEvents = db.getPipelineEvents(slug);
-    const events = dbEvents.map((e) => ({
-      type: e.event_type,
-      pipeline_slug: slug,
-      ts: e.ts,
-      call_id: e.call_id,
-      agent_type: e.agent_type,
-      department: e.department,
-      model: e.model,
-      step_number: e.step_number,
-      step_name: e.step_name,
-      phase: e.phase,
-      status: e.status,
-      duration_ms: e.duration_ms,
-      description: e.description,
-      result_summary: e.result_summary,
-      message: e.message,
-      is_error: e.is_error ? true : false,
-      ...e.payload ? JSON.parse(e.payload) : {}
-    }));
+    const events = dbEvents.map((e) => mapPipelineEvent(e, slug));
     return jsonResponse(events);
   }
   if (method === "GET" && path === "/api/events/raw/all") {
     const db = getDefaultDB();
     const dbEvents = db.getAllPipelineEvents();
-    const events = dbEvents.map((e) => ({
-      type: e.event_type,
-      pipeline_slug: e.pipeline_slug ?? null,
-      ts: e.ts,
-      call_id: e.call_id,
-      agent_type: e.agent_type,
-      department: e.department,
-      model: e.model,
-      step_number: e.step_number,
-      step_name: e.step_name,
-      phase: e.phase,
-      status: e.status,
-      duration_ms: e.duration_ms,
-      description: e.description,
-      result_summary: e.result_summary,
-      message: e.message,
-      is_error: e.is_error ? true : false,
-      ...e.payload ? JSON.parse(e.payload) : {}
-    }));
+    const events = dbEvents.map((e) => mapPipelineEvent(e));
     return jsonResponse(events);
   }
   if (method === "GET" && path === "/api/events/poll") {
@@ -1633,17 +1644,7 @@ async function handleRequest(req) {
     const pipelineFilter = url.searchParams.get("pipeline") ?? undefined;
     const db = getDefaultDB();
     const allEvents = db.getAllPipelineEvents(since);
-    let events = allEvents.map((e) => ({
-      type: e.event_type,
-      pipeline_slug: e.pipeline_slug ?? null,
-      ts: e.ts,
-      call_id: e.call_id,
-      agent_type: e.agent_type,
-      status: e.status,
-      duration_ms: e.duration_ms,
-      is_error: e.is_error ? true : false,
-      ...e.payload ? JSON.parse(e.payload) : {}
-    }));
+    let events = allEvents.map((e) => mapPipelineEvent(e));
     if (pipelineFilter) {
       events = events.filter((e) => e.pipeline_slug === pipelineFilter);
     }
@@ -1657,38 +1658,10 @@ async function handleRequest(req) {
     let agentEvents;
     if (workUnitFilter) {
       const wuEvents = db.getPipelineEventsByWorkUnit(workUnitFilter);
-      agentEvents = wuEvents.filter((e) => e.event_type === "agent_start" || e.event_type === "agent_end").map((e) => ({
-        type: e.event_type,
-        pipeline_slug: e.pipeline_slug,
-        ts: e.ts,
-        call_id: e.call_id,
-        agent_type: e.agent_type,
-        department: e.department,
-        model: e.model,
-        status: e.status,
-        duration_ms: e.duration_ms,
-        description: e.description,
-        result_summary: e.result_summary,
-        is_error: e.is_error ? true : false,
-        ...e.payload ? JSON.parse(e.payload) : {}
-      }));
+      agentEvents = wuEvents.filter((e) => e.event_type === "agent_start" || e.event_type === "agent_end").map((e) => mapPipelineEvent(e));
     } else {
       const rawEvents = db.getAgentEvents(date && date !== "all" ? date : undefined, pipelineFilter ?? undefined);
-      agentEvents = rawEvents.map((e) => ({
-        type: e.event_type,
-        pipeline_slug: e.pipeline_slug ?? undefined,
-        ts: e.ts,
-        call_id: e.call_id,
-        agent_type: e.agent_type,
-        department: e.department,
-        model: e.model,
-        status: e.status,
-        duration_ms: e.duration_ms,
-        description: e.description,
-        result_summary: e.result_summary,
-        is_error: e.is_error ? true : false,
-        ...e.payload ? JSON.parse(e.payload) : {}
-      }));
+      agentEvents = rawEvents.map((e) => mapPipelineEvent(e));
     }
     const startMap = new Map;
     const calls = [];
@@ -1830,25 +1803,7 @@ async function handleRequest(req) {
       return errorResponse(`Pipeline not found: ${slug}`, 404);
     }
     const dbEvents = db.getPipelineEvents(slug);
-    const events = dbEvents.map((e) => ({
-      type: e.event_type,
-      pipeline_slug: slug,
-      ts: e.ts,
-      call_id: e.call_id,
-      agent_type: e.agent_type,
-      department: e.department,
-      model: e.model,
-      step_number: e.step_number,
-      step_name: e.step_name,
-      phase: e.phase,
-      status: e.status,
-      duration_ms: e.duration_ms,
-      description: e.description,
-      result_summary: e.result_summary,
-      message: e.message,
-      is_error: e.is_error ? true : false,
-      ...e.payload ? JSON.parse(e.payload) : {}
-    }));
+    const events = dbEvents.map((e) => mapPipelineEvent(e, slug));
     return jsonResponse({ slug, events });
   }
   if (method === "GET" && path === "/api/traces") {
@@ -1860,25 +1815,7 @@ async function handleRequest(req) {
     } else {
       dbEvents = db.getAllPipelineEvents();
     }
-    const events = dbEvents.map((e) => ({
-      type: e.event_type,
-      pipeline_slug: e.pipeline_slug ?? pipelineFilter ?? null,
-      ts: e.ts,
-      call_id: e.call_id,
-      agent_type: e.agent_type,
-      department: e.department,
-      model: e.model,
-      step_number: e.step_number,
-      step_name: e.step_name,
-      phase: e.phase,
-      status: e.status,
-      duration_ms: e.duration_ms,
-      description: e.description,
-      result_summary: e.result_summary,
-      message: e.message,
-      is_error: e.is_error ? true : false,
-      ...e.payload ? JSON.parse(e.payload) : {}
-    }));
+    const events = dbEvents.map((e) => mapPipelineEvent(e, pipelineFilter));
     return jsonResponse({ events });
   }
   const traceDetailMatch = path.match(/^\/api\/traces\/([^/]+)$/);
@@ -1886,25 +1823,7 @@ async function handleRequest(req) {
     const traceId = decodeURIComponent(traceDetailMatch[1]);
     const db = getDefaultDB();
     const dbEvents = db.getPipelineEvents(traceId);
-    const events = dbEvents.map((e) => ({
-      type: e.event_type,
-      pipeline_slug: traceId,
-      ts: e.ts,
-      call_id: e.call_id,
-      agent_type: e.agent_type,
-      department: e.department,
-      model: e.model,
-      step_number: e.step_number,
-      step_name: e.step_name,
-      phase: e.phase,
-      status: e.status,
-      duration_ms: e.duration_ms,
-      description: e.description,
-      result_summary: e.result_summary,
-      message: e.message,
-      is_error: e.is_error ? true : false,
-      ...e.payload ? JSON.parse(e.payload) : {}
-    }));
+    const events = dbEvents.map((e) => mapPipelineEvent(e, traceId));
     return jsonResponse({ traceId, events });
   }
   if (method === "GET" && path === "/api/stats/agents") {
@@ -2027,14 +1946,6 @@ async function handleRequest(req) {
             phase: body.phase ?? undefined,
             ts
           });
-          if (pipelineSlug) {
-            safeInsertRunLog(db, {
-              pipeline_slug: pipelineSlug,
-              agent_slug: "pipeline",
-              event_type: "step_start",
-              payload: body
-            });
-          }
           pushSseEvent(pipelineSlug, "step_start", body);
           break;
         }
@@ -2047,14 +1958,6 @@ async function handleRequest(req) {
             duration_ms: body.duration_ms ?? undefined,
             ts
           });
-          if (pipelineSlug) {
-            safeInsertRunLog(db, {
-              pipeline_slug: pipelineSlug,
-              agent_slug: "pipeline",
-              event_type: "step_end",
-              payload: body
-            });
-          }
           pushSseEvent(pipelineSlug, "step_end", body);
           break;
         }
@@ -2100,32 +2003,32 @@ async function handleRequest(req) {
             is_error: isError,
             ts
           });
+          const pipeline = pipelineSlug ? db.getPipelineBySlug(pipelineSlug) : null;
+          const resolvedPipelineId = pipeline?.id;
           if (pipelineSlug) {
             safeInsertRunLog(db, {
               pipeline_slug: pipelineSlug,
+              pipeline_id: resolvedPipelineId,
               run_id: callId || undefined,
               agent_slug: agentType,
               event_type: "agent_end",
               payload: body
             });
           }
-          if (pipelineSlug) {
+          if (pipelineSlug && pipeline) {
             try {
-              const pipeline = db.getPipelineBySlug(pipelineSlug);
-              if (pipeline) {
-                const taskTitle = `[${agentType}] ${resultSummary.slice(0, 120) || "\uC791\uC5C5 \uC644\uB8CC"}`;
-                const taskDesc = resultSummary || `Agent: ${agentType}, Call ID: ${callId}`;
-                db.createTask({
-                  pipeline_id: pipeline.id,
-                  title: taskTitle,
-                  description: taskDesc,
-                  assignee_agent: agentType,
-                  label: callId || undefined,
-                  duration_ms: durationMs ?? undefined,
-                  summary: resultSummary || undefined,
-                  tags: [agentType, isError ? "error" : agentStatus]
-                });
-              }
+              const taskTitle = `[${agentType}] ${resultSummary.slice(0, 120) || "\uC791\uC5C5 \uC644\uB8CC"}`;
+              const taskDesc = resultSummary || `Agent: ${agentType}, Call ID: ${callId}`;
+              db.createTask({
+                pipeline_id: pipeline.id,
+                title: taskTitle,
+                description: taskDesc,
+                assignee_agent: agentType,
+                label: callId || undefined,
+                duration_ms: durationMs ?? undefined,
+                summary: resultSummary || undefined,
+                tags: [agentType, isError ? "error" : agentStatus]
+              });
             } catch (taskErr) {
               console.error("[bams-server] agent_end task logging failed (non-fatal):", taskErr);
             }

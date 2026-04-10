@@ -19,17 +19,31 @@ _SAFE_SLUG=$(echo "${PARENT_PIPELINE_SLUG}" | sed "s/'/''/g")
 
 if [ -n "${PARENT_PIPELINE_SLUG}" ] && [ "${PARENT_PIPELINE_SLUG}" != "없음" ]; then
   _PARENT_WU=""
-  # API 우선 조회 — 단건 조회로 효율화
-  _P_JSON=$(curl -sf "http://localhost:3099/api/pipelines/${PARENT_PIPELINE_SLUG}" 2>/dev/null)
+
+  # URL-safe 인코딩 (jq 우선, 없으면 python3 fallback)
+  if command -v jq &>/dev/null; then
+    _ENCODED_SLUG=$(printf '%s' "${PARENT_PIPELINE_SLUG}" | jq -sRr @uri)
+  else
+    _ENCODED_SLUG=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "${PARENT_PIPELINE_SLUG}")
+  fi
+
+  # API 우선 조회 — 단건 조회로 효율화 (URL-encoded slug 사용)
+  _P_JSON=$(curl -sf "http://localhost:3099/api/pipelines/${_ENCODED_SLUG}" 2>/dev/null)
   if [ -n "$_P_JSON" ]; then
     _PARENT_WU=$(echo "$_P_JSON" | jq -r '.pipeline.work_unit_slug // empty' 2>/dev/null)
   fi
-  # API 실패 시 DB fallback (sanitized slug 사용)
+
+  # API 실패 시 DB fallback — slug 화이트리스트 검증 후 sanitized slug 사용
   if [ -z "$_PARENT_WU" ] && [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
-    _PARENT_WU=$(sqlite3 "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" "SELECT wu.slug FROM pipelines p JOIN work_units wu ON p.work_unit_id = wu.id WHERE p.slug = '${_SAFE_SLUG}'" 2>/dev/null)
+    # slug 화이트리스트 검증 — 한글, 영숫자, 하이픈, 언더스코어만 허용
+    if printf '%s' "${PARENT_PIPELINE_SLUG}" | grep -qP '^[\w가-힣\-]+$'; then
+      _PARENT_WU=$(sqlite3 "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" "SELECT wu.slug FROM pipelines p JOIN work_units wu ON p.work_unit_id = wu.id WHERE p.slug = '${_SAFE_SLUG}'" 2>/dev/null)
+    fi
   fi
+
   if [ -n "$_PARENT_WU" ]; then
     SELECTED_WU_SLUG="$_PARENT_WU"
+    _WU_SOURCE="inherited"
     echo "Parent pipeline '${PARENT_PIPELINE_SLUG}'의 WU 자동 상속: ${SELECTED_WU_SLUG}"
   fi
 fi
@@ -39,6 +53,6 @@ fi
 
 ## 주의사항
 
-- API 단건 조회(`/api/pipelines/${slug}`)를 우선 사용하여 전체 목록 조회를 피합니다.
-- DB fallback에서는 `_SAFE_SLUG`(작은따옴표 이스케이프 처리)를 사용합니다.
-- 한글 slug(`hotfix_빌드에러수정` 등)도 정상 동작합니다.
+- API 단건 조회(`/api/pipelines/${_ENCODED_SLUG}`)를 우선 사용하여 전체 목록 조회를 피합니다. 한글 slug는 URL-encode 처리됩니다.
+- DB fallback에서는 slug 화이트리스트 검증(한글/영숫자/하이픈/언더스코어만 허용)을 통과한 경우에만 실행합니다.
+- WU 상속 성공 시 `_WU_SOURCE="inherited"` 플래그가 설정됩니다. `_shared_common.md`의 WU 선택 섹션은 이 플래그로 스킵 여부를 판단합니다.

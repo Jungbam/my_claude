@@ -49,6 +49,7 @@ const RUN_LOG_ALLOWED_KEYS = [
   "agent_type", "model", "description", "call_id", "is_error",
   "error_message", "result_summary", "department", "type",
   "pipeline_slug", "pipeline_type", "command", "work_unit_slug",
+  "arguments",
 ] as const;
 
 function sanitizeRunLogPayload(payload: unknown): string | null {
@@ -829,10 +830,14 @@ export class TaskDB {
       const pipeline = this.getPipelineBySlug(input.pipeline_slug);
       if (!pipeline && input.pipeline_slug) {
         // N-M1: auto-create pipeline (insertPipelineEvent와 동일 패턴)
+        // N-M2: event_type 기반 status 분기 — insertPipelineEvent와 일관성 통일
+        const autoStatus = input.event_type === "pipeline_end"
+          ? "completed"
+          : "running";
         pipelineId = this.upsertPipeline({
           slug: input.pipeline_slug,
           type: "auto-created",
-          status: "running",
+          status: autoStatus,
           started_at: new Date().toISOString(),
         });
       } else {
