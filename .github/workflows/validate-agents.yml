@@ -12,6 +12,7 @@ on:
       - 'plugins/bams-plugin/commands/bams/init.md'
       - 'plugins/bams-plugin/plugin.json'
       - 'plugins/bams-plugin/references/agent-tool-policy.md'
+      - 'plugins/bams-plugin/server/src/app.ts'
       - 'CLAUDE.md'
       - '.github/workflows/validate-agents.yml'
   push:

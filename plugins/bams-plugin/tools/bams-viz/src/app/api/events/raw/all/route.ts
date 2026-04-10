@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server'
 
 const BAMS_SERVER = process.env.BAMS_SERVER_URL ?? 'http://localhost:3099'
-const corsHeaders = { 'Access-Control-Allow-Origin': '*' }
+
+function headers(source: string) {
+  return { 'Access-Control-Allow-Origin': '*', 'X-Data-Source': source }
+}
 
 export async function GET() {
   try {
@@ -11,11 +14,14 @@ export async function GET() {
     if (res.ok) {
       return new Response(await res.text(), {
         status: res.status,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        headers: { 'Content-Type': 'application/json', ...headers('api') },
       })
     }
-    return NextResponse.json([], { headers: corsHeaders })
-  } catch {
-    return NextResponse.json([], { headers: corsHeaders })
+    console.error(`[events/raw/all] bams-server responded ${res.status}`)
+    return NextResponse.json([], { headers: headers('error') })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    console.error(`[events/raw/all] bams-server fetch failed: ${message}`)
+    return NextResponse.json([], { headers: headers('error') })
   }
 }

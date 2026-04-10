@@ -31,7 +31,7 @@ pipeline-orchestrator는 Task 호출자가 아닌 **조언자(advisor)** 로서 
 - 경영지원(독립): **executive-reporter**, **resource-optimizer**, **hr-agent**, **cross-department-coordinator**
 - 조언자(Task 비호출): **pipeline-orchestrator**
 
-> TODO (Phase B): 조직도 개편 시 engineering 부서를 FE/BE/인프라로 공식 분할 예정. 현재는 jojikdo.json의 단일 engineering 부서 표현을 유지합니다.
+> engineering 부서는 engineering-frontend, engineering-backend, engineering-platform 3개 부서로 공식 분할 완료 (2026-04-09, dev_개발부서3분할공식화).
 
 각 부서장은 자신의 도메인 내에서 산출물을 직접 생성하거나, 필요 시 소속 specialist 1명을 추가 spawn하여 하위 작업을 수행하고, 결과를 종합해 **메인 대화**에 보고합니다. pipeline-orchestrator는 이 과정 중간에 **메인이 호출할 때만** 조언을 반환합니다 (Task 호출자 아님).
 

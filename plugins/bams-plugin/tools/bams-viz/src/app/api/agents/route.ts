@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
       })
     }
     // Return empty agent data shape on error
+    console.error(`[agents] bams-server responded ${res.status}`)
     return NextResponse.json({
       calls: [],
       stats: [],
@@ -38,6 +39,7 @@ export async function GET(request: NextRequest) {
     }, { headers: headers('error') })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Internal server error'
+    console.error(`[agents] bams-server fetch failed: ${message}`)
     return NextResponse.json({ error: message }, { status: 500, headers: headers('error') })
   }
 }

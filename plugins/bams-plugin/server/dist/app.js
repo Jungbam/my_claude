@@ -1,17 +1,17 @@
 // @bun
 var __require = import.meta.require;
 
-// plugins/bams-plugin/server/src/app.ts
+// src/app.ts
 import { readFileSync, existsSync as existsSync2, readdirSync } from "fs";
 import { join as join3 } from "path";
 
-// plugins/bams-plugin/tools/bams-db/index.ts
+// ../tools/bams-db/index.ts
 import { Database } from "bun:sqlite";
 import { homedir } from "os";
 import { join } from "path";
 import { randomUUID } from "crypto";
 
-// plugins/bams-plugin/tools/bams-db/schema.ts
+// ../tools/bams-db/schema.ts
 var TASKS_TABLE_DDL = `
   CREATE TABLE IF NOT EXISTS tasks (
     id                  TEXT PRIMARY KEY,           -- UUID (crypto.randomUUID())
@@ -186,7 +186,7 @@ var WORK_UNITS_TABLE_DDL = `
   );
 `;
 
-// plugins/bams-plugin/tools/bams-db/index.ts
+// ../tools/bams-db/index.ts
 var DEFAULT_DB_PATH = join(homedir(), ".claude", "plugins", "marketplaces", "my-claude", "bams.db");
 
 class TaskDB {
@@ -647,7 +647,7 @@ function getDefaultWorkUnitDB() {
   return _defaultWorkUnitDb;
 }
 
-// plugins/bams-plugin/server/src/sse-broker.ts
+// src/sse-broker.ts
 import { Database as Database2 } from "bun:sqlite";
 import { randomUUID as randomUUID2 } from "crypto";
 import { existsSync, mkdirSync } from "fs";
@@ -820,11 +820,8 @@ function getBroker() {
   return _broker;
 }
 
-// plugins/bams-plugin/server/src/app.ts
+// src/app.ts
 var PORT = parseInt(process.env.BAMS_SERVER_PORT ?? "3099", 10);
-var HOME_DIR = process.env.HOME ?? process.env.USERPROFILE ?? "";
-var GLOBAL_ROOT = process.env.BAMS_ROOT ?? (HOME_DIR ? `${HOME_DIR}/.bams` : ".crew");
-var PIPELINE_EVENTS_DIR = `${GLOBAL_ROOT}/artifacts/pipeline`;
 var AGENTS_DIR = "plugins/bams-plugin/agents";
 function pushSseEvent(pipelineSlug, eventType, data) {
   const broker = getBroker();
@@ -2095,27 +2092,9 @@ async function handleRequest(req) {
       return jsonResponse({ ok: false, error: String(err) }, 500);
     }
   }
-  if (method === "POST" && path === "/api/runs/events") {
-    let body;
-    try {
-      body = await req.json();
-    } catch {
-      return errorResponse("Invalid JSON body");
-    }
-    const broker = getBroker();
-    broker.pushEvent({
-      type: body.type,
-      pipeline_slug: body.pipeline_slug ?? "",
-      agent_slug: body.agent_slug ?? "system",
-      run_id: body.run_id ?? undefined,
-      ts: new Date().toISOString(),
-      payload: body.payload
-    });
-    return jsonResponse({ ok: true }, 201);
-  }
   return errorResponse(`Not found: ${method} ${path}`, 404);
 }
-console.log("[bams-server] DB is primary data source (JSONL sync disabled)");
+console.log("[bams-server] DB is primary data source");
 var server = Bun.serve({
   port: PORT,
   fetch: handleRequest,

@@ -30,7 +30,7 @@
 - 활성 WU 2개 이상이면 AskUserQuestion으로 사용자에게 선택 요청
 - 커맨드 레벨에서 임의로 WU 결정 금지 (`_shared_common.md` §Work Unit 선택 참조)
 
-## 2. 조직도 (6부서 27에이전트)
+## 2. 조직도 (8부서 27에이전트)
 
 | 부서 | 부서장 | 소속 에이전트 |
 |------|--------|--------------|
@@ -42,8 +42,6 @@
 | QA | qa-strategy | automation-qa, defect-triage, release-quality-gate |
 | 평가 | product-analytics | experimentation, performance-evaluation, business-kpi |
 | 경영지원 | executive-reporter, resource-optimizer, hr-agent, cross-department-coordinator | (각자 독립) |
-
-> 개발부서는 라우팅 편의상 FE/BE/인프라 3분할로 표현. jojikdo.json에서는 단일 engineering 부서. data-integration은 platform-devops 하위.
 
 **위임 라우팅 — 태그 우선, 파일 패턴 보조:**
 
@@ -151,6 +149,7 @@ hr_reports (독립)
 - **[G-B]** Agent tool 호출 시 `subagent_type` 필수 지정
 - **[G-C]** PRD DoD에 `pipeline_end` 기록 조건 포함 필수
 - **[G-D]** 부서장이 spawn한 모든 에이전트는 `agent_start` emit 의무화 (부서장 자신도 커맨드에 의해 spawn될 때 emit)
+- **[G-SIDECAR]** Tauri sidecar stale 시 빈 화면 — `curl localhost:3099/api/agents/data` 404면 `build-sidecar.sh` 재빌드 (상세: `.crew/gotchas.md`)
 - Tool 권한 에러(`Write`/`Edit` 금지) → **재시도 0회, 즉시 에스컬레이션**
 - 위임 20회 이상 예상 → **사전 분할 전략 필수** (Phase당 max 8회)
 

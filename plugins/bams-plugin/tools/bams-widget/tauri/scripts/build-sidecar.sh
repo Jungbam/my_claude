@@ -102,6 +102,19 @@ echo "[build-sidecar] size: $(du -sh "$OUTPUT_PATH" | cut -f1)"
 chmod +x "$OUTPUT_PATH"
 echo "[build-sidecar] executable: OK"
 
+# ── Dev mode sidecar 동기화 ──────────────────────────────────
+# Tauri dev 모드는 target/debug/bams-server에서 sidecar를 실행하므로
+# binaries/와 동일한 바이너리로 동기화한다.
+# target/debug/ 디렉토리가 없으면 조용히 스킵한다.
+
+DEV_SIDECAR_DIR="$TAURI_ROOT/src-tauri/target/debug"
+if [[ -d "$DEV_SIDECAR_DIR" ]]; then
+  cp "$OUTPUT_PATH" "$DEV_SIDECAR_DIR/bams-server" 2>/dev/null || true
+  echo "[build-sidecar] dev mode sync: $DEV_SIDECAR_DIR/bams-server"
+else
+  echo "[build-sidecar] dev mode sync: skipped (target/debug/ not found)"
+fi
+
 # ── 실행 가능 여부 확인 (현재 플랫폼과 타겟이 일치하는 경우) ───
 
 CURRENT_TARGET=""

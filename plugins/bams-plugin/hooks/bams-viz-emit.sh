@@ -66,7 +66,9 @@ fi
 dept_map() {
   case "$1" in
     product-strategy|business-analysis|ux-research|project-governance) echo "planning" ;;
-    frontend-engineering|backend-engineering|platform-devops|data-integration) echo "engineering" ;;
+    frontend-engineering) echo "engineering-frontend" ;;
+    backend-engineering) echo "engineering-backend" ;;
+    platform-devops|data-integration) echo "engineering-platform" ;;
     design-director|ui-designer|ux-designer|graphic-designer|motion-designer|design-system-agent) echo "design" ;;
     product-analytics|experimentation|performance-evaluation|business-kpi) echo "evaluation" ;;
     qa-strategy|automation-qa|defect-triage|release-quality-gate) echo "qa" ;;

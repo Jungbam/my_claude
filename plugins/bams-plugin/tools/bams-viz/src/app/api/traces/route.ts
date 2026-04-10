@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
       signal: AbortSignal.timeout(5000),
     })
     if (!res.ok) {
+      console.error(`[traces] bams-server responded ${res.status}`)
       return NextResponse.json([], { headers: headers('error') })
     }
     const data = await res.json()
@@ -51,6 +52,7 @@ export async function GET(request: NextRequest) {
     )
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Internal server error'
+    console.error(`[traces] bams-server fetch failed: ${message}`)
     return NextResponse.json({ error: message }, { status: 500, headers: headers('error') })
   }
 }
