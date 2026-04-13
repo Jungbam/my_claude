@@ -212,7 +212,6 @@ pipeline-orchestrator에게 다음 형식으로 보고한다 (delegation-protoco
 ## 메모리
 
 이 에이전트는 세션 간 학습과 컨텍스트를 `.crew/memory/{agent-slug}/` 디렉터리에 PARA 방식으로 영구 저장한다.
-전체 프로토콜: `.crew/references/memory-protocol.md`
 
 ### 세션 시작 시 로드
 

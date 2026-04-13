@@ -90,7 +90,7 @@ export const bamsApi = {
     pipelineId: string;
     status?: string;
   }): Promise<{ tasks: Task[]; count: number }> {
-    const qs = new URLSearchParams({ pipeline_id: params.pipelineId });
+    const qs = new URLSearchParams({ pipeline: params.pipelineId });
     if (params.status) qs.set("status", params.status);
     return apiFetch<{ tasks: Task[]; count: number }>(
       `/api/tasks?${qs.toString()}`

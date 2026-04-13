@@ -283,6 +283,9 @@ class TaskDB {
   getPipelines() {
     return this.db.prepare("SELECT * FROM pipelines ORDER BY created_at DESC").all();
   }
+  getPipelineById(id) {
+    return this.db.prepare("SELECT * FROM pipelines WHERE id = ?").get(id) ?? null;
+  }
   getPipelineBySlug(slug) {
     return this.db.prepare("SELECT * FROM pipelines WHERE slug = ?").get(slug) ?? null;
   }
@@ -747,9 +750,40 @@ class SseBroker {
   }
   initSchema() {
     this.db.exec(`
+      CREATE TABLE IF NOT EXISTS work_units (
+        id              TEXT PRIMARY KEY,
+        slug            TEXT NOT NULL UNIQUE,
+        name            TEXT,
+        status          TEXT NOT NULL DEFAULT 'active',
+        started_at      TEXT NOT NULL DEFAULT (datetime('now')),
+        ended_at        TEXT,
+        deleted_at      TEXT,
+        created_at      DATETIME NOT NULL DEFAULT (datetime('now'))
+      );
+    `);
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS pipelines (
+        id              TEXT PRIMARY KEY,
+        slug            TEXT NOT NULL UNIQUE,
+        work_unit_id    TEXT REFERENCES work_units(id),
+        type            TEXT NOT NULL,
+        command         TEXT,
+        status          TEXT NOT NULL DEFAULT 'running',
+        arguments       TEXT,
+        started_at      TEXT,
+        ended_at        TEXT,
+        duration_ms     INTEGER,
+        total_steps     INTEGER DEFAULT 0,
+        completed_steps INTEGER DEFAULT 0,
+        failed_steps    INTEGER DEFAULT 0,
+        created_at      DATETIME NOT NULL DEFAULT (datetime('now')),
+        updated_at      DATETIME NOT NULL DEFAULT (datetime('now'))
+      );
+    `);
+    this.db.exec(`
       CREATE TABLE IF NOT EXISTS run_logs (
         id              TEXT PRIMARY KEY,
-        pipeline_id     TEXT NOT NULL,
+        pipeline_id     TEXT NOT NULL REFERENCES pipelines(id),
         run_id          TEXT,
         agent_slug      TEXT NOT NULL,
         event_type      TEXT NOT NULL,
@@ -1122,7 +1156,7 @@ async function handleRequest(req) {
     }
     const updatedTask = db.getTask(taskId);
     if (updatedTask) {
-      const pipelineForTask = db.getPipelines().find((p) => p.id === updatedTask.pipeline_id);
+      const pipelineForTask = db.getPipelineById(updatedTask.pipeline_id);
       const pipelineSlugForSse = pipelineForTask?.slug ?? updatedTask.pipeline_id;
       pushSseEvent(pipelineSlugForSse, "task_updated", updatedTask);
     }
@@ -1195,7 +1229,7 @@ async function handleRequest(req) {
         pipelineCount: dbPipelines.length
       };
     });
-    return jsonResponse({ workunits: active });
+    return jsonResponse({ workunit: active[0] ?? null, workunits: active });
   }
   if (method === "GET" && path === "/api/workunits") {
     const wuDb = getDefaultWorkUnitDB();
@@ -2111,6 +2145,16 @@ async function handleRequest(req) {
       console.error("[bams-server] POST /api/events error:", err);
       return jsonResponse({ ok: false, error: String(err) }, 500);
     }
+  }
+  if (method === "POST" && path === "/api/costs") {
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return errorResponse("Invalid JSON body");
+    }
+    console.log("[costs] received:", body);
+    return jsonResponse({ ok: true });
   }
   return errorResponse(`Not found: ${method} ${path}`, 404);
 }

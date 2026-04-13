@@ -3,6 +3,8 @@ description: 5관점 병렬 코드 리뷰 + 릴리스 품질 게이트
 argument-hint: [파일, 디렉토리, 또는 "pr"]
 ---
 
+> **사용 시점**: 코드 변경 후 5관점 병렬 리뷰 + 릴리스 품질 게이트가 필요할 때. deep-review보다 경량.
+
 # Bams Review
 
 Bams 오케스트레이터로서 5개 전문 병렬 qa-strategy 에이전트를 활용한 다관점 코드 리뷰를 실행하고, release-quality-gate 에이전트로 최종 판정합니다.

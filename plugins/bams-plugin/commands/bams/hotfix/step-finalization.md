@@ -11,6 +11,13 @@
 
 ---
 
+## Step 4.5 시작 — Viz 이벤트
+
+Step 4.5 시작 전 step_start를 emit합니다:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 5 "에이전트 개선점 수집" "finalization"
+```
+
 ## Step 4.5: 에이전트 개선점 수집 (2단 위임 — 루프 A)
 
 > `_shared_common.md` §위임 원칙 + 부록 루프 A 준수. orchestrator는 조언자로만 호출하고, 메인이 직접 대상 에이전트(없음 — 메인 직접 수행)를 실행합니다. 본 Step은 실제 파일 생성만 수행하므로 orchestrator 조언 후 메인이 직접 처리합니다.
@@ -132,6 +139,13 @@ fi
 ```
 
 ---
+
+## Step 4.5 완료 — Viz 이벤트
+
+모든 finalization 작업 완료 후 step_end를 emit합니다:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 5 "done" {duration_ms}
+```
 
 ## Viz 이벤트: pipeline_end
 

@@ -54,6 +54,12 @@ lock 파일 제거 직전에 `pipeline_end` 이벤트를 기록합니다:
 bash hooks/bams-viz-emit.sh pipeline_end "{slug}" "{status}" {total_steps} {completed_steps} {failed_steps} {skipped_steps}
 ```
 
+**duration_ms 계산**: `pipeline_end`의 duration_ms는 `pipeline_start`부터 `pipeline_end`까지의 경과 시간(밀리초)이다. 커맨드 레벨에서 `$SECONDS` bash 변수를 활용하여 계산한다:
+```bash
+DURATION_MS=$((SECONDS * 1000))
+```
+`$SECONDS`는 bash 스크립트 시작 시점부터 자동 증가하므로, 파이프라인 시작 시점에 `SECONDS=0`으로 초기화하면 정확한 경과 시간을 얻을 수 있다.
+
 `{slug}-events.jsonl` 파일은 삭제하지 않습니다 (tracking 파일과 동일 생명주기).
 
 ## Step 4.7: 비용 요약 조회

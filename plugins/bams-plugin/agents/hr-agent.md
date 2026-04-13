@@ -12,6 +12,8 @@ disallowedTools: []
 
 ## 역할
 
+> **순환 참조 주의**: hr-agent는 jojikdo.json을 관리하는 동시에 자신도 jojikdo.json에 등록되어 있다. hr-agent 정의 변경 시 jojikdo.json 자동 갱신이 발생하므로, hr-agent 자체의 정의를 변경할 때는 orchestrator의 승인을 받는다.
+
 - 신규 에이전트의 역할/특성/스킬을 정의하고 표준 형식으로 문서화
 - 에이전트 등록: `agents/*.md` 파일 생성, `plugin.json` agents 배열 추가, `jojikdo.json` 조직도 반영, `agents-config.ts` viz 설정 반영
 - 기존 에이전트의 역할 변경, 부서 이동, 비활성화(퇴출) 처리
@@ -223,7 +225,6 @@ quality_criteria:
 ## 메모리
 
 이 에이전트는 세션 간 학습과 컨텍스트를 `.crew/memory/{agent-slug}/` 디렉터리에 PARA 방식으로 영구 저장한다.
-전체 프로토콜: `.crew/references/memory-protocol.md`
 
 ### 세션 시작 시 로드
 

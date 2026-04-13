@@ -366,9 +366,8 @@ async function handleRequest(req: Request): Promise<Response> {
     // SSE 이벤트 push
     const updatedTask = db.getTask(taskId);
     if (updatedTask) {
-      // 새 스키마: Task에 pipeline_slug 컬럼 없음, pipeline_id FK만 존재
-      // pipeline_id → pipeline slug 역조회 (getPipelines 전체 조회 후 id 매칭)
-      const pipelineForTask = db.getPipelines().find((p) => p.id === updatedTask.pipeline_id);
+      // m-15: pipeline_id → pipeline slug 역조회 (O(1) 단건 조회)
+      const pipelineForTask = db.getPipelineById(updatedTask.pipeline_id);
       const pipelineSlugForSse = pipelineForTask?.slug ?? updatedTask.pipeline_id;
       pushSseEvent(pipelineSlugForSse, "task_updated", updatedTask as unknown as Record<string, unknown>);
     }
@@ -469,7 +468,8 @@ async function handleRequest(req: Request): Promise<Response> {
         pipelineCount: dbPipelines.length,
       };
     });
-    return jsonResponse({ workunits: active });
+    // M-10: workunit 단수 키 추가 (하위 호환 — 양쪽 키 제공)
+    return jsonResponse({ workunit: active[0] ?? null, workunits: active });
   }
 
   // ── GET /api/workunits ──────────────────────────────────────
@@ -1625,6 +1625,18 @@ async function handleRequest(req: Request): Promise<Response> {
       console.error("[bams-server] POST /api/events error:", err);
       return jsonResponse({ ok: false, error: String(err) }, 500);
     }
+  }
+
+  // ── POST /api/costs (C-8→M: stub) ──────────────────────────
+  if (method === "POST" && path === "/api/costs") {
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return errorResponse("Invalid JSON body");
+    }
+    console.log("[costs] received:", body);
+    return jsonResponse({ ok: true });
   }
 
   // 404

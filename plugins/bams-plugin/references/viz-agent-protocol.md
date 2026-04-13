@@ -22,6 +22,10 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "{call_id}" "{agent_type}" "{status}" {duration_ms} "{result_summary}"
 ```
 
+## 상태 값 정의
+
+`{status}` 필드의 허용 값과 의미는 `references/step-status.md`를 참조합니다.
+
 ## 파라미터 규칙
 
 | 파라미터 | 형식 | 예시 |

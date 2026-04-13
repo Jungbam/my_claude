@@ -11,6 +11,11 @@
 
 ## Phase 1.5: Git 체크포인트
 
+Bash로 step_start를 emit합니다:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 5 "Git 체크포인트" "Phase 1.5: Git"
+```
+
 **AskUserQuestion**으로 체크포인트 방식을 선택받습니다:
 
 Question: "구현 시작 전 코드를 어떻게 보존할까요?"
@@ -25,4 +30,9 @@ Options:
 - **Stash 선택 시**: Bash로 `git stash push -m "bams/{slug} 작업 전 체크포인트"` 실행
 - **스킵 선택 시**: 바로 Phase 2로 진행
 
-완료 후 Phase 2 (구현)로 진행합니다.
+완료 후 step_end를 emit합니다:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 5 "{status}" {duration_ms}
+```
+
+Phase 2 (구현)로 진행합니다.

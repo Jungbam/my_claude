@@ -21,7 +21,8 @@
       "/private/tmp",
       "~/Library/Application Support/SwiftBar",
       "/Users/bamjung/Documents/ezar/claude/my_claude/.git",
-      "/Users/bamjung/.claude/skills"
+      "/Users/bamjung/.claude/skills",
+      "/Users/bamjung/.claude/plugins/cache/my-claude/bams-plugin/2.1.0"
     ]
   }
 }

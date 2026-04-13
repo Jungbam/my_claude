@@ -147,7 +147,6 @@ qa-strategy로부터 feature Phase 3 위임을 받지 않은 경우, pipeline-or
 ## 메모리
 
 이 에이전트는 세션 간 학습과 컨텍스트를 `.crew/memory/{agent-slug}/` 디렉터리에 PARA 방식으로 영구 저장한다.
-전체 프로토콜: `.crew/references/memory-protocol.md`
 
 ### 세션 시작 시 로드
 

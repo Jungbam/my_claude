@@ -60,6 +60,11 @@ total: [N]
 - ⚠ Docker mysql healthy 체크 없이 서버 기동 시 connection refused
 ```
 
+## 심각도 분류
+
+이슈 심각도 분류 기준은 `references/issue-severity.md`를 참조합니다.
+심각도에 따라 승격 우선순위와 대응 긴급도가 달라집니다.
+
 ## 자동 승격 규칙
 
 Pipeline Learnings → Gotchas 승격 조건:
@@ -68,7 +73,7 @@ Pipeline Learnings → Gotchas 승격 조건:
 |------|-----------|
 | 같은 영역/파일에 **3회 이상** 이슈 발생 | 자동 제안 (AskUserQuestion) |
 | hotfix 근본 원인이 **패턴 실수** | 자동 제안 |
-| 보안 감사에서 **Critical** 발견 | 자동 추가 |
+| 보안 감사에서 **Critical** 발견 | 자동 제안 (사용자 확인) |
 | 사용자가 "기억해" / "gotcha" 언급 | 즉시 추가 |
 
 ## 자동 강등/제거 규칙

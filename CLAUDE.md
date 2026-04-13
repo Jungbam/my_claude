@@ -41,7 +41,7 @@
 | 디자인 | design-director | ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent |
 | QA | qa-strategy | automation-qa, defect-triage, release-quality-gate |
 | 평가 | product-analytics | experimentation, performance-evaluation, business-kpi |
-| 경영지원 | executive-reporter, resource-optimizer, hr-agent, cross-department-coordinator | (각자 독립) |
+| 경영지원 | (독립 운영 — orchestrator 직접 조율) | executive-reporter, resource-optimizer, hr-agent, cross-department-coordinator |
 
 **위임 라우팅 — 태그 우선, 파일 패턴 보조:**
 
@@ -50,7 +50,7 @@
 | `frontend` / `*.tsx`, `src/app/**`, `src/components/**`, `*.css` | frontend-engineering |
 | `backend` / `src/app/api/**`, `*.server.ts`, `prisma/**` | backend-engineering |
 | `infra`/`devops` / `Dockerfile`, `.github/**` | platform-devops |
-| `data` / `*.sql`, `scripts/etl/**` | data-integration |
+| `data` / `*.sql`, `scripts/etl/**` | platform-devops |
 | `design`/`ui`/`ux` / `*.figma`, `design/**`, `src/assets/**` | design-director |
 | `qa` | qa-strategy |
 | `planning` | product-strategy |
@@ -73,6 +73,7 @@
 
 | 커맨드 | 설명 |
 |--------|------|
+| **파이프라인** | |
 | `/bams:init` | 프로젝트 초기화 |
 | `/bams:start` | 작업 단위(WU) 시작 |
 | `/bams:end` | 작업 단위 종료 |
@@ -81,8 +82,26 @@
 | `/bams:dev` | 멀티에이전트 풀 개발 파이프라인 |
 | `/bams:hotfix` | 버그 핫픽스 빠른 경로 |
 | `/bams:debug` | 버그 분류 → 수정 → 회귀 테스트 |
+| `/bams:deep-review` | 다관점 심층 코드 리뷰 (5관점 + 구조적 리뷰 + 세컨드 오피니언) |
 | `/bams:review` | 5관점 병렬 코드 리뷰 |
 | `/bams:ship` | PR 생성 + 머지 |
+| `/bams:deploy` | 출시 검증 + Land & Deploy |
+| `/bams:verify` | CI/CD 프리플라이트 (빌드, 린트, 타입체크, 테스트) |
+| `/bams:performance` | 성능 측정/최적화 (benchmark 기반) |
+| `/bams:security` | 보안 감사 (시크릿 체크 + OWASP/STRIDE) |
+| `/bams:retro` | 파이프라인 회고 + 에이전트 평가 |
+| `/bams:weekly` | 주간 루틴 (스프린트 마무리 + 회고 + 다음 계획) |
+| **부서 허브** | |
+| `/bams:engineering` | 개발부서 스킬 허브 (FE, BE, 플랫폼, 데이터) |
+| `/bams:planning` | 기획부서 스킬 허브 (전략, 분석, UX, 거버넌스) |
+| `/bams:evaluation` | 평가부서 스킬 허브 (분석, 실험, 성능, KPI) |
+| `/bams:qc` | QA부서 스킬 허브 (전략, 자동화, 결함, 출시 검증) |
+| `/bams:qa` | 브라우저 QA (자동화 테스트 + 브라우저 검증) |
+| **유틸리티** | |
+| `/bams:browse` | 인터랙티브 헤드리스 브라우저 |
+| `/bams:export` | 조직 설정을 이식 가능한 패키지로 내보내기 |
+| `/bams:import` | 패키지를 현재 프로젝트에 가져오기 |
+| `/bams:q` | 코드베이스 질문 (자동 범위 감지 + 코드 기반 답변) |
 | `/bams:status` | 프로젝트 대시보드 현황 |
 | `/bams:sprint` | 스프린트 플래닝 및 관리 |
 | `/bams:viz` | 파이프라인 실행 시각화 |
@@ -90,19 +109,21 @@
 ## 4. viz 이벤트 규칙
 
 ### emit 원칙
-- 커맨드 레벨(메인): `pipeline_start`/`pipeline_end`만 emit 가능
-- 나머지(`step_*`, `agent_*`, `error`): 커맨드 → 부서장 → (선택적) 도메인 에이전트 2단 위임 체계 내에서만 emit
+- 커맨드 레벨(메인): `pipeline_start`/`pipeline_end`, `step_start`/`step_end`, `recover`, `error` emit 가능
+- `agent_start`/`agent_end`: 커맨드 → 부서장 → (선택적) 에이전트 2단 위임 체계 내에서만 emit
 
-### 이벤트 타입 (8종)
+### 이벤트 타입 (10종)
 
 | 타입 | 필수 필드 |
 |------|----------|
 | `pipeline_start` | pipeline_slug, pipeline_type, command, arguments, work_unit_slug? |
-| `pipeline_end` | pipeline_slug, status(`completed`\|`failed`\|`paused`\|`rolled_back`), total_steps, completed_steps, failed_steps, duration_ms |
+| `pipeline_end` | pipeline_slug, status(`completed`\|`failed`\|`paused`\|`rolled_back`), total_steps, completed_steps, failed_steps, skipped_steps, duration_ms |
 | `step_start` | pipeline_slug, step_number, step_name, phase |
 | `step_end` | pipeline_slug, step_number, status(`done`\|`fail`\|`skipped`), duration_ms |
 | `agent_start` | call_id, agent_type, department, model, description, step_number |
 | `agent_end` | call_id, agent_type, is_error, status, duration_ms, result_summary |
+| `work_unit_start` | work_unit_slug, work_unit_name, started_at |
+| `work_unit_end` | work_unit_slug, status(`completed`\|`failed`\|`cancelled`), ended_at, duration_ms |
 | `error` | pipeline_slug, message, step_number |
 | `recover` | 중단된 이벤트 자동 정리 |
 

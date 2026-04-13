@@ -74,11 +74,43 @@ export class SseBroker {
     // run_logs 테이블은 TaskDB가 schema.ts의 RUN_LOGS_TABLE_DDL로 이미 생성함.
     // CREATE TABLE IF NOT EXISTS이므로 중복 실행해도 안전.
     // 여기서는 테이블이 없는 경우(TaskDB 미초기화 시)에만 생성.
-    // pipeline_id 컬럼 사용 (Batch 1에서 pipeline_slug → pipeline_id로 변경됨)
+    // M-8: pipelines 테이블 선행 생성하여 FK 대상 보장
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS work_units (
+        id              TEXT PRIMARY KEY,
+        slug            TEXT NOT NULL UNIQUE,
+        name            TEXT,
+        status          TEXT NOT NULL DEFAULT 'active',
+        started_at      TEXT NOT NULL DEFAULT (datetime('now')),
+        ended_at        TEXT,
+        deleted_at      TEXT,
+        created_at      DATETIME NOT NULL DEFAULT (datetime('now'))
+      );
+    `);
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS pipelines (
+        id              TEXT PRIMARY KEY,
+        slug            TEXT NOT NULL UNIQUE,
+        work_unit_id    TEXT REFERENCES work_units(id),
+        type            TEXT NOT NULL,
+        command         TEXT,
+        status          TEXT NOT NULL DEFAULT 'running',
+        arguments       TEXT,
+        started_at      TEXT,
+        ended_at        TEXT,
+        duration_ms     INTEGER,
+        total_steps     INTEGER DEFAULT 0,
+        completed_steps INTEGER DEFAULT 0,
+        failed_steps    INTEGER DEFAULT 0,
+        created_at      DATETIME NOT NULL DEFAULT (datetime('now')),
+        updated_at      DATETIME NOT NULL DEFAULT (datetime('now'))
+      );
+    `);
+    // M-8: run_logs DDL을 schema.ts의 RUN_LOGS_TABLE_DDL과 일치시킴 (FK 포함)
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS run_logs (
         id              TEXT PRIMARY KEY,
-        pipeline_id     TEXT NOT NULL,
+        pipeline_id     TEXT NOT NULL REFERENCES pipelines(id),
         run_id          TEXT,
         agent_slug      TEXT NOT NULL,
         event_type      TEXT NOT NULL,

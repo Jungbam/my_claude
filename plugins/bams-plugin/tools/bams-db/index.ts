@@ -192,6 +192,17 @@ export class TaskDB {
   }
 
   /**
+   * id로 파이프라인 단건 조회
+   */
+  getPipelineById(id: string): PipelineRow | null {
+    return (
+      this.db
+        .prepare<PipelineRow>("SELECT * FROM pipelines WHERE id = ?")
+        .get(id) ?? null
+    );
+  }
+
+  /**
    * slug로 파이프라인 조회
    */
   getPipelineBySlug(slug: string): PipelineRow | null {
