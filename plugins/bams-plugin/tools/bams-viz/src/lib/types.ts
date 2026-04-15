@@ -226,13 +226,13 @@ export interface AgentImprovement {
   agent_id: string
   grade_before: string
   grade_target: string
-  changes: string[]
+  changes?: string[]
 }
 
 export interface RetroMetadata {
   analyzed_pipelines: number
   retro_date: string
-  action_items: string[]
+  action_items?: string[]
   keep_count: number
   problem_count: number
   try_count: number
@@ -244,23 +244,23 @@ export interface HRReport {
   report_date: string | null
   source?: 'weekly' | 'retro'
   retro_slug?: string
-  period: { start: string | null; end: string | null }
+  period?: { start: string | null; end: string | null }
   summary: HRReportSummary
-  departments: HRDepartment[]
-  agents: HRAgent[]
-  alerts: string[]
-  recommendations: string[]
+  departments?: HRDepartment[]
+  agents?: HRAgent[]
+  alerts?: string[]
+  recommendations?: string[]
   retro_metadata?: RetroMetadata
 }
 
 export interface RetroJournalEntry {
   retro_slug: string
   report_date: string
-  period: { start: string | null; end: string | null }
+  period?: { start: string | null; end: string | null }
   agent_count: number
   alert_count: number
-  retro_metadata: RetroMetadata
-  agents: HRAgent[]
+  retro_metadata?: RetroMetadata
+  agents?: HRAgent[]
 }
 
 // ── Work Unit types ──────────────────────────────────
@@ -276,9 +276,9 @@ export interface WorkUnitEvent {
 
 export interface WorkUnit {
   slug: string
-  name: string
-  status: 'active' | 'completed' | 'abandoned'
-  startedAt: string
+  name: string | null
+  status: 'active' | 'completed' | 'failed' | 'cancelled' | 'abandoned' | 'unknown'
+  startedAt: string | null
   endedAt: string | null
   pipelines?: WorkUnitPipeline[]  // 상세 API에서만 포함, 목록 API에는 없음
   pipelineCount?: number           // 목록 API에서 제공
@@ -382,7 +382,7 @@ export interface HRReportDetailResponse {
 
 export interface WorkUnitDetailResponse {
   workunit: WorkUnit & {
-    task_summary: {
+    task_summary?: {
       total: number
       backlog: number
       in_progress: number
@@ -390,12 +390,14 @@ export interface WorkUnitDetailResponse {
       done: number
     }
   }
-  pipelines?: PipelineDetail[]
+  // bams-server returns pipelines at root; the Next proxy preserves them here.
+  // Shape matches WorkUnitPipeline (camelCase: linkedAt, totalSteps, ...).
+  pipelines?: WorkUnitPipeline[]
 }
 
 // ── Work Unit 상세 탭 타입 ──────────────────────────────────
-export type DetailTab = 'metaverse' | 'pipeline' | 'retro'
-export type PipelineSubTab = 'agent' | 'timeline' | 'dag' | 'logs'
+export type DetailTab = 'overview' | 'pipelines' | 'retro'
+export type PipelineSubTab = 'agent' | 'timeline'
 
 // ── Work Unit Agents API 응답 타입 ──────────────────────────
 // BE 응답: { work_unit_slug, stats, active_agents }

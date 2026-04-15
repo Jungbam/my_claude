@@ -7,6 +7,7 @@ function makePipeline(overrides: Partial<Pipeline> = {}): Pipeline {
     slug: 'test',
     type: 'dev',
     status: 'completed',
+    command: 'dev',
     startedAt: '2026-04-03T10:00:00Z',
     endedAt: '2026-04-03T10:05:00Z',
     durationMs: 300000,
@@ -25,7 +26,7 @@ describe('generateFlowchart', () => {
 
   test('single step without agents', () => {
     const result = generateFlowchart(makePipeline({
-      steps: [{ number: 1, name: 'Build', phase: 'Phase 1', status: 'done', durationMs: 5000, startedAt: '2026-04-03T10:00:00Z' }],
+      steps: [{ number: 1, name: 'Build', phase: 'Phase 1', status: 'done', durationMs: 5000, startedAt: '2026-04-03T10:00:00Z', endedAt: '2026-04-03T10:00:05Z', agentCallIds: [] }],
     }))
     expect(result).toContain('S1')
     expect(result).toContain('Build')
@@ -34,10 +35,10 @@ describe('generateFlowchart', () => {
 
   test('parallel agents create fork node', () => {
     const result = generateFlowchart(makePipeline({
-      steps: [{ number: 1, name: 'Impl', phase: 'Phase 2', status: 'done', durationMs: 10000, startedAt: '2026-04-03T10:00:00Z' }],
+      steps: [{ number: 1, name: 'Impl', phase: 'Phase 2', status: 'done', durationMs: 10000, startedAt: '2026-04-03T10:00:00Z', endedAt: '2026-04-03T10:00:10Z', agentCallIds: ['a1', 'a2'] }],
       agents: [
-        { callId: 'a1', agentType: 'frontend-engineering', model: 'opus', stepNumber: 1, status: 'done', durationMs: 8000, startedAt: '2026-04-03T10:00:00Z', endedAt: '2026-04-03T10:00:08Z', isError: false, department: 'engineering' },
-        { callId: 'a2', agentType: 'backend-engineering', model: 'opus', stepNumber: 1, status: 'done', durationMs: 10000, startedAt: '2026-04-03T10:00:00Z', endedAt: '2026-04-03T10:00:10Z', isError: false, department: 'engineering' },
+        { callId: 'a1', agentType: 'frontend-engineering', model: 'opus', stepNumber: 1, durationMs: 8000, startedAt: '2026-04-03T10:00:00Z', endedAt: '2026-04-03T10:00:08Z', isError: false, description: '', promptSummary: '', parallelGroup: null, department: 'engineering' },
+        { callId: 'a2', agentType: 'backend-engineering', model: 'opus', stepNumber: 1, durationMs: 10000, startedAt: '2026-04-03T10:00:00Z', endedAt: '2026-04-03T10:00:10Z', isError: false, description: '', promptSummary: '', parallelGroup: null, department: 'engineering' },
       ],
     }))
     expect(result).toContain('S1{"Impl"}')
@@ -49,7 +50,7 @@ describe('generateFlowchart', () => {
 
   test('failed step gets red style', () => {
     const result = generateFlowchart(makePipeline({
-      steps: [{ number: 1, name: 'Test', phase: 'Phase 3', status: 'fail', durationMs: 1000, startedAt: '2026-04-03T10:00:00Z' }],
+      steps: [{ number: 1, name: 'Test', phase: 'Phase 3', status: 'fail', durationMs: 1000, startedAt: '2026-04-03T10:00:00Z', endedAt: '2026-04-03T10:00:01Z', agentCallIds: [] }],
     }))
     expect(result).toContain('style S1 fill:#ef4444')
   })
@@ -64,9 +65,9 @@ describe('generateGantt', () => {
 
   test('step with agents shows agent bars', () => {
     const result = generateGantt(makePipeline({
-      steps: [{ number: 1, name: 'Build', phase: 'Phase 1', status: 'done', durationMs: 5000, startedAt: '2026-04-03T10:00:00Z' }],
+      steps: [{ number: 1, name: 'Build', phase: 'Phase 1', status: 'done', durationMs: 5000, startedAt: '2026-04-03T10:00:00Z', endedAt: '2026-04-03T10:00:05Z', agentCallIds: [] }],
       agents: [
-        { callId: 'a1', agentType: 'frontend-engineering', model: 'opus', stepNumber: 1, status: 'done', durationMs: 5000, startedAt: '2026-04-03T10:00:00Z', endedAt: '2026-04-03T10:00:05Z', isError: false, department: 'engineering' },
+        { callId: 'a1', agentType: 'frontend-engineering', model: 'opus', stepNumber: 1, durationMs: 5000, startedAt: '2026-04-03T10:00:00Z', endedAt: '2026-04-03T10:00:05Z', isError: false, description: '', promptSummary: '', parallelGroup: null, department: 'engineering' },
       ],
     }))
     expect(result).toContain('frontend-engineering (opus)')
@@ -75,9 +76,9 @@ describe('generateGantt', () => {
 
   test('error agent gets crit tag', () => {
     const result = generateGantt(makePipeline({
-      steps: [{ number: 1, name: 'Test', phase: 'Phase 3', status: 'fail', durationMs: 1000, startedAt: '2026-04-03T10:00:00Z' }],
+      steps: [{ number: 1, name: 'Test', phase: 'Phase 3', status: 'fail', durationMs: 1000, startedAt: '2026-04-03T10:00:00Z', endedAt: '2026-04-03T10:00:01Z', agentCallIds: [] }],
       agents: [
-        { callId: 'a1', agentType: 'qa-strategy', model: 'sonnet', stepNumber: 1, status: 'fail', durationMs: 1000, startedAt: '2026-04-03T10:00:00Z', endedAt: '2026-04-03T10:00:01Z', isError: true, department: 'qa' },
+        { callId: 'a1', agentType: 'qa-strategy', model: 'sonnet', stepNumber: 1, durationMs: 1000, startedAt: '2026-04-03T10:00:00Z', endedAt: '2026-04-03T10:00:01Z', isError: true, description: '', promptSummary: '', parallelGroup: null, department: 'qa' },
       ],
     }))
     expect(result).toContain('crit,')

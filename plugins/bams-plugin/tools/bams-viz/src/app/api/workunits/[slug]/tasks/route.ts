@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server'
+import { BAMS_SERVER, corsHeaders } from '@/lib/server-config'
+import { errorResponse, toInternalMessage } from '@/lib/server-errors'
 
 /** Defensively decode percent-encoded slug. Handles double-encoding. */
 function safeDecodeSlug(raw: string): string {
@@ -15,12 +16,11 @@ function safeDecodeSlug(raw: string): string {
   }
 }
 
-import { BAMS_SERVER, corsHeaders } from '@/lib/server-config'
-
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
+  const route = 'workunits/slug/tasks'
   const { slug: rawSlug } = await params
   const slug = safeDecodeSlug(rawSlug)
 
@@ -34,11 +34,14 @@ export async function GET(
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       })
     }
-    return NextResponse.json({ error: 'Work unit not found' }, { status: 404, headers: corsHeaders })
-  } catch {
-    return NextResponse.json(
-      { work_unit_slug: slug, pipelines: [], total_count: 0, summary: { backlog: 0, in_progress: 0, in_review: 0, done: 0, blocked: 0, cancelled: 0 } },
-      { headers: { ...corsHeaders, 'X-Data-Source': 'fallback' } }
+    // M-1: upstream 에러를 빈 pipelines/summary fallback으로 가리지 않는다.
+    return errorResponse(
+      res.status,
+      res.status === 404 ? 'NOT_FOUND' : 'UPSTREAM_ERROR',
+      `bams-server ${res.status} for tasks of ${slug}`,
+      { route }
     )
+  } catch (error) {
+    return errorResponse(503, 'NETWORK_ERROR', toInternalMessage(error), { route })
   }
 }

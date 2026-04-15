@@ -1,6 +1,6 @@
 'use client'
 
-const FILTERS = ['all', 'active', 'completed', 'abandoned'] as const
+const FILTERS = ['all', 'active', 'completed', 'failed', 'cancelled', 'abandoned'] as const
 
 interface StatusFilterProps {
   value: string

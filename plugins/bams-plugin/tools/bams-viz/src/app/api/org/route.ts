@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { generateOrgChart } from '@/lib/org-gen'
 import { corsHeaders } from '@/lib/server-config'
+import { errorResponse, toInternalMessage } from '@/lib/server-errors'
 
 /**
  * Find jojikdo.json by searching known relative paths.
@@ -139,13 +140,11 @@ function parseDepartments(jojikdo: Record<string, unknown>): OrgDepartment[] {
 }
 
 export async function GET() {
+  const route = 'org'
   try {
     const jojikdoPath = findJojikdo()
     if (!jojikdoPath) {
-      return NextResponse.json(
-        { error: 'jojikdo.json not found' },
-        { status: 404, headers: corsHeaders }
-      )
+      return errorResponse(404, 'NOT_FOUND', 'jojikdo.json not found', { route })
     }
 
     const jojikdo = JSON.parse(readFileSync(jojikdoPath, 'utf-8'))
@@ -154,7 +153,7 @@ export async function GET() {
 
     return NextResponse.json({ mermaid, departments }, { headers: corsHeaders })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error'
-    return NextResponse.json({ error: message }, { status: 500, headers: corsHeaders })
+    // M-3: error.message (stack/path 포함 가능) 를 클라이언트로 노출하지 않는다.
+    return errorResponse(500, 'INTERNAL_ERROR', toInternalMessage(error), { route })
   }
 }

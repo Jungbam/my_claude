@@ -19,7 +19,6 @@ import type {
   WorkUnitAgentsResponse,
   WorkUnitAgentsActiveResponse,
   WorkUnitRetroResponse,
-  PipelineDetail,
   WorkUnitPatchRequest,
 } from "./types";
 
@@ -175,8 +174,8 @@ export const bamsApi = {
     return apiFetch<WorkUnitTasksResponse>(`/api/workunits/${encodeURIComponent(slug)}/tasks`);
   },
 
-  async getWorkUnitDetail(slug: string): Promise<WorkUnitDetailResponse & { pipelines?: PipelineDetail[] }> {
-    return apiFetch<WorkUnitDetailResponse & { pipelines?: PipelineDetail[] }>(`/api/workunits/${encodeURIComponent(slug)}`);
+  async getWorkUnitDetail(slug: string): Promise<WorkUnitDetailResponse> {
+    return apiFetch<WorkUnitDetailResponse>(`/api/workunits/${encodeURIComponent(slug)}`);
   },
 
   // ── HR 보고서 ─────────────────────────────────────────────────

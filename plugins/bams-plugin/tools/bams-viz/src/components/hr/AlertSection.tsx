@@ -1,8 +1,8 @@
 import { fmtRate, gradeColor, deptLabel } from './helpers'
 import type { HRAgent } from './types'
 
-export function AlertSection({ agents }: { agents: HRAgent[] }) {
-  const alertAgents = agents.filter(a => a.grade === 'D' || a.grade === 'F')
+export function AlertSection({ agents }: { agents: HRAgent[] | null | undefined }) {
+  const alertAgents = (agents ?? []).filter(a => a.grade === 'D' || a.grade === 'F')
   if (alertAgents.length === 0) return null
 
   return (

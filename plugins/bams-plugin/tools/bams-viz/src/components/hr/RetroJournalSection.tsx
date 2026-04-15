@@ -14,12 +14,20 @@ function RetroJournalCard({ entry, isExpanded, onToggle }: {
   isExpanded: boolean
   onToggle: () => void
 }) {
-  const meta = entry.retro_metadata
+  const meta = entry.retro_metadata ?? {
+    analyzed_pipelines: 0,
+    retro_date: entry.report_date ?? '',
+    action_items: [],
+    keep_count: 0,
+    problem_count: 0,
+    try_count: 0,
+  }
 
   // Compute grade distribution from agents array if not in meta
-  const gradeDist: Record<string, number> = meta.grade_distribution ?? {}
-  if (Object.keys(gradeDist).length === 0 && entry.agents && entry.agents.length > 0) {
-    for (const agent of entry.agents) {
+  const gradeDist: Record<string, number> = { ...(meta.grade_distribution ?? {}) }
+  const entryAgents = entry.agents ?? []
+  if (Object.keys(gradeDist).length === 0 && entryAgents.length > 0) {
+    for (const agent of entryAgents) {
       const g = (agent.grade ?? 'Unknown').toUpperCase()
       gradeDist[g] = (gradeDist[g] ?? 0) + 1
     }
@@ -150,7 +158,7 @@ function RetroJournalCard({ entry, isExpanded, onToggle }: {
                     }}>{imp.grade_target}</span>
                   </div>
                   <ul style={{ margin: '0', paddingLeft: '16px', fontSize: '11px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
-                    {imp.changes.map((c: string, i: number) => (
+                    {(imp.changes ?? []).map((c: string, i: number) => (
                       <li key={i}>{c}</li>
                     ))}
                   </ul>
@@ -204,8 +212,8 @@ export function RetroJournalSection({ selectedRetroSlug }: { selectedRetroSlug?:
 
   // Sort by report_date descending (already sorted by API, but ensure it)
   const sorted = useMemo(() => {
-    if (!entries) return []
-    return [...entries].sort((a, b) => b.report_date.localeCompare(a.report_date))
+    if (!entries || !Array.isArray(entries)) return []
+    return [...entries].sort((a, b) => (b.report_date ?? '').localeCompare(a.report_date ?? ''))
   }, [entries])
 
   return (

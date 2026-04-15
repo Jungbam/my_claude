@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { BAMS_SERVER, headers } from '@/lib/server-config'
+import { errorResponse, toInternalMessage } from '@/lib/server-errors'
 
 export async function GET(request: NextRequest) {
+  const route = 'agents'
   const date = request.nextUrl.searchParams.get('date') ?? undefined
   const pipeline = request.nextUrl.searchParams.get('pipeline') ?? undefined
   const workUnit = request.nextUrl.searchParams.get('work_unit') ?? undefined
@@ -22,19 +24,14 @@ export async function GET(request: NextRequest) {
         headers: { 'Content-Type': 'application/json', ...headers('api') },
       })
     }
-    // Return empty agent data shape on error
-    console.error(`[agents] bams-server responded ${res.status}`)
-    return NextResponse.json({
-      calls: [],
-      stats: [],
-      collaborations: [],
-      totalCalls: 0,
-      totalErrors: 0,
-      runningCount: 0,
-    }, { headers: headers('error') })
+    // M-1: upstream 에러를 빈 stats/calls fallback으로 가리지 않는다.
+    return errorResponse(
+      res.status,
+      res.status === 404 ? 'NOT_FOUND' : 'UPSTREAM_ERROR',
+      `bams-server ${res.status} for agents/data`,
+      { route }
+    )
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error'
-    console.error(`[agents] bams-server fetch failed: ${message}`)
-    return NextResponse.json({ error: message }, { status: 500, headers: headers('error') })
+    return errorResponse(503, 'NETWORK_ERROR', toInternalMessage(error), { route })
   }
 }

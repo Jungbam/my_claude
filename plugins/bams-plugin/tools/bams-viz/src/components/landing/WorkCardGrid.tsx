@@ -25,8 +25,19 @@ export function WorkCardGrid() {
 
   const filtered = useMemo(() => {
     if (!data?.workunits) return []
-    if (filter === 'all') return data.workunits
-    return data.workunits.filter(wu => wu.status === filter)
+    const list = filter === 'all'
+      ? data.workunits
+      : data.workunits.filter(wu => wu.status === filter)
+
+    // Sort: active first, then by startedAt descending (most recent first)
+    return [...list].sort((a, b) => {
+      const aActive = a.status === 'active' ? 0 : 1
+      const bActive = b.status === 'active' ? 0 : 1
+      if (aActive !== bActive) return aActive - bActive
+      const aTime = a.startedAt ? new Date(a.startedAt).getTime() : 0
+      const bTime = b.startedAt ? new Date(b.startedAt).getTime() : 0
+      return bTime - aTime
+    })
   }, [data, filter])
 
   if (isLoading && !data) {

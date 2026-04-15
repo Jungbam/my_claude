@@ -19,6 +19,7 @@ interface WorkCardProps {
 
 export const WorkCard = memo(function WorkCard({ workunit, onClick }: WorkCardProps) {
   const pipelineCount = workunit.pipelineCount ?? workunit.pipelines?.length ?? 0
+  const displayName = workunit.name || workunit.slug
   const taskSummary = workunit.task_summary
   const progressPct = taskSummary && taskSummary.total > 0
     ? Math.round((taskSummary.done / taskSummary.total) * 100)
@@ -64,9 +65,9 @@ export const WorkCard = memo(function WorkCard({ workunit, onClick }: WorkCardPr
           flex: 1,
           marginRight: '8px',
         }}>
-          {workunit.name}
+          {displayName}
         </span>
-        <StatusBadge status={workunit.status} size="sm" />
+        <StatusBadge status={workunit.status ?? 'unknown'} size="sm" />
       </div>
 
       {/* Meta: pipeline count + start time */}
@@ -79,7 +80,11 @@ export const WorkCard = memo(function WorkCard({ workunit, onClick }: WorkCardPr
         marginBottom: progressPct !== null ? '10px' : '0',
       }}>
         <span>{pipelineCount} pipeline{pipelineCount !== 1 ? 's' : ''}</span>
-        <span>{formatRelativeTime(workunit.startedAt)}</span>
+        {workunit.startedAt ? (
+          <span>{formatRelativeTime(workunit.startedAt)}</span>
+        ) : (
+          <span>no start time</span>
+        )}
       </div>
 
       {/* Progress bar */}

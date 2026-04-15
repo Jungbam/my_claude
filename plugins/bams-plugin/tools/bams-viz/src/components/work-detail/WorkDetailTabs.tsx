@@ -3,8 +3,8 @@
 import type { DetailTab } from '@/lib/types'
 
 const TABS: { id: DetailTab; label: string }[] = [
-  { id: 'metaverse', label: 'Metaverse' },
-  { id: 'pipeline', label: 'Pipeline' },
+  { id: 'overview', label: 'Overview' },
+  { id: 'pipelines', label: 'Pipelines' },
   { id: 'retro', label: 'Retro' },
 ]
 

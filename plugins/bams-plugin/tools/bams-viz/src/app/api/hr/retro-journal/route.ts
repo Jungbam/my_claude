@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { BAMS_SERVER, corsHeaders } from '@/lib/server-config'
+import { errorResponse, toInternalMessage } from '@/lib/server-errors'
 
 /**
  * GET /api/hr/retro-journal
@@ -12,6 +13,7 @@ import { BAMS_SERVER, corsHeaders } from '@/lib/server-config'
  * After:  1 (list) request only
  */
 export async function GET(request: Request) {
+  const route = 'hr/retro-journal'
   try {
     const url = new URL(request.url)
     const slug = url.searchParams.get('slug') || undefined
@@ -22,13 +24,20 @@ export async function GET(request: Request) {
     })
 
     if (!res.ok) {
-      return NextResponse.json([], { headers: corsHeaders })
+      // M-1: upstream 실패를 [] + 200으로 마스킹하지 않는다.
+      return errorResponse(
+        res.status,
+        res.status === 404 ? 'NOT_FOUND' : 'UPSTREAM_ERROR',
+        `bams-server ${res.status} for hr/retro-journal`,
+        { route }
+      )
     }
 
     const json = await res.json()
     const reports: Array<Record<string, unknown>> = json.reports ?? json
 
     if (!Array.isArray(reports)) {
+      // 도메인상 예상 밖 응답이지만 치명적이진 않음 — 빈 결과로 처리 (정상 empty)
       return NextResponse.json([], { headers: corsHeaders })
     }
 
@@ -70,7 +79,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json(entries, { headers: corsHeaders })
   } catch (error) {
-    console.error('[retro-journal] Unexpected error:', error)
-    return NextResponse.json([], { headers: corsHeaders, status: 200 })
+    // M-3: error.message 그대로 노출 금지 + status 200 마스킹 제거.
+    return errorResponse(500, 'INTERNAL_ERROR', toInternalMessage(error), { route })
   }
 }

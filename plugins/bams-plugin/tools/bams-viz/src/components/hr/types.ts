@@ -29,12 +29,12 @@ export interface HRReport {
   report_date: string | null
   source?: 'weekly' | 'retro'
   retro_slug?: string
-  period: { start: string | null; end: string | null }
+  period?: { start: string | null; end: string | null }
   summary: HRReportSummary
-  departments: HRDepartment[]
-  agents: HRAgent[]
-  alerts: string[]
-  recommendations: string[]
+  departments?: HRDepartment[]
+  agents?: HRAgent[]
+  alerts?: string[]
+  recommendations?: string[]
 }
 
 export interface HRReportListItem {

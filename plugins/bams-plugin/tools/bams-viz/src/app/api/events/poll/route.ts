@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { BAMS_SERVER, headers } from '@/lib/server-config'
+import { errorResponse, toInternalMessage } from '@/lib/server-errors'
 
 export async function GET(request: NextRequest) {
+  const route = 'events/poll'
   const since = request.nextUrl.searchParams.get('since')
   const pipeline = request.nextUrl.searchParams.get('pipeline') ?? undefined
 
   if (!since) {
-    // Without since, return pipeline list from bams-server
+    // Without since, return pipeline list from bams-server (legacy behavior)
     try {
       const res = await fetch(`${BAMS_SERVER}/api/pipelines`, {
         signal: AbortSignal.timeout(3000),
@@ -18,13 +20,15 @@ export async function GET(request: NextRequest) {
           { headers: headers('api') }
         )
       }
-    } catch {
-      // fallback
+      return errorResponse(
+        res.status,
+        res.status === 404 ? 'NOT_FOUND' : 'UPSTREAM_ERROR',
+        `bams-server ${res.status} (poll list)`,
+        { route }
+      )
+    } catch (error) {
+      return errorResponse(503, 'NETWORK_ERROR', toInternalMessage(error), { route })
     }
-    return NextResponse.json(
-      { error: 'Missing required query parameter: since (ISO timestamp)' },
-      { status: 400, headers: headers('error') }
-    )
   }
 
   try {
@@ -39,12 +43,14 @@ export async function GET(request: NextRequest) {
         headers: { 'Content-Type': 'application/json', ...headers('api') },
       })
     }
-    return NextResponse.json(
-      { events: [], serverTime: new Date().toISOString() },
-      { headers: headers('error') }
+    // M-1: upstream 에러를 { events: [], serverTime } + 200으로 마스킹하지 않는다.
+    return errorResponse(
+      res.status,
+      res.status === 404 ? 'NOT_FOUND' : 'UPSTREAM_ERROR',
+      `bams-server ${res.status} (poll since=${since})`,
+      { route }
     )
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error'
-    return NextResponse.json({ error: message }, { status: 500, headers: headers('error') })
+    return errorResponse(503, 'NETWORK_ERROR', toInternalMessage(error), { route })
   }
 }

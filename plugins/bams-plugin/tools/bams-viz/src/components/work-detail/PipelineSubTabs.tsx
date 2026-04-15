@@ -5,8 +5,6 @@ import type { PipelineSubTab } from '@/lib/types'
 const SUB_TABS: { id: PipelineSubTab; label: string }[] = [
   { id: 'agent', label: 'Agent' },
   { id: 'timeline', label: 'Timeline' },
-  { id: 'dag', label: 'DAG' },
-  { id: 'logs', label: 'Logs' },
 ]
 
 interface PipelineSubTabsProps {

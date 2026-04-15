@@ -1,20 +1,23 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { TaskTable } from './TaskTable'
 import { formatDuration } from '@/lib/utils'
 import { bamsApi } from '@/lib/bams-api'
-import type { WorkUnitPipeline } from '@/lib/types'
+import type { WorkUnitPipeline, PipelineEvent } from '@/lib/types'
 
 interface PipelineAccordionProps {
   pipeline: WorkUnitPipeline
   wuSlug: string
   selected?: boolean
   onSelect?: (slug: string) => void
+  // M-4: events는 부모(PipelineTabPanel)가 단일 폴링으로 가져온 것을 주입받는다.
+  // selected 파이프라인에 한해 값이 전달되며, 그 외에는 null이다.
+  events?: PipelineEvent[] | null
 }
 
-export function PipelineAccordion({ pipeline, wuSlug, selected, onSelect }: PipelineAccordionProps) {
+export function PipelineAccordion({ pipeline, wuSlug, selected, onSelect, events }: PipelineAccordionProps) {
   const [open, setOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -183,14 +186,60 @@ export function PipelineAccordion({ pipeline, wuSlug, selected, onSelect }: Pipe
         </div>
       </div>
 
-      {/* Expanded: Task table */}
+      {/* Expanded: Task table + Agent summary */}
       {open && (
         <div style={{
           borderTop: '1px solid var(--border)',
           padding: '0',
         }}>
+          {/* M-4: 자체 폴링 제거. selected 파이프라인에 한해 부모가 주입한 events로 요약 렌더.
+              non-selected 파이프라인이 open된 경우 summary는 생략 (클릭 시 자동 selected되므로 실무상 거의 발생 안 함). */}
+          {selected && <AgentSummarySection events={events ?? null} />}
           <TaskTable pipelineSlug={pipeline.slug} />
         </div>
+      )}
+    </div>
+  )
+}
+
+function AgentSummarySection({ events }: { events: PipelineEvent[] | null }) {
+  const summary = useMemo(() => {
+    if (!events || !Array.isArray(events)) return null
+    let agentStarts = 0
+    let agentEnds = 0
+    let agentErrors = 0
+    const agentTypes = new Set<string>()
+
+    for (const ev of events) {
+      if (ev.type === 'agent_start') {
+        agentStarts++
+        const at = (ev as Record<string, unknown>).agent_type
+        if (typeof at === 'string') agentTypes.add(at)
+      } else if (ev.type === 'agent_end') {
+        agentEnds++
+        if ((ev as Record<string, unknown>).is_error) agentErrors++
+      }
+    }
+    return { agentStarts, agentEnds, agentErrors, uniqueAgents: agentTypes.size }
+  }, [events])
+
+  if (!summary || summary.agentStarts === 0) return null
+
+  return (
+    <div style={{
+      display: 'flex',
+      gap: '16px',
+      padding: '8px 14px',
+      borderBottom: '1px solid var(--border)',
+      background: 'var(--bg-secondary)',
+      fontSize: '11px',
+      color: 'var(--text-secondary)',
+    }}>
+      <span>Agents: <strong style={{ color: 'var(--text-primary)' }}>{summary.uniqueAgents}</strong></span>
+      <span>Calls: <strong style={{ color: 'var(--text-primary)' }}>{summary.agentStarts}</strong></span>
+      <span>Completed: <strong style={{ color: 'var(--text-primary)' }}>{summary.agentEnds}</strong></span>
+      {summary.agentErrors > 0 && (
+        <span>Errors: <strong style={{ color: 'var(--status-fail)' }}>{summary.agentErrors}</strong></span>
       )}
     </div>
   )

@@ -7,12 +7,17 @@ export function formatDuration(ms: number): string {
   return rem > 0 ? `${m}m ${rem}s` : `${m}m`
 }
 
-export function formatRelativeTime(ts: string): string {
-  const diff = Date.now() - new Date(ts).getTime()
+export function formatRelativeTime(ts: string | null | undefined): string {
+  if (!ts) return '--'
+  const date = new Date(ts)
+  if (isNaN(date.getTime())) return '--'
+  const diff = Date.now() - date.getTime()
+  if (diff < 0) return 'future'
   if (diff < 1000) return 'just now'
   if (diff < 60000) return `${Math.floor(diff / 1000)}s ago`
   if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
-  return `${Math.floor(diff / 3600000)}h ago`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`
+  return `${Math.floor(diff / 86400000)}d ago`
 }
 
 export function sanitizeId(str: string): string {

@@ -30,26 +30,28 @@ function SummaryCard({ title, value, subtitle, accent }: {
 }
 
 export function SummaryCards({ report }: { report: HRReport }) {
-  const activeAgents = report.agents.filter(a => a.invocation_count > 0).length
-  const alertAgents = report.agents.filter(a => a.grade === 'D' || a.grade === 'F').length
+  const agents = report.agents ?? []
+  const summary = report.summary ?? { total_pipelines: 0, total_invocations: 0, overall_success_rate: null }
+  const activeAgents = agents.filter(a => a.invocation_count > 0).length
+  const alertAgents = agents.filter(a => a.grade === 'D' || a.grade === 'F').length
 
   return (
     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
       <SummaryCard
         title="Agents"
-        value={`${activeAgents} / ${report.agents.length}`}
+        value={`${activeAgents} / ${agents.length}`}
         subtitle="active / total"
         accent="var(--text-primary)"
       />
       <SummaryCard
         title="Success Rate"
-        value={fmtRate(report.summary.overall_success_rate)}
+        value={fmtRate(summary.overall_success_rate)}
         subtitle="overall average"
-        accent={rateAccent(report.summary.overall_success_rate)}
+        accent={rateAccent(summary.overall_success_rate)}
       />
       <SummaryCard
         title="Invocations"
-        value={String(report.summary.total_invocations)}
+        value={String(summary.total_invocations ?? 0)}
         subtitle="this period"
         accent="var(--text-primary)"
       />

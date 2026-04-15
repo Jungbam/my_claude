@@ -1,8 +1,9 @@
 import { fmtRate, rateAccent, deptLabel } from './helpers'
 import type { HRDepartment } from './types'
 
-export function DeptTable({ departments }: { departments: HRDepartment[] }) {
-  if (departments.length === 0) return null
+export function DeptTable({ departments }: { departments: HRDepartment[] | null | undefined }) {
+  const list = departments ?? []
+  if (list.length === 0) return null
   return (
     <div style={{
       background: 'var(--bg-card)',
@@ -39,7 +40,7 @@ export function DeptTable({ departments }: { departments: HRDepartment[] }) {
         <div style={{ textAlign: 'right' }}>Invocations</div>
       </div>
       {/* Rows */}
-      {departments.map(dept => {
+      {list.map(dept => {
         const info = deptLabel(dept.department_id)
         return (
           <div

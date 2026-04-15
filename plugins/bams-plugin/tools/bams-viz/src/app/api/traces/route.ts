@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { buildTraces } from '@/lib/parser'
 import type { PipelineEvent } from '@/lib/types'
-
 import { BAMS_SERVER, headers } from '@/lib/server-config'
+import { errorResponse, toInternalMessage } from '@/lib/server-errors'
 
 export async function GET(request: NextRequest) {
+  const route = 'traces'
   const searchParams = request.nextUrl.searchParams
   const pipeline = searchParams.get('pipeline') ?? undefined
   const agent = searchParams.get('agent') ?? undefined
@@ -20,8 +21,13 @@ export async function GET(request: NextRequest) {
       signal: AbortSignal.timeout(5000),
     })
     if (!res.ok) {
-      console.error(`[traces] bams-server responded ${res.status}`)
-      return NextResponse.json([], { headers: headers('error') })
+      // M-1: upstream 에러를 [] + 200으로 마스킹하지 않는다.
+      return errorResponse(
+        res.status,
+        res.status === 404 ? 'NOT_FOUND' : 'UPSTREAM_ERROR',
+        `bams-server ${res.status} for traces`,
+        { route }
+      )
     }
     const data = await res.json()
     const rawEvents: PipelineEvent[] = data.events ?? []
@@ -47,8 +53,6 @@ export async function GET(request: NextRequest) {
       { headers: headers('api') }
     )
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error'
-    console.error(`[traces] bams-server fetch failed: ${message}`)
-    return NextResponse.json({ error: message }, { status: 500, headers: headers('error') })
+    return errorResponse(500, 'INTERNAL_ERROR', toInternalMessage(error), { route })
   }
 }

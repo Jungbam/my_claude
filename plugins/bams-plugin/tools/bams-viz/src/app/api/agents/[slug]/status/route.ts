@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server'
 import { BAMS_SERVER, headers } from '@/lib/server-config'
 import { safeDecodeSlug } from '@/lib/slug-utils'
+import { errorResponse, toInternalMessage } from '@/lib/server-errors'
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
+  const route = 'agents/slug/status'
   const { slug: rawSlug } = await params
   const slug = safeDecodeSlug(rawSlug)
   try {
@@ -17,15 +19,13 @@ export async function GET(
       const data = await res.json()
       return NextResponse.json(data, { headers: headers('bams-server') })
     }
-    return NextResponse.json(
-      { error: 'Not found' },
-      { status: res.status, headers: headers('error') }
+    return errorResponse(
+      res.status,
+      res.status === 404 ? 'NOT_FOUND' : 'UPSTREAM_ERROR',
+      `bams-server ${res.status} for agent ${slug}`,
+      { route }
     )
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error'
-    return NextResponse.json(
-      { error: message },
-      { status: 500, headers: headers('error') }
-    )
+    return errorResponse(500, 'INTERNAL_ERROR', toInternalMessage(error), { route })
   }
 }

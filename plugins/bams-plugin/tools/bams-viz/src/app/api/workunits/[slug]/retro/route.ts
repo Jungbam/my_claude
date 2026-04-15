@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server'
+import { BAMS_SERVER, headers } from '@/lib/server-config'
+import { errorResponse, toInternalMessage } from '@/lib/server-errors'
 
 /** Defensively decode percent-encoded slug. Handles double-encoding. */
 function safeDecodeSlug(raw: string): string {
@@ -15,12 +16,11 @@ function safeDecodeSlug(raw: string): string {
   }
 }
 
-import { BAMS_SERVER, headers } from '@/lib/server-config'
-
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
+  const route = 'workunits/slug/retro'
   const { slug: rawSlug } = await params
   const slug = safeDecodeSlug(rawSlug)
   try {
@@ -34,13 +34,15 @@ export async function GET(
         headers: { 'Content-Type': 'application/json', ...headers() },
       })
     }
-    return NextResponse.json({ error: 'Not found' }, { status: res.status, headers: headers() })
-  } catch {
-    // bams-server 다운 시 빈 응답으로 graceful degradation
-    return NextResponse.json(
-      { work_unit_slug: slug, auto_summary: null },
-      { headers: headers('fallback') }
+    // M-1: upstream 에러를 { auto_summary: null }로 마스킹하지 않고 동일 status로 중계.
+    return errorResponse(
+      res.status,
+      res.status === 404 ? 'NOT_FOUND' : 'UPSTREAM_ERROR',
+      `bams-server ${res.status} for retro ${slug}`,
+      { route }
     )
+  } catch (error) {
+    // M-1: 네트워크 실패도 200 fallback 대신 503으로 보고.
+    return errorResponse(503, 'NETWORK_ERROR', toInternalMessage(error), { route })
   }
 }
-

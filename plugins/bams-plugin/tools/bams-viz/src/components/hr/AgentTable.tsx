@@ -2,8 +2,9 @@ import { formatDuration } from '@/lib/utils'
 import { fmtRate, rateAccent, gradeColor, trendSymbol, deptLabel } from './helpers'
 import type { HRAgent } from './types'
 
-export function AgentTable({ agents }: { agents: HRAgent[] }) {
-  if (agents.length === 0) return null
+export function AgentTable({ agents }: { agents: HRAgent[] | null | undefined }) {
+  const list = agents ?? []
+  if (list.length === 0) return null
 
   return (
     <div style={{
@@ -45,7 +46,7 @@ export function AgentTable({ agents }: { agents: HRAgent[] }) {
         <div style={{ textAlign: 'center' }}>Trend</div>
       </div>
       {/* Rows */}
-      {agents.map(agent => {
+      {list.map(agent => {
         const info = deptLabel(agent.department)
         const gc = gradeColor(agent.grade)
         const t = trendSymbol(agent.trend)

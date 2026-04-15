@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server'
 import { BAMS_SERVER, headers } from '@/lib/server-config'
+import { errorResponse, toInternalMessage } from '@/lib/server-errors'
 
 export async function GET() {
+  const route = 'workunits'
   try {
     const res = await fetch(`${BAMS_SERVER}/api/workunits`, {
       signal: AbortSignal.timeout(3000),
@@ -12,9 +13,14 @@ export async function GET() {
         headers: { 'Content-Type': 'application/json', ...headers('bams-server') },
       })
     }
-    return NextResponse.json({ workunits: [] }, { headers: headers('error') })
+    // M-1: upstream 에러를 { workunits: [] } + 200으로 마스킹하지 않는다.
+    return errorResponse(
+      res.status,
+      res.status === 404 ? 'NOT_FOUND' : 'UPSTREAM_ERROR',
+      `bams-server ${res.status}`,
+      { route }
+    )
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error'
-    return NextResponse.json({ error: message }, { status: 500, headers: headers('error') })
+    return errorResponse(503, 'NETWORK_ERROR', toInternalMessage(error), { route })
   }
 }

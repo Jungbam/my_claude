@@ -1,16 +1,18 @@
 'use client'
 
 import { PipelineAccordion } from './PipelineAccordion'
-import type { WorkUnitPipeline } from '@/lib/types'
+import type { WorkUnitPipeline, PipelineEvent } from '@/lib/types'
 
 interface PipelinesPanelProps {
   pipelines: WorkUnitPipeline[]
   wuSlug: string
   selectedSlug?: string
   onSelect?: (slug: string) => void
+  // M-4: 부모가 이미 폴링 중인 events를 주입. selected 파이프라인의 accordion에만 전달된다.
+  selectedEvents?: PipelineEvent[] | null
 }
 
-export function PipelinesPanel({ pipelines, wuSlug, selectedSlug, onSelect }: PipelinesPanelProps) {
+export function PipelinesPanel({ pipelines, wuSlug, selectedSlug, onSelect, selectedEvents }: PipelinesPanelProps) {
   if (pipelines.length === 0) {
     return (
       <div style={{
@@ -33,6 +35,7 @@ export function PipelinesPanel({ pipelines, wuSlug, selectedSlug, onSelect }: Pi
           wuSlug={wuSlug}
           selected={p.slug === selectedSlug}
           onSelect={onSelect}
+          events={p.slug === selectedSlug ? selectedEvents ?? null : null}
         />
       ))}
     </div>

@@ -2,15 +2,16 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { StatusBadge } from '@/components/shared/StatusBadge'
-import type { WorkUnit } from '@/lib/types'
+import type { WorkUnit, WorkUnitPipeline } from '@/lib/types'
 
 interface WorkDetailHeaderProps {
-  workunit: WorkUnit
+  workunit: WorkUnit & { task_summary?: { total: number; done: number } }
+  pipelines?: WorkUnitPipeline[]
   onBack: () => void
   onAction: (action: 'complete' | 'abandon' | 'delete') => void
 }
 
-export function WorkDetailHeader({ workunit, onBack, onAction }: WorkDetailHeaderProps) {
+export function WorkDetailHeader({ workunit, pipelines, onBack, onAction }: WorkDetailHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -60,10 +61,42 @@ export function WorkDetailHeader({ workunit, onBack, onAction }: WorkDetailHeade
         whiteSpace: 'nowrap',
         flex: 1,
       }}>
-        {workunit.name}
+        {workunit.name || workunit.slug}
       </h1>
 
-      <StatusBadge status={workunit.status} size="md" />
+      <StatusBadge status={workunit.status ?? 'unknown'} size="md" />
+
+      {/* Pipeline count */}
+      {pipelines && pipelines.length > 0 && (
+        <span style={{
+          fontSize: '11px',
+          padding: '2px 8px',
+          borderRadius: '4px',
+          background: 'var(--bg-secondary)',
+          color: 'var(--text-secondary)',
+          fontWeight: 500,
+          flexShrink: 0,
+        }}>
+          {pipelines.length} pipeline{pipelines.length !== 1 ? 's' : ''}
+        </span>
+      )}
+
+      {/* Task completion rate */}
+      {workunit.task_summary && workunit.task_summary.total > 0 && (
+        <span style={{
+          fontSize: '11px',
+          padding: '2px 8px',
+          borderRadius: '4px',
+          background: 'var(--bg-secondary)',
+          color: workunit.task_summary.done === workunit.task_summary.total
+            ? 'var(--status-done)'
+            : 'var(--text-secondary)',
+          fontWeight: 500,
+          flexShrink: 0,
+        }}>
+          {workunit.task_summary.done}/{workunit.task_summary.total} tasks
+        </span>
+      )}
 
       {/* Action dropdown */}
       <div ref={menuRef} style={{ position: 'relative' }}>

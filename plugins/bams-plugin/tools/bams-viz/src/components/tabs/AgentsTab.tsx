@@ -1,243 +1,286 @@
 'use client'
 
 import { useMemo } from 'react'
-import { usePolling } from '@/hooks/usePolling'
-import { Badge } from '@/components/ui/Badge'
-import { formatDuration, formatRelativeTime } from '@/lib/utils'
-import { ALL_AGENTS, DEPT_INFO } from '@/lib/agents-config'
-import type { AgentData, AgentTypeStat } from '@/lib/types'
+import { formatDuration } from '@/lib/utils'
+import { AGENT_DEPT_MAP, DEPT_INFO } from '@/lib/agents-config'
+import type { PipelineEvent } from '@/lib/types'
 
-interface AgentRow {
-  agentType: string
+// ── Types ────────────────────────────────────────────────────────────────────
+
+interface AgentCall {
+  call_id: string
+  agent_type: string
   department: string
-  callCount: number
-  errorCount: number
-  avgDurationMs: number
-  errorRate: number
-  lastActive: string | null
+  model: string
+  status: 'running' | 'success' | 'error'
+  duration_ms: number | null
+  description: string
+  started_at: string
+  is_error: boolean
 }
 
-interface DeptSummary {
+interface AgentStat {
+  agent_type: string
   department: string
-  label: string
-  color: string
-  totalCalls: number
-  totalErrors: number
-  avgDuration: number
-  agentCount: number
+  call_count: number
+  error_count: number
+  avg_duration_ms: number | null
 }
 
-function buildAgentRows(data: AgentData | null): AgentRow[] {
-  const statMap = new Map<string, AgentTypeStat>()
-  if (data) {
-    for (const s of data.stats) statMap.set(s.agentType, s)
-  }
+interface AgentsTabProps {
+  pipelineSlug: string
+  events: PipelineEvent[] | null
+  eventsLoading: boolean
+  eventsError: Error | null
+  wuSlug?: string
+}
 
-  // Find last active time per agent type
-  const lastActiveMap = new Map<string, string>()
-  if (data) {
-    for (const call of data.calls) {
-      const t = call.startedAt || call.endedAt
-      if (!t) continue
-      const prev = lastActiveMap.get(call.agentType)
-      if (!prev || new Date(t).getTime() > new Date(prev).getTime()) {
-        lastActiveMap.set(call.agentType, t)
-      }
-    }
-  }
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
-  return ALL_AGENTS.map(({ agentType, department }) => {
-    const stat = statMap.get(agentType)
+function buildAgentCalls(events: PipelineEvent[]): AgentCall[] {
+  const starts = events.filter(e => e.type === 'agent_start') as Array<PipelineEvent & {
+    call_id?: string; agent_type?: string; department?: string; model?: string; description?: string
+  }>
+  const ends = events.filter(e => e.type === 'agent_end') as Array<PipelineEvent & {
+    call_id?: string; agent_type?: string; is_error?: boolean; status?: string; duration_ms?: number
+  }>
+  const endMap = new Map(ends.map(e => [e.call_id, e]))
+  const pipelineEnded = events.some(e => e.type === 'pipeline_end')
+
+  return starts.map(s => {
+    const end = endMap.get(s.call_id)
+    const isOrphan = !end && pipelineEnded
     return {
-      agentType,
-      department,
-      callCount: stat?.callCount ?? 0,
-      errorCount: stat?.errorCount ?? 0,
-      avgDurationMs: stat?.avgDurationMs ?? 0,
-      errorRate: stat?.errorRate ?? 0,
-      lastActive: lastActiveMap.get(agentType) ?? null,
-    }
+      call_id: s.call_id ?? '',
+      agent_type: s.agent_type ?? 'unknown',
+      department: s.department ?? AGENT_DEPT_MAP[s.agent_type ?? ''] ?? '',
+      model: (s.model as string) ?? '',
+      status: end
+        ? (end.is_error || end.status === 'error' ? 'error' : 'success')
+        : (isOrphan ? 'error' : 'running'),
+      duration_ms: end?.duration_ms ?? null,
+      description: (s.description as string) ?? '',
+      started_at: s.ts,
+      is_error: end ? (end.is_error === true || end.status === 'error') : false,
+    } satisfies AgentCall
   })
 }
 
-function buildDeptSummaries(rows: AgentRow[]): DeptSummary[] {
-  const deptOrder = ['management', 'planning', 'engineering-frontend', 'engineering-backend', 'engineering-platform', 'design', 'evaluation', 'qa']
-  return deptOrder.map(dept => {
-    const deptRows = rows.filter(r => r.department === dept)
-    const info = DEPT_INFO[dept] || { color: '#6c757d', label: dept }
-    const totalCalls = deptRows.reduce((s, r) => s + r.callCount, 0)
-    const totalErrors = deptRows.reduce((s, r) => s + r.errorCount, 0)
-    const activeDurations = deptRows.filter(r => r.avgDurationMs > 0)
-    const avgDuration = activeDurations.length > 0
-      ? activeDurations.reduce((s, r) => s + r.avgDurationMs, 0) / activeDurations.length
-      : 0
-    return {
-      department: dept,
-      label: info.label,
-      color: info.color,
-      totalCalls,
-      totalErrors,
-      avgDuration,
-      agentCount: deptRows.length,
-    }
-  })
+function buildAgentStats(calls: AgentCall[]): AgentStat[] {
+  const map = new Map<string, { calls: number; errors: number; totalMs: number; count: number; dept: string }>()
+  for (const c of calls) {
+    if (!map.has(c.agent_type)) map.set(c.agent_type, { calls: 0, errors: 0, totalMs: 0, count: 0, dept: c.department })
+    const stat = map.get(c.agent_type)!
+    stat.calls++
+    if (c.is_error || c.status === 'error') stat.errors++
+    if (c.duration_ms != null) { stat.totalMs += c.duration_ms; stat.count++ }
+  }
+  return Array.from(map.entries()).map(([agent_type, s]) => ({
+    agent_type,
+    department: s.dept,
+    call_count: s.calls,
+    error_count: s.errors,
+    avg_duration_ms: s.count > 0 ? s.totalMs / s.count : null,
+  }))
 }
 
-function DeptSummaryCard({ summary }: { summary: DeptSummary }) {
-  const errorRate = summary.totalCalls > 0
-    ? ((summary.totalErrors / summary.totalCalls) * 100).toFixed(1)
-    : '0.0'
+// ── Status badge ─────────────────────────────────────────────────────────────
+
+const STATUS_STYLES: Record<string, { bg: string; color: string }> = {
+  running: { bg: 'rgba(59,130,246,0.12)', color: 'var(--status-running, #3b82f6)' },
+  success: { bg: 'rgba(34,197,94,0.12)', color: 'var(--status-done, #22c55e)' },
+  error:   { bg: 'rgba(239,68,68,0.12)', color: 'var(--status-fail, #ef4444)' },
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const s = STATUS_STYLES[status] ?? STATUS_STYLES.success
   return (
-    <div style={{
-      background: 'var(--bg-card)',
-      border: '1px solid var(--border-light)',
+    <span style={{
+      display: 'inline-block',
+      padding: '1px 8px',
       borderRadius: '8px',
-      padding: '14px 16px',
-      borderLeft: `3px solid ${summary.color}`,
-      minWidth: '170px',
-      flex: '1 1 170px',
+      fontSize: '10px',
+      fontWeight: 600,
+      background: s.bg,
+      color: s.color,
     }}>
-      <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '8px', color: summary.color }}>
-        {summary.label}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-        <div>Calls: <strong style={{ color: 'var(--text-primary)' }}>{summary.totalCalls}</strong></div>
-        <div>Errors: <strong style={{ color: summary.totalErrors > 0 ? 'var(--status-fail)' : 'var(--text-primary)' }}>{summary.totalErrors}</strong></div>
-        <div>Avg: <strong style={{ color: 'var(--text-primary)' }}>{summary.avgDuration > 0 ? formatDuration(summary.avgDuration) : '-'}</strong></div>
-        <div>Err%: <strong style={{ color: parseFloat(errorRate) > 0 ? 'var(--status-fail)' : 'var(--text-primary)' }}>{errorRate}%</strong></div>
-      </div>
-    </div>
+      {status}
+    </span>
   )
 }
 
-export function AgentsTab({ pipelineSlug }: { pipelineSlug?: string | null }) {
-  const apiUrl = pipelineSlug ? `/api/agents?date=all&pipeline=${pipelineSlug}` : '/api/agents?date=all'
-  const { data, error, isLoading } = usePolling<AgentData>(apiUrl, 2000)
+// ── Component ────────────────────────────────────────────────────────────────
 
-  const rows = useMemo(() => buildAgentRows(data ?? null), [data])
-  const deptSummaries = useMemo(() => buildDeptSummaries(rows), [rows])
+export function AgentsTab({ events, eventsLoading, eventsError }: AgentsTabProps) {
+  const calls = useMemo(() => {
+    if (!events || !Array.isArray(events)) return []
+    return buildAgentCalls(events)
+  }, [events])
 
-  if (isLoading && !data) {
+  const stats = useMemo(() => buildAgentStats(calls), [calls])
+  const activeCalls = useMemo(() => calls.filter(c => c.status === 'running'), [calls])
+
+  if (eventsLoading && !events) {
     return <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading agents...</div>
   }
-  if (error) {
-    return <div style={{ padding: '20px', color: 'var(--status-fail)' }}>Error loading agents: {error.message}</div>
+  if (eventsError) {
+    return <div style={{ padding: '20px', color: 'var(--status-fail)' }}>Error loading agents: {eventsError.message}</div>
+  }
+  if (calls.length === 0) {
+    return <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>No agent calls recorded</div>
   }
 
-  const totalCalls = data?.totalCalls ?? 0
-  const totalErrors = data?.totalErrors ?? 0
-  const runningCount = data?.runningCount ?? 0
-
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Summary bar */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {/* Summary stats */}
       <div style={{
         display: 'flex',
-        gap: '20px',
-        padding: '12px 20px',
-        borderBottom: '1px solid var(--border)',
-        fontSize: '13px',
+        gap: '16px',
+        flexWrap: 'wrap',
+        fontSize: '12px',
         color: 'var(--text-secondary)',
-        flexShrink: 0,
       }}>
-        <span>Agents: <strong style={{ color: 'var(--text-primary)' }}>{ALL_AGENTS.length}</strong></span>
-        <span>Total Calls: <strong style={{ color: 'var(--text-primary)' }}>{totalCalls}</strong></span>
-        <span>Running: <strong style={{ color: 'var(--status-running)' }}>{runningCount}</strong></span>
-        <span>Errors: <strong style={{ color: totalErrors > 0 ? 'var(--status-fail)' : 'var(--text-primary)' }}>{totalErrors}</strong></span>
+        <span>Total Calls: <strong style={{ color: 'var(--text-primary)' }}>{calls.length}</strong></span>
+        <span>Agents: <strong style={{ color: 'var(--text-primary)' }}>{stats.length}</strong></span>
+        {activeCalls.length > 0 && (
+          <span>Running: <strong style={{ color: 'var(--status-running, #3b82f6)' }}>{activeCalls.length}</strong></span>
+        )}
+        <span>Errors: <strong style={{ color: calls.filter(c => c.is_error).length > 0 ? 'var(--status-fail)' : 'var(--text-primary)' }}>
+          {calls.filter(c => c.is_error).length}
+        </strong></span>
       </div>
 
-      <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
-        {/* Department summary cards */}
-        <div style={{
-          display: 'flex',
-          gap: '12px',
-          marginBottom: '20px',
-          flexWrap: 'wrap',
-        }}>
-          {deptSummaries.map(s => (
-            <DeptSummaryCard key={s.department} summary={s} />
-          ))}
-        </div>
-
-        {/* Agent table */}
-        <div style={{
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border-light)',
-          borderRadius: '8px',
-          overflow: 'hidden',
-        }}>
-          {/* Table header */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '2fr 1fr 80px 90px 80px 100px',
-            gap: '8px',
-            padding: '10px 16px',
-            fontSize: '11px',
-            fontWeight: 600,
-            color: 'var(--text-muted)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-            borderBottom: '1px solid var(--border-light)',
-            background: 'var(--bg-secondary)',
-          }}>
-            <div>Agent</div>
-            <div>Department</div>
-            <div style={{ textAlign: 'right' }}>Calls</div>
-            <div style={{ textAlign: 'right' }}>Avg Time</div>
-            <div style={{ textAlign: 'right' }}>Err %</div>
-            <div style={{ textAlign: 'right' }}>Last Active</div>
-          </div>
-
-          {/* Table rows */}
-          {rows.map(row => {
-            const deptInfo = DEPT_INFO[row.department] || { color: '#6c757d', label: row.department }
-            const hasActivity = row.callCount > 0
-            return (
-              <div
-                key={row.agentType}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '2fr 1fr 80px 90px 80px 100px',
-                  gap: '8px',
-                  padding: '10px 16px',
-                  fontSize: '13px',
-                  borderBottom: '1px solid var(--border-light)',
-                  opacity: hasActivity ? 1 : 0.5,
-                }}
-              >
-                <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    background: hasActivity ? deptInfo.color : '#6c757d',
-                    flexShrink: 0,
-                  }} />
-                  {row.agentType}
-                </div>
-                <div style={{ color: deptInfo.color, fontSize: '12px', display: 'flex', alignItems: 'center' }}>
-                  {deptInfo.label}
-                </div>
-                <div style={{ textAlign: 'right', color: 'var(--text-primary)' }}>
-                  {row.callCount > 0 ? row.callCount : '-'}
-                </div>
-                <div style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>
-                  {row.avgDurationMs > 0 ? formatDuration(row.avgDurationMs) : '-'}
-                </div>
-                <div style={{
-                  textAlign: 'right',
-                  color: row.errorRate > 0 ? 'var(--status-fail)' : 'var(--text-secondary)',
-                }}>
-                  {row.callCount > 0 ? `${row.errorRate.toFixed(1)}%` : '-'}
-                </div>
-                <div style={{ textAlign: 'right', color: 'var(--text-muted)', fontSize: '12px' }}>
-                  {row.lastActive ? formatRelativeTime(row.lastActive) : '-'}
-                </div>
+      {/* Active agents */}
+      {activeCalls.length > 0 && (
+        <div>
+          <h3 style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
+            Active ({activeCalls.length})
+          </h3>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {activeCalls.map(a => (
+              <div key={a.call_id} style={{
+                padding: '6px 12px',
+                borderRadius: '6px',
+                background: 'rgba(59,130,246,0.08)',
+                border: '1px solid rgba(59,130,246,0.2)',
+                fontSize: '11px',
+                color: 'var(--text-primary)',
+              }}>
+                <span style={{ fontWeight: 600 }}>{a.agent_type}</span>
+                {a.model && <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>{a.model}</span>}
               </div>
-            )
-          })}
+            ))}
+          </div>
         </div>
+      )}
+
+      {/* Agent call history table */}
+      <div style={{
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border-light)',
+        borderRadius: '8px',
+        overflow: 'hidden',
+      }}>
+        {/* Header */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1.5fr 100px 80px 90px 80px 2fr',
+          gap: '8px',
+          padding: '8px 12px',
+          fontSize: '10px',
+          fontWeight: 600,
+          color: 'var(--text-muted)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px',
+          borderBottom: '1px solid var(--border-light)',
+          background: 'var(--bg-secondary)',
+        }}>
+          <div>Agent</div>
+          <div>Call ID</div>
+          <div>Model</div>
+          <div style={{ textAlign: 'right' }}>Duration</div>
+          <div style={{ textAlign: 'center' }}>Status</div>
+          <div>Description</div>
+        </div>
+
+        {/* Rows */}
+        {calls.map((call, i) => {
+          const deptInfo = DEPT_INFO[call.department] || { color: '#6c757d', label: call.department }
+          return (
+            <div
+              key={`${call.call_id}-${i}`}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1.5fr 100px 80px 90px 80px 2fr',
+                gap: '8px',
+                padding: '7px 12px',
+                fontSize: '11px',
+                borderBottom: '1px solid var(--border-light)',
+                background: call.is_error ? 'rgba(239,68,68,0.04)' : 'transparent',
+              }}
+            >
+              <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+                <span style={{
+                  width: '6px', height: '6px', borderRadius: '50%',
+                  background: deptInfo.color, flexShrink: 0,
+                }} />
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {call.agent_type}
+                </span>
+              </div>
+              <div style={{ color: 'var(--text-muted)', fontSize: '10px', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {call.call_id ? call.call_id.slice(-12) : '-'}
+              </div>
+              <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>
+                {call.model || '-'}
+              </div>
+              <div style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>
+                {call.duration_ms != null ? formatDuration(call.duration_ms) : '-'}
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <StatusBadge status={call.status} />
+              </div>
+              <div style={{
+                color: 'var(--text-muted)', fontSize: '11px',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {call.description || '-'}
+              </div>
+            </div>
+          )
+        })}
       </div>
+
+      {/* Per-agent summary */}
+      {stats.length > 1 && (
+        <div>
+          <h3 style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
+            Summary by Agent
+          </h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', textAlign: 'left' }}>
+                <th style={{ padding: '8px 12px', fontWeight: 500 }}>Agent</th>
+                <th style={{ padding: '8px 12px', fontWeight: 500 }}>Calls</th>
+                <th style={{ padding: '8px 12px', fontWeight: 500 }}>Errors</th>
+                <th style={{ padding: '8px 12px', fontWeight: 500 }}>Avg Duration</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stats.map(s => (
+                <tr key={s.agent_type} style={{ borderTop: '1px solid var(--border-light)' }}>
+                  <td style={{ padding: '6px 12px', color: 'var(--text-primary)', fontWeight: 500 }}>{s.agent_type}</td>
+                  <td style={{ padding: '6px 12px', color: 'var(--text-secondary)' }}>{s.call_count}</td>
+                  <td style={{ padding: '6px 12px', color: s.error_count > 0 ? 'var(--status-fail)' : 'var(--text-muted)' }}>{s.error_count}</td>
+                  <td style={{ padding: '6px 12px', color: 'var(--text-muted)' }}>
+                    {s.avg_duration_ms != null ? formatDuration(s.avg_duration_ms) : '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }

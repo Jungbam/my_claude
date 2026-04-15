@@ -8,7 +8,7 @@ import { AppHeader } from '@/components/shared/AppHeader'
 import { WorkDetailHeader } from '@/components/work-detail/WorkDetailHeader'
 import { WorkDetailTabs } from '@/components/work-detail/WorkDetailTabs'
 import { PipelineTabPanel } from '@/components/work-detail/PipelineTabPanel'
-import { MetaverseTab } from '@/components/tabs/MetaverseTab'
+import { OverviewPanel } from '@/components/work-detail/OverviewPanel'
 import { bamsApi } from '@/lib/bams-api'
 import { formatDuration } from '@/lib/utils'
 import type { DetailTab, PipelineSubTab, WorkUnitDetailResponse } from '@/lib/types'
@@ -18,7 +18,7 @@ export default function WorkDetailPage() {
   const router = useRouter()
   const slug = params.slug as string
 
-  const [activeTab, setActiveTab] = useState<DetailTab>('metaverse')
+  const [activeTab, setActiveTab] = useState<DetailTab>('overview')
   const [selectedPipelineSlug, setSelectedPipelineSlug] = useState<string | null>(null)
   const [activePipelineSubTab, setActivePipelineSubTab] = useState<PipelineSubTab>('agent')
 
@@ -28,7 +28,14 @@ export default function WorkDetailPage() {
   )
 
   const workunit = data?.workunit
-  const pipelines = workunit?.pipelines ?? []
+  // pipelines는 응답 root에 위치 (WorkUnitDetailResponse contract).
+  // workunit.pipelines는 목록 API(getWorkUnits)에서만 채워지므로 여기서는 사용하지 않는다.
+  const pipelines = data?.pipelines ?? []
+
+  // M-2: WU 전환(slug 변경) 시 이전 WU의 pipeline 선택 상태를 초기화
+  useEffect(() => {
+    setSelectedPipelineSlug(null)
+  }, [slug])
 
   // 파이프라인 목록이 로드되면 첫 번째를 자동 선택
   useEffect(() => {
@@ -129,6 +136,7 @@ export default function WorkDetailPage() {
       }}>
         <WorkDetailHeader
           workunit={workunit}
+          pipelines={pipelines}
           onBack={handleBack}
           onAction={handleAction}
         />
@@ -137,10 +145,10 @@ export default function WorkDetailPage() {
           onTabChange={setActiveTab}
         />
 
-        {activeTab === 'metaverse' && (
-          <MetaverseTab wuSlug={slug} />
+        {activeTab === 'overview' && (
+          <OverviewPanel workunit={workunit} pipelines={pipelines} />
         )}
-        {activeTab === 'pipeline' && (
+        {activeTab === 'pipelines' && (
           <PipelineTabPanel
             pipelines={pipelines}
             wuSlug={slug}

@@ -17,6 +17,9 @@ const COLOR_MAP: Record<string, string> = {
   warning: '#eab308',
   blocked: '#eab308',
   backlog: '#585870',
+  rolled_back: '#f97316',
+  unknown: '#585870',
+  skipped: '#585870',
 }
 
 interface StatusBadgeProps {

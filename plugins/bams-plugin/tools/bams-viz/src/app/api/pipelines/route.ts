@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { BAMS_SERVER, headers } from '@/lib/server-config'
+import { errorResponse, toInternalMessage } from '@/lib/server-errors'
 
 export async function GET() {
+  const route = 'pipelines'
   try {
     const res = await fetch(`${BAMS_SERVER}/api/pipelines`, {
       signal: AbortSignal.timeout(3000),
@@ -13,20 +15,21 @@ export async function GET() {
       const pipelines = data.pipelines ?? data
       return NextResponse.json({ pipelines }, { headers: headers('api') })
     }
-    return NextResponse.json({ pipelines: [] }, { headers: headers('error') })
+    // M-1: upstream 에러를 { pipelines: [] } + 200으로 마스킹하지 않는다.
+    return errorResponse(
+      res.status,
+      res.status === 404 ? 'NOT_FOUND' : 'UPSTREAM_ERROR',
+      `bams-server ${res.status}`,
+      { route }
+    )
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error'
-    return NextResponse.json({ error: message }, { status: 500, headers: headers('error') })
+    return errorResponse(503, 'NETWORK_ERROR', toInternalMessage(error), { route })
   }
 }
 
-export async function DELETE(request: NextRequest) {
-  const slug = request.nextUrl.searchParams.get('slug')
-
-  // Note: Pipeline deletion is not yet supported via bams-server API.
-  // For now, return 501 Not Implemented. Pipeline 5 will handle cleanup.
-  return NextResponse.json(
-    { error: 'Pipeline deletion via API not yet implemented. Use bams-server directly.' },
-    { status: 501, headers: headers('api') }
-  )
+export async function DELETE(_request: NextRequest) {
+  // Pipeline deletion is not yet supported via bams-server API.
+  return errorResponse(501, 'NOT_IMPLEMENTED', 'pipeline DELETE not implemented', {
+    route: 'pipelines:DELETE',
+  })
 }

@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server'
 import { BAMS_SERVER, corsHeaders } from '@/lib/server-config'
+import { errorResponse, toInternalMessage } from '@/lib/server-errors'
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const route = 'hr/reports/id'
   const { id } = await params
   const decodedId = decodeURIComponent(id)
 
@@ -18,14 +19,14 @@ export async function GET(
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       })
     }
-    return NextResponse.json(
-      { error: `HR report not found: ${decodedId}` },
-      { status: 404, headers: corsHeaders }
+    // M-3: error 메시지에 decodedId를 포함시키지 않는다 (노출 최소화).
+    return errorResponse(
+      res.status,
+      res.status === 404 ? 'NOT_FOUND' : 'UPSTREAM_ERROR',
+      `bams-server ${res.status} for hr/reports/${decodedId}`,
+      { route }
     )
-  } catch {
-    return NextResponse.json(
-      { error: `Failed to fetch HR report: ${decodedId}` },
-      { status: 500, headers: corsHeaders }
-    )
+  } catch (error) {
+    return errorResponse(503, 'NETWORK_ERROR', toInternalMessage(error), { route })
   }
 }

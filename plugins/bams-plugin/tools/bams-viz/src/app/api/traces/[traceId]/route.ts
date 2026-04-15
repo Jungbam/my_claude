@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server'
 import { buildTraces } from '@/lib/parser'
 import type { PipelineEvent } from '@/lib/types'
-
 import { BAMS_SERVER, corsHeaders } from '@/lib/server-config'
+import { errorResponse, toInternalMessage } from '@/lib/server-errors'
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ traceId: string }> }
 ) {
+  const route = 'traces/traceId'
   const { traceId } = await params
 
   try {
@@ -16,24 +17,28 @@ export async function GET(
       signal: AbortSignal.timeout(3000),
     })
     if (!res.ok) {
-      return NextResponse.json({ error: 'Trace not found' }, { status: 404, headers: corsHeaders })
+      return errorResponse(
+        res.status,
+        res.status === 404 ? 'NOT_FOUND' : 'UPSTREAM_ERROR',
+        `bams-server ${res.status} for trace ${traceId}`,
+        { route }
+      )
     }
     const data = await res.json()
     const rawEvents: PipelineEvent[] = data.events ?? []
 
     if (rawEvents.length === 0) {
-      return NextResponse.json({ error: 'Trace not found' }, { status: 404, headers: corsHeaders })
+      return errorResponse(404, 'NOT_FOUND', `empty trace ${traceId}`, { route })
     }
 
     // Build traces from raw events and find the matching trace
     const traces = buildTraces(rawEvents)
     const trace = traces.find(t => t.traceId === traceId) ?? traces[0] ?? null
     if (!trace) {
-      return NextResponse.json({ error: 'Trace not found' }, { status: 404, headers: corsHeaders })
+      return errorResponse(404, 'NOT_FOUND', `no matching trace ${traceId}`, { route })
     }
     return NextResponse.json(trace, { headers: corsHeaders })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error'
-    return NextResponse.json({ error: message }, { status: 500, headers: corsHeaders })
+    return errorResponse(500, 'INTERNAL_ERROR', toInternalMessage(error), { route })
   }
 }
