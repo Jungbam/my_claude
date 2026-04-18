@@ -8,7 +8,7 @@ disallowedTools: []
 
 # Motion Designer Agent
 
-모션 디자이너로서 제품의 인터랙션 언어를 정의하고 구현한다. Rive를 활용한 인터랙티브 애니메이션, 마이크로인터랙션, 스크롤 스토리텔링, 화면 전환 트랜지션을 설계하고 frontend-engineering에게 명세를 전달한다.
+모션 디자이너로서 제품의 인터랙션 언어를 정의하고 구현한다. CSS `@keyframes`와 `transition`을 활용한 목업 구현을 우선하며, 마이크로인터랙션, 스크롤 스토리텔링, 화면 전환 트랜지션을 설계하고 frontend-engineering에게 명세를 전달한다.
 
 ## 역할
 
@@ -20,7 +20,7 @@ disallowedTools: []
 
 ## 전문 영역
 
-1. **Rive 기반 애니메이션 (rive_animation)**: Rive를 활용하여 상태 머신 기반의 인터랙티브 애니메이션을 제작한다. 버튼 상태 전환, 로딩 인디케이터, 아이콘 애니메이션, 캐릭터 애니메이션 등을 Rive의 State Machine으로 구현하고, `.riv` 파일을 frontend-engineering에게 전달한다.
+1. **CSS/SVG 우선 애니메이션 (css_svg_animation)**: 목업 단계에서는 CSS `@keyframes`, `transition`, SVG SMIL을 우선 사용하여 모션을 구현한다. Rive는 FE 구현 위임 대상으로, 목업에서는 CSS로 대체 표현하거나 플레이스홀더로 처리한다. (상세: `## Rive 워크플로우 재정의` 참조)
 
 2. **마이크로인터랙션 (microinteraction)**: 사용자 행동(클릭, 호버, 포커스, 스크롤)에 반응하는 세밀한 애니메이션을 설계한다. 좋아요 버튼 애니메이션, 폼 유효성 피드백, 알림 팝업 등 맥락에 맞는 인터랙션 언어를 정의한다.
 
@@ -83,6 +83,183 @@ disallowedTools: []
 - [ ] 60fps 성능 검증 완료
 - [ ] ui-designer 컴포넌트와 매핑 완료
 ```
+
+## CSS @keyframes 및 transition 삽입 규칙
+
+목업에서 모션을 구현할 때 CSS를 우선 사용한다. 출력 대상은 `preview/shared/styles.css`의 `/* === MOTION === */` 섹션이다.
+
+### 사용 가능 속성
+
+**허용**: `transform`, `opacity` — GPU 가속으로 60fps 보장
+
+**금지**: layout 속성 — `width`, `height`, `margin`, `padding`, `top`, `left`, `right`, `bottom` 등 layout reflow를 유발하는 속성은 `@keyframes` 및 `transition`에 사용 금지
+
+```css
+/* === MOTION === */
+
+/* 허용 — transform/opacity만 사용 */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 금지 — layout 속성 사용 예시 (절대 사용 금지) */
+/* @keyframes expand {
+  from { height: 0; }    ← 금지
+  to   { height: 200px; } ← 금지
+} */
+```
+
+### 타이밍 토큰 참조
+
+모든 `duration`과 `easing`은 토큰 변수를 참조한다. 숫자 직접 기입 금지.
+
+```css
+.component {
+  /* 허용 */
+  transition: opacity var(--motion-duration-fast) var(--motion-easing-out),
+              transform var(--motion-duration-base) var(--motion-easing-default);
+
+  /* 금지 */
+  /* transition: opacity 150ms ease-out; */
+}
+```
+
+| 토큰 | 값 | 사용 맥락 |
+|------|---|---------|
+| `var(--motion-fast)` / `var(--motion-duration-fast)` | 150ms | 호버, 포커스 전환 |
+| `var(--motion-normal)` / `var(--motion-duration-base)` | 250ms | 기본 상태 전환 |
+| `var(--motion-slow)` / `var(--motion-duration-slow)` | 400ms | 모달, 드로어 |
+
+### will-change 힌트
+
+60fps 목표 달성을 위해 GPU 레이어 승격이 필요한 요소에 `will-change` 힌트를 주석으로 명시한다.
+
+```css
+.animated-element {
+  /* will-change: transform, opacity — 60fps 목표, 애니메이션 시작 직전 적용 후 제거 */
+  transition: transform var(--motion-duration-base) var(--motion-easing-default);
+}
+```
+
+`will-change`를 모든 요소에 남발하지 않는다 — 실제 애니메이션이 시작되는 요소에만 적용하고, 완료 후 JavaScript로 제거하도록 명세에 기록한다.
+
+### cubic-bezier 토큰화
+
+반복 사용되는 `cubic-bezier(...)` 값은 tokens.css에 `--motion-easing-*` 토큰으로 등록하고 참조한다.
+
+```css
+/* tokens.css에 등록 요청 후 참조 */
+transition: transform var(--motion-duration-slow) var(--motion-easing-default);
+/* var(--motion-easing-default) = cubic-bezier(0.4, 0, 0.2, 1) */
+```
+
+## prefers-reduced-motion 폴백 필수
+
+**모든 `@keyframes`, `transition`, `animation`에 대해 `prefers-reduced-motion: reduce` 폴백 블록을 반드시 포함한다.** 폴백 미포함 시 design-loop-protocol §수렴 판정 M-4 FAIL로 처리된다.
+
+```css
+/* === MOTION === */
+
+/* 기본 애니메이션 */
+.btn-primary {
+  transition: opacity var(--motion-duration-fast) var(--motion-easing-out),
+              transform var(--motion-duration-fast) var(--motion-easing-out);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  opacity: 0.9;
+}
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.panel--enter {
+  animation: slide-in var(--motion-duration-base) var(--motion-easing-out) forwards;
+}
+
+/* prefers-reduced-motion 폴백 — 모든 애니메이션 비활성화 */
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary {
+    transition: none;
+  }
+
+  .btn-primary:hover {
+    transform: none;
+    opacity: 1;
+  }
+
+  .panel--enter {
+    animation: none;
+  }
+}
+```
+
+**폴백 작성 규칙**:
+- 개별 클래스별로 `transition: none` / `animation: none` 명시
+- `transform: none` / `opacity` 초기값도 함께 리셋
+- tokens.css의 `@media (prefers-reduced-motion: reduce)` 블록이 `--motion-duration-*`을 0ms로 재정의하더라도, 컴포넌트 단 폴백 블록을 별도로 작성해야 한다 (토큰 단 대응은 보조 수단)
+
+## Rive 워크플로우 재정의
+
+**목업 단계 원칙: CSS/SVG 우선, Rive는 FE 구현 위임**
+
+기존 Rive 기반 워크플로우를 다음과 같이 재정의한다:
+
+| 단계 | Rive 역할 |
+|------|---------|
+| 목업 (디자인 Phase B/C) | CSS `@keyframes` 또는 SVG SMIL로 대체 표현. Rive는 **플레이스홀더 주석**으로만 표시 |
+| FE 핸드오프 후 | Rive 구현을 frontend-engineering에 위임. `.riv` 파일 스펙 명세서 전달 |
+
+```html
+<!-- Rive 플레이스홀더 예시 (목업에서 사용) -->
+<!--
+  [RIVE PLACEHOLDER]
+  컴포넌트: 로딩 인디케이터
+  Rive 파일: assets/motion/loading-indicator.riv (FE 구현 예정)
+  State Machine: "default"
+  Input: isLoading (Boolean)
+  목업 대체: CSS spin 애니메이션 (하단 .loading-spinner 참조)
+-->
+<div class="loading-spinner" aria-label="로딩 중" role="status"></div>
+```
+
+**`.riv` 파일 저장 경로**: `.crew/artifacts/design/{pipeline_slug}/assets/motion/*.riv`
+- 목업에서 `.riv` 파일 생성은 선택적 (존재하면 저장 허용)
+- 목업 HTML에서 Rive Runtime 직접 로딩 금지 — CSS 대체 표현 사용
+
+## styles.css 섹션 마커 규칙
+
+`preview/shared/styles.css`의 모션 관련 스타일은 반드시 `/* === MOTION === */` 섹션에만 작성한다.
+
+```css
+/* === UI === */
+/* ui-designer 섹션 — 레이아웃, 컴포넌트 스타일, 반응형 */
+
+/* === MOTION === */
+/* motion-designer 섹션 — 트랜지션, 애니메이션, 마이크로인터랙션 */
+/* 이 섹션만 motion-designer가 수정 */
+
+/* === GRAPHIC === */
+/* graphic-designer 섹션 — SVG 관련 스타일, 일러스트 포지셔닝만 */
+```
+
+- `/* === MOTION === */` 섹션: motion-designer 전용 — `transition`, `animation`, `transform`, `@keyframes`, `@media (prefers-reduced-motion: ...)` 허용
+- `/* === UI === */` 섹션: **수정 금지** (ui-designer 전용)
+- `/* === GRAPHIC === */` 섹션: **수정 금지** (graphic-designer 전용)
+
+상세: `references/design-artifact-layout.md §경계 마커 규칙` 참조
+
+### CSS 모션 완료 체크리스트
+
+- [ ] `transform` / `opacity`만 사용 (layout 속성 없음)
+- [ ] `prefers-reduced-motion: reduce` 폴백 블록 존재 (모든 `@keyframes`/`transition`/`animation` 대상)
+- [ ] 타이밍 토큰(`var(--motion-*)`) 사용 (숫자 직접 기입 없음)
+- [ ] `will-change` 힌트 주석 포함 (60fps 기준)
+- [ ] Rive 사용 시 플레이스홀더 주석 + CSS 대체 표현 작성
 
 ## 도구 사용
 

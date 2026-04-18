@@ -83,6 +83,87 @@ disallowedTools: []
 - [ ] [승인 필요 항목 또는 후속 작업]
 ```
 
+## SVG 에셋 생성 및 주입 규칙
+
+목업 산출물에 포함될 SVG 에셋의 생성, 최적화, 주입 기준을 정의한다.
+
+- 출력 경로: `.crew/artifacts/design/{pipeline_slug}/assets/icons/*.svg`
+- 파일명: `icon-{name}.svg` (kebab-case, 예: `icon-arrow-right.svg`, `icon-check-circle.svg`)
+
+### SVG 최적화 규칙
+
+```svg
+<!-- 필수 속성 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+     aria-label="검색" role="img">
+  <title>검색</title>
+  <!-- 경로 데이터 -->
+</svg>
+```
+
+- `viewBox` 존재 필수 (width/height 단독 사용 금지)
+- 불필요한 메타데이터 제거 (Adobe/Inkscape 생성 속성, 빈 그룹, 주석)
+- `fill="currentColor"` 사용 — 아이콘 색이 CSS `color` 속성을 상속받아 토큰 참조 가능
+- 색이 고정되어야 하는 경우: `fill="var(--color-*)"` 형식으로 토큰 참조 (하드코딩 색 금지)
+- 접근성: `<title>` 요소 + `aria-label` 속성 필수
+
+### 파일 크기 임계값 — 인라인/참조 전환 규칙
+
+**SVG 4KB 기준으로 주입 방식이 달라진다:**
+
+| 크기 | 주입 방식 | 예시 |
+|------|---------|------|
+| **4KB 이하** | HTML 인라인 삽입 허용 | `<svg viewBox="...">...</svg>` |
+| **4KB 초과** | 반드시 외부 참조로 전환 | `<img src="../assets/icons/*.svg">` 또는 `<use href="#...">` |
+
+```html
+<!-- 허용: 4KB 이하 인라인 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-label="검색">
+  <title>검색</title>
+  <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+</svg>
+
+<!-- 허용: 4KB 초과 — img 참조 -->
+<img src="../assets/icons/icon-search.svg" alt="검색" width="24" height="24">
+
+<!-- 허용: 4KB 초과 — SVG use 스프라이트 참조 -->
+<svg aria-hidden="true"><use href="../assets/icons/sprite.svg#search"></use></svg>
+
+<!-- 금지: 4KB 초과 SVG 인라인 직접 삽입 -->
+```
+
+**이유**: `preview/index.html` 비대화 방지 (R-6). 총 크기 100KB 이하 권장.
+상세: `references/design-artifact-layout.md §파일 크기 임계값` 참조
+
+## styles.css 섹션 마커 규칙
+
+`preview/shared/styles.css`의 SVG 관련 스타일은 반드시 `/* === GRAPHIC === */` 섹션에만 작성한다.
+
+```css
+/* === GRAPHIC === */
+/* graphic-designer 섹션 — SVG fill/stroke, clip-path, 일러스트 포지셔닝만 */
+
+.icon {
+  fill: var(--color-text-primary); /* 토큰 참조 필수 */
+}
+.illust-hero {
+  /* 일러스트 포지셔닝 */
+}
+```
+
+- `/* === UI === */` 섹션: **수정 금지** (ui-designer 전용)
+- `/* === MOTION === */` 섹션: **수정 금지** (motion-designer 전용)
+- `/* === GRAPHIC === */` 섹션: SVG `fill`, `stroke`, `clip-path`, illustration 포지셔닝만 허용. 색상은 반드시 토큰 변수 참조
+
+상세: `references/design-artifact-layout.md §경계 마커 규칙` 참조
+
+### SVG 에셋 완료 체크리스트
+
+- [ ] SVG 최적화 완료 (`viewBox` 존재, 불필요 메타데이터 제거)
+- [ ] `fill="currentColor"` 또는 `fill="var(--color-*)"` 사용 (하드코딩 색 없음)
+- [ ] `<title>` + `aria-label` 접근성 속성 포함
+- [ ] 4KB 초과 SVG는 `<img>` 또는 `<use href>` 참조 방식으로 전환
+
 ## 도구 사용
 
 - **Read**: 브랜드 가이드라인, 디자인 브리프, 기존 에셋 목록 분석
