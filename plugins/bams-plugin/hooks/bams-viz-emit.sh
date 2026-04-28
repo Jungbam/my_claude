@@ -15,6 +15,11 @@ umask 077  # Ensure new files (logs, tmp) are created with 0600 permission
 #   bash bams-viz-emit.sh error          <slug> <message> [step_number] [error_code]
 set -uo pipefail
 
+# Unicode/multibyte slug 안전 처리 (한글 slug 지원)
+LANG="${LANG:-en_US.UTF-8}"
+LC_ALL="${LC_ALL:-en_US.UTF-8}"
+export LANG LC_ALL
+
 EVENT_TYPE="${1:-}"
 SLUG="${2:-}"
 
@@ -81,10 +86,30 @@ dept_map() {
 # ── DB 이벤트 전송 ──
 # 서버 미가동 시에도 || true로 emit.sh 실패 방지
 BAMS_SERVER_URL="${BAMS_SERVER_URL:-http://localhost:3099}"
+
+# Fallback JSONL 파일 경로 (한글 slug 포함 멀티바이트 안전 처리)
+# printf %s를 사용해 echo -n 의 BSD/GNU 차이를 회피
+_events_file() {
+  local slug="$1"
+  local dir="${BAMS_ROOT}/artifacts/pipeline"
+  mkdir -p "$dir" 2>/dev/null || true
+  printf '%s/%s-events.jsonl' "$dir" "$slug"
+}
+
 _post_event() {
-  curl -s --max-time 2 -X POST "${BAMS_SERVER_URL}/api/events" \
-    -H "Content-Type: application/json" \
-    -d "$1" > /dev/null 2>&1 || true
+  local payload="$1"
+  # 1) 서버 POST 시도 (BAMS_SERVER_URL이 설정된 경우, 실패 무시)
+  if [ -n "${BAMS_SERVER_URL:-}" ]; then
+    curl -s --max-time 2 -X POST "${BAMS_SERVER_URL}/api/events" \
+      -H "Content-Type: application/json" \
+      -d "$payload" > /dev/null 2>&1 || true
+  fi
+  # 2) 항상 file write (이중 기록) — 서버 성공 여부와 무관하게 jsonl 파일 보존
+  # 사유: viz dashboard와 retro/회고가 jsonl 파일에 의존하므로,
+  # 서버 down 시 데이터 손실 방지 + 한글 slug 등 모든 케이스 일관 처리
+  local _file
+  _file="$(_events_file "$SLUG")"
+  printf '%s\n' "$payload" >> "$_file" 2>/dev/null || true
 }
 
 case "$EVENT_TYPE" in

@@ -190,9 +190,55 @@ hr_reports (독립)
 
 ## 현재 상태
 
-> Last updated: 2026-04-17
+> Last updated: 2026-04-27
+
+### 최근 완료 (2026-04-28)
+- **`hotfix_wave1병렬` + `hotfix_명칭표준화`** ✅ COMPLETED — 6 commits 누적 (TASK-019/021/022/023/024/032 모두 처리)
+  - Wave 1 (4 spawn 병렬, ~20분): TASK-019(메인) + TASK-022(qa) + TASK-023+024(platform-devops) + TASK-032(hr-agent)
+  - Wave 2 (1 spawn 직렬, ~10분): TASK-021(product-strategy 설계 + 메인 적용)
+  - 잔여: TASK-026(codex login, 사용자 직접)
+- **`dev_보안위임표준화`** ✅ COMPLETED — 3 commits (f810f57/f9b4712/a24683c)
 
 ### 진행 중
+- **`plan_SR위임`** (Backlog, 1 task — TASK-032) (TASK-025 세부 plan)
+  - Work Unit: 전체bams리뷰
+  - 부모 plan: plan_deepreview후속처리 (TASK-025)
+  - PRD: `.crew/artifacts/prd/plan_SR위임-prd.md` (APPROVED v2 — OQ1~OQ5 모두 Recommended)
+  - Spec: `.crew/artifacts/design/plan_SR위임-spec.md` (308줄, 12 섹션, 자기 검증 PASS)
+  - Design: spec §10 통합 (별도 design.md 없음 — 단일 위임 작업)
+  - 범위: 3 에이전트 파일에 SR-1~SR-5 행동 규칙 5건 추가, 합산 +48줄
+  - 작업: TASK-032 (hr-agent 단독 spawn, ~1.5~2h)
+  - 다음: 메인이 hr-agent 직접 Task tool spawn (spec §1 위임 메시지 그대로 사용)
+
+- **`plan_보안위임표준화`** (Backlog, 5 tasks — TASK-027~031) (TASK-020 세부 plan)
+  - Work Unit: 전체bams리뷰
+  - 부모 plan: plan_deepreview후속처리 (TASK-020)
+  - PRD: `.crew/artifacts/prd/plan_보안위임표준화-prd.md` (APPROVED v2)
+  - Spec: `.crew/artifacts/design/plan_보안위임표준화-spec.md` (602줄, 4 hunks, AC1~AC10)
+  - Design: `.crew/artifacts/design/plan_보안위임표준화-design.md`
+  - 범위: LLM 위임 메시지 보안 표준 + AskUserQuestion 입력 검증 + m-3 분류 미상 처리
+  - 작업: TASK-027(F1 신규 ~140줄) + TASK-028(F2) + TASK-029(F3 3 hunks) + TASK-030(QA) + TASK-031(3커밋+PR)
+  - 예상 소요: 1.5~2.5h
+  - 다음: `/bams:dev plan_보안위임표준화` 또는 `/bams:hotfix 보안위임표준화`
+
+- **`plan_deepreview후속처리`** (Backlog, 7+1 tasks — TASK-019~025 + TASK-026 안내) ⭐ 신규
+  - Work Unit: 전체bams리뷰
+  - PRD: `.crew/artifacts/prd/plan_deepreview후속처리-prd.md` (APPROVED v2 — OQ1~OQ5 모두 Recommended 채택)
+  - Spec: `.crew/artifacts/design/plan_deepreview후속처리-spec.md` (8 섹션, 996줄)
+  - Design: `.crew/artifacts/design/plan_deepreview후속처리-design.md`
+  - 범위: deep-review 후속 처리 (Major 7 + 핵심 Minor + 시스템 3 + structural 5)
+  - 작업: TASK-019(amend) → TASK-020~024(5 hotfix) + TASK-025(hr-agent SR 위임) + TASK-026(사용자 직접)
+  - 누적 소요: ~6~8.5h
+  - 다음: TASK-019 amend 후 영역별 hotfix 트리거 (`/bams:hotfix {slug}`) 또는 `/bams:dev plan_deepreview후속처리`
+
+### 최근 완료 (2026-04-27)
+- **`deep-review_retro범위가드`** ✅ COMPLETED — Critical 0, Major 7, Minor 12+. 종합 리포트 + 5 improvement records 생성
+- **`dev_retro범위가드`** ✅ COMPLETED — 3 commits (65a189b/08b2e2b/3f297de), AC1~AC12 12/12 PASS, QG iteration 1 PASS
+  - Branch: `bams/dev_retro범위가드` (PR 생성 가능)
+  - 변경: retro-protocol.md / phase-2-retro.md / phase-4-improve.md (3 파일, 7 hunks, +79/-13)
+- **`plan_retro범위가드`** ✅ COMPLETED — PRD/spec/design 작성, OQ1~OQ5 사용자 답변 반영
+
+### 진행 중 (이전 작업)
 - **`plan_opus47개선6종`** (Backlog, 6 tasks — TASK-007~012)
   - Work Unit: 전체bams리뷰
   - PRD: `.crew/artifacts/prd/plan_opus47개선6종-prd.md`

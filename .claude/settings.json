@@ -9,7 +9,9 @@
       "WebFetch(*)",
       "WebSearch(*)",
       "AskUserQuestion(*)",
-      "Edit(~/.claude/skills/strategic-compact/**)"
+      "Edit(~/.claude/skills/strategic-compact/**)",
+      "Skill(bams-plugin:review)",
+      "Skill(bams-plugin:review:*)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
