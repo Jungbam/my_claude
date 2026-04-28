@@ -340,13 +340,85 @@ check_eq \
     0
 
 # ---------------------------------------------------------------------------
+# Group C - plan_SR적용검증 (SR-1/2/3/5 적용 검증)
+# (부모 plan: plan_SR적용검증, OQ1=B 채택 — 기존 wrapper에 통합)
+# 자동 감지: 인자 없으면 가장 최근 plan/dev spec.md 자동 감지 (OQ2=B)
+# SR-4 SKIP: 위임 메시지 휘발성으로 직접 grep 불가, 다음 retro mock 위임 (OQ3=B)
+# ---------------------------------------------------------------------------
+printf "\n─────────────────────────────────────────────\n"
+printf "Group C: SR Application Verification (SR-1/2/3/5)\n"
+printf "─────────────────────────────────────────────\n"
+
+# SR 검증 대상 slug 식별 (OQ2=B: 인자 옵션, 기본 자동 감지)
+SR_TARGET_SLUG="${1:-}"
+if [ -z "$SR_TARGET_SLUG" ]; then
+    # shellcheck disable=SC2012  # ls -t needed for mtime sort; filenames are controlled paths
+    SR_TARGET_SPEC=$(ls -t .crew/artifacts/design/*-spec.md 2>/dev/null | head -1)
+    if [ -n "$SR_TARGET_SPEC" ]; then
+        SR_TARGET_SLUG=$(basename "$SR_TARGET_SPEC" -spec.md)
+        printf "[INFO] Group C: 인자 미입력 — 자동 감지된 slug: %s\n" "$SR_TARGET_SLUG" >&2
+    else
+        printf "[WARN] Group C: spec.md 미발견, SR 검증 SKIP\n" >&2
+        SR_TARGET_SLUG=""
+    fi
+fi
+
+if [ -n "$SR_TARGET_SLUG" ]; then
+    SR_SPEC_PATH=".crew/artifacts/design/${SR_TARGET_SLUG}-spec.md"
+    SR_PRD_PATH=".crew/artifacts/prd/${SR_TARGET_SLUG}-prd.md"
+    SR_REVIEW_PATH=".crew/artifacts/review/${SR_TARGET_SLUG}-review.md"
+
+    # spec.md 우선 검증 대상, 없으면 prd.md fallback (OQ2=B)
+    SR_INPUT_DOC=""
+    [ -f "$SR_SPEC_PATH" ] && SR_INPUT_DOC="$SR_SPEC_PATH"
+    [ -z "$SR_INPUT_DOC" ] && [ -f "$SR_PRD_PATH" ] && SR_INPUT_DOC="$SR_PRD_PATH"
+
+    if [ -n "$SR_INPUT_DOC" ]; then
+        printf "[Group C] 검증 대상 문서: %s\n" "$SR_INPUT_DOC"
+        SR_DOC_BASENAME=$(basename "$SR_INPUT_DOC")
+        # SR-1: cross-reference 의무
+        check_ge "C-AC1: SR-1 cross-reference (${SR_DOC_BASENAME})" \
+            "$SR_INPUT_DOC" "cross-reference\|SSOT" 1
+        # SR-2: Glossary 섹션 의무
+        check_ge "C-AC2: SR-2 Glossary 섹션 (${SR_DOC_BASENAME})" \
+            "$SR_INPUT_DOC" "^## .*\(Glossary\|용어 정의\)" 1
+        # SR-3: 분기 합류점 명시 의무
+        check_ge "C-AC3: SR-3 분기 합류점 (${SR_DOC_BASENAME})" \
+            "$SR_INPUT_DOC" "다음 이동" 1
+        # SR-5: 셸 스크립트 추출 의무 (review.md AC grep ≥3 시 verify-{slug}.sh 존재)
+        if [ -f "$SR_REVIEW_PATH" ]; then
+            AC_GREP_COUNT=$(grep -cE "^.*grep " "$SR_REVIEW_PATH" 2>/dev/null || true)
+            if [ "${AC_GREP_COUNT:-0}" -ge 3 ]; then
+                TOTAL=$((TOTAL + 1))
+                if [ -f "scripts/verify-${SR_TARGET_SLUG}.sh" ]; then
+                    PASS_COUNT=$((PASS_COUNT + 1))
+                    printf "[PASS] C-AC5: SR-5 셸 스크립트 추출 (verify-%s.sh)\n" "$SR_TARGET_SLUG"
+                else
+                    FAIL_COUNT=$((FAIL_COUNT + 1))
+                    printf "[FAIL] C-AC5: SR-5 셸 스크립트 추출 (verify-%s.sh 미존재)\n" "$SR_TARGET_SLUG"
+                fi
+            else
+                printf "[SKIP] C-AC5: review.md AC grep <3 (실제: %s) — SR-5 미적용, 검증 면제\n" "${AC_GREP_COUNT:-0}"
+            fi
+        else
+            printf "[SKIP] C-AC5: %s 미존재 — SR-5 검증 면제\n" "$SR_REVIEW_PATH"
+        fi
+    else
+        printf "[SKIP] Group C: spec/prd 미발견 (%s) — SR-1/2/3 검증 면제\n" "$SR_TARGET_SLUG"
+    fi
+
+    # SR-4 SKIP (OQ3=B 채택)
+    printf "[SKIP] C-AC4: SR-4 (위임 메시지 구분자) — 위임 메시지 휘발성, 다음 retro mock 위임 (OQ3=B)\n"
+fi
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 printf "\n=== Retro Guard Regression Test 결과 ===\n"
 printf "PASS  : %d\n" "${PASS_COUNT}"
 printf "FAIL  : %d\n" "${FAIL_COUNT}"
-printf "SKIP  : 1 (AC10 — git diff 의존)\n"
-printf "TOTAL : %d (+ 1 skipped)\n" "${TOTAL}"
+printf "SKIP  : 1+ (AC10 — git diff 의존; C-AC4 — SR-4 위임 메시지 휘발성; C-AC5 — review.md 조건부)\n"
+printf "TOTAL : %d (+ conditional skips)\n" "${TOTAL}"
 
 if [ "${FAIL_COUNT}" -eq 0 ]; then
     printf "\nAll checks PASSED. exit 0\n"
