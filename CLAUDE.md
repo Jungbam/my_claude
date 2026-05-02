@@ -192,6 +192,13 @@ hr_reports (독립)
 
 > Last updated: 2026-05-02
 
+### 진행 중 (PR #6 누적 — 2026-05-03)
+- **`dev_init조직도셋업완결` + `dev_init잔여후속`** ✅ 6 commits 누적, PR #6 review-ready
+  - Branch: `bams/dev_init조직도셋업완결` (base=main)
+  - 처리 완료: deep-review 39 issues 중 **24건** (P0/P1 11건 + NG1 4건 + NG3 핵심 9건 + NG4 부분 5건)
+  - 잔여 이연: NG3 8건(m6~m10/m12/m16) + NG4 sonnet 계열 14명 — 별도 plan
+  - 검증: AC15/15 PASS + 시나리오 4/4 PASS + NF7/7 + NG7/8 PASS + 13/13 PASS (NG1+Minor)
+
 ### 진행 중 (신규 — 2026-05-02)
 - **`plan_init조직도셋업완결`** (Backlog, 7 tasks — TASK-033~039) ⭐ 신규
   - Work Unit: 전체bams리뷰
