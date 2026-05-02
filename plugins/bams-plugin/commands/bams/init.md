@@ -27,7 +27,7 @@ _START_MS=$(date +%s%3N)
 _EVENTS_FILE="$HOME/.bams/artifacts/pipeline/${_INIT_SLUG}-events.jsonl"
 mkdir -p "$(dirname "$_EVENTS_FILE")"
 cat >> "$_EVENTS_FILE" <<EOF
-{"type":"pipeline_start","pipeline_slug":"${_INIT_SLUG}","pipeline_type":"init","command":"/bams:init","arguments":"$ARGUMENTS","timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
+{"type":"pipeline_start","pipeline_slug":"${_INIT_SLUG}","pipeline_type":"init","command":"/bams:init","arguments":"$ARGUMENTS","ts":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
 EOF
 echo "[viz] pipeline_start emitted — ${_INIT_SLUG}"
 ```
@@ -309,7 +309,13 @@ DB가 활성화되면 이후 파이프라인 커맨드(`/bams:dev`, `/bams:featu
       "Bash(git commit *)",
       "Bash(git checkout *)",
       "Bash(git branch)",
-      "Bash(git branch *)",
+      "Bash(git branch -l)",
+      "Bash(git branch -l *)",
+      "Bash(git branch -r)",
+      "Bash(git branch -r *)",
+      "Bash(git branch --list)",
+      "Bash(git branch --list *)",
+      "Bash(git branch --show-current)",
       "Bash(git pull)",
       "Bash(git pull *)",
       "Bash(git fetch)",
@@ -345,7 +351,12 @@ DB가 활성화되면 이후 파이프라인 커맨드(`/bams:dev`, `/bams:featu
       "Bash(date *)",
       "Bash(gh pr *)",
       "Bash(gh issue *)",
-      "Bash(gh api *)",
+      "Bash(gh api repos/*/pulls)",
+      "Bash(gh api repos/*/pulls/*)",
+      "Bash(gh api repos/*/issues)",
+      "Bash(gh api repos/*/issues/*)",
+      "Bash(gh api repos/*/commits)",
+      "Bash(gh api repos/*/commits/*)",
       "Read(*)"
     ],
     "additionalDirectories": [
@@ -364,25 +375,35 @@ DB가 활성화되면 이후 파이프라인 커맨드(`/bams:dev`, `/bams:featu
 - 기존 `additionalDirectories`는 보존하고, 누락된 경로만 추가합니다.
 - `~` 경로는 실행 시점에 `$HOME`으로 확장하여 절대 경로로 저장합니다.
 
-**사용자 동의 절차 (OQ2=B):**
+**사용자 동의 절차 (OQ2=B) — 활성 코드:**
 
 ```bash
 # 1) 기존 settings.json read
 _SETTINGS=".claude/settings.json"
 [ -f "$_SETTINGS" ] || echo '{}' > "$_SETTINGS"
 # 2) 본 plan이 추가하려는 항목 vs 기존 항목 diff 계산
-_EXISTING=$(jq -r '.permissions.allow // [] | .[]' "$_SETTINGS" | sort -u)
-# (위 권한 배열을 임시 파일로 작성 후 비교)
-# _PROPOSED=$(jq -r '.[]' "$_NEW_RULES_FILE" | sort -u)
-# _DIFF_COUNT=$(comm -23 <(echo "$_PROPOSED") <(echo "$_EXISTING") | wc -l | tr -d ' ')
+_EXISTING=$(jq -r '.permissions.allow // [] | .[]' "$_SETTINGS" 2>/dev/null | sort -u)
+_PROPOSED_FILE=$(mktemp)
+# 위 "추가할 와일드카드 권한 규칙" 섹션의 permissions.allow 배열 항목을 한 줄씩 출력
+# (LLM이 본 섹션을 Read하여 _PROPOSED_FILE에 작성)
+_PROPOSED=$(cat "$_PROPOSED_FILE" | sort -u)
+_DIFF_COUNT=$(comm -23 <(echo "$_PROPOSED") <(echo "$_EXISTING") | wc -l | tr -d ' ')
+rm -f "$_PROPOSED_FILE"
 
-# 3) diff > 0 일 때만 AskUserQuestion 발화
-# if [ "$_DIFF_COUNT" -gt 0 ]; then
-#   AskUserQuestion 발화 (Header: "Permission Update", Body: 추가될 규칙 목록)
-#   Options: A) 모두 추가 / B) 미리보기 후 결정 / C) 스킵
-# else
-#   echo "[permissions] 변경 사항 없음 — 스킵 (idempotent)"
-# fi
+if [ "$_DIFF_COUNT" -gt 0 ]; then
+  echo "[permissions] ${_DIFF_COUNT}개 신규 규칙 발견 — 사용자 동의 절차 진입"
+  # AskUserQuestion 발화 의무 (LLM 지시):
+  #   Question: "settings.json에 ${_DIFF_COUNT}개 권한 규칙을 추가합니다. 적용할까요?"
+  #   Header: "Permission Update"
+  #   Body: comm -23 결과 (추가될 규칙 목록)
+  #   Options:
+  #     A) 모두 추가 — proposed 규칙 모두 적용
+  #     B) 미리보기 후 결정 — diff를 stdout에 출력하고 한 번 더 확인
+  #     C) 스킵 — settings.json 변경 안 함, init 계속 진행
+  # 사용자 답변에 따라 settings.json 수정 또는 스킵
+else
+  echo "[permissions] 변경 사항 없음 — 스킵 (idempotent)"
+fi
 ```
 
 이 단계는 idempotent합니다. settings.json에 본 plan 변경분이 모두 있으면 AskUserQuestion 미발화. NF6(역호환) 충족.
@@ -398,7 +419,7 @@ _EXISTING=$(jq -r '.permissions.allow // [] | .[]' "$_SETTINGS" | sort -u)
 Task tool spawn 직전 `agent_start`, 응답 수신 직후 `agent_end` emit:
 ```bash
 _CALL_ID="init-step6-$(date +%s)"
-echo "{\"type\":\"agent_start\",\"call_id\":\"${_CALL_ID}\",\"agent_type\":\"product-strategy\",\"department\":\"planning\",\"model\":\"claude-opus-4-7[1m]\",\"description\":\"프로젝트 초기 분석 모드\",\"step_number\":6,\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"pipeline_slug\":\"${_INIT_SLUG}\"}" >> "$_EVENTS_FILE"
+echo "{\"type\":\"agent_start\",\"call_id\":\"${_CALL_ID}\",\"agent_type\":\"product-strategy\",\"department\":\"planning\",\"model\":\"claude-opus-4-7[1m]\",\"description\":\"프로젝트 초기 분석 모드\",\"step_number\":6,\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"pipeline_slug\":\"${_INIT_SLUG}\"}" >> "$_EVENTS_FILE"
 ```
 서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:product-strategy"**):
 
@@ -418,7 +439,7 @@ echo "{\"type\":\"agent_start\",\"call_id\":\"${_CALL_ID}\",\"agent_type\":\"pro
 Task tool spawn 직전 `agent_start`, 응답 수신 직후 `agent_end` emit:
 ```bash
 _CALL_ID="init-step7-$(date +%s)"
-echo "{\"type\":\"agent_start\",\"call_id\":\"${_CALL_ID}\",\"agent_type\":\"platform-devops\",\"department\":\"infra\",\"model\":\"claude-opus-4-7[1m]\",\"description\":\"배포 환경 점검 모드\",\"step_number\":7,\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"pipeline_slug\":\"${_INIT_SLUG}\"}" >> "$_EVENTS_FILE"
+echo "{\"type\":\"agent_start\",\"call_id\":\"${_CALL_ID}\",\"agent_type\":\"platform-devops\",\"department\":\"infra\",\"model\":\"claude-opus-4-7[1m]\",\"description\":\"배포 환경 점검 모드\",\"step_number\":7,\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"pipeline_slug\":\"${_INIT_SLUG}\"}" >> "$_EVENTS_FILE"
 ```
 서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:platform-devops"**):
 
@@ -666,7 +687,7 @@ Memory: [에이전트 {N}개 디렉토리 생성 / 이미 존재]
 
 ```bash
 cat >> "$_EVENTS_FILE" <<EOF
-{"type":"pipeline_end","pipeline_slug":"${_INIT_SLUG}","status":"completed","total_steps":12,"completed_steps":12,"failed_steps":0,"skipped_steps":0,"duration_ms":$(($(date +%s%3N) - _START_MS)),"timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
+{"type":"pipeline_end","pipeline_slug":"${_INIT_SLUG}","status":"completed","total_steps":12,"completed_steps":12,"failed_steps":0,"skipped_steps":0,"duration_ms":$(($(date +%s%3N) - _START_MS)),"ts":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
 EOF
 echo "[viz] pipeline_end emitted — ${_INIT_SLUG} (status=completed)"
 ```
