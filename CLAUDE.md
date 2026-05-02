@@ -190,7 +190,26 @@ hr_reports (독립)
 
 ## 현재 상태
 
-> Last updated: 2026-04-27
+> Last updated: 2026-05-02
+
+### 진행 중 (신규 — 2026-05-02)
+- **`plan_init조직도셋업완결`** (Backlog, 7 tasks — TASK-033~039) ⭐ 신규
+  - Work Unit: 전체bams리뷰
+  - 부모 deep-review: `deep-review_init조직도검증` (Critical 6 / Major 16 / Minor 17 = 39건)
+  - PRD: `.crew/artifacts/prd/plan_init조직도셋업완결-prd.md` (APPROVED v2 — OQ A/B/B/A/A 채택)
+  - Spec: `.crew/artifacts/design/plan_init조직도셋업완결-spec.md` (640줄, 4 hunk, AC15/15 + NF7/7 PASS)
+  - Design-BE: `.crew/artifacts/design/plan_init조직도셋업완결-design-be.md` (NG8 — BE 변경 없음 확정)
+  - 범위: P0 Critical 6건(C1~C6) + P1 Major 5건(M1, M2~M4, M16) = 12 R-ID
+  - 작업: TASK-033(F1 init.md) + TASK-034(F2 platform-devops) + TASK-035(F3 9개 frontmatter) + TASK-036(F4 product-strategy, plan_SR위임 후) + TASK-037(F5 jojikdo) + TASK-038(F6 qa) + TASK-039(F7 4커밋+PR)
+  - 예상 소요: 4~6h (hr-agent 단일 부서장, F2/F3/F5 병렬 가능)
+  - 머지 직렬화: `plan_SR위임` 선행 머지 → 본 plan F4 후속
+  - 다음: `/bams:dev plan_init조직도셋업완결`
+
+### 부모 deep-review (2026-05-02)
+- **`deep-review_init조직도검증`** ✅ COMPLETED — 39건 발견 (Critical 6 / Major 16 / Minor 17)
+  - Report: `.crew/artifacts/review/deep-review_init조직도검증-report.md`
+  - 핵심: references 19개 누락(C1) / platform-devops 부서장 섹션 부재(C2) / 권한 폭주(M2~M4) / jojikdo Advisor 모순(C5)
+  - 5 improvement records: `.crew/memory/{product-strategy,platform-devops,pipeline-orchestrator,hr-agent}/improvements/2026-05-02-*.md`
 
 ### 최근 완료 (2026-04-28)
 - **`hotfix_wave1병렬` + `hotfix_명칭표준화`** ✅ COMPLETED — 6 commits 누적 (TASK-019/021/022/023/024/032 모두 처리)
