@@ -192,7 +192,16 @@ hr_reports (독립)
 
 > Last updated: 2026-05-02
 
-### 진행 중 (신규 — 2026-05-04, 2번째 plan)
+### 진행 중 (신규 — 2026-05-05, 3번째 plan)
+- **`plan_T3_sample_bias_filter`** (Backlog, 2 tasks — TASK-055~056) ⭐ 가장 작은 plan
+  - Branch: `bams/plan_retro_iteration2` (PR #7 누적 — OQ-A)
+  - 부모 record: `product-strategy/2026-05-04-t3-sample-bias-from-T2.md` (R5 표준 경로 첫 dogfooding 산출)
+  - PRD/Spec: APPROVED v2 (OQ1=C — A+B 동시 적용)
+  - 변경: `agents/product-strategy.md` L170-171 +1줄 (모집단 필터 + 트리거 정밀화)
+  - **NF5 메타 self-aware**: 본 plan(코드 +1)은 자기 모집단 필터에 의해 평가 제외 — 첫 자기 적용 사례
+  - 다음: `/bams:hotfix T3_filter` (분량 +1 — hotfix 적합) 또는 `/bams:dev plan_T3_sample_bias_filter`
+
+### 진행 중 (이전 — 2026-05-04, 2번째 plan)
 - **`plan_T2_R5_dogfooding검증`** (Backlog, 3 tasks — TASK-052~054) ⭐ 신규
   - Work Unit: 전체bams리뷰 / Branch: `bams/plan_retro_iteration2` (PR #7 누적, OQ-A)
   - 부모 retro: `retro_dev_retro개선계획회고_1` P2 (R5 표준 경로 0회 실행)
