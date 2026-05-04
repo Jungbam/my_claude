@@ -192,7 +192,16 @@ hr_reports (독립)
 
 > Last updated: 2026-05-02
 
-### 진행 중 (신규 — 2026-05-04)
+### 진행 중 (신규 — 2026-05-04, 2번째 plan)
+- **`plan_T2_R5_dogfooding검증`** (Backlog, 3 tasks — TASK-052~054) ⭐ 신규
+  - Work Unit: 전체bams리뷰 / Branch: `bams/plan_retro_iteration2` (PR #7 누적, OQ-A)
+  - 부모 retro: `retro_dev_retro개선계획회고_1` P2 (R5 표준 경로 0회 실행)
+  - PRD/Spec: APPROVED v2 (OQ A/(b)/(b) — 가장 작은 plan, NF3 +0)
+  - **운영 절차 plan — 코드 변경 0**, R5 표준 경로 1회 dogfooding 검증
+  - 핵심 발견 (T3 두 번째 사이클): 운영 plan은 분모 0 → "코드 변경 ≥+10" 필터 도입 권고
+  - 다음: `/bams:dev plan_T2_R5_dogfooding검증` (3 spawn — orchestrator + hr-agent + qa-strategy)
+
+### 진행 중 (이전 — 2026-05-04, 1번째 plan)
 - **`plan_retro_iteration2`** (Backlog, 4 tasks — TASK-048~051) ⭐ 신규 (PR #6 머지 후 main에서 분기)
   - Work Unit: 전체bams리뷰 / Branch: `bams/plan_retro_iteration2` (main 4307d92 base)
   - 부모 retro: `retro_dev_retro개선계획회고_1` (P1 + P3)
