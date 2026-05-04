@@ -192,6 +192,17 @@ hr_reports (독립)
 
 > Last updated: 2026-05-02
 
+### 진행 중 (신규 — 2026-05-04)
+- **`plan_retro_iteration2`** (Backlog, 4 tasks — TASK-048~051) ⭐ 신규 (PR #6 머지 후 main에서 분기)
+  - Work Unit: 전체bams리뷰 / Branch: `bams/plan_retro_iteration2` (main 4307d92 base)
+  - 부모 retro: `retro_dev_retro개선계획회고_1` (P1 + P3)
+  - PRD: `.crew/artifacts/prd/plan_retro_iteration2-prd.md` (APPROVED v2 — OQ A/A/(a)/A)
+  - Spec: `.crew/artifacts/design/plan_retro_iteration2-spec.md` (360줄, 자기검증 6/6 PASS)
+  - 분류: P0 × 3건 (R1=T5 retro_skip schema / R2=T3 보정 절차 / R3=T1 운영 dogfooding)
+  - 변경: event-schema.json +14 / product-strategy.md +13 = **+27줄** (NF3 +80 한도 33.75% 사용)
+  - **★ T3 자기 적용 핵심 발견**: 본 사이클 -28.9% drift (직전 +83%/+83%과 방향 역전) → 보정 계수 2.0 잠정 유보, 5 사이클 누적 후 재산정
+  - 다음: `/bams:dev plan_retro_iteration2` (hr-agent 2 병렬 + qa-strategy 1 + T1 dogfooding)
+
 ### 회고 완료 (2026-05-04)
 - **`retro_dev_retro개선계획회고_1`** ✅ COMPLETED — 메타 회고 (R1~R7 dogfooding 평가)
   - 산출물: `.crew/artifacts/retro/retro_dev_retro개선계획회고_1/{phase2-3-kpt-eval,phase5-final-report}.md`
