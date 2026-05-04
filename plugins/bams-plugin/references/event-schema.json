@@ -9,7 +9,8 @@
     { "$ref": "#/definitions/step_end" },
     { "$ref": "#/definitions/agent_start" },
     { "$ref": "#/definitions/agent_end" },
-    { "$ref": "#/definitions/error" }
+    { "$ref": "#/definitions/error" },
+    { "$ref": "#/definitions/retro_skip" }
   ],
   "definitions": {
     "pipeline_start": {
@@ -119,6 +120,18 @@
         "step_number": { "type": "integer" },
         "message": { "type": "string" },
         "error_code": { "type": "string" },
+        "ts": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "retro_skip": {
+      "type": "object",
+      "required": ["type", "pipeline_slug", "reason", "mode", "ts"],
+      "properties": {
+        "type": { "const": "retro_skip" },
+        "pipeline_slug": { "type": "string" },
+        "reason": { "type": "string" },
+        "mode": { "type": "string", "enum": ["B", "C"] },
         "ts": { "type": "string", "format": "date-time" }
       },
       "additionalProperties": false
