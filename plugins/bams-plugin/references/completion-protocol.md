@@ -116,6 +116,27 @@ echo "[Context Health] 세션 도구 호출: ${TOOL_COUNT}회"
 - 금지: Step 실행 중, retro KPT 작성 중, pipeline_end emit 전
 - 권장: completion-protocol 저장 완료 직후 또는 pipeline_end + retro 완료 후
 
+## Step 4.95: 회고 실행 의무 발화 (CLAUDE.md §5 가드)
+
+`pipeline_end` emit 직후, `pipeline_type ∈ {feature, dev, hotfix, deploy}`인 경우 메인은 다음 AskUserQuestion을 의무 발화한다 (스킵 금지):
+
+```
+Question: "{slug} 파이프라인 회고를 실행할까요?"
+Header: "회고 실행"
+Options:
+- (A) 회고 실행 — `/bams:retro {slug}` 자동 트리거 (Recommended)
+- (B) 스킵 — 사유 명시 (`retro_skip` 이벤트 emit으로 추적)
+- (C) 다음 사이클로 이연 (weekly retro에서 일괄 처리)
+```
+
+사용자 응답 처리:
+- A 선택: 메인이 즉시 `/bams:retro {slug}` 호출
+- B/C 선택: events.jsonl에 `{"type":"retro_skip","pipeline_slug":"{slug}","reason":"...","mode":"B|C","ts":"..."}` emit
+
+본 가드 우회 시 CLAUDE.md §5 위반. retro_dev_init조직도셋업완결회고_1에서 회고 자동 실행율 0/4(0%) 위반 사례.
+
+cf. `.crew/memory/pipeline-orchestrator/improvements/2026-05-03-retro-skip-tracking.md`
+
 ## Step 5: 완료 요약 출력
 
 통일된 형식:
