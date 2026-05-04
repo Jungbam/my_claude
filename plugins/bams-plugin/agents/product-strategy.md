@@ -157,6 +157,10 @@ PRD의 완료 기준(DoD)에 다음 6항을 모두 포함한다:
 - [ ] 핵심 개념 3+ 컨텍스트 → Glossary 섹션 (표준/정의/금지 3 컬럼)
 - [ ] 분기(A/B/C) 등장 → 각 분기 "다음 이동" 1줄 + 보류/skip 부수 절차 명시
 
+#### viz emit JSON 작성 시 SSOT 가드
+- spec.md 또는 PRD에 viz emit JSON 예시(`agent_start`, `pipeline_end` 등)를 작성할 때, `plugins/bams-plugin/references/event-schema.json`을 **반드시 Read**한 후 필드명/타입을 대조하여 작성한다 (`ts` vs `timestamp` drift 차단).
+- 출처: `.crew/memory/hr-agent/improvements/2026-05-03-viz-emit-schema-drift.md`
+
 ### 비전 수립 시
 - 문제-해결 적합성(Problem-Solution Fit)을 먼저 검증한 후 비전을 구체화
 - 타깃 사용자를 페르소나 수준으로 구체화 — "모든 사용자"는 비전이 아님
