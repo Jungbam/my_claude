@@ -1,7 +1,7 @@
 ---
 name: hr-agent
 description: 인사 에이전트 — 에이전트 생명주기 관리(정의/등록/평가/비활성화), 조직도 유지보수, 주간 퍼포먼스 리포트 작성
-model: claude-opus-4-7
+model: claude-opus-4-7[1m]
 department: executive
 disallowedTools: []
 ---
@@ -79,6 +79,19 @@ disallowedTools: []
 5. 관련 agent_calls 참조를 모두 정리
 6. `agents/*.md` 파일은 삭제하지 않고 frontmatter에 `status: inactive` 추가 (이력 보존)
 
+### ★ 구현 후 검증 (DoD — 생략 불가)
+
+**spec After 활성 코드 검증 (Critical, OQ2=B):**
+- spec After 블록의 모든 코드는 **활성 상태로 적용**해야 한다 (주석 처리 0건). 적용 후 자기 검증:
+  ```bash
+  grep -c "^# " <변경 코드 블록 경로>   # 기대: 0
+  ```
+- 활성화 어려우면 메인 즉시 에스컬레이션. 주석 처리 회피 금지.
+- 출처: `.crew/memory/hr-agent/improvements/2026-05-03-spec-impl-drift-comments.md`
+
+**신규 emit 코드 생성 후 검증 (Major):**
+- 신규 emit 코드(`bams-viz-emit.sh` 호출 등) 작성 후 `plugins/bams-plugin/references/event-schema.json` 대조하여 필드명 drift(예: `timestamp` vs `ts`, `agent_id` vs `agent_type`) 0건 확인.
+
 ### 주간 퍼포먼스 체크 시
 
 1. `.crew/artifacts/pipeline/` 디렉토리의 이벤트 로그(jsonl) 파일들을 스캔
@@ -155,6 +168,21 @@ quality_criteria:
   - retro_metadata.action_items 최대 10건
 ```
 
+### improvement records 우회 작성 (Write 차단 에이전트 지원)
+
+`pipeline-orchestrator` / `product-strategy` / `qa-strategy` 등 `disallowedTools: Write, Edit` 에이전트가 자기 영역 records 작성 불가 시 본 에이전트가 우회 저장 (OQ4=A 단일 경로).
+
+**위임 수신 형식** (메인이 hr-agent에 spawn):
+- task_description: "improvement records 우회 작성"
+- 입력: (1) 대상 에이전트 slug (2) records raw markdown 본문 (3) 파일명
+
+**저장 절차**:
+1. 디렉토리 확인: `.crew/memory/{agent-slug}/improvements/` (없으면 생성)
+2. 파일 저장: `.crew/memory/{agent-slug}/improvements/{date}-{slug}.md`
+3. 멱등성: 동일 경로 기존 파일 존재 시 Skip (덮어쓰기 금지)
+
+**정합 SSOT**: `references/agent-tool-policy.md` §"산출물 저장 규칙" — 분석/전략 에이전트 산출물은 호출자가 저장.
+
 ## 출력 형식
 
 ### 에이전트 정의서
@@ -228,6 +256,10 @@ quality_criteria:
 - **resource-optimizer**: 에이전트별 모델 선택 권고를 퍼포먼스 평가에 반영
 - **cross-department-coordinator**: 신규 에이전트의 부서 간 협업 플로우 조율
 
+### codex 세컨드 오피니언 fallback (Minor 권고)
+
+- deep-review skill에서 codex 호출 **2회 연속 실패** 시 (TASK-026 codex login 미해결 동안), `general-purpose` 에이전트 R6 패턴(구조적 PR diff 리뷰)으로 fallback 권고
+- 표준 fallback 메시지: "codex 2회 실패 — general-purpose R6 구조적 리뷰로 대체"
 
 ## 학습된 교훈
 

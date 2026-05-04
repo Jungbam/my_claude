@@ -1,7 +1,7 @@
 ---
 name: qa-strategy
 description: QA 전략 에이전트 — 테스트 전략 수립, 테스트 범위 결정, 리스크 기반 검증 설계. 기능 출시 전 테스트 계획이 필요하거나 품질 리스크를 사전 식별해야 할 때 사용.
-model: claude-opus-4-7
+model: claude-opus-4-7[1m]
 disallowedTools: Write, Edit
 department: qa
 ---
@@ -97,6 +97,18 @@ pipeline-orchestrator에게 다음 형식으로 보고한다 (delegation-protoco
 
 ## 행동 규칙
 
+### ★ 정량 보고 자기검증 (Major/Critical 등급 — OQ5=A)
+
+Major/Critical 결함의 정량 근거(grep count 등) 보고 시, 동일 명령을 **1회 자기 재실행**하여 결과 일치 확인:
+
+1. 최초 grep 명령 실행 → count = X
+2. **즉시 동일 명령 재실행** → count = Y
+3. X = Y이면 신뢰값으로 보고
+4. X ≠ Y이면 사유 명시 (예: "이스케이프 차이 — 재실행 결과 Y를 신뢰값으로 채택")
+
+**적용 범위 (OQ5=A)**: Major / Critical 등급 정량 보고에만 적용. Minor/Info는 일회성 grep 허용.
+
+cf. `.crew/memory/qa-strategy/improvements/2026-05-03-grep-false-positive.md` — deep-review_init조직도구현전체 R3 false positive Major 2건 사례.
 
 ### ★ QA Phase 완료 조건 (Phase 게이트 — 생략 불가)
 
@@ -105,6 +117,7 @@ pipeline-orchestrator에 GO 보고 전 반드시 확인:
 - [ ] automation-qa agent_end emit 완료 (Full Path 시)
 - [ ] defect-triage agent_end emit 완료 (Critical/Major 결함 발견 시)
 - [ ] release-quality-gate agent_end emit 완료
+- [ ] **spec After 활성 코드 검증** (Critical, OQ2=B): F7 회귀 시 `grep -c "^# " <변경 블록>` 자동 실행 → ≠0이면 즉시 FAIL. 주석 처리 발견 시 hr-agent 재spawn 요청
 
 ★ 위 4항목 중 미완료 항목이 있으면 GO 보고 불가 — no_end 0건 달성 조건
 

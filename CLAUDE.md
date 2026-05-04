@@ -190,7 +190,67 @@ hr_reports (독립)
 
 ## 현재 상태
 
-> Last updated: 2026-04-27
+> Last updated: 2026-05-02
+
+### 회고 완료 (2026-05-04)
+- **`retro_dev_retro개선계획회고_1`** ✅ COMPLETED — 메타 회고 (R1~R7 dogfooding 평가)
+  - 산출물: `.crew/artifacts/retro/retro_dev_retro개선계획회고_1/{phase2-3-kpt-eval,phase5-final-report}.md`
+  - 핵심: R4 dogfooding PASS(부분 — A분기), R6 dogfooding PASS(완전 10/10 X=Y), R5 우회 작성 첫 실사용 (records 2건)
+  - 신규 improvement records 2건 (P0): pipeline-orchestrator/2026-05-04-retro-skip-event-untested.md + product-strategy/2026-05-04-prd-spec-line-estimate-drift.md
+  - 다음 사이클 P0: T1+T5 연계(R4 B/C 분기 + retro_skip schema) + T3(PRD 분량 보정 계수 2.0)
+
+### 진행 중 (신규 — 2026-05-04)
+- **`dev_retro개선계획`** ✅ COMPLETED — 3 commits (fa9343e/817965c/da67360), AC 14/15 PASS, R6 dogfooding 10/10 X=Y, R4 dogfooding (Step 4.95 첫 적용 — 사용자 A 선택)
+  - PR #6 누적 11 commit (base=main, MERGEABLE)
+  - 변경: agents 4 (+72) + completion-protocol +21 = +93줄 (NF3 +200 충족)
+  - 다음: `/bams:retro dev_retro개선계획` (R4 dogfooding 사용자 A 선택 후속)
+
+### 진행 중 (이전 — 2026-05-03)
+- **`plan_retro개선계획`** ✅ Plan 완료 (Backlog, 8 tasks — TASK-040~047)
+  - Work Unit: 전체bams리뷰
+  - 부모 retro: `retro_dev_init조직도셋업완결회고_1` + 부모 deep-review2 11 improvement records
+  - PRD: `.crew/artifacts/prd/plan_retro개선계획-prd.md` (APPROVED v2 — OQ A/B/A/A/A)
+  - Spec: `.crew/artifacts/design/plan_retro개선계획-spec.md` (430줄, 4 hunk, AC15 + NF7 + 자기검증 6/6 PASS)
+  - 분류: **Critical 2건(C1: spec After 활성화 / C2: 권한 와일드카드 검사) + Major 4건(M1~M4) + Minor 1건(m1: codex fallback)**
+  - 책임 부서장: hr-agent 단일 (5~6 spawn 병렬) + qa-strategy 1회 (회귀)
+  - 변경 파일: agents/{hr-agent, qa-strategy, pipeline-orchestrator, product-strategy}.md + references/completion-protocol.md (5 파일 +79줄)
+  - 머지 전략: PR #6 누적 (OQ1=A), branch `bams/dev_init조직도셋업완결`
+  - hunk 충돌: 0 hard / 1 soft (R3 product-strategy.md SR-3 이후 명시 — 회피 완료)
+  - 다음: `/bams:dev plan_retro개선계획` 또는 `/bams:hotfix retro개선계획` (분량 +79 한정 hotfix 적합)
+
+### 회고 완료 (2026-05-03)
+- **`retro_dev_init조직도셋업완결회고_1`** ✅ COMPLETED — KPT(5K/7P/6T) + 7 에이전트 평가 + 종합 보고서
+  - 산출물: `.crew/artifacts/retro/retro_dev_init조직도셋업완결회고_1/{phase2-3-kpt-eval,phase5-final-report}.md`
+  - improvement records: 11건 (hr-agent 4 / pipeline-orchestrator 4 / platform-devops 1 / product-strategy 1 / qa-strategy 1)
+  - 정량: 총 6 파이프라인 / 109m / 24/39 issues 처리 / 에이전트 성공률 93.3%
+  - 핵심 P0 액션: T1(spec After 활성화) / T2(emit SSOT) / T3(권한 와일드카드 검사)
+  - 다음 사이클 진입 시 input: phase2-3-kpt-eval.md + 4 improvement records (2026-05-03)
+
+### 진행 중 (PR #6 누적 — 2026-05-03)
+- **`dev_init조직도셋업완결` + `dev_init잔여후속` + `hotfix_init조직도_M1234수정`** ✅ 8 commits 누적, PR #6 review-ready
+  - Branch: `bams/dev_init조직도셋업완결` (base=main)
+  - 처리 완료: deep-review 39 issues 중 **24건** (P0/P1 11건 + NG1 4건 + NG3 핵심 9건 + NG4 부분 5건)
+  - 잔여 이연: NG3 8건(m6~m10/m12/m16) + NG4 sonnet 계열 14명 — 별도 plan
+  - 검증: AC15/15 PASS + 시나리오 4/4 PASS + NF7/7 + NG7/8 PASS + 13/13 PASS (NG1+Minor)
+
+### 진행 중 (신규 — 2026-05-02)
+- **`plan_init조직도셋업완결`** (Backlog, 7 tasks — TASK-033~039) ⭐ 신규
+  - Work Unit: 전체bams리뷰
+  - 부모 deep-review: `deep-review_init조직도검증` (Critical 6 / Major 16 / Minor 17 = 39건)
+  - PRD: `.crew/artifacts/prd/plan_init조직도셋업완결-prd.md` (APPROVED v2 — OQ A/B/B/A/A 채택)
+  - Spec: `.crew/artifacts/design/plan_init조직도셋업완결-spec.md` (640줄, 4 hunk, AC15/15 + NF7/7 PASS)
+  - Design-BE: `.crew/artifacts/design/plan_init조직도셋업완결-design-be.md` (NG8 — BE 변경 없음 확정)
+  - 범위: P0 Critical 6건(C1~C6) + P1 Major 5건(M1, M2~M4, M16) = 12 R-ID
+  - 작업: TASK-033(F1 init.md) + TASK-034(F2 platform-devops) + TASK-035(F3 9개 frontmatter) + TASK-036(F4 product-strategy, plan_SR위임 후) + TASK-037(F5 jojikdo) + TASK-038(F6 qa) + TASK-039(F7 4커밋+PR)
+  - 예상 소요: 4~6h (hr-agent 단일 부서장, F2/F3/F5 병렬 가능)
+  - 머지 직렬화: `plan_SR위임` 선행 머지 → 본 plan F4 후속
+  - 다음: `/bams:dev plan_init조직도셋업완결`
+
+### 부모 deep-review (2026-05-02)
+- **`deep-review_init조직도검증`** ✅ COMPLETED — 39건 발견 (Critical 6 / Major 16 / Minor 17)
+  - Report: `.crew/artifacts/review/deep-review_init조직도검증-report.md`
+  - 핵심: references 19개 누락(C1) / platform-devops 부서장 섹션 부재(C2) / 권한 폭주(M2~M4) / jojikdo Advisor 모순(C5)
+  - 5 improvement records: `.crew/memory/{product-strategy,platform-devops,pipeline-orchestrator,hr-agent}/improvements/2026-05-02-*.md`
 
 ### 최근 완료 (2026-04-28)
 - **`hotfix_wave1병렬` + `hotfix_명칭표준화`** ✅ COMPLETED — 6 commits 누적 (TASK-019/021/022/023/024/032 모두 처리)

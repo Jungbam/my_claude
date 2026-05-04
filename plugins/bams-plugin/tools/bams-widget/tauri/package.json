@@ -6,8 +6,13 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:vite": "vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "tauri:dev": "bash scripts/start-widget.sh",
+    "tauri:build:dist": "vite build",
+    "start": "bash scripts/start-widget.sh",
+    "verify": "bash scripts/verify-widget-bundle.sh",
     "build:full": "bash scripts/build.sh",
     "build:dmg": "tauri build --bundles dmg",
     "build:ci": "bash scripts/build.sh --ci",
