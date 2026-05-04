@@ -192,6 +192,13 @@ hr_reports (독립)
 
 > Last updated: 2026-05-02
 
+### 회고 완료 (2026-05-04)
+- **`retro_dev_retro개선계획회고_1`** ✅ COMPLETED — 메타 회고 (R1~R7 dogfooding 평가)
+  - 산출물: `.crew/artifacts/retro/retro_dev_retro개선계획회고_1/{phase2-3-kpt-eval,phase5-final-report}.md`
+  - 핵심: R4 dogfooding PASS(부분 — A분기), R6 dogfooding PASS(완전 10/10 X=Y), R5 우회 작성 첫 실사용 (records 2건)
+  - 신규 improvement records 2건 (P0): pipeline-orchestrator/2026-05-04-retro-skip-event-untested.md + product-strategy/2026-05-04-prd-spec-line-estimate-drift.md
+  - 다음 사이클 P0: T1+T5 연계(R4 B/C 분기 + retro_skip schema) + T3(PRD 분량 보정 계수 2.0)
+
 ### 진행 중 (신규 — 2026-05-04)
 - **`dev_retro개선계획`** ✅ COMPLETED — 3 commits (fa9343e/817965c/da67360), AC 14/15 PASS, R6 dogfooding 10/10 X=Y, R4 dogfooding (Step 4.95 첫 적용 — 사용자 A 선택)
   - PR #6 누적 11 commit (base=main, MERGEABLE)
