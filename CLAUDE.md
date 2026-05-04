@@ -192,8 +192,29 @@ hr_reports (독립)
 
 > Last updated: 2026-05-02
 
+### 진행 중 (신규 — 2026-05-03)
+- **`plan_retro개선계획`** (Backlog, 8 tasks — TASK-040~047) ⭐ 신규
+  - Work Unit: 전체bams리뷰
+  - 부모 retro: `retro_dev_init조직도셋업완결회고_1` + 부모 deep-review2 11 improvement records
+  - PRD: `.crew/artifacts/prd/plan_retro개선계획-prd.md` (APPROVED v2 — OQ A/B/A/A/A)
+  - Spec: `.crew/artifacts/design/plan_retro개선계획-spec.md` (430줄, 4 hunk, AC15 + NF7 + 자기검증 6/6 PASS)
+  - 분류: **Critical 2건(C1: spec After 활성화 / C2: 권한 와일드카드 검사) + Major 4건(M1~M4) + Minor 1건(m1: codex fallback)**
+  - 책임 부서장: hr-agent 단일 (5~6 spawn 병렬) + qa-strategy 1회 (회귀)
+  - 변경 파일: agents/{hr-agent, qa-strategy, pipeline-orchestrator, product-strategy}.md + references/completion-protocol.md (5 파일 +79줄)
+  - 머지 전략: PR #6 누적 (OQ1=A), branch `bams/dev_init조직도셋업완결`
+  - hunk 충돌: 0 hard / 1 soft (R3 product-strategy.md SR-3 이후 명시 — 회피 완료)
+  - 다음: `/bams:dev plan_retro개선계획` 또는 `/bams:hotfix retro개선계획` (분량 +79 한정 hotfix 적합)
+
+### 회고 완료 (2026-05-03)
+- **`retro_dev_init조직도셋업완결회고_1`** ✅ COMPLETED — KPT(5K/7P/6T) + 7 에이전트 평가 + 종합 보고서
+  - 산출물: `.crew/artifacts/retro/retro_dev_init조직도셋업완결회고_1/{phase2-3-kpt-eval,phase5-final-report}.md`
+  - improvement records: 11건 (hr-agent 4 / pipeline-orchestrator 4 / platform-devops 1 / product-strategy 1 / qa-strategy 1)
+  - 정량: 총 6 파이프라인 / 109m / 24/39 issues 처리 / 에이전트 성공률 93.3%
+  - 핵심 P0 액션: T1(spec After 활성화) / T2(emit SSOT) / T3(권한 와일드카드 검사)
+  - 다음 사이클 진입 시 input: phase2-3-kpt-eval.md + 4 improvement records (2026-05-03)
+
 ### 진행 중 (PR #6 누적 — 2026-05-03)
-- **`dev_init조직도셋업완결` + `dev_init잔여후속`** ✅ 6 commits 누적, PR #6 review-ready
+- **`dev_init조직도셋업완결` + `dev_init잔여후속` + `hotfix_init조직도_M1234수정`** ✅ 8 commits 누적, PR #6 review-ready
   - Branch: `bams/dev_init조직도셋업완결` (base=main)
   - 처리 완료: deep-review 39 issues 중 **24건** (P0/P1 11건 + NG1 4건 + NG3 핵심 9건 + NG4 부분 5건)
   - 잔여 이연: NG3 8건(m6~m10/m12/m16) + NG4 sonnet 계열 14명 — 별도 plan
