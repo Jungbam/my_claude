@@ -9,6 +9,7 @@ import { WorkDetailHeader } from '@/components/work-detail/WorkDetailHeader'
 import { WorkDetailTabs } from '@/components/work-detail/WorkDetailTabs'
 import { PipelineTabPanel } from '@/components/work-detail/PipelineTabPanel'
 import { OverviewPanel } from '@/components/work-detail/OverviewPanel'
+import { OrgFloatingButton } from '@/components/floating/OrgFloatingButton'
 import { bamsApi } from '@/lib/bams-api'
 import { formatDuration } from '@/lib/utils'
 import type { DetailTab, PipelineSubTab, WorkUnitDetailResponse } from '@/lib/types'
@@ -162,6 +163,7 @@ export default function WorkDetailPage() {
           <RetroPanel wuSlug={slug} />
         )}
       </main>
+      <OrgFloatingButton />
     </div>
   )
 }

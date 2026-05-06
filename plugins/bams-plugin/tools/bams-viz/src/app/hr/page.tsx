@@ -2,6 +2,7 @@
 
 import { AppHeader } from '@/components/shared/AppHeader'
 import { HRTab } from '@/components/tabs/HRTab'
+import { OrgFloatingButton } from '@/components/floating/OrgFloatingButton'
 
 export default function HRPage() {
   return (
@@ -21,6 +22,7 @@ export default function HRPage() {
       }}>
         <HRTab />
       </main>
+      <OrgFloatingButton />
     </div>
   )
 }
