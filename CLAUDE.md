@@ -190,7 +190,30 @@ hr_reports (독립)
 
 ## 현재 상태
 
-> Last updated: 2026-05-02
+> Last updated: 2026-05-06
+
+### 진행 중 (신규 — 2026-05-06, 6번째 dogfooding 사이클)
+- **`dev_조직도플로팅버튼`** ✅ FE+QA 완료 — 1 commit (336ae72)
+  - Work Unit: 전체bams리뷰 / Branch: `bams/plan_조직도플로팅버튼` (main base, PR #7과 별개)
+  - PRD: 288줄 OQ A/A/A/A / Spec: 360줄 5 hunks / Design-FE: 461줄 / Design-brief: 75줄 (GO)
+  - **BE skip** (`/api/org` 재사용) / **layout.tsx 수정 0건**
+  - 구현: OrgFloatingButton(63줄) + OrgModalContent(137줄 module-level 캐시) + OrgTab export DepartmentCard(+1) + 3 page.tsx(+6줄 통합)
+  - 변경: **+207줄** (OQ4=A 500줄 한도의 41.4%) — T3 사이클 6번째 표본 (drift 측정 대상)
+  - QA: AC 5/5 PASS / R6 자기검증 5/5 100% / 빌드+tsc PASS
+  - 다음: PR 생성 → 머지 또는 사용자 dogfooding 검증
+
+### Weekly Retro 완료 (2026-05-05)
+- **`retro_최근14d회고_1`** ✅ COMPLETED — 14일치 16 파이프라인 종합 회고
+  - 산출물: `.crew/artifacts/retro/retro_최근14d회고_1/{phase1-data, phase2-3-kpt-eval, phase5-final-report}.md`
+  - 정량: 16 파이프라인 100% completed / 221.6분 / 57 에이전트 호출 / 성공률 98.2%
+  - **R-ID 적용률 100%** (R1~R7 + T3 + T5 + T3-filter = 10/10)
+  - **Dogfooding 5사이클 닫힌 루프 완성** (records → plan → R-ID → 자기검증)
+  - **NF5 메타 self-aware 첫 적용** (T3 모집단 필터 자기 제외)
+  - **R5 표준 경로 e2e 검증 완료** (orchestrator→hr-agent Write)
+  - KPT: Keep 5 / Problem 7 / Try 6 (T1=보정계수 재산정 P0, T2=records 통합분류 P1)
+  - **종합 등급: A (우수)** — T1+T2 단기 완료 시 A+ 가능
+  - Phase 4 mode B skip (records 21건 누적 + Try 6건 모두 future plan/모니터링 trigger)
+  - 다음 액션: PR #7 머지 결정 / T1 hotfix(보정계수 +68.6% 확정) / T5 R-ID 동결 1주 시작
 
 ### 회고 완료 (2026-05-04)
 - **`retro_dev_retro개선계획회고_1`** ✅ COMPLETED — 메타 회고 (R1~R7 dogfooding 평가)
