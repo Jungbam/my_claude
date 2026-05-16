@@ -193,14 +193,53 @@ hr_reports (독립)
 > Last updated: 2026-05-06
 
 ### 진행 중 (신규 — 2026-05-06, 6번째 dogfooding 사이클)
-- **`dev_조직도플로팅버튼`** ✅ FE+QA 완료 — 1 commit (336ae72)
-  - Work Unit: 전체bams리뷰 / Branch: `bams/plan_조직도플로팅버튼` (main base, PR #7과 별개)
-  - PRD: 288줄 OQ A/A/A/A / Spec: 360줄 5 hunks / Design-FE: 461줄 / Design-brief: 75줄 (GO)
+- **`dev_조직도플로팅버튼`** ✅ COMPLETED — PR #8 OPEN (2 commits 336ae72/412dcd2)
+  - Work Unit: 전체bams리뷰 / Branch: `bams/plan_조직도플로팅버튼` (main base)
+  - PR: https://github.com/Jungbam/my_claude/pull/8 (PR #7과 별개)
+  - PRD/Spec/Design-FE/Design-brief 모두 자기검증 6/6 PASS
   - **BE skip** (`/api/org` 재사용) / **layout.tsx 수정 0건**
-  - 구현: OrgFloatingButton(63줄) + OrgModalContent(137줄 module-level 캐시) + OrgTab export DepartmentCard(+1) + 3 page.tsx(+6줄 통합)
+  - 구현: OrgFloatingButton(63) + OrgModalContent(137 module-level 캐시) + OrgTab export(+1) + 3 page.tsx(+6)
   - 변경: **+207줄** (OQ4=A 500줄 한도의 41.4%) — T3 사이클 6번째 표본 (drift 측정 대상)
   - QA: AC 5/5 PASS / R6 자기검증 5/5 100% / 빌드+tsc PASS
-  - 다음: PR 생성 → 머지 또는 사용자 dogfooding 검증
+  - 위임: design-director(검수 GO) → frontend-engineering → qa-strategy 직렬 실행
+  - 다음: `/bams:retro dev_조직도플로팅버튼` (Phase 4.95 사용자 즉시 회고 선택)
+
+### Hotfix T3 ×1.6 (2026-05-17)
+- **`hotfix_C6drift측정`** ✅ COMPLETED — T3 보정 계수 ×2.0 → ×1.6 (records T5 P0 첫 적용)
+  - Branch: bams/plan_조직도플로팅버튼 (PR #8 누적, PR #7 머지 후 merge main commit 포함)
+  - 측정: C6 drift +4.8% (실측 +207 / 추정 197.5) / 4표본 평균 +52.0%
+  - 결정: ×1.6 (records §Step 4 룰 50~79% 구간 충족)
+  - 변경: product-strategy.md L170+L175 SSOT, +2/-2줄 (NF3 충족)
+  - 위임: product-strategy(advisory) → hr-agent(Edit) → 메인(commit+push)
+  - 회귀 검증 5/5 PASS — T3-filter / SR-1~3 / SSOT 보존
+  - 소표본 n=4 σ ±69%p 주석 명시 — C7 누적 후 재평가 가능
+
+### 전체 Retro 개선 적용 완료 (2026-05-16)
+- **`dev_retro전체회고2개선적용`** ✅ COMPLETED — Phase 4 mode A R5 표준 경로 dogfooding
+  - 위임: 메인 → orchestrator advisor (R5-1 draft 권고) → hr-agent (R5-2 Write 7건)
+  - 산출물: **7 improvement records** (493줄) — `.crew/memory/{7 agents}/improvements/2026-05-16-*.md`
+    - T1 P1 hr-agent (external-wu-trigger)
+    - T2 P1 executive-reporter (weekly-status-automation)
+    - T3 P2 product-analytics (external-wu-evaluation-trigger, 자기평가 한계 명시)
+    - T4 P1 pipeline-orchestrator (no-wu-reclassification)
+    - **T5 P0 product-strategy (c6-drift-recalculation)** ← 다음 weekly retro 즉시 실행
+    - T6 P2 qa-strategy (debug-complexity-classification)
+    - T7 P2 platform-devops (hotfix-qg-smoke-test)
+  - T8(동결 효과 모니터링) — records 없음, phase5-final-report §9 #2 등록만
+  - R5-(2) 메인 직접 Write 0건 검증 PASS
+
+### 전체 Retro 완료 (2026-05-16)
+- **`retro_전체회고_2`** ✅ COMPLETED — 전체 414 파이프라인 (40일) 메타 회고
+  - 산출물: `.crew/artifacts/retro/retro_전체회고_2/{phase1-data, phase2-3-kpt-eval, phase5-final-report}.md` (174+477+203=854줄)
+  - 정량: 414 파이프라인 / 1,375 에이전트 호출 / 성공률 96.5% / 구간별 91.0% → 99.5% (+8.5%p)
+  - **bams-plugin 40일 3단계 진화**: 정비기(91.0%) → R-ID 도입기(95.9%) → 실 서비스 전환기(99.5%)
+  - R-ID 10/10 100% 적용 / Dogfooding C1~C6 완수
+  - **장기 trends 8건 (LT1~LT8)** 추가 발견 (14d retro에서 미포착)
+  - KPT: Keep 5 / Problem 8 / Try 8 (P0=C6 drift 측정 / P1=no_wu 215건 재분류)
+  - 에이전트 평가: 15 에이전트 / FE+QA A+ / 평가·경영지원 14d 이후 소멸 패턴 (P1~P3)
+  - **종합 등급: A- (우수)** — T1~T4 단기 완료 시 A+ 가능
+  - Phase 4 mode B skip (R-ID 10/10 적용 완료 + T5 동결 정책)
+  - 다음 액션: PR #8 머지 / C6 drift 측정 / no_wu 215건 재분류 plan / T2 주간 status 시범
 
 ### Weekly Retro 완료 (2026-05-05)
 - **`retro_최근14d회고_1`** ✅ COMPLETED — 14일치 16 파이프라인 종합 회고
