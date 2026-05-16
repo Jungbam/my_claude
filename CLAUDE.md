@@ -192,6 +192,35 @@ hr_reports (독립)
 
 > Last updated: 2026-05-02
 
+### 진행 중 (신규 — 2026-05-05, 3번째 plan)
+- **`plan_T3_sample_bias_filter`** (Backlog, 2 tasks — TASK-055~056) ⭐ 가장 작은 plan
+  - Branch: `bams/plan_retro_iteration2` (PR #7 누적 — OQ-A)
+  - 부모 record: `product-strategy/2026-05-04-t3-sample-bias-from-T2.md` (R5 표준 경로 첫 dogfooding 산출)
+  - PRD/Spec: APPROVED v2 (OQ1=C — A+B 동시 적용)
+  - 변경: `agents/product-strategy.md` L170-171 +1줄 (모집단 필터 + 트리거 정밀화)
+  - **NF5 메타 self-aware**: 본 plan(코드 +1)은 자기 모집단 필터에 의해 평가 제외 — 첫 자기 적용 사례
+  - 다음: `/bams:hotfix T3_filter` (분량 +1 — hotfix 적합) 또는 `/bams:dev plan_T3_sample_bias_filter`
+
+### 진행 중 (이전 — 2026-05-04, 2번째 plan)
+- **`plan_T2_R5_dogfooding검증`** (Backlog, 3 tasks — TASK-052~054) ⭐ 신규
+  - Work Unit: 전체bams리뷰 / Branch: `bams/plan_retro_iteration2` (PR #7 누적, OQ-A)
+  - 부모 retro: `retro_dev_retro개선계획회고_1` P2 (R5 표준 경로 0회 실행)
+  - PRD/Spec: APPROVED v2 (OQ A/(b)/(b) — 가장 작은 plan, NF3 +0)
+  - **운영 절차 plan — 코드 변경 0**, R5 표준 경로 1회 dogfooding 검증
+  - 핵심 발견 (T3 두 번째 사이클): 운영 plan은 분모 0 → "코드 변경 ≥+10" 필터 도입 권고
+  - 다음: `/bams:dev plan_T2_R5_dogfooding검증` (3 spawn — orchestrator + hr-agent + qa-strategy)
+
+### 진행 중 (이전 — 2026-05-04, 1번째 plan)
+- **`plan_retro_iteration2`** (Backlog, 4 tasks — TASK-048~051) ⭐ 신규 (PR #6 머지 후 main에서 분기)
+  - Work Unit: 전체bams리뷰 / Branch: `bams/plan_retro_iteration2` (main 4307d92 base)
+  - 부모 retro: `retro_dev_retro개선계획회고_1` (P1 + P3)
+  - PRD: `.crew/artifacts/prd/plan_retro_iteration2-prd.md` (APPROVED v2 — OQ A/A/(a)/A)
+  - Spec: `.crew/artifacts/design/plan_retro_iteration2-spec.md` (360줄, 자기검증 6/6 PASS)
+  - 분류: P0 × 3건 (R1=T5 retro_skip schema / R2=T3 보정 절차 / R3=T1 운영 dogfooding)
+  - 변경: event-schema.json +14 / product-strategy.md +13 = **+27줄** (NF3 +80 한도 33.75% 사용)
+  - **★ T3 자기 적용 핵심 발견**: 본 사이클 -28.9% drift (직전 +83%/+83%과 방향 역전) → 보정 계수 2.0 잠정 유보, 5 사이클 누적 후 재산정
+  - 다음: `/bams:dev plan_retro_iteration2` (hr-agent 2 병렬 + qa-strategy 1 + T1 dogfooding)
+
 ### 회고 완료 (2026-05-04)
 - **`retro_dev_retro개선계획회고_1`** ✅ COMPLETED — 메타 회고 (R1~R7 dogfooding 평가)
   - 산출물: `.crew/artifacts/retro/retro_dev_retro개선계획회고_1/{phase2-3-kpt-eval,phase5-final-report}.md`
