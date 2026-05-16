@@ -167,12 +167,12 @@ spec 작성 후 다음 §을 spec 본문에 의무 포함한다.
 
 1. **§"분량 추정 vs 실측" 4컬럼 표** — PRD 추정 / spec 실측 / 차이(line) / 차이(%) 컬럼 모두 채울 것
 2. **추정 오차율 산식** — `(실측 - 추정) / 추정 × 100%`
-3. **보정 계수 2.0 고정** — PRD 분량 추정 시 1행 추가 추정 × 2.0이 spec 실측 기대치 (출처: 직전 2 사이클 +83% drift 평균)
+3. **보정 계수 1.6 조정** — PRD 분량 추정 시 1행 추가 추정 × 1.6이 spec 실측 기대치 (출처: 4 사이클 평균 +52.0% drift — 2026-05-16 `retro_전체회고_2` C6 산입 재산정, 소표본 n=4 σ ±69%p)
    - **평가 모집단 필터**: 보정 계수 평가 시 **코드 변경 ≥+10인 plan만** 포함한다. 운영 plan(NF3 +0~+9)은 평가 모집단에서 제외하여 분모=0 왜곡을 차단한다 (출처: `2026-05-04-t3-sample-bias-from-T2.md`).
 4. **코드 변경 ≥+10인 plan 사이클 기준 2 사이클 연속 +50% 초과 시 다음 PRD에 경고 명시** — 보정 계수 재검토 트리거
 5. **출처 cross-ref 1줄 의무** — `.crew/memory/product-strategy/improvements/2026-05-04-prd-spec-line-estimate-drift.md`
 
-**SSOT**: "보정 계수 2.0"의 정의는 본 §이 단일 진실 공급원이며, spec/PRD에서 인용 시 본 § cross-ref 1줄로 처리한다 (SR-1 정합).
+**SSOT**: "보정 계수 1.6"의 정의는 본 §이 단일 진실 공급원이며, spec/PRD에서 인용 시 본 § cross-ref 1줄로 처리한다 (SR-1 정합).
 
 출처: `retro_dev_retro개선계획회고_1` P3 + improvement record `2026-05-04-prd-spec-line-estimate-drift.md`.
 
