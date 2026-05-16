@@ -127,7 +127,7 @@ interface DepartmentCardProps {
   agentDeptMap: Map<string, { deptId: string; agentName: string }>
 }
 
-function DepartmentCard({ dept, agentDeptMap }: DepartmentCardProps) {
+export function DepartmentCard({ dept, agentDeptMap }: DepartmentCardProps) {
   const color = deptColor(dept.department_id)
 
   return (

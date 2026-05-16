@@ -2,6 +2,7 @@
 
 import { AppHeader } from '@/components/shared/AppHeader'
 import { WorkCardGrid } from '@/components/landing/WorkCardGrid'
+import { OrgFloatingButton } from '@/components/floating/OrgFloatingButton'
 
 export default function Home() {
   return (
@@ -28,6 +29,7 @@ export default function Home() {
         </h2>
         <WorkCardGrid />
       </main>
+      <OrgFloatingButton />
     </div>
   )
 }
