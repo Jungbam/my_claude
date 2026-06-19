@@ -30,7 +30,7 @@
 - 활성 WU 2개 이상이면 AskUserQuestion으로 사용자에게 선택 요청
 - 커맨드 레벨에서 임의로 WU 결정 금지 (`_shared_common.md` §Work Unit 선택 참조)
 
-## 2. 조직도 (8부서 27에이전트)
+## 2. 조직도 (8부서 36에이전트)
 
 | 부서 | 부서장 | 소속 에이전트 |
 |------|--------|--------------|
@@ -38,7 +38,7 @@
 | 개발(FE) | frontend-engineering | (직접 구현) |
 | 개발(BE) | backend-engineering | (직접 구현) |
 | 개발(인프라) | platform-devops | data-integration |
-| 디자인 | design-director | ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent |
+| 디자인 | design-director | ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent, guide-decomposer, guide-recomposer, ui-diff-applier, data-binding-mapper, visual-fidelity-verifier, nextjs-convention-mapper, accessibility-auditor, routing-strategist, ssr-csr-decider |
 | QA | qa-strategy | automation-qa, defect-triage, release-quality-gate |
 | 평가 | product-analytics | experimentation, performance-evaluation, business-kpi |
 | 경영지원 | (독립 운영 — orchestrator 직접 조율) | executive-reporter, resource-optimizer, hr-agent, cross-department-coordinator |
@@ -51,7 +51,7 @@
 | `backend` / `src/app/api/**`, `*.server.ts`, `prisma/**` | backend-engineering |
 | `infra`/`devops` / `Dockerfile`, `.github/**` | platform-devops |
 | `data` / `*.sql`, `scripts/etl/**` | platform-devops |
-| `design`/`ui`/`ux` / `*.figma`, `design/**`, `src/assets/**` | design-director |
+| `design`/`ui`/`ux`/`guide` / `*.figma`, `design/**`, `*.html` 가이드, `src/assets/**` | design-director |
 | `qa` | qa-strategy |
 | `planning` | product-strategy |
 | `security` | platform-devops |
