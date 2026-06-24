@@ -1,0 +1,109 @@
+# Design Import: Phase 2 — 결과 검증
+
+> dry-run 산출물 검토 + 실 적용 동의 + AC5 검증
+
+## step_start emit
+
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
+[ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 2 "결과 검증" "Phase 2: 검증"
+```
+
+## 2-A. AC5 — dry-run 검증 (DRY_RUN=true인 경우)
+
+```bash
+_CHANGED=$(git diff --name-only HEAD 2>/dev/null | grep "^src/app/")
+if [ -n "$_CHANGED" ]; then
+  echo "[FAIL] AC5 위반: dry-run 모드에서 src/app/ 변경 감지됨!"
+  echo "$_CHANGED"
+  # 롤백
+  git checkout -- src/app/ 2>/dev/null
+  # step_end status="fail" + pipeline_end status="failed" emit 후 종료
+fi
+echo "[PASS] AC5: dry-run 모드 — src/app/ 변경 0건 확인"
+```
+
+DRY_RUN=false(실제 적용 모드)인 경우 이 검증은 skip.
+
+## 2-B. 산출물 요약 표시
+
+DRY_RUN=true 이면 사용자에게 산출물 목록과 verdict 표시:
+
+```
+## Dry-run 결과 요약
+- pipeline_slug: {slug}
+- scenario:      {SCENARIO}
+- verdict:       {VERDICT}
+- 생성 산출물:   {ARTIFACTS_LIST}
+- 미결 항목:     {ISSUES_LIST}
+
+산출물 경로: .crew/artifacts/design/{slug}/
+```
+
+## 2-C. 실 적용 동의 (DRY_RUN=true → 실적용 여부 확인 — OQ3=(c))
+
+DRY_RUN=true 이면 AskUserQuestion:
+
+```
+AskUserQuestion(
+  question: "dry-run 결과를 확인했습니다. 이제 실제로 적용할까요?",
+  header: "실 적용 확인",
+  options: [
+    "적용 — design-director 를 --no-dry-run으로 재실행",
+    "종료 — 산출물만 보관, src/app/** 변경 없이 파이프라인 종료",
+    "수정 필요 — 시나리오 또는 가이드를 변경하여 재시작"
+  ]
+)
+```
+
+- "적용" 선택 시: DRY_RUN=false 로 `commands/bams/design-import/phase-1-delegate.md` 재실행
+- "종료" 선택 시: step_end status="done" + pipeline_end status="completed" emit 후 종료 (변경 없이)
+- "수정 필요" 선택 시: step_end status="done" + pipeline_end status="paused" emit + 재시작 안내 출력
+
+## 2-D. 실 적용 완료 검증 (DRY_RUN=false 또는 재실행 후)
+
+S1 검증:
+
+```bash
+_TARGET_DIR="./{TARGET}"
+if [ ! -d "${_TARGET_DIR}" ]; then
+  echo "[WARN] 대상 디렉터리 미생성: ${_TARGET_DIR}"
+fi
+ls "${_TARGET_DIR}"/*.tsx 2>/dev/null | head -5
+```
+
+S2 검증:
+
+```bash
+git diff --stat HEAD -- src/app/ 2>/dev/null | head -10
+```
+
+S3 검증:
+
+```bash
+cat ".crew/artifacts/design/{slug}/fidelity/verdict.json" 2>/dev/null | head -20
+```
+
+## 2-E. 회귀 테스트 (S2 한정)
+
+S2이고 DRY_RUN=false이면:
+
+```
+AskUserQuestion("S2 기존 페이지 회귀 테스트를 qa-strategy에 위임할까요?")
+```
+
+- "예" 선택 시: qa-strategy 에 회귀 테스트 위임
+  - agent_start emit (call_id: `qa-strategy-2e-{timestamp}`)
+  - qa-strategy 에 S2 conflict-report.md + 변경 파일 목록 전달
+  - agent_end emit
+- "아니오": 수동 확인 권고 + 계속 진행
+
+## step_end emit
+
+```bash
+[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 2 "done" {duration_ms}
+```
+
+Phase 4 (마무리 + 회고) 진행:
+`commands/bams/dev/phase-4-finalization.md` 를 Read하여 지시를 따른다. (OQ2=(a))
+pipeline_type = "design-import" 를 phase-4-finalization 에 전달하여 회고 카테고리 분리.
