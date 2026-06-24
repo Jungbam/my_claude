@@ -29,9 +29,9 @@ _CODEX_MODEL="gpt-5-codex"
 _CODEX_TIMEOUT=120
 
 codex_available() {
-  command -v codex >/dev/null 2>&1 && \
-  codex exec -m "$_CODEX_MODEL" "test" -s read-only 2>/dev/null | grep -q "" && \
-  return 0 || return 1
+  command -v codex >/dev/null 2>&1 || return 1
+  [ "$(jq -r '.auth_mode // ""' ~/.codex/auth.json 2>/dev/null)" = "apikey" ] || return 1
+  return 0
 }
 
 run_codex() {
