@@ -90,6 +90,7 @@
 | `/bams:performance` | 성능 측정/최적화 (benchmark 기반) |
 | `/bams:security` | 보안 감사 (시크릿 체크 + OWASP/STRIDE) |
 | `/bams:retro` | 파이프라인 회고 + 에이전트 평가 |
+| `/bams:design-import` | 외부 디자인 가이드(React JSX/HTML) → Next.js UI 재구성 파이프라인 (design-director 자동 위임) |
 | `/bams:weekly` | 주간 루틴 (스프린트 마무리 + 회고 + 다음 계획) |
 | **부서 허브** | |
 | `/bams:engineering` | 개발부서 스킬 허브 (FE, BE, 플랫폼, 데이터) |
