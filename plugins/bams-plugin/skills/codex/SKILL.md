@@ -276,14 +276,16 @@ TMPERR=$(mktemp /tmp/codex-err-XXXXXX.txt)
 
 2. Run the review (5-minute timeout):
 ```bash
-codex review --base <base> -c 'model_reasoning_effort="xhigh"' --enable web_search_cached 2>"$TMPERR"
+codex review --base <base> -c 'model="gpt-5-codex"' -c 'model_reasoning_effort="xhigh"' --enable web_search_cached 2>"$TMPERR"
 ```
 
 Use `timeout: 300000` on the Bash call. If the user provided custom instructions
 (e.g., `/codex review focus on security`), pass them as the prompt argument:
 ```bash
-codex review "focus on security" --base <base> -c 'model_reasoning_effort="xhigh"' --enable web_search_cached 2>"$TMPERR"
+codex review "focus on security" --base <base> -c 'model="gpt-5-codex"' -c 'model_reasoning_effort="xhigh"' --enable web_search_cached 2>"$TMPERR"
 ```
+
+> **NOTE — codex CLI 호환 (2026-06-24 기준)**: `gpt-5.2-codex` 기본 모델은 `codex review`의 디폴트 `text.verbosity="low"`와 호환 불가. 위 호출에서 `-c model="gpt-5-codex"` 명시로 우회. codex CLI 업데이트 후 재평가 권고.
 
 3. Capture the output. Then parse cost from stderr:
 ```bash
