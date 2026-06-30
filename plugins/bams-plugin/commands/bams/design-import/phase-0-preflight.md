@@ -119,6 +119,28 @@ isolate_guide "${GUIDE_PATH_ABS}"
 GUIDE_INPUT_DIR=".crew/artifacts/design/${slug}/guide-input"
 ```
 
+### P4-S. manifest 사전 검사 — 이미 격리된 시크릿 파일 재진입 차단
+
+isolate_guide 완료 직후, guide-input 복사된 파일에 대해 전역 manifest 대조 검사를 수행한다.
+
+```bash
+# manifest 사전 검사 — 이미 격리된 시크릿 파일 재진입 차단
+_QUARANTINE_MANIFEST_GLOBAL=".crew/artifacts/design/.quarantine-manifest.sha256"
+if [ -f "$_QUARANTINE_MANIFEST_GLOBAL" ] && [ -s "$_QUARANTINE_MANIFEST_GLOBAL" ]; then
+  find ".crew/artifacts/design/${slug}/guide-input" -type f | while read -r f; do
+    _HASH=$(shasum -a 256 "$f" 2>/dev/null | awk '{print $1}' || sha256sum "$f" 2>/dev/null | awk '{print $1}')
+    if grep -qxF "$_HASH" "$_QUARANTINE_MANIFEST_GLOBAL" 2>/dev/null; then
+      echo "[ERROR] 이미 격리된 시크릿 파일 재제출 — 처리 거부: $(basename "$f")" >&2
+      echo "  manifest sha256: $_HASH" >&2
+      echo "  과거 격리: .crew/artifacts/design/*/_quarantine/ 참조" >&2
+      exit 1
+    fi
+  done
+fi
+```
+
+재진입 차단 발동 시: step_end status="fail" + pipeline_end status="failed" emit 후 종료.
+
 ### P5. SR-1 시크릿 스캔 + eval 패턴 검사 (AC9)
 
 ```bash
@@ -137,12 +159,32 @@ if [ -n "$_SECRETS" ]; then
   mkdir -p ".crew/artifacts/design/${slug}/ui-diff"
   echo "## SR-1 시크릿 감지 파일" >> ".crew/artifacts/design/${slug}/ui-diff/conflict-report.md"
   echo "$_SECRET_FILES" >> ".crew/artifacts/design/${slug}/ui-diff/conflict-report.md"
-  # rm 금지 — quarantine으로 격리 (원본 보존)
+  # rm 금지 — quarantine으로 격리 (원본 보존) + sha256 manifest 영구 기록
   mkdir -p ".crew/artifacts/design/${slug}/_quarantine"
+
+  # manifest 경로 — 전역(plugin level) + slug level 2단
+  _QUARANTINE_MANIFEST_GLOBAL=".crew/artifacts/design/.quarantine-manifest.sha256"
+  _QUARANTINE_MANIFEST_SLUG=".crew/artifacts/design/${slug}/_quarantine/manifest.sha256"
+  touch "$_QUARANTINE_MANIFEST_GLOBAL"
+
   echo "$_SECRET_FILES" | while read -r f; do
-    [ -f "$f" ] && mv "$f" ".crew/artifacts/design/${slug}/_quarantine/"
+    if [ -f "$f" ]; then
+      # sha256 계산 (macOS: shasum -a 256, Linux: sha256sum)
+      _HASH=$(shasum -a 256 "$f" 2>/dev/null | awk '{print $1}' || sha256sum "$f" 2>/dev/null | awk '{print $1}')
+
+      # 전역 manifest에 기록 (중복 방지)
+      if ! grep -qxF "$_HASH" "$_QUARANTINE_MANIFEST_GLOBAL" 2>/dev/null; then
+        echo "$_HASH" >> "$_QUARANTINE_MANIFEST_GLOBAL"
+      fi
+
+      # slug 레벨 manifest에도 basename + hash 기록 (감사 추적)
+      echo "${_HASH}  $(basename "$f")" >> "$_QUARANTINE_MANIFEST_SLUG"
+
+      mv "$f" ".crew/artifacts/design/${slug}/_quarantine/"
+    fi
   done
-  echo "[INFO] 격리 완료: .crew/artifacts/design/${slug}/_quarantine/"
+
+  echo "[INFO] 격리 완료: .crew/artifacts/design/${slug}/_quarantine/ (manifest: ${_QUARANTINE_MANIFEST_GLOBAL})"
 fi
 
 # eval / dynamic import 패턴 감지

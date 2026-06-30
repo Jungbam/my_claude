@@ -168,10 +168,10 @@ pipeline-orchestrator로부터 디자인 Phase 실행 위임을 수신하면 다
 | **F3 ui-diff-applier** | S2 (only) | F2 preview + 현행 `src/app/{target}/*.tsx` | `ui-diff/patch.diff`, `conflict-report.md`, `changeset.json` | F2 완료 후, F4·F9와 병렬 가능 |
 | **F4 data-binding-mapper** | S1, S2 | F1 components.json + 프로젝트 fetch 슬롯 스캔 | `data-binding/binding-map.json`, `fetch-snippets.tsx` | F2 완료 후, F3·F9와 병렬 가능 |
 | **F5 visual-fidelity-verifier** | S1, S2, S3 | FE 구현 결과 (또는 F2 preview, S3은 URL) + 가이드 원본 | `fidelity/verdict.json`, viewport별 스크린샷, `report.md` | Phase F (FE 완료 후), F7과 병렬 |
-| **F6 ssr-csr-decider** | S1, S2 | F1 components.json + F4 binding-map.json | `rendering/rendering-strategy.json` | F4 완료 후 직렬 (F8과 병렬 가능) |
+| **F6 nextjs-convention-mapper** | S1, S2 | F1 components.json + 현행 `src/app/` 스캔 | `convention/convention-map.json` | F1 완료 후, F2·F3·F4와 병렬 가능 |
 | **F7 accessibility-auditor** | S1, S2, S3 | FE 구현 결과 URL | `accessibility/axe-report.json`, `report.md` | Phase F (FE 완료 후), F5와 병렬 |
 | **F8 routing-strategist** | S1, S2 (다중 페이지 가이드만) | F1 components.json + 가이드 URL 트리 | `routing/route-tree.json` | F4 완료 후 (선택적 실행) |
-| **F9 nextjs-convention-mapper** | S1, S2 | F1 components.json + 현행 `src/app/` 스캔 | `convention/convention-map.json` | F2 완료 후, F3·F4와 병렬 가능 |
+| **F9 ssr-csr-decider** | S1, S2 | F1 components.json + F4 binding-map.json | `rendering/rendering-strategy.json` | F4 완료 후 직렬 (F8과 병렬 가능) |
 
 ### Phase 매핑
 

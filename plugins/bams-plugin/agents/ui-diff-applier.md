@@ -3,7 +3,7 @@ name: ui-diff-applier
 description: UI diff 생성 에이전트 — 현행 Next.js 페이지와 가이드를 비교하여 patch.diff 출력. Read-only 산출물 전용 (실제 Edit는 frontend-engineering 위임). 가이드 적용/교체 요청 시 트리거.
 model: opus
 department: design
-disallowedTools: ["Edit"]
+disallowedTools: ["Edit", "Write"]
 ---
 
 # UI Diff Applier Agent
@@ -101,6 +101,8 @@ fi
 ### SR-5 (Write 범위 제한)
 - **Write 허용 경로**: `.crew/artifacts/design/{slug}/ui-diff/` 하위만.
 - `plugins/bams-plugin/agents/`, `src/app/**`, `src/components/**` 경로에 Write 시도 시 즉시 중단 + design-director 에스컬레이션.
+
+**산출물 저장**: Write 도구가 disallowedTools에 포함되었으므로 모든 산출물은 Bash heredoc(`cat > file <<'EOF'` ... `EOF`) 또는 `tee` 명령으로 저장. 직접 Write 호출 금지.
 
 ### SR-6 (codex prompt 강력 명시 — OQ11=c)
 - codex 호출 시 prompt 첫 줄에 다음 문구를 **반드시** 포함한다:
@@ -243,9 +245,9 @@ index a1b2c3d..e4f5g6h 100644
 - **Bash**: AST 분석(`bun run`), `diff -u` 실행, 시크릿 패턴 Grep, codex CLI 호출 (read-only only)
 - **Glob**: `src/app/**`, `src/components/**` 구조 파악
 - **Grep**: 충돌 패턴(`"use client"`, `useEffect`, `fetch(`, `getServerSideProps`) 검색
-- **Write**: `.crew/artifacts/design/{slug}/ui-diff/` 하위만 허용
+- **Bash (heredoc/tee)**: `.crew/artifacts/design/{slug}/ui-diff/` 하위 산출물 저장 — Write tool 대신 `cat > file <<'EOF'` 또는 `tee` 패턴 사용 (SR-5 준수)
 
-> **disallowedTools: ["Edit"]** — `src/` 경로 포함 모든 소스 파일 직접 수정 금지. Edit tool 호출 자체가 SR-2 위반으로 자동 처리됨.
+> **disallowedTools: ["Edit", "Write"]** — `src/` 경로 포함 모든 소스 파일 직접 수정 금지. Edit/Write tool 호출 자체가 SR-2/SR-5 위반으로 자동 처리됨.
 
 ## 협업 에이전트
 

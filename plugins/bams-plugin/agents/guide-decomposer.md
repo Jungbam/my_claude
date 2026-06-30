@@ -121,6 +121,38 @@ DOM 파싱 시 다음을 의무 추출한다 (OQ4=b — 신규 6 필드는 compo
 - 작업 완료 시 `agent_end` emit (status, duration_ms, result_summary 포함).
 - emit 스크립트: `bun run ~/.bams/scripts/emit-event.ts agent_start {...}` 형식.
 
+### CHUNK_STRATEGY 환경 변수 처리 (P2 청킹 활성화)
+
+작업 시작 시 다음을 확인하여 청킹 모드 결정:
+
+```bash
+# 1. 위임 메시지 input_artifacts.meta.chunk_strategy 확인 (우선)
+# 2. 환경 변수 fallback: ${CHUNK_STRATEGY:-none}
+_CHUNK_STRATEGY="${CHUNK_STRATEGY:-none}"
+
+if [ "$_CHUNK_STRATEGY" = "section" ]; then
+  echo "[INFO] 섹션 단위 청킹 활성화 (P2 — 대형 가이드)"
+  # <section> / <h1> / <h2> 경계로 가이드를 N chunks로 분할
+  # 각 chunk를 chunks/chunk-{N}.json 으로 저장 후 최종 components.json으로 병합
+  CHUNK_BOUNDARIES="section,h1,h2"
+elif [ "$_CHUNK_STRATEGY" = "none" ]; then
+  # 기본: 전체 파일 단일 로드 (소형 가이드)
+  CHUNK_BOUNDARIES=""
+fi
+```
+
+**청킹 우선순위** (CHUNK_BOUNDARIES="section,h1,h2"일 때):
+1. `<section>` (semantic HTML5 — 가장 명확한 컴포넌트 경계)
+2. `<h1>` (최상위 헤딩 — 페이지 구역)
+3. `<h2>` (2단계 섹션 — 폴백)
+
+청킹 시 각 chunk별로:
+- `guide-decomposition/chunks/chunk-{N}.json` 생성
+- 최종 `components.json`은 모든 chunk를 순서대로 병합
+- 동일 컴포넌트명이 여러 chunk에 있으면 첫 정의 우선 + `conflict-report.md`에 기록
+
+**환경 변수 전달 보장**: harness가 sub-agent spawn 시 부모 쉘 export 변수 전달이 보장되지 않으므로, **위임 메시지 input_artifacts.meta.chunk_strategy를 우선 확인**. 환경 변수는 fallback.
+
 ### 청킹 시
 - Preflight에서 `wc -l` 또는 Bash로 입력 줄 수 확인.
 - **10,000줄 초과 → 디렉터리별 분할, design-director에게 청킹 단위 사전 승인 요청.**
