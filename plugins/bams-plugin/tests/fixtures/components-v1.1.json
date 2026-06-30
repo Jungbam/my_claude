@@ -1,0 +1,14 @@
+{
+  "version": "1.1",
+  "specialists": [
+    {"name": "guide-decomposer", "phase": "A", "description": "외부 가이드 분해", "tools": ["Read", "Bash"]},
+    {"name": "guide-recomposer", "phase": "A2", "description": "F1 산출물 재조립", "tools": ["Read", "Bash"]},
+    {"name": "data-binding-mapper", "phase": "B", "description": "API 매핑", "tools": ["Read", "Write"]},
+    {"name": "ui-diff-applier", "phase": "C", "description": "patch.diff 생성", "tools": ["Read"]},
+    {"name": "visual-fidelity-verifier", "phase": "D", "description": "픽셀 diff 검증", "tools": ["Read", "Bash"]},
+    {"name": "accessibility-auditor", "phase": "D", "description": "axe-core 감사", "tools": ["Read", "Bash"]},
+    {"name": "routing-strategist", "phase": "E", "description": "App Router 매핑", "tools": ["Read", "Write"]},
+    {"name": "ssr-csr-decider", "phase": "E", "description": "RSC 경계 결정", "tools": ["Read", "Write"]},
+    {"name": "nextjs-convention-mapper", "phase": "A", "description": "Next.js 컨벤션", "tools": ["Read"]}
+  ]
+}
