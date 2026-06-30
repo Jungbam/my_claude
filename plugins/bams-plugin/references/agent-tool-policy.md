@@ -83,6 +83,14 @@ disallowedTools: []
 - **graphic-designer**: 이미지/아이콘 자산 및 메타데이터 파일 직접 생성
 - **motion-designer**: 애니메이션 스펙/Lottie 자산 파일 직접 생성
 - **design-system-agent**: 토큰 JSON/테마 파일 직접 편집
+- **guide-decomposer**: 외부 가이드 분해 산출물(components.json, tokens.css 등) 직접 생성
+- **guide-recomposer**: 재조립 preview HTML 및 round-trip 손실 보고서 직접 생성
+- **data-binding-mapper**: binding-map.json + fetch-snippets.tsx 직접 생성
+- **visual-fidelity-verifier**: 픽셀 diff 결과/verdict.json 및 viewport 스크린샷 직접 저장
+- **nextjs-convention-mapper**: convention-map.json (App Router 매핑) 직접 생성
+- **accessibility-auditor**: axe-core 결과 + a11y-verdict.json 직접 저장
+- **routing-strategist**: route-tree.json (App Router 라우팅 그래프) 직접 생성
+- **ssr-csr-decider**: rendering-strategy.json (Server/Client 경계 결정) 직접 생성
 - **hr-agent**: 에이전트 md/jojikdo.json/plugin.json 등 조직 메타데이터 직접 편집
 
 ## 온보딩 체크리스트 (신규 에이전트 등록)

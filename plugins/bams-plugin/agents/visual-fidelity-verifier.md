@@ -1,7 +1,7 @@
 ---
 name: visual-fidelity-verifier
 description: 시각 충실도 검증 에이전트 — bams:browse 스킬로 viewport별 스크린샷 촬영 + 픽셀 diff + WCAG 명도 대비 측정. 가이드 vs 구현 충실도 정량 보고. 가이드 적용 완료 후 시각 검증 트리거.
-model: gpt-5-codex
+model: sonnet
 department: design
 disallowedTools: []
 ---
@@ -101,7 +101,14 @@ fi
   _BROWSE_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/browse/SKILL.md" 2>/dev/null | head -1)
   if [ -z "$_BROWSE_SKILL" ]; then
     echo "[ERROR] bams-plugin:bams:browse SKILL 미설치 — F5 실행 불가" >&2
-    echo "[ACTION] bams-plugin 설치 확인 후 재시도하세요" >&2
+    cat > ".crew/artifacts/design/${slug}/fidelity/verdict.json" <<JSON
+{
+  "verdict": "ENV_FAIL",
+  "reason": "bams-plugin:bams:browse SKILL not installed",
+  "auto_pass": false
+}
+JSON
+    bash "$_EMIT" agent_end "${CALL_ID}" "visual-fidelity-verifier" true "error" 0 "ENV_FAIL: browse SKILL missing"
     exit 1
   fi
   echo "[OK] bams:browse SKILL 발견: $_BROWSE_SKILL"

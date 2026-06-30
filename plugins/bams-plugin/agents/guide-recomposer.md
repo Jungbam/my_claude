@@ -92,6 +92,18 @@ for line in sys.stdin:
 - 작업 완료 시 `agent_end` emit (status, duration_ms, result_summary 포함).
 - emit 스크립트: `bun run ~/.bams/scripts/emit-event.ts agent_start {...}` 형식.
 
+### 재조립 시 신규 필드 사용 규칙
+
+components.json v1.1 이상이고 신규 필드 존재 시:
+1. `html_tag` → React 컴포넌트 outer JSX tag로 사용
+2. `inline_styles` → `style={{...}}` prop 주입 (camelCase 변환)
+3. `css_classes` → `className={cls.join(' ')}` 주입
+4. `layout_type` → 재조립 preview에 data-layout 속성 부착 (디버깅용)
+5. `parent_component` → 트리 무결성 검증 (역참조 일치 확인)
+6. `section_id` → JSX outer element에 `id={section_id}` 부착
+
+v1.0 산출물(신규 필드 부재) 입력 시 기존 동작 유지 (backward-compat, NF-5).
+
 ### 재조립 시
 - F1 산출물 4종이 모두 존재하는지 Read로 확인 후 진행 (missing → design-director 에스컬레이션).
 - 재조립 HTML은 `.crew/artifacts/design/{slug}/guide-recomposition/preview/index.html`에 저장.

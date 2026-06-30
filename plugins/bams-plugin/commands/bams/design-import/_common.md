@@ -67,6 +67,11 @@ isolate_guide() {
   if [ -f "$src" ]; then
     # 단일 파일
     if echo "$src" | grep -qiE '\.zip$'; then
+      # zip slip 사전 차단 (H-F2 — F-R-F-2)
+      if zipinfo -1 "$src" 2>/dev/null | grep -qE '^(/|\.\.\/)'; then
+        echo "[ERROR] zip slip 위험 항목 감지 — ZIP 처리 거부: $src" >&2
+        return 1
+      fi
       unzip -d "$dest" "$src"          # ZIP 압축 해제
     else
       cp "$src" "$dest/"
@@ -94,10 +99,24 @@ if [ "${_TOTAL_LINES:-0}" -gt 10000 ]; then
 fi
 ```
 
+## 5-bis. 바이트 청킹 체크 (대형 가이드 — 1.7MB 사례 대응)
+
+격리 완료 후 줄 수 체크와 함께 실행:
+
+```bash
+_TOTAL_KB=$(du -sk ".crew/artifacts/design/${slug}/guide-input" 2>/dev/null | awk '{print $1}')
+_LARGEST_FILE_BYTES=$(find ".crew/artifacts/design/${slug}/guide-input" -type f -exec wc -c {} \; 2>/dev/null \
+  | sort -n | tail -1 | awk '{print $1}')
+
+if [ "${_TOTAL_KB:-0}" -gt 512 ] || [ "${_LARGEST_FILE_BYTES:-0}" -gt 524288 ]; then
+  echo "[INFO] 가이드 ${_TOTAL_KB}KB / 최대 단일 파일 ${_LARGEST_FILE_BYTES}B — 섹션 단위 청킹 트리거"
+  export CHUNK_STRATEGY="section"
+fi
+```
+
+청킹 우선순위: `<section>` (1순위) → `<h1>` (2순위) → `<h2>` (3순위, 폴백)
+F1은 청크별로 `chunks/chunk-{N}.json` 생성 후 병합하여 최종 `components.json` 산출.
+
 ## 6. 시나리오 매핑 표
 
-| 시나리오 | mode 값 | F3 실행 여부 | F8 실행 여부 | Phase E 동작 |
-|---------|---------|------------|------------|-------------|
-| S1 신규 페이지 이식 | `new_page` | skip | 단일 페이지면 skip | src/app/{target}/ 신규 디렉터리 생성 |
-| S2 기존 페이지 교체 | `partial` | 필수 (opus) | 선택 | patch.diff 적용 + conflict-report 해소 |
-| S3 충실도만 | `standalone` | skip | skip | 변경 없음, verdict.json만 |
+> 시나리오 위임 상세: `agents/design-director.md` §design-import 시나리오 위임 표를 권위 원천으로 사용한다.

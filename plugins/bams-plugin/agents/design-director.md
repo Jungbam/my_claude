@@ -155,6 +155,39 @@ pipeline-orchestrator로부터 디자인 Phase 실행 위임을 수신하면 다
 | 다중 페이지 라우팅 그래프 설계 | routing-strategist (F8) | 다중 페이지 가이드 시 (Tier 2 — 별도 plan) |
 | Server/Client Component 경계 결정 | ssr-csr-decider (F9) | F1 완료 후, F4와 상호 연동 |
 
+### design-import 시나리오 위임 (F1~F9 specialist 단일 진실 테이블)
+
+> 본 표는 `/bams:design-import` 파이프라인 (S1/S2/S3 시나리오)에서 부서장이 어떤 specialist를
+> 어떤 순서로 호출하는지를 정의하는 단일 진실 원본(SSOT)이다.
+> `commands/bams/design-import/_common.md`, `phase-1-delegate.md`는 본 표를 권위 원천으로 참조한다.
+
+| specialist | 트리거 시나리오 | 입력 산출물 | 출력 산출물 | 의존성 / 병렬 가능 여부 |
+|------------|---------------|------------|------------|---------------------|
+| **F1 guide-decomposer** | S1, S2 | `guide-input/` (격리된 가이드 원본) | `guide-decomposition/components.json` (v1.1), `tokens.css`, `typography.json`, `palette.json`, `raw/`, (선택) `chunks/` | 진입점 (의존성 없음) |
+| **F2 guide-recomposer** | S1, S2 | F1 산출물 전체 | `guide-recomposition/preview.html`, `loss-report.md` | F1 완료 후 직렬 |
+| **F3 ui-diff-applier** | S2 (only) | F2 preview + 현행 `src/app/{target}/*.tsx` | `ui-diff/patch.diff`, `conflict-report.md`, `changeset.json` | F2 완료 후, F4·F9와 병렬 가능 |
+| **F4 data-binding-mapper** | S1, S2 | F1 components.json + 프로젝트 fetch 슬롯 스캔 | `data-binding/binding-map.json`, `fetch-snippets.tsx` | F2 완료 후, F3·F9와 병렬 가능 |
+| **F5 visual-fidelity-verifier** | S1, S2, S3 | FE 구현 결과 (또는 F2 preview, S3은 URL) + 가이드 원본 | `fidelity/verdict.json`, viewport별 스크린샷, `report.md` | Phase F (FE 완료 후), F7과 병렬 |
+| **F6 ssr-csr-decider** | S1, S2 | F1 components.json + F4 binding-map.json | `rendering/rendering-strategy.json` | F4 완료 후 직렬 (F8과 병렬 가능) |
+| **F7 accessibility-auditor** | S1, S2, S3 | FE 구현 결과 URL | `accessibility/axe-report.json`, `report.md` | Phase F (FE 완료 후), F5와 병렬 |
+| **F8 routing-strategist** | S1, S2 (다중 페이지 가이드만) | F1 components.json + 가이드 URL 트리 | `routing/route-tree.json` | F4 완료 후 (선택적 실행) |
+| **F9 nextjs-convention-mapper** | S1, S2 | F1 components.json + 현행 `src/app/` 스캔 | `convention/convention-map.json` | F2 완료 후, F3·F4와 병렬 가능 |
+
+### Phase 매핑
+
+- **Phase A**: F1 (분해)
+- **Phase B**: F2 (재조립 검증)
+- **Phase C**: F3 (S2 한정) + F4 + F9 병렬
+- **Phase D**: F6 [+ F8 다중 페이지 시]
+- **Phase E**: design-director는 산출물 + `fe-handoff.md` contract 생성 후 `status=PENDING_FE` 반환. 메인이 별도 frontend-engineering 직접 spawn (Phase 1B).
+- **Phase F**: F5 + F7 병렬 (FE 완료 후)
+
+### 위임 깊이 보장
+
+- design-director는 본 시나리오에서 **F1~F4, F6, F8, F9까지만 직접 spawn** (depth 2)
+- F5·F7은 Phase F에서 메인 커맨드가 직접 spawn하거나, design-director가 호출하되 FE 완료 후 분리 호출 (depth 2 유지)
+- frontend-engineering은 **메인이 직접 spawn** (CLAUDE.md L9 depth ≤2 준수)
+
 ### 결과 보고
 
 pipeline-orchestrator에게 다음 표준 스키마 (PRD §3.1)로 보고한다 (delegation-protocol.md §2-5 준수):

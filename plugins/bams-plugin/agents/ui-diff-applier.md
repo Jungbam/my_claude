@@ -1,7 +1,7 @@
 ---
 name: ui-diff-applier
 description: UI diff 생성 에이전트 — 현행 Next.js 페이지와 가이드를 비교하여 patch.diff 출력. Read-only 산출물 전용 (실제 Edit는 frontend-engineering 위임). 가이드 적용/교체 요청 시 트리거.
-model: gpt-5-codex
+model: opus
 department: design
 disallowedTools: ["Edit"]
 ---
