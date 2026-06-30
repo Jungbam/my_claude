@@ -90,16 +90,55 @@ DRY_RUN=false이고 2-D 검증 PASS 후, baseline triplet으로 F5(visual-fideli
 
 ```bash
 if [ "$DRY_RUN" = "false" ]; then
+  # baseline triplet
   _BASELINE_GUIDE=".crew/artifacts/design/${slug}/guide-input/"
   _BASELINE_RECOMPOSE=".crew/artifacts/design/${slug}/guide-recomposition/preview.html"
-  _IMPL_TARGET="${TARGET}"
-  echo "[INFO] F5 visual-fidelity-verifier 자동 트리거 (baseline: guide + recompose + impl)"
+
+  # TARGET (src/app/dashboard) → dev 서버 URL 변환
+  _TARGET_RELATIVE="${TARGET#src/app}"           # /dashboard
+  _TARGET_RELATIVE="${_TARGET_RELATIVE%/}"        # trailing slash 제거
+  _DEV_PORT="${DEV_PORT:-3000}"                   # 환경 변수 또는 기본값
+  _IMPL_TARGET_URL="http://localhost:${_DEV_PORT}${_TARGET_RELATIVE:-/}"
+
+  echo "[INFO] F5 visual-fidelity-verifier 자동 트리거"
+  echo "  baseline: $_BASELINE_GUIDE"
+  echo "  recompose: $_BASELINE_RECOMPOSE"
+  echo "  target URL: $_IMPL_TARGET_URL"
+
+  # agent_start emit
+  _F5_CALL_ID="visual-fidelity-verifier-2d-bis-$(date -u +%Y%m%d%H%M%S)"
+  [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "$_F5_CALL_ID" "visual-fidelity-verifier" "sonnet" "Phase 2-D-bis 실 적용 후 F5 자동 검증"
+
+  # Task tool 호출 (메인이 직접 spawn — Phase F의 일부로 처리)
+  # subagent_type: "bams-plugin:visual-fidelity-verifier"
+  # model: "sonnet"
+  # prompt:
+  #   task_description: "DRY_RUN=false 실 적용 완료 후 baseline triplet 픽셀 diff"
+  #   input_artifacts:
+  #     - guide_url: file://${_BASELINE_GUIDE}/index.html
+  #     - recompose_url: file://${_BASELINE_RECOMPOSE}
+  #     - target_url: ${_IMPL_TARGET_URL}
+  #   verdict 출력: .crew/artifacts/design/{slug}/fidelity/verdict.json
+  #     - guide_vs_impl_diff (≤5% PASS, ≤20% CONDITIONAL)
+  #     - recompose_vs_impl_diff (참고용)
+
+  # F5 완료 후 agent_end emit + verdict 파싱
+  [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "$_F5_CALL_ID" "visual-fidelity-verifier" "{success|error}" {duration_ms} "verdict={PASS|CONDITIONAL|FAIL|ENV_FAIL}"
+
+  # ENV_FAIL 분기 (F5 H-E1 적용 — 환경 미충족 시 자동 PASS 차단)
+  _F5_VERDICT=$(jq -r '.verdict // "MISSING"' ".crew/artifacts/design/${slug}/fidelity/verdict.json" 2>/dev/null)
+  if [ "$_F5_VERDICT" = "ENV_FAIL" ]; then
+    echo "[FAIL] F5 환경 미충족 — pipeline_end status=failed"
+    [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_end "{slug}" "failed" {total} {done} 1 {skipped}
+    exit 1
+  fi
 fi
 ```
 
-verdict.json 신규 필드:
-- `guide_vs_impl_diff` (≤5% PASS, ≤20% CONDITIONAL)
-- `recompose_vs_impl_diff` (참고용)
+**verdict.json 신규 필드** (visual-fidelity-verifier가 출력):
+- `guide_vs_impl_diff`: 원본 가이드 vs 구현 픽셀 diff (≤5% PASS, ≤20% CONDITIONAL)
+- `recompose_vs_impl_diff`: F2 재조립 vs 구현 (참고용)
+- `verdict`: PASS / CONDITIONAL / FAIL / ENV_FAIL
 
 ## 2-E. 회귀 테스트 (S2 한정)
 

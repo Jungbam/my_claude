@@ -206,7 +206,7 @@ aggregated_output:
     - tokens/tokens.css
     - tokens/tokens.ts
     - preview/screens/*.html
-quality_status: PASS | FAIL | CONDITIONAL
+quality_status: PASS | FAIL | CONDITIONAL | PENDING_FE (design-import 시나리오에서 FE 직접 spawn 대기)
 quality_detail:
   iterations_used: N  # N ≤ 5
   converged_reason: "..."
@@ -216,6 +216,62 @@ recommendations: []
 ```
 
 > **주의**: `design_spec` 필드는 하위 호환을 위해 반드시 보존한다 (R-3 방지). frontend-engineering 핸드오프 시 이 필드를 참조한다.
+
+### design-import 시나리오 응답 contract (Phase 1B 진입 조건)
+
+design-import 파이프라인의 Phase A~D 완료 후 design-director는 **반드시** 다음을 수행한다:
+
+1. **fe-handoff.md 생성** — 경로: `.crew/artifacts/design/{slug}/fe-handoff.md`
+2. **응답에 `quality_status: PENDING_FE` 반환** (PASS 아님)
+3. 메인 커맨드(phase-1-delegate.md)가 STATUS=PENDING_FE 감지 시 frontend-engineering 직접 spawn (Phase 1B)
+
+#### fe-handoff.md 필수 11 필드 schema (YAML frontmatter + Markdown 본문)
+
+```yaml
+---
+pipeline_slug: {slug}                                           # 1
+scenario: s1 | s2 | s3                                          # 2
+target_path: src/app/{target}                                   # 3 (S1/S2 한정)
+component_tree_path: .crew/artifacts/design/{slug}/guide-decomposition/components.json  # 4
+convention_map_path: .crew/artifacts/design/{slug}/convention/convention-map.json       # 5
+binding_map_path: .crew/artifacts/design/{slug}/data-binding/binding-map.json           # 6
+rendering_strategy_path: .crew/artifacts/design/{slug}/rendering/rendering-strategy.json # 7
+tokens_css_path: .crew/artifacts/design/{slug}/guide-decomposition/tokens.css           # 8
+fetch_snippets_path: .crew/artifacts/design/{slug}/data-binding/fetch-snippets.tsx      # 9
+route_tree_path: .crew/artifacts/design/{slug}/routing/route-tree.json                  # 10 (선택, F8 실행 시)
+patch_diff_path: .crew/artifacts/design/{slug}/ui-diff/patch.diff                       # 11 (S2 한정)
+depth_limit: 2  # FE는 추가 서브에이전트 spawn 금지
+---
+
+## issues (design-director가 보고한 미결 항목)
+- (예시) F6 nextjs-convention-mapper가 라우트 그룹 결정 보류
+- (예시) F4 binding-map의 /api/users 스키마 미확정 (backend-engineering 확인 필요)
+```
+
+#### 응답 JSON 예시 (design-import S1 시나리오)
+
+```json
+{
+  "aggregated_output": {
+    "fe_handoff": ".crew/artifacts/design/{slug}/fe-handoff.md",
+    "artifacts": [
+      ".crew/artifacts/design/{slug}/guide-decomposition/",
+      ".crew/artifacts/design/{slug}/convention/",
+      ".crew/artifacts/design/{slug}/data-binding/",
+      ".crew/artifacts/design/{slug}/rendering/"
+    ]
+  },
+  "quality_status": "PENDING_FE",
+  "quality_detail": "Phase A~D 완료, fe-handoff.md 11 필드 검증 PASS, frontend-engineering 직접 spawn 대기",
+  "issues": ["(있으면 명시)"],
+  "recommendations": ["FE가 Phase 1B 진입 시 fe-handoff.md를 input_artifacts로 전달"]
+}
+```
+
+#### 메인 측 처리 (phase-1-delegate.md 참조)
+- STATUS=PENDING_FE 감지 시 frontend-engineering을 Task tool 직접 spawn
+- fe-handoff.md를 input_artifacts에 명시
+- FE 완료 후 Phase F (F5 + F7 병렬) 진입
 
 ## 행동 규칙
 

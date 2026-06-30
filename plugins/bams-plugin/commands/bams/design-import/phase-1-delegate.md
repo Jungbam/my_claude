@@ -122,13 +122,18 @@ frontend-engineering 완료 후 F5 + F7 병렬 spawn (메인 커맨드 직접):
 
 위임 트리:
 ```
-main(커맨드 스킬)
-├─ Phase 1A: design-director (depth 1)
-│   └─ F1~F4, F6, F8, F9 (depth 2)
-└─ Phase 1B: frontend-engineering (depth 1, 별도 spawn)
-    └─ (depth 2 추가 spawn 없음 — 직접 구현 부서)
-└─ Phase F: F5 + F7 병렬 (depth 1, 메인 직접 spawn)
+main(커맨드 스킬, L0)
+  ↓
+Phase 1A: design-director (L1)
+  └─ F1~F4, F6, F8, F9 (L2, design-director 내부 spawn)
+  ↓ (status=PENDING_FE 게이트)
+Phase 1B: frontend-engineering (L1, 메인 직접 spawn — 직렬 진입)
+  └─ (추가 spawn 금지, 직접 구현)
+  ↓
+Phase F: F5 + F7 (L1, 메인 직접 spawn, 병렬)
 ```
+
+**중요**: Phase 1A → 1B는 **직렬** 실행 (병렬 아님). design-director가 `status=PENDING_FE`를 반환하지 않으면 Phase 1B는 진입하지 않는다.
 
 constraints:
   security:
@@ -162,9 +167,21 @@ ls .crew/artifacts/design/{slug}/ 2>/dev/null | grep -E "guide-decomposition|gui
 반환값에서 다음을 추출:
 
   VERDICT          ← verdict 필드 (PASS | CONDITIONAL | FAIL)
+  STATUS           ← quality_status 필드 (PENDING_FE | COMPLETE | UNKNOWN)
   DRY_RUN_DONE     ← dry_run=true였으면 true
   ARTIFACTS_LIST   ← artifacts_generated 경로 목록
   ISSUES_LIST      ← issues 목록
+
+## PENDING_FE 분기 처리
+
+```bash
+STATUS=$(echo "$RESULT" | jq -r '.quality_status // "UNKNOWN"' 2>/dev/null || echo "UNKNOWN")
+if [ "$STATUS" = "PENDING_FE" ]; then
+  echo "[Phase 1B] design-director PENDING_FE — frontend-engineering 직접 spawn 진입"
+  # fe-handoff.md 경로 확인 후 §1B-1 ~ §1B-5 순서로 진행
+  # (별도 spawn 호출 — fe-handoff.md를 input_artifacts로 전달)
+fi
+```
 
 ## FAIL 처리
 
