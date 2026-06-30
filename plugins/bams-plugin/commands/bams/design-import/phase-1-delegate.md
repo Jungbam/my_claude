@@ -43,15 +43,92 @@ context:
   best_practice:   .crew/artifacts/design/plan_가이드기반UI재구성에이전트-best-practice-guide.md
   treat_as_text:   {TREAT_AS_TEXT:-false}   # SR-1 eval 패턴 감지 시 true
 
-시나리오별 Phase 실행 가이드:
-  S1(new_page):    Phase A(F1) → B(F2) → C(F4,F9 병렬) → D(F6[,F8]) → E(FE) → F(F5,F7 병렬)
-                   F3 skip (신규 페이지 — diff 대상 없음)
-  S2(partial):     Phase A(F1) → B(F2) → C(F3[opus],F4,F9 병렬) → D(F6) → E(FE) → F(F5,F7 병렬)
-                   F3 필수 (기존 파일 patch.diff + conflict-report)
-  S3(standalone):  F5 단독 호출 [+ F7 선택]
+시나리오별 Phase 실행 가이드: agents/design-director.md §design-import 시나리오 위임 표 참조
 
 dry_run=true 시 Phase E(frontend-engineering 호출) 직전 중단.
 design-director는 F1~F9 sub-step을 phase-1-delegate 의 sub-step으로 viz에 기록한다.
+
+완료 시 status=PENDING_FE 반환 여부를 확인한다.
+
+## Phase 1B — frontend-engineering 직접 spawn (status=PENDING_FE 시)
+
+design-director가 `status=PENDING_FE`를 반환하면 메인 커맨드가 frontend-engineering을 직접 spawn한다.
+(위임 트리 depth ≤2 유지 — CLAUDE.md NF-4 준수)
+
+### 1B-1. fe-handoff.md 경로 확인
+
+```bash
+_FE_HANDOFF=".crew/artifacts/design/${slug}/fe-handoff.md"
+if [ ! -f "$_FE_HANDOFF" ]; then
+  echo "[ERROR] fe-handoff.md 미생성 — design-director 반환값 확인 필요" >&2
+  # pipeline_end status="failed" emit 후 종료
+fi
+```
+
+### 1B-2. fe-handoff.md 필수 필드 검증 (11 필드)
+
+fe-handoff.md는 다음 11 필드를 모두 포함해야 한다:
+- `pipeline_slug`, `scenario`, `status` (=PENDING_FE)
+- `input_artifacts.components_json`, `input_artifacts.tokens_css`
+- `input_artifacts.binding_map`, `input_artifacts.fetch_snippets`
+- `input_artifacts.rendering_strategy`, `input_artifacts.convention_map`
+- `output_files` (배열, convention-map.json segments[].target_file 기반)
+- `jsx_synthesis_rules` (4항목)
+
+```bash
+for _FIELD in pipeline_slug scenario status; do
+  grep -q "^${_FIELD}:" "$_FE_HANDOFF" || {
+    echo "[ERROR] fe-handoff.md 필드 누락: ${_FIELD}" >&2; exit 1
+  }
+done
+```
+
+### 1B-3. JSX 합성 규칙 4항목 (frontend-engineering 위임 시 전달)
+
+| 규칙 | 입력 | 출력 |
+|------|------|------|
+| (a) 트리 중첩 | `components_json.depth` + `children[]` | JSX outer/inner 중첩 |
+| (b) 데이터 fetch | `binding-map.json` + `fetch-snippets.tsx` | RSC `async function` 또는 client `useEffect` |
+| (c) RSC 경계 | `rendering-strategy.json.rsc` | true → Server Component / false → `'use client'` 추가 |
+| (d) 토큰 import | `tokens.css` | `import '@/styles/tokens.css'` (layout.tsx) |
+
+### 1B-4. frontend-engineering spawn
+
+Task tool, subagent_type: **"bams-plugin:frontend-engineering"**:
+
+```
+task_description: design-import Phase 1B — FE 구현
+pipeline_slug: {slug}
+scenario: {SCENARIO}
+fe_handoff: .crew/artifacts/design/{slug}/fe-handoff.md
+
+지시:
+  1. fe-handoff.md의 output_files 목록에 따라 page.tsx / layout.tsx / loading.tsx 생성
+  2. jsx_synthesis_rules 4항목 적용
+  3. components.json v1.1 신규 필드(html_tag/inline_styles/css_classes/layout_type) 활용
+  4. rendering-strategy.json 기반 SSR/CSR 경계 결정
+  5. tokens.css → src/styles/tokens.css 이식 후 layout.tsx에 import
+
+constraints:
+  depth: 2 (frontend-engineering은 추가 spawn 없이 직접 구현)
+  allowed_files: src/app/{target}/**, src/styles/tokens.css
+```
+
+### 1B-5. Phase 1B 완료 후 Phase F 진입
+
+frontend-engineering 완료 후 F5 + F7 병렬 spawn (메인 커맨드 직접):
+- F5 (visual-fidelity-verifier): `DRY_RUN=false` 실 적용 완료 후 자동 트리거 (phase-2-verify.md §2-D-bis 참조)
+- F7 (accessibility-auditor): localhost URL 화이트리스트 확인 후 실행
+
+위임 트리:
+```
+main(커맨드 스킬)
+├─ Phase 1A: design-director (depth 1)
+│   └─ F1~F4, F6, F8, F9 (depth 2)
+└─ Phase 1B: frontend-engineering (depth 1, 별도 spawn)
+    └─ (depth 2 추가 spawn 없음 — 직접 구현 부서)
+└─ Phase F: F5 + F7 병렬 (depth 1, 메인 직접 spawn)
+```
 
 constraints:
   security:
@@ -96,6 +173,19 @@ VERDICT=FAIL 이면:
   - 사용자에게 재실행 또는 수정 방법 안내
   - step_end status="fail" emit
   - pipeline_end status="failed" emit 후 종료
+
+VERDICT=ENV_FAIL 이면:
+
+```bash
+if [ "$VERDICT" = "ENV_FAIL" ]; then
+  echo "[FAIL] F5 환경 미충족 (ENV_FAIL) — 자동 PASS 경로 차단"
+  bash "$_EMIT" pipeline_end "${slug}" "failed" ${TOTAL_STEPS} ${DONE_STEPS} 1 ${SKIPPED_STEPS} ${DURATION_MS}
+  exit 1
+fi
+```
+
+  - verdict.json에 `"auto_pass": false` 기록 확인 (visual-fidelity-verifier가 생성)
+  - 사용자에게 `bams-plugin:bams:browse` SKILL 설치 후 재실행 안내
 
 ## step_end emit
 
