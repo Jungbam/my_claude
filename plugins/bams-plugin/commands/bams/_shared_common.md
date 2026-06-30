@@ -314,4 +314,33 @@ orchestrator를 조언자로 1회 호출하여 Advisor Response를 수신한 뒤
 - 부서장은 자신의 도메인 내 specialist를 최대 1회 추가 spawn 가능.
 - 병렬 트랙은 단일 메시지에 복수 Task 호출로 처리한다.
 - 모든 호출 전후 `agent_start`/`agent_end` emit 의무.
+
+---
+
+## Commit 분리 정책
+
+### 원칙
+PR이 squash 머지 시:
+- 머지 전 branch는 카테고리/F-R 그룹별로 commit 분리
+- 각 commit은 단일 카테고리(C1=A / C2=B / ...) 또는 단일 hunk 그룹 한정
+- squash 후 PR description에 "Commit Map" 섹션으로 boundary 명시
+
+### Commit Map 템플릿
+```
+## Commit Map (squash 시 boundary)
+- C1 (Category A): {핵심 변경 요약}
+- C2 (Category B): ...
+```
+
+### Revert candidates
+각 commit message footer에:
+```
+Revert-Safe: yes | partial | no
+```
+- `yes`: 단독 revert로 회귀 없음
+- `partial`: 다른 commit과 함께 revert 필요
+- `no`: revert 시 main 깨짐 (의존성 있음)
+
+### Squash 시 보전
+squash 머지하면 4-6 commits이 1 commit으로 합쳐짐. boundary 추적 불가능 → PR description에 Commit Map 명시 의무.
 - Phase 경계는 반드시 `step_start`/`step_end`로 감싼다(DAG/Gantt 표시 조건).
