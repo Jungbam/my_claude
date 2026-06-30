@@ -114,7 +114,14 @@ bun run ~/.bams/scripts/emit-event.ts agent_end \
   curl localhost:3099/api/agents/data 2>/dev/null | head -1  # 404이면 sidecar 재빌드 요청
   curl {target_url} 2>/dev/null | head -1                    # 500/404이면 platform-devops 에스컬레이션
   ```
-- axe-core 실행: `bun run .crew/scripts/axe-audit.ts {target_url}` 또는 browse 스킬 경유 axe 주입
+- target_url 화이트리스트 검사 (SR-3: localhost 외 URL 거부):
+  ```bash
+  if ! echo "${target_url}" | grep -qE '^https?://localhost(:[0-9]+)?(/|$)'; then
+    echo "[ERROR] SR-3: 외부 URL 거부 — localhost 외 URL은 design-director 승인 필요: ${target_url}" >&2
+    exit 1
+  fi
+  ```
+- axe-core 실행: `bun run .crew/scripts/axe-audit.ts ${target_url}` 또는 browse 스킬 경유 axe 주입
 - **PASS 기준: critical 위반 0건 AND serious 위반 0건**
 - 위반 항목 수 > 0이면 자동 CONDITIONAL 이상. critical 또는 serious > 0이면 FAIL.
 - 권고 우선순위: P0(critical) → P1(serious, AA 색상 대비) → P2(moderate, AA ARIA) → P3(minor, AAA 정보성)

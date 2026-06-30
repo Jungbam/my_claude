@@ -122,15 +122,27 @@ GUIDE_INPUT_DIR=".crew/artifacts/design/${slug}/guide-input"
 ### P5. SR-1 시크릿 스캔 + eval 패턴 검사 (AC9)
 
 ```bash
-# 시크릿 스캔
-_SECRETS=$(grep -rE 'API_KEY|SECRET|PASSWORD|token' "${GUIDE_INPUT_DIR}" 2>/dev/null | grep -v "\.git")
+# 시크릿 스캔 (H-F1 정밀화 — F-R-F-1)
+# 정규식: 실제 값 할당 패턴만 감지 (디자인 토큰 변수명 오탐 방지)
+_SECRET_REGEX='\b(API_KEY|SECRET|BEARER_TOKEN|AUTH_TOKEN|PASSWORD)\s*[:=]\s*["'"'"']'
+
+_SECRETS=$(grep -rE "$_SECRET_REGEX" "${GUIDE_INPUT_DIR}" 2>/dev/null \
+  | grep -v "\.git" \
+  | grep -vE '(tokens?\.css|design-token|--token-|designToken)')
+
 if [ -n "$_SECRETS" ]; then
-  echo "[WARN] SR-1: 시크릿 패턴 감지됨 — 해당 파일을 제외하고 진행합니다."
+  echo "[WARN] SR-1: 시크릿 패턴 감지됨 — 해당 파일을 격리합니다."
   _SECRET_FILES=$(echo "$_SECRETS" | cut -d: -f1 | sort -u)
+  # conflict-report 기록
   mkdir -p ".crew/artifacts/design/${slug}/ui-diff"
   echo "## SR-1 시크릿 감지 파일" >> ".crew/artifacts/design/${slug}/ui-diff/conflict-report.md"
   echo "$_SECRET_FILES" >> ".crew/artifacts/design/${slug}/ui-diff/conflict-report.md"
-  echo "$_SECRET_FILES" | xargs rm -f
+  # rm 금지 — quarantine으로 격리 (원본 보존)
+  mkdir -p ".crew/artifacts/design/${slug}/_quarantine"
+  echo "$_SECRET_FILES" | while read -r f; do
+    [ -f "$f" ] && mv "$f" ".crew/artifacts/design/${slug}/_quarantine/"
+  done
+  echo "[INFO] 격리 완료: .crew/artifacts/design/${slug}/_quarantine/"
 fi
 
 # eval / dynamic import 패턴 감지
