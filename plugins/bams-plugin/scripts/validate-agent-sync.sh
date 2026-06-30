@@ -234,7 +234,7 @@ fi
 # ─────────────────────────────────────────────
 MISSING_DEPT=""
 for f in "$PLUGIN_DIR"/agents/*.md; do
-  if ! sed -n '/^---$/,/^---$/p' "$f" | grep -q "^department:"; then
+  if ! awk '/^---$/{c++; if(c==2) exit} c>=1' "$f" | grep -q "^department:"; then
     MISSING_DEPT="${MISSING_DEPT}$(basename "$f" .md), "
   fi
 done
@@ -250,7 +250,7 @@ fi
 # ─────────────────────────────────────────────
 MISSING_DT=""
 for f in "$PLUGIN_DIR"/agents/*.md; do
-  if ! sed -n '/^---$/,/^---$/p' "$f" | grep -q "^disallowedTools:"; then
+  if ! awk '/^---$/{c++; if(c==2) exit} c>=1' "$f" | grep -q "^disallowedTools:"; then
     MISSING_DT="${MISSING_DT}$(basename "$f" .md), "
   fi
 done
@@ -298,7 +298,7 @@ if [[ -f "$POLICY" ]]; then
   # 실제: frontmatter에 `disallowedTools: []` 를 선언한 에이전트 목록
   > "$ACTUAL_IMPL"
   for f in "$PLUGIN_DIR"/agents/*.md; do
-    if sed -n '/^---$/,/^---$/p' "$f" | grep -qE '^disallowedTools:[[:space:]]*\[\][[:space:]]*$'; then
+    if awk '/^---$/{c++; if(c==2) exit} c>=1' "$f" | grep -qE '^disallowedTools:[[:space:]]*\[\][[:space:]]*$'; then
       basename "$f" .md >> "$ACTUAL_IMPL"
     fi
   done
