@@ -245,6 +245,17 @@ input_artifacts:
 - **F9 ssr-csr-decider** (병렬): 라우트별 렌더링 전략 연동. rendering-strategy.json 공유.
 - **frontend-engineering** (후속): `route-tree.json` 수신하여 세그먼트 디렉터리 생성.
 
+## Best Practice 참조
+
+**★ 작업 시작 시 반드시 Read**:
+```bash
+_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/routing-strategist.md" 2>/dev/null | head -1)
+[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/routing-strategist.md" 2>/dev/null | head -1)
+[ -n "$_BP" ] && cat "$_BP"
+```
+
+발견 시 §1~§4 (호출 컨텍스트 / 실수 3건 / 권장 패턴 / 체크리스트 5건) 확인 후 작업 진행.
+
 ## 학습된 교훈
 
 (초기 등록 — 실운용 후 갱신)

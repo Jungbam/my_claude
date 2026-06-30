@@ -237,6 +237,17 @@ input_artifacts:
 - **frontend-engineering** (후속): P0/P1 위반 수정 위임. 위반 항목 목록 + 코드 예시 포함.
 - **ux-designer** (협력): ARIA/키보드 네비게이션 개선안 공유.
 
+## Best Practice 참조
+
+**★ 작업 시작 시 반드시 Read**:
+```bash
+_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/accessibility-auditor.md" 2>/dev/null | head -1)
+[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/accessibility-auditor.md" 2>/dev/null | head -1)
+[ -n "$_BP" ] && cat "$_BP"
+```
+
+발견 시 §1~§4 (호출 컨텍스트 / 실수 3건 / 권장 패턴 / 체크리스트 5건) 확인 후 작업 진행.
+
 ## 학습된 교훈
 
 (초기 등록 — 실운용 후 갱신)

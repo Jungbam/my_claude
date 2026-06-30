@@ -217,6 +217,34 @@ else
 fi
 
 # ─────────────────────────────────────────────
+# [6b/13] best-practice 콘텐츠 검증 (Wave 1 6 파일 한정)
+# ─────────────────────────────────────────────
+_BP_WAVE1=(guide-decomposer guide-recomposer data-binding-mapper accessibility-auditor routing-strategist ssr-csr-decider)
+_BP_WAVE1_FAIL=0
+for slug in "${_BP_WAVE1[@]}"; do
+  bp="$BP_DIR/${slug}.md"
+  if [ -f "$bp" ]; then
+    # placeholder 패턴 감지 (실제 미작성 패턴만 — 파일명/변수명 내 용어 제외)
+    if grep -qE '\(추후 작성\)|^> Placeholder|TODO: |^\(TODO\)' "$bp"; then
+      echo -e "  [6b/13] best-practice 콘텐츠 ... ${RED}FAIL${NC}: ${slug} placeholder 잔존"
+      ERRORS=$((ERRORS + 1))
+      _BP_WAVE1_FAIL=$((_BP_WAVE1_FAIL + 1))
+      continue
+    fi
+    # 줄수 >= 30 (50 목표지만 안전 margin)
+    _LINES=$(wc -l < "$bp" | tr -d ' ')
+    if [ "$_LINES" -lt 30 ]; then
+      echo -e "  [6b/13] best-practice 줄수 ... ${RED}FAIL${NC}: ${slug} ${_LINES}줄 < 30"
+      ERRORS=$((ERRORS + 1))
+      _BP_WAVE1_FAIL=$((_BP_WAVE1_FAIL + 1))
+    fi
+  fi
+done
+if [ "$_BP_WAVE1_FAIL" -eq 0 ]; then
+  echo -e "  [6b/13] best-practice 콘텐츠 (Wave 1 6) ... ${GREEN}OK${NC}"
+fi
+
+# ─────────────────────────────────────────────
 # Bonus: verify all departments in dept_map are covered
 # ─────────────────────────────────────────────
 if [[ -f "$VIZ_EMIT" ]]; then
@@ -360,6 +388,21 @@ elif [[ ! -f "$SERVER_SRC" ]]; then
   echo -e "  [13/13] sidecar binary staleness ... ${YELLOW}WARN${NC}: server source not found (${SERVER_SRC})"
 elif [[ ! -f "$SIDECAR_BIN" ]]; then
   echo -e "  [13/13] sidecar binary staleness ... ${YELLOW}WARN${NC}: sidecar binary not found (skipped)"
+fi
+
+# ─────────────────────────────────────────────
+# 14. specialist-roster SSOT consistency (WARN only)
+#     sync-specialists.ts dry-run → 0 drifts = OK
+# ─────────────────────────────────────────────
+if command -v bun >/dev/null 2>&1; then
+  SYNC_RESULT=$(bun run "$PLUGIN_DIR/scripts/sync-specialists.ts" 2>&1 | tail -1 || true)
+  if echo "$SYNC_RESULT" | grep -q "Dry-run: 0 drifts"; then
+    echo -e "  [14/13] specialist-roster SSOT ... ${GREEN}OK${NC}"
+  else
+    echo -e "  [14/13] specialist-roster SSOT ... ${YELLOW}WARN${NC}: drifts detected (run sync-specialists.ts --apply or insert markers)"
+  fi
+else
+  echo -e "  [14/13] specialist-roster SSOT ... ${YELLOW}SKIP${NC}: bun not installed"
 fi
 
 # ─────────────────────────────────────────────
