@@ -67,9 +67,14 @@ isolate_guide() {
   if [ -f "$src" ]; then
     # 단일 파일
     if echo "$src" | grep -qiE '\.zip$'; then
-      # zip slip 사전 차단 (H-F2 — F-R-F-2)
-      if zipinfo -1 "$src" 2>/dev/null | grep -qE '^(/|\.\.\/)'; then
+      # zip slip 사전 차단 (H-D1 강화 — 절대경로·상대경로·Windows 백슬래시 모두 차단)
+      if zipinfo -1 "$src" 2>/dev/null | grep -qE '(\.\./|^/|\.\\\.\.|\\\.\.\\)'; then
         echo "[ERROR] zip slip 위험 항목 감지 — ZIP 처리 거부: $src" >&2
+        return 1
+      fi
+      # H-D6: Windows 백슬래시 경로 추가 차단
+      if zipinfo -1 "$src" 2>/dev/null | awk '{print $NF}' | grep -qE '\\\\'; then
+        echo "[ERROR] Windows-style backslash path in zip — 처리 거부" >&2
         return 1
       fi
       unzip -d "$dest" "$src"          # ZIP 압축 해제

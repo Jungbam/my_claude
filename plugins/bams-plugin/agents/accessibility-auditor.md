@@ -114,10 +114,13 @@ bun run ~/.bams/scripts/emit-event.ts agent_end \
   curl localhost:3099/api/agents/data 2>/dev/null | head -1  # 404이면 sidecar 재빌드 요청
   curl {target_url} 2>/dev/null | head -1                    # 500/404이면 platform-devops 에스컬레이션
   ```
-- target_url 화이트리스트 검사 (SR-3: localhost 외 URL 거부):
+- target_url 화이트리스트 검사 (SR-3 H-D4/D5 강화: localhost/127.0.0.1/::1 + 포트 1-65535 검증):
   ```bash
-  if ! echo "${target_url}" | grep -qE '^https?://localhost(:[0-9]+)?(/|$)'; then
-    echo "[ERROR] SR-3: 외부 URL 거부 — localhost 외 URL은 design-director 승인 필요: ${target_url}" >&2
+  # H-D5: 포트 범위 1-65535 정규식
+  PORT_RE='(:([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?'
+  # H-D4: IPv6(::1) 및 127.0.0.1 추가
+  if ! echo "${target_url}" | grep -qE "^https?://(localhost|127\.0\.0\.1|\[::1\])${PORT_RE}(/|$)"; then
+    echo "[ERROR] SR-3: 외부 URL 거부 — localhost/127.0.0.1/[::1] 외 URL은 design-director 승인 필요: ${target_url}" >&2
     exit 1
   fi
   ```

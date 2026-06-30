@@ -75,7 +75,10 @@ dept_map() {
     frontend-engineering) echo "engineering-frontend" ;;
     backend-engineering) echo "engineering-backend" ;;
     platform-devops|data-integration) echo "engineering-platform" ;;
-    design-director|ui-designer|ux-designer|graphic-designer|motion-designer|design-system-agent|guide-decomposer|guide-recomposer|ui-diff-applier|data-binding-mapper|visual-fidelity-verifier|nextjs-convention-mapper|accessibility-auditor|routing-strategist|ssr-csr-decider) echo "design" ;;
+    design-director|ui-designer|ux-designer|graphic-designer|motion-designer|\
+    design-system-agent|guide-decomposer|guide-recomposer|ui-diff-applier|\
+    data-binding-mapper|visual-fidelity-verifier|nextjs-convention-mapper|\
+    accessibility-auditor|routing-strategist|ssr-csr-decider) echo "design" ;;
     product-analytics|experimentation|performance-evaluation|business-kpi) echo "evaluation" ;;
     qa-strategy|automation-qa|defect-triage|release-quality-gate) echo "qa" ;;
     pipeline-orchestrator|cross-department-coordinator|executive-reporter|resource-optimizer|hr-agent) echo "management" ;;

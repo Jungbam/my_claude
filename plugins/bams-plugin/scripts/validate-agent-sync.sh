@@ -142,14 +142,53 @@ VIZ_EMIT="$PLUGIN_DIR/hooks/bams-viz-emit.sh"
 SRC_DEPT="$TMPDIR_VALIDATE/dept_map.txt"
 if [[ -f "$VIZ_EMIT" ]]; then
   # Extract agent names from case patterns in dept_map function
-  # Lines look like:    product-strategy|business-analysis|...) echo "planning" ;;
-  sed -n '/^dept_map()/,/^}/p' "$VIZ_EMIT" \
-    | grep -E 'echo "[a-z][a-z-]+"' \
-    | sed 's/).*//' \
-    | tr '|' '\n' \
-    | sed 's/^[[:space:]]*//' \
-    | grep -E '^[a-z]+(-[a-z]+)*$' \
-    | sort > "$SRC_DEPT"
+  # Supports both single-line and multi-line (backslash continuation) patterns:
+  #   single: product-strategy|business-analysis|...) echo "planning" ;;
+  #   multi:  design-director|ui-designer|\
+  #           guide-decomposer|...) echo "design" ;;
+  python3 - "$VIZ_EMIT" <<'PYEOF'
+import re, sys
+
+with open(sys.argv[1]) as f:
+    content = f.read()
+
+# Extract dept_map function body
+m = re.search(r'dept_map\(\)\s*\{(.*?)\n\}', content, re.DOTALL)
+if not m:
+    sys.exit(0)
+body = m.group(1)
+
+# Join continuation lines (backslash at end of line)
+joined = re.sub(r'\\\n\s*', '|', body)
+
+# Find all case patterns: everything before ) echo "..." ;;
+for match in re.finditer(r'([a-z][a-z|_-]*)\)\s*echo\s*"[a-z-]+"', joined):
+    pattern = match.group(1)
+    for agent in pattern.split('|'):
+        agent = agent.strip()
+        if re.match(r'^[a-z]+(-[a-z]+)*$', agent):
+            print(agent)
+PYEOF
+  python3 - "$VIZ_EMIT" <<'PYEOF' | sort > "$SRC_DEPT"
+import re, sys
+
+with open(sys.argv[1]) as f:
+    content = f.read()
+
+m = re.search(r'dept_map\(\)\s*\{(.*?)\n\}', content, re.DOTALL)
+if not m:
+    sys.exit(0)
+body = m.group(1)
+
+joined = re.sub(r'\\\n\s*', '|', body)
+
+for match in re.finditer(r'([a-z][a-z|_-]*)\)\s*echo\s*"[a-z-]+"', joined):
+    pattern = match.group(1)
+    for agent in pattern.split('|'):
+        agent = agent.strip()
+        if re.match(r'^[a-z]+(-[a-z]+)*$', agent):
+            print(agent)
+PYEOF
   compare_source "3" "dept_map (bams-viz-emit.sh)" "$SRC_DEPT"
 else
   echo -e "  [3/13] dept_map ... ${RED}FILE NOT FOUND${NC}"
