@@ -84,19 +84,48 @@ S3 검증:
 cat ".crew/artifacts/design/{slug}/fidelity/verdict.json" 2>/dev/null | head -20
 ```
 
+## 2-D-bis. F5 자동 트리거 (DRY_RUN=false, 실 적용 완료 후)
+
+DRY_RUN=false이고 2-D 검증 PASS 후, baseline triplet으로 F5(visual-fidelity-verifier) 자동 트리거:
+
+```bash
+if [ "$DRY_RUN" = "false" ]; then
+  _BASELINE_GUIDE=".crew/artifacts/design/${slug}/guide-input/"
+  _BASELINE_RECOMPOSE=".crew/artifacts/design/${slug}/guide-recomposition/preview.html"
+  _IMPL_TARGET="${TARGET}"
+  echo "[INFO] F5 visual-fidelity-verifier 자동 트리거 (baseline: guide + recompose + impl)"
+fi
+```
+
+verdict.json 신규 필드:
+- `guide_vs_impl_diff` (≤5% PASS, ≤20% CONDITIONAL)
+- `recompose_vs_impl_diff` (참고용)
+
 ## 2-E. 회귀 테스트 (S2 한정)
 
 S2이고 DRY_RUN=false이면:
 
 ```
-AskUserQuestion("S2 기존 페이지 회귀 테스트를 qa-strategy에 위임할까요?")
+AskUserQuestion(
+  question: "S2 기존 페이지 회귀 테스트를 qa-strategy에 위임할까요?",
+  header: "회귀 테스트 결정",
+  options: [
+    "회귀 테스트 실행 (Recommended)",
+    "스킵 — 위험 인지 확인 (regression_test_skipped: true 기록)"
+  ]
+)
 ```
 
-- "예" 선택 시: qa-strategy 에 회귀 테스트 위임
+- "회귀 테스트 실행 (Recommended)" 선택 시: qa-strategy 에 회귀 테스트 위임
   - agent_start emit (call_id: `qa-strategy-2e-{timestamp}`)
   - qa-strategy 에 S2 conflict-report.md + 변경 파일 목록 전달
   - agent_end emit
-- "아니오": 수동 확인 권고 + 계속 진행
+- "스킵 — 위험 인지 확인 (regression_test_skipped: true 기록)" 선택 시:
+  - `.crew/artifacts/design/${slug}/skip-log.jsonl`에 기록:
+    ```json
+    {"timestamp": "{ISO8601}", "step": "2-E", "reason": "user_skip", "regression_test_skipped": true}
+    ```
+  - 수동 확인 권고 후 계속 진행
 
 ## step_end emit
 
