@@ -1,7 +1,7 @@
 {
   "name": "bams-plugin",
   "description": "조직도 기반 통합 Claude Code 플러그인 — 8부서 36에이전트",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "author": {
     "name": "Jungbam"
   },
