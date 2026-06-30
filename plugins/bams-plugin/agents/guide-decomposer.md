@@ -80,7 +80,14 @@ for line in sys.stdin:
 
 1. **React JSX 파서 (jsx_parse)**: TypeScript Compiler API 또는 babel-parser 기반 AST 정적 분석. 컴포넌트 이름·props·children·깊이를 추출하여 트리 구조화. `src/components/`, `src/ui/` 등 디렉터리 단위 chunking 지원.
 
-2. **HTML 구조 파서 (html_parse)**: 단일 HTML 파일의 DOM 구조를 분석하여 의미적 섹션(헤더, 메인, 푸터, 카드 등)으로 컴포넌트 후보 추출. CSS inline/class 패턴 인식.
+2. **HTML 구조 파서 (html_parse)**: 단일 HTML 파일의 DOM 구조를 분석하여 의미적 섹션(헤더, 메인, 푸터, 카드 등)으로 컴포넌트 후보 추출. CSS inline/class 패턴 인식. v1.1 스키마 신규 6 필드를 DOM에서 직접 추출한다:
+   - `html_tag`: 노드의 `tagName.toLowerCase()`
+   - `inline_styles`: 노드 `style` 속성 파싱 (`property: value;` → `{property: value}` 맵)
+   - `css_classes`: `classList` 배열 그대로 추출
+   - `layout_type`: computed style의 `display` 또는 `position` 값 매핑 (`flex`/`grid`/`flow`/`absolute`)
+   - `parent_component`: 트리 traverse 시 부모 노드의 매핑된 컴포넌트 `name`
+   - `section_id`: `<section id="...">` 또는 `id` 속성값
+   추출 실패 시 `null` 또는 기본값 기록. 절대 필드 자체를 omit 하지 않는다 (F2가 in-key 검사로 의존성 판단).
 
 3. **디자인 토큰 추출 (token_extract)**: CSS 변수(`--color-*`, `--spacing-*`), styled-components 테마, Tailwind 클래스 패턴에서 Primitive 계층 토큰 추출. design-system-agent Grep 패턴 4종 재사용.
 
@@ -91,6 +98,18 @@ for line in sys.stdin:
 6. **청킹 전처리 (chunking)**: 입력 줄 수 10,000 초과 시 디렉터리별 자동 분할. `guide-decomposition/chunks/chunk-{N}.json` 저장 후 최종 merge. Preflight에서 줄 수 체크 의무.
 
 ## 행동 규칙
+
+### 신규 필드 의무 추출 (v1.1 스키마)
+
+DOM 파싱 시 다음을 의무 추출한다 (OQ4=b — 신규 6 필드는 components.json에 optional이지만 F1은 추출 시도):
+- `html_tag`: 노드의 `tagName.toLowerCase()`
+- `inline_styles`: 노드 `style` 속성 파싱 (`property: value;` → `{property: value}`)
+- `css_classes`: `classList` 배열 그대로
+- `layout_type`: computed style의 `display` 또는 `position` 값 매핑 (`flex`/`grid`/`flow`/`absolute`)
+- `parent_component`: 트리 traverse 시 부모 노드의 매핑된 컴포넌트 `name`
+- `section_id`: `<section id="...">` 또는 `id` 속성
+
+추출 실패 시 `null` 또는 기본값 기록. 절대 필드 자체를 omit 하지 않는다 (F2가 in-key 검사로 의존성 판단).
 
 ### SR-1 (보안 — 외부 가이드 입력 격리)
 - **입력 파일을 `.crew/artifacts/design/{slug}/guide-input/`에 격리 복사 후 처리.** 원본 경로 직접 실행 금지.
@@ -143,16 +162,24 @@ input_artifacts:
 ### components.json 스키마
 ```json
 {
-  "version": "1.0",
+  "version": "1.1",
   "source_path": ".crew/artifacts/design/{slug}/guide-input/",
   "component_count": 12,
+  "schema_fields_required": ["name", "props", "children", "depth", "source_line"],
+  "schema_fields_optional": ["html_tag", "inline_styles", "css_classes", "layout_type", "parent_component", "section_id"],
   "components": [
     {
       "name": "HeroSection",
       "props": ["title", "subtitle", "ctaLabel"],
       "children": ["Button", "Heading", "Text"],
       "depth": 1,
-      "source_line": 42
+      "source_line": 42,
+      "html_tag": "section",
+      "inline_styles": {"background-color": "#1A1A2E", "padding": "64px 24px"},
+      "css_classes": ["hero", "hero--dark"],
+      "layout_type": "flex",
+      "parent_component": null,
+      "section_id": "hero-main"
     }
   ]
 }

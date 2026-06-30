@@ -191,7 +191,22 @@ hr_reports (독립)
 
 ## 현재 상태
 
-> Last updated: 2026-05-02
+> Last updated: 2026-06-30
+
+### 진행 중 (신규 — 2026-06-30, design-import 품질개선 plan)
+- **`plan_designimport품질개선`** (Backlog, 9 tasks — TASK-077~085) ⭐ 신규
+  - Work Unit: 전체bams리뷰 / Branch: `bams/plan_designimport품질개선` (예정, base=main)
+  - 부모 deep-review: `deep-review_designimport품질진단_20260630` (Critical 10 / Major 18 / Minor 5)
+  - PRD: `.crew/artifacts/prd/plan_designimport품질개선-prd.md` (279줄, APPROVED v2 후보 — OQ1~OQ5 사용자 답변 수신)
+  - Spec: `.crew/artifacts/design/plan_designimport품질개선-spec.md` (560줄, 19 hunks, 자기검증 SV 6/6 PASS)
+  - Design-FE: `.crew/artifacts/design/plan_designimport품질개선-design-fe.md` (177줄, fe-handoff.md contract 11 필드 + JSX 합성 규칙 4항목)
+  - Design-BE: `.crew/artifacts/design/plan_designimport품질개선-design-be.md` (81줄, NG 확정 — markdown만 변경)
+  - 분류: F-R-A 스키마 6 필드 + F-R-B design-director SSOT 표 + F-R-C Phase 1B FE 직접 spawn + F-R-D 청킹/frontmatter + F-R-E 검증 게이트 3건 + F-R-F 보안 3건 + F-R-G SSOT 단일화
+  - 변경 파일: agents 6 + commands/bams/design-import 4 = **10 파일, +361/-42줄 = +319 (NF-3 +500 한도 63.8%)**
+  - OQ 결정: OQ1=(a) 보안 본 plan / OQ2=(a) D/E 본 plan / OQ3=(a) FE 재사용 / OQ4=(b) optional / OQ5=(b) 신규 PR
+  - 머지 전략: 신규 PR (base=main), 4 commit 분리 (A+B / C+G / D+E / F 보안)
+  - PR #7 충돌: 0건 (사전 확인 완료)
+  - 다음: `/bams:dev plan_designimport품질개선` (Wave 1A hr-agent 3 task + Wave 1B platform-devops 3 task 병렬 → Wave 2 qa-strategy 2 task → Wave 3 메인 PR)
 
 ### 진행 중 (신규 — 2026-05-05, 3번째 plan)
 - **`plan_T3_sample_bias_filter`** (Backlog, 2 tasks — TASK-055~056) ⭐ 가장 작은 plan
