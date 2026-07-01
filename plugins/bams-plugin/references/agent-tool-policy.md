@@ -53,6 +53,7 @@
 | pipeline-orchestrator | Write/Edit 금지. tracking 파일 갱신은 Bash(`echo`, `tee`, `jq`)로만 수행 |
 | executive-reporter | Write/Edit 금지. 보고서는 output으로 반환하고, 호출자가 저장 |
 | automation-qa | Write/Edit 허용 — 테스트 코드 작성이 핵심 역할 |
+| visual-fidelity-verifier | Write/Edit 차단 (`disallowedTools: ["Edit", "Write"]`). 산출물(verdict.json, screenshots)은 Bash heredoc/tee로 저장 — H-D3 보안 정밀화 적용 |
 
 ## frontmatter 선언 방법
 
@@ -86,12 +87,23 @@ disallowedTools: []
 - **guide-decomposer**: 외부 가이드 분해 산출물(components.json, tokens.css 등) 직접 생성
 - **guide-recomposer**: 재조립 preview HTML 및 round-trip 손실 보고서 직접 생성
 - **data-binding-mapper**: binding-map.json + fetch-snippets.tsx 직접 생성
-- **visual-fidelity-verifier**: 픽셀 diff 결과/verdict.json 및 viewport 스크린샷 직접 저장
 - **nextjs-convention-mapper**: convention-map.json (App Router 매핑) 직접 생성
 - **accessibility-auditor**: axe-core 결과 + a11y-verdict.json 직접 저장
 - **routing-strategist**: route-tree.json (App Router 라우팅 그래프) 직접 생성
 - **ssr-csr-decider**: rendering-strategy.json (Server/Client 경계 결정) 직접 생성
 - **hr-agent**: 에이전트 md/jojikdo.json/plugin.json 등 조직 메타데이터 직접 편집
+
+<!-- SYNC-SPECIALISTS:START -->
+- accessibility-auditor: `disallowedTools: []`
+- data-binding-mapper: `disallowedTools: []`
+- guide-decomposer: `disallowedTools: []`
+- guide-recomposer: `disallowedTools: []`
+- nextjs-convention-mapper: `disallowedTools: []`
+- routing-strategist: `disallowedTools: []`
+- ssr-csr-decider: `disallowedTools: []`
+- ui-diff-applier: `disallowedTools: []`
+- visual-fidelity-verifier: `disallowedTools: []`
+<!-- SYNC-SPECIALISTS:END -->
 
 ## 온보딩 체크리스트 (신규 에이전트 등록)
 

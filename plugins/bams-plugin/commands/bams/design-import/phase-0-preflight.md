@@ -144,13 +144,17 @@ fi
 ### P5. SR-1 시크릿 스캔 + eval 패턴 검사 (AC9)
 
 ```bash
-# 시크릿 스캔 (H-F1 정밀화 — F-R-F-1)
+# 시크릿 스캔 (H-D2 강화 — case-insensitive + 확장 키워드 + 값 패턴)
 # 정규식: 실제 값 할당 패턴만 감지 (디자인 토큰 변수명 오탐 방지)
-_SECRET_REGEX='\b(API_KEY|SECRET|BEARER_TOKEN|AUTH_TOKEN|PASSWORD)\s*[:=]\s*["'"'"']'
+_SECRET_REGEX='\b(API_KEY|SECRET|BEARER_TOKEN|AUTH_TOKEN|PASSWORD|GITHUB_TOKEN|GITHUB_PAT|OPENAI_API_KEY|ANTHROPIC_API_KEY)\s*[:=]\s*["'"'"']'
 
-_SECRETS=$(grep -rE "$_SECRET_REGEX" "${GUIDE_INPUT_DIR}" 2>/dev/null \
+_SECRETS=$(grep -irE "$_SECRET_REGEX" "${GUIDE_INPUT_DIR}" 2>/dev/null \
   | grep -v "\.git" \
   | grep -vE '(tokens?\.css|design-token|--token-|designToken)')
+
+# 값 패턴 추가 검사 (토큰 형태 직접 탐지)
+_SECRET_VALUES=$(grep -rE '(ghp_[A-Za-z0-9]{36}|AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9]{32,}|xox[baprs]-[A-Za-z0-9-]+|-----BEGIN [A-Z ]+PRIVATE KEY-----)' "${GUIDE_INPUT_DIR}" 2>/dev/null)
+_SECRETS=$(echo -e "$_SECRETS\n$_SECRET_VALUES" | sort -u | grep -v '^$')
 
 if [ -n "$_SECRETS" ]; then
   echo "[WARN] SR-1: 시크릿 패턴 감지됨 — 해당 파일을 격리합니다."

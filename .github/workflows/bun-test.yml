@@ -1,0 +1,24 @@
+name: bun-test
+on:
+  pull_request:
+    paths:
+      - 'plugins/bams-plugin/tests/**'
+      - 'plugins/bams-plugin/scripts/**'
+      - '.github/workflows/bun-test.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/bams-plugin/tests/**'
+      - 'plugins/bams-plugin/scripts/**'
+
+jobs:
+  bun-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Run plugin tests
+        run: bun test plugins/bams-plugin/tests/

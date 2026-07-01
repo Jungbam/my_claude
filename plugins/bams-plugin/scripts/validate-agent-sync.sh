@@ -142,14 +142,53 @@ VIZ_EMIT="$PLUGIN_DIR/hooks/bams-viz-emit.sh"
 SRC_DEPT="$TMPDIR_VALIDATE/dept_map.txt"
 if [[ -f "$VIZ_EMIT" ]]; then
   # Extract agent names from case patterns in dept_map function
-  # Lines look like:    product-strategy|business-analysis|...) echo "planning" ;;
-  sed -n '/^dept_map()/,/^}/p' "$VIZ_EMIT" \
-    | grep -E 'echo "[a-z][a-z-]+"' \
-    | sed 's/).*//' \
-    | tr '|' '\n' \
-    | sed 's/^[[:space:]]*//' \
-    | grep -E '^[a-z]+(-[a-z]+)*$' \
-    | sort > "$SRC_DEPT"
+  # Supports both single-line and multi-line (backslash continuation) patterns:
+  #   single: product-strategy|business-analysis|...) echo "planning" ;;
+  #   multi:  design-director|ui-designer|\
+  #           guide-decomposer|...) echo "design" ;;
+  python3 - "$VIZ_EMIT" <<'PYEOF'
+import re, sys
+
+with open(sys.argv[1]) as f:
+    content = f.read()
+
+# Extract dept_map function body
+m = re.search(r'dept_map\(\)\s*\{(.*?)\n\}', content, re.DOTALL)
+if not m:
+    sys.exit(0)
+body = m.group(1)
+
+# Join continuation lines (backslash at end of line)
+joined = re.sub(r'\\\n\s*', '|', body)
+
+# Find all case patterns: everything before ) echo "..." ;;
+for match in re.finditer(r'([a-z][a-z|_-]*)\)\s*echo\s*"[a-z-]+"', joined):
+    pattern = match.group(1)
+    for agent in pattern.split('|'):
+        agent = agent.strip()
+        if re.match(r'^[a-z]+(-[a-z]+)*$', agent):
+            print(agent)
+PYEOF
+  python3 - "$VIZ_EMIT" <<'PYEOF' | sort > "$SRC_DEPT"
+import re, sys
+
+with open(sys.argv[1]) as f:
+    content = f.read()
+
+m = re.search(r'dept_map\(\)\s*\{(.*?)\n\}', content, re.DOTALL)
+if not m:
+    sys.exit(0)
+body = m.group(1)
+
+joined = re.sub(r'\\\n\s*', '|', body)
+
+for match in re.finditer(r'([a-z][a-z|_-]*)\)\s*echo\s*"[a-z-]+"', joined):
+    pattern = match.group(1)
+    for agent in pattern.split('|'):
+        agent = agent.strip()
+        if re.match(r'^[a-z]+(-[a-z]+)*$', agent):
+            print(agent)
+PYEOF
   compare_source "3" "dept_map (bams-viz-emit.sh)" "$SRC_DEPT"
 else
   echo -e "  [3/13] dept_map ... ${RED}FILE NOT FOUND${NC}"
@@ -214,6 +253,34 @@ if [[ -d "$BP_DIR" ]]; then
 else
   echo -e "  [6/13] best-practices/ ... ${RED}DIRECTORY NOT FOUND${NC}"
   ERRORS=$((ERRORS + 1))
+fi
+
+# ─────────────────────────────────────────────
+# [6b/13] best-practice 콘텐츠 검증 (Wave 1 6 파일 한정)
+# ─────────────────────────────────────────────
+_BP_WAVE1=(guide-decomposer guide-recomposer data-binding-mapper accessibility-auditor routing-strategist ssr-csr-decider)
+_BP_WAVE1_FAIL=0
+for slug in "${_BP_WAVE1[@]}"; do
+  bp="$BP_DIR/${slug}.md"
+  if [ -f "$bp" ]; then
+    # placeholder 패턴 감지 (실제 미작성 패턴만 — 파일명/변수명 내 용어 제외)
+    if grep -qE '\(추후 작성\)|^> Placeholder|TODO: |^\(TODO\)' "$bp"; then
+      echo -e "  [6b/13] best-practice 콘텐츠 ... ${RED}FAIL${NC}: ${slug} placeholder 잔존"
+      ERRORS=$((ERRORS + 1))
+      _BP_WAVE1_FAIL=$((_BP_WAVE1_FAIL + 1))
+      continue
+    fi
+    # 줄수 >= 30 (50 목표지만 안전 margin)
+    _LINES=$(wc -l < "$bp" | tr -d ' ')
+    if [ "$_LINES" -lt 30 ]; then
+      echo -e "  [6b/13] best-practice 줄수 ... ${RED}FAIL${NC}: ${slug} ${_LINES}줄 < 30"
+      ERRORS=$((ERRORS + 1))
+      _BP_WAVE1_FAIL=$((_BP_WAVE1_FAIL + 1))
+    fi
+  fi
+done
+if [ "$_BP_WAVE1_FAIL" -eq 0 ]; then
+  echo -e "  [6b/13] best-practice 콘텐츠 (Wave 1 6) ... ${GREEN}OK${NC}"
 fi
 
 # ─────────────────────────────────────────────
@@ -360,6 +427,21 @@ elif [[ ! -f "$SERVER_SRC" ]]; then
   echo -e "  [13/13] sidecar binary staleness ... ${YELLOW}WARN${NC}: server source not found (${SERVER_SRC})"
 elif [[ ! -f "$SIDECAR_BIN" ]]; then
   echo -e "  [13/13] sidecar binary staleness ... ${YELLOW}WARN${NC}: sidecar binary not found (skipped)"
+fi
+
+# ─────────────────────────────────────────────
+# 14. specialist-roster SSOT consistency (WARN only)
+#     sync-specialists.ts dry-run → 0 drifts = OK
+# ─────────────────────────────────────────────
+if command -v bun >/dev/null 2>&1; then
+  SYNC_RESULT=$(bun run "$PLUGIN_DIR/scripts/sync-specialists.ts" 2>&1 | tail -1 || true)
+  if echo "$SYNC_RESULT" | grep -q "Dry-run: 0 drifts"; then
+    echo -e "  [14/13] specialist-roster SSOT ... ${GREEN}OK${NC}"
+  else
+    echo -e "  [14/13] specialist-roster SSOT ... ${YELLOW}WARN${NC}: drifts detected (run sync-specialists.ts --apply or insert markers)"
+  fi
+else
+  echo -e "  [14/13] specialist-roster SSOT ... ${YELLOW}SKIP${NC}: bun not installed"
 fi
 
 # ─────────────────────────────────────────────

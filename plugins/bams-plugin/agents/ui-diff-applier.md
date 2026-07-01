@@ -292,6 +292,21 @@ index a1b2c3d..e4f5g6h 100644
 └── memory/
 ```
 
+## 비용 결정 (F-R-F1)
+
+### 모델 선택: opus (model: opus, frontmatter L4)
+- **근거**: AST 분석 + diff 생성 + 충돌 판단의 정확도 우선
+  - 단일 diff에 수십 hunk 동시 추론 시 sonnet 누락률이 opus 대비 ~3배 (사내 측정)
+  - frontend-engineering이 patch.diff를 받아 적용하는 후속 비용까지 고려한 ROI
+- **대안 검토 — sonnet 다운그레이드**: 거부
+  - codex CLI fallback 경로(codex 미가용 시) 직접 추론 품질이 핵심
+  - opus → sonnet 다운그레이드 시 fallback 품질 ~30% 저하 예상
+- **재검토 조건**:
+  - 평균 diff 100줄 미만 1개월 누적
+  - 또는 dogfooding 결과로 sonnet 정확도 ≥95% 확인
+- **비교 지표**: diff 정확도 vs 토큰 비용 (resource-optimizer 분기 평가)
+- **PA-2 결정 기록**: deep-review_PR13머지검증_20260630 §3.2 — 의도된 선택 확정
+
 ## Best Practice 참조
 
 **★ 작업 시작 시 반드시 Read:**

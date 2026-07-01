@@ -26,6 +26,19 @@ pipeline-orchestrator는 Task 호출자가 아닌 **조언자(advisor)** 로서 
 - 개발부장: **frontend-engineering**, **backend-engineering** (각 부서는 직접 구현 중심)
 - 인프라부장: **platform-devops** — 산하 specialist: data-integration
 - 디자인부장: **design-director** — 산하 specialist: ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent, guide-decomposer, guide-recomposer, ui-diff-applier, data-binding-mapper, visual-fidelity-verifier, nextjs-convention-mapper, accessibility-auditor, routing-strategist, ssr-csr-decider
+
+<!-- SYNC-SPECIALISTS:START -->
+디자인부 specialist 9종 (design-director 산하):
+- accessibility-auditor
+- data-binding-mapper
+- guide-decomposer
+- guide-recomposer
+- nextjs-convention-mapper
+- routing-strategist
+- ssr-csr-decider
+- ui-diff-applier
+- visual-fidelity-verifier
+<!-- SYNC-SPECIALISTS:END -->
 - QA부장: **qa-strategy** — 산하 specialist: automation-qa, defect-triage, release-quality-gate
 - 평가부장: **product-analytics** — 산하 specialist: experimentation, performance-evaluation, business-kpi
 - 경영지원(독립): **executive-reporter**, **resource-optimizer**, **hr-agent**, **cross-department-coordinator**

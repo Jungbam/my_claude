@@ -114,10 +114,13 @@ bun run ~/.bams/scripts/emit-event.ts agent_end \
   curl localhost:3099/api/agents/data 2>/dev/null | head -1  # 404이면 sidecar 재빌드 요청
   curl {target_url} 2>/dev/null | head -1                    # 500/404이면 platform-devops 에스컬레이션
   ```
-- target_url 화이트리스트 검사 (SR-3: localhost 외 URL 거부):
+- target_url 화이트리스트 검사 (SR-3 H-D4/D5 강화: localhost/127.0.0.1/::1 + 포트 1-65535 검증):
   ```bash
-  if ! echo "${target_url}" | grep -qE '^https?://localhost(:[0-9]+)?(/|$)'; then
-    echo "[ERROR] SR-3: 외부 URL 거부 — localhost 외 URL은 design-director 승인 필요: ${target_url}" >&2
+  # H-D5: 포트 범위 1-65535 정규식
+  PORT_RE='(:([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?'
+  # H-D4: IPv6(::1) 및 127.0.0.1 추가
+  if ! echo "${target_url}" | grep -qE "^https?://(localhost|127\.0\.0\.1|\[::1\])${PORT_RE}(/|$)"; then
+    echo "[ERROR] SR-3: 외부 URL 거부 — localhost/127.0.0.1/[::1] 외 URL은 design-director 승인 필요: ${target_url}" >&2
     exit 1
   fi
   ```
@@ -236,6 +239,17 @@ input_artifacts:
 - **F5 visual-fidelity-verifier** (병렬): verdict.json 공유 (있는 경우). Phase D에서 동시 실행 가능.
 - **frontend-engineering** (후속): P0/P1 위반 수정 위임. 위반 항목 목록 + 코드 예시 포함.
 - **ux-designer** (협력): ARIA/키보드 네비게이션 개선안 공유.
+
+## Best Practice 참조
+
+**★ 작업 시작 시 반드시 Read**:
+```bash
+_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/accessibility-auditor.md" 2>/dev/null | head -1)
+[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/accessibility-auditor.md" 2>/dev/null | head -1)
+[ -n "$_BP" ] && cat "$_BP"
+```
+
+발견 시 §1~§4 (호출 컨텍스트 / 실수 3건 / 권장 패턴 / 체크리스트 5건) 확인 후 작업 진행.
 
 ## 학습된 교훈
 

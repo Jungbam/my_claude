@@ -111,6 +111,13 @@ DOM 파싱 시 다음을 의무 추출한다 (OQ4=b — 신규 6 필드는 compo
 
 추출 실패 시 `null` 또는 기본값 기록. 절대 필드 자체를 omit 하지 않는다 (F2가 in-key 검사로 의존성 판단).
 
+### inline_styles 정규화 (필수)
+- HTML 원본 `style="background-color: red; font-size: 14px"` → JSX 호환 `{backgroundColor: "red", fontSize: "14px"}`
+- 모든 kebab-case CSS 속성을 camelCase로 변환 (`background-color` → `backgroundColor`)
+- vendor prefix `-webkit-transform` → `WebkitTransform` (대문자 시작 유지)
+- 변환 책임: **F1 (본 에이전트)** — F2/F3/F4가 받을 때 이미 camelCase 보장
+- 변환 실패 시 원본 kebab-case 그대로 + `inline_styles_raw` 필드에 백업 (디버깅)
+
 ### SR-1 (보안 — 외부 가이드 입력 격리)
 - **입력 파일을 `.crew/artifacts/design/{slug}/guide-input/`에 격리 복사 후 처리.** 원본 경로 직접 실행 금지.
 - `eval()`, `import()`, `require()` 패턴이 가이드 코드에 포함된 경우 즉시 처리 중단 → design-director에 에스컬레이션.
@@ -247,6 +254,17 @@ input_artifacts:
 - **F2 guide-recomposer** (후속): 4종 산출물을 입력으로 수신. design-director가 완료 보고 후 F2 위임.
 - **F6 nextjs-convention-mapper** (병렬): Phase A에서 design-director가 F1과 F6를 병렬 위임. components.json 공유.
 - **design-system-agent** (협력): 토큰 추출 Grep 패턴 4종 재사용. 추출 토큰의 Primitive/Semantic 계층 분류는 design-system-agent에 위임 가능.
+
+## Best Practice 참조
+
+**★ 작업 시작 시 반드시 Read**:
+```bash
+_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/guide-decomposer.md" 2>/dev/null | head -1)
+[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/guide-decomposer.md" 2>/dev/null | head -1)
+[ -n "$_BP" ] && cat "$_BP"
+```
+
+발견 시 §1~§4 (호출 컨텍스트 / 실수 3건 / 권장 패턴 / 체크리스트 5건) 확인 후 작업 진행.
 
 ## 학습된 교훈
 

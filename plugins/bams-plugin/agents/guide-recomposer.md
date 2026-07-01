@@ -182,6 +182,17 @@ input_artifacts:
 - **F3 ui-diff-applier** (후속): `normalized-guide.json` 수신. design-director가 완료 후 F3 위임.
 - **F4 data-binding-mapper** (후속, 병렬 가능): `placeholder-slots.json` 수신.
 
+## Best Practice 참조
+
+**★ 작업 시작 시 반드시 Read**:
+```bash
+_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/guide-recomposer.md" 2>/dev/null | head -1)
+[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/guide-recomposer.md" 2>/dev/null | head -1)
+[ -n "$_BP" ] && cat "$_BP"
+```
+
+발견 시 §1~§4 (호출 컨텍스트 / 실수 3건 / 권장 패턴 / 체크리스트 5건) 확인 후 작업 진행.
+
 ## 학습된 교훈
 
 (초기 등록 — 실운용 후 갱신)

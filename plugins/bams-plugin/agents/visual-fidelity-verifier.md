@@ -3,7 +3,7 @@ name: visual-fidelity-verifier
 description: 시각 충실도 검증 에이전트 — bams:browse 스킬로 viewport별 스크린샷 촬영 + 픽셀 diff + WCAG 명도 대비 측정. 가이드 vs 구현 충실도 정량 보고. 가이드 적용 완료 후 시각 검증 트리거.
 model: sonnet
 department: design
-disallowedTools: []
+disallowedTools: ["Edit", "Write"]
 ---
 
 # Visual Fidelity Verifier Agent
@@ -101,6 +101,9 @@ fi
   _BROWSE_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/browse/SKILL.md" 2>/dev/null | head -1)
   if [ -z "$_BROWSE_SKILL" ]; then
     echo "[ERROR] bams-plugin:bams:browse SKILL 미설치 — F5 실행 불가" >&2
+    # H-D3: 디렉터리 부재 시 cat redirect 실패 방지
+    mkdir -p ".crew/artifacts/design/${slug}/fidelity"
+    # 산출물 저장은 Bash heredoc/tee 사용 (Write 차단)
     cat > ".crew/artifacts/design/${slug}/fidelity/verdict.json" <<JSON
 {
   "verdict": "ENV_FAIL",

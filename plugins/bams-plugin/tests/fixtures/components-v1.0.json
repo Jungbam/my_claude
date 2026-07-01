@@ -1,0 +1,14 @@
+{
+  "version": "1.0",
+  "specialists": [
+    {"name": "guide-decomposer", "phase": "A"},
+    {"name": "guide-recomposer", "phase": "A2"},
+    {"name": "data-binding-mapper", "phase": "B"},
+    {"name": "ui-diff-applier", "phase": "C"},
+    {"name": "visual-fidelity-verifier", "phase": "D"},
+    {"name": "accessibility-auditor", "phase": "D"},
+    {"name": "routing-strategist", "phase": "E"},
+    {"name": "ssr-csr-decider", "phase": "E"},
+    {"name": "nextjs-convention-mapper", "phase": "A"}
+  ]
+}

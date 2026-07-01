@@ -125,6 +125,9 @@ if [ "$DRY_RUN" = "false" ]; then
   # F5 완료 후 agent_end emit + verdict 파싱
   [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "$_F5_CALL_ID" "visual-fidelity-verifier" "{success|error}" {duration_ms} "verdict={PASS|CONDITIONAL|FAIL|ENV_FAIL}"
 
+  # H-D3: verdict.json 저장 전 디렉터리 보장 (cat redirect 실패 방지)
+  mkdir -p ".crew/artifacts/design/${slug}/fidelity"
+
   # ENV_FAIL 분기 (F5 H-E1 적용 — 환경 미충족 시 자동 PASS 차단)
   _F5_VERDICT=$(jq -r '.verdict // "MISSING"' ".crew/artifacts/design/${slug}/fidelity/verdict.json" 2>/dev/null)
   if [ "$_F5_VERDICT" = "ENV_FAIL" ]; then

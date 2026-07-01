@@ -75,13 +75,20 @@ dept_map() {
     frontend-engineering) echo "engineering-frontend" ;;
     backend-engineering) echo "engineering-backend" ;;
     platform-devops|data-integration) echo "engineering-platform" ;;
-    design-director|ui-designer|ux-designer|graphic-designer|motion-designer|design-system-agent|guide-decomposer|guide-recomposer|ui-diff-applier|data-binding-mapper|visual-fidelity-verifier|nextjs-convention-mapper|accessibility-auditor|routing-strategist|ssr-csr-decider) echo "design" ;;
+    design-director|ui-designer|ux-designer|graphic-designer|motion-designer|\
+    design-system-agent|guide-decomposer|guide-recomposer|ui-diff-applier|\
+    data-binding-mapper|visual-fidelity-verifier|nextjs-convention-mapper|\
+    accessibility-auditor|routing-strategist|ssr-csr-decider) echo "design" ;;
     product-analytics|experimentation|performance-evaluation|business-kpi) echo "evaluation" ;;
     qa-strategy|automation-qa|defect-triage|release-quality-gate) echo "qa" ;;
     pipeline-orchestrator|cross-department-coordinator|executive-reporter|resource-optimizer|hr-agent) echo "management" ;;
     *) echo "general" ;;
   esac
 }
+
+# SYNC-SPECIALISTS:START
+_DESIGN_SPECIALISTS=("accessibility-auditor" "data-binding-mapper" "guide-decomposer" "guide-recomposer" "nextjs-convention-mapper" "routing-strategist" "ssr-csr-decider" "ui-diff-applier" "visual-fidelity-verifier")
+# SYNC-SPECIALISTS:END
 
 # ── DB 이벤트 전송 ──
 # 서버 미가동 시에도 || true로 emit.sh 실패 방지
