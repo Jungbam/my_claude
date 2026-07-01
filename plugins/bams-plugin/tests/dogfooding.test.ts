@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test";
 import { $ } from "bun";
-import { existsSync } from "fs";
+import { existsSync, statSync } from "fs";
 import { join } from "path";
 
 test("dogfooding: sample-guide.zip → 3 산출물 생성", async () => {
@@ -19,9 +19,8 @@ test("dogfooding: sample-guide.zip → 3 산출물 생성", async () => {
   expect(list).toContain("tokens.css");
 });
 
-test("dogfooding: fixture size < 100KB", async () => {
+test("dogfooding: fixture size < 100KB", () => {
   const fixture = join(__dirname, "dogfooding/sample-guide.zip");
-  const stat = await $`stat -f%z ${fixture}`.text();
-  const size = parseInt(stat.trim(), 10);
+  const size = statSync(fixture).size;
   expect(size).toBeLessThan(100_000);
 });
