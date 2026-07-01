@@ -86,6 +86,10 @@ dept_map() {
   esac
 }
 
+# SYNC-SPECIALISTS:START
+_DESIGN_SPECIALISTS=("accessibility-auditor" "data-binding-mapper" "guide-decomposer" "guide-recomposer" "nextjs-convention-mapper" "routing-strategist" "ssr-csr-decider" "ui-diff-applier" "visual-fidelity-verifier")
+# SYNC-SPECIALISTS:END
+
 # ── DB 이벤트 전송 ──
 # 서버 미가동 시에도 || true로 emit.sh 실패 방지
 BAMS_SERVER_URL="${BAMS_SERVER_URL:-http://localhost:3099}"

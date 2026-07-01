@@ -93,6 +93,18 @@ disallowedTools: []
 - **ssr-csr-decider**: rendering-strategy.json (Server/Client 경계 결정) 직접 생성
 - **hr-agent**: 에이전트 md/jojikdo.json/plugin.json 등 조직 메타데이터 직접 편집
 
+<!-- SYNC-SPECIALISTS:START -->
+- accessibility-auditor: `disallowedTools: []`
+- data-binding-mapper: `disallowedTools: []`
+- guide-decomposer: `disallowedTools: []`
+- guide-recomposer: `disallowedTools: []`
+- nextjs-convention-mapper: `disallowedTools: []`
+- routing-strategist: `disallowedTools: []`
+- ssr-csr-decider: `disallowedTools: []`
+- ui-diff-applier: `disallowedTools: []`
+- visual-fidelity-verifier: `disallowedTools: []`
+<!-- SYNC-SPECIALISTS:END -->
+
 ## 온보딩 체크리스트 (신규 에이전트 등록)
 
 - [ ] 역할이 **구현 전담**인가?

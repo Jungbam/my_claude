@@ -2075,6 +2075,8 @@
           "trigger": "Server/Client Component 경계 결정"
         }
       ],
+      "SYNC-SPECIALISTS-START":
+["accessibility-auditor","data-binding-mapper","guide-decomposer","guide-recomposer","nextjs-convention-mapper","routing-strategist","ssr-csr-decider","ui-diff-applier","visual-fidelity-verifier"], "SYNC-SPECIALISTS-END": null,
       "department_lead": "design_director_agent"
     },
     {

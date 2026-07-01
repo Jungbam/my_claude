@@ -55,19 +55,38 @@ const TARGETS: Array<{ path: string; render: (specialists: string[]) => string }
       `# SYNC-SPECIALISTS:END`,
   },
   // 5. jojikdo.json (design 부서원 배열)
+  // NOTE: extractBlock()은 startMarker/endMarker를 개행 기준으로 분리하므로
+  // render 결과가 최소 2줄(멀티라인)이어야 한다 — 단일 라인이면 firstLineEnd가 -1이 되어
+  // startMarker가 빈 문자열로 계산되는 버그가 발생한다 (JSON 값 자체엔 개행이 없으므로
+  // marker 줄을 앞뒤에 별도로 둔다).
   {
     path: "plugins/bams-plugin/references/jojikdo.json",
-    render: (s) => `"SYNC-SPECIALISTS-START": ${JSON.stringify(s)}, "SYNC-SPECIALISTS-END": null`,
+    render: (s) => `"SYNC-SPECIALISTS-START":\n` +
+      `${JSON.stringify(s)}, "SYNC-SPECIALISTS-END": null`,
   },
 ];
 
+// design specialist 9종 whitelist — design-director 산하 F1~F9.
+// NOTE: data-integration은 engineering-platform 소속 — 접두어 매칭(designKeywords) 방식은
+// "data-" 접두어로 data-integration까지 오탐지하므로 whitelist로 명시 고정한다.
+const DESIGN_SPECIALISTS = new Set([
+  "guide-decomposer",
+  "guide-recomposer",
+  "ui-diff-applier",
+  "data-binding-mapper",
+  "visual-fidelity-verifier",
+  "nextjs-convention-mapper",
+  "accessibility-auditor",
+  "routing-strategist",
+  "ssr-csr-decider",
+]);
+
 function extractAgentSlugs(json: PluginJson): string[] {
   // plugin.json agents는 './agents/xxx.md' 형식
-  // design specialist만 필터: F1~F9 (guide/data/ui/visual/accessibility/routing/ssr/nextjs 패턴)
-  const designKeywords = /^(guide-|data-|ui-diff|visual-|accessibility-|routing-|ssr-|nextjs-)/;
+  // design specialist만 필터: whitelist 기반 (design-director 산하 9종)
   return json.agents
     .map(p => p.replace(/^\.\/agents\//, "").replace(/\.md$/, ""))
-    .filter(name => designKeywords.test(name))
+    .filter(name => DESIGN_SPECIALISTS.has(name))
     .sort();
 }
 
