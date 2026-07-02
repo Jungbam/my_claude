@@ -118,7 +118,7 @@ echo "[Context Health] 세션 도구 호출: ${TOOL_COUNT}회"
 
 ## Step 4.95: 회고 실행 의무 발화 (CLAUDE.md §5 가드)
 
-`pipeline_end` emit 직후, `pipeline_type ∈ {feature, dev, hotfix, deploy}`인 경우 메인은 다음 AskUserQuestion을 의무 발화한다 (스킵 금지):
+`pipeline_end` emit 직후, `pipeline_type ∈ {feature, dev, hotfix, deploy, debug, review, deep-review, verify, sprint}`이고 `status = "completed"`인 경우 메인은 다음 AskUserQuestion을 의무 발화한다 (스킵 금지). 단, §스팸 방지 조건에 해당하면 AskUserQuestion 대신 조건부 생략 처리한다:
 
 ```
 Question: "{slug} 파이프라인 회고를 실행할까요?"
@@ -136,6 +136,21 @@ Options:
 본 가드 우회 시 CLAUDE.md §5 위반. retro_dev_init조직도셋업완결회고_1에서 회고 자동 실행율 0/4(0%) 위반 사례.
 
 cf. `.crew/memory/pipeline-orchestrator/improvements/2026-05-03-retro-skip-tracking.md`
+
+### 스팸 방지 조건 (F-R8, 마이그레이션 리스크 §5.2 대응)
+
+`pipeline_type ∈ {debug, review, deep-review, verify, sprint}`에 한해, 다음 **모두** 충족 시 AskUserQuestion을 생략하고 로그만 출력한다:
+- `duration_ms < 600000` (10분 미만, F-R6 실측값 기준)
+- **AND** (`git diff --stat` 결과 변경 0줄 **OR** `pipeline_type ∈ {review, deep-review, verify}`) — 읽기 전용 성격의 파이프라인은 코드 변경이 없어도 조건부 생략 대상.
+
+**`feature/dev/hotfix/deploy`는 예외 없이 위 스팸 방지 조건이 적용되지 않는다**(코드 변경 파이프라인은 회고 가치가 항상 있음 — CLAUDE.md §5 "스킵 불가 원칙" 위반 방지).
+
+생략 시 처리:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
+[ -n "$_EMIT" ] && bash "$_EMIT" retro_skip "{slug}" "조건부 생략(소요 10분 미만 + 변경 없음/경량 파이프라인)" "C"
+echo "[회고 스킵] {slug} — 소요 {N}분, 스팸 방지 조건 충족으로 자동 생략 (사유: retro_skip 이벤트 기록됨)"
+```
 
 ## Step 5: 완료 요약 출력
 

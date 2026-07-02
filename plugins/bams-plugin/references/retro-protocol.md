@@ -17,6 +17,7 @@ KPT 프레임워크를 사용하며, 정량 데이터 기반으로 개선점을 
 | 파이프라인 `status: completed` | 정상 완료 — 전체 회고 수행 |
 | 파이프라인 `status: failed_at_step_N` | 실패 완료 — 실패 원인 중심 회고 수행 |
 | 주간 루틴 (`/bams:weekly`) | 스프린트 종료 — 주간 회고 수행 |
+| **경량 파이프라인 스팸 방지** (신규) | `debug/review/deep-review/verify/sprint`가 10분 미만 + 변경 없음/경량 성격일 때 AskUserQuestion 생략, `retro_skip(mode=C)` 자동 기록 |
 
 **스킵 불가 원칙:** completion-protocol.md의 Step 5(완료 요약) 출력 전에 회고를 반드시 수행합니다.
 사용자가 명시적으로 "회고 건너뛰기"를 요청한 경우에만 `skipped (사용자 선택)` 처리합니다.
