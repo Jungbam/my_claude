@@ -100,3 +100,7 @@ FAIL 항목이 있으면 상세 에러를 표시합니다.
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_end "{slug}" "{status}" {total} {completed} {failed} {skipped}
 ```
 (`{status}`는 `completed` / `paused` / `failed` 중 하나, `{total}`은 3)
+
+## 회고 연결
+
+pipeline_end emit 후 `references/completion-protocol.md` Step 4.95에 따라 `/bams:retro {slug}` 실행 여부를 확인한다 (CLAUDE.md §5 회고 의무). 스팸 방지 조건(소요 10분 미만 + 변경 없음/경량 파이프라인) 충족 시 자동 생략.

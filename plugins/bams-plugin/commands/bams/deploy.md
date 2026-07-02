@@ -55,12 +55,16 @@ Bash로 step_start + 2개의 agent_start를 일괄 emit:
 
 **두 결과를 모두 수집한 후**, 어느 하나라도 FAIL이면 배포를 중단합니다.
 
+**`references/issue-severity.md` §Release Gate 임계값 참조.**
+
+차이점: 본 파이프라인 N값 = **0** (deploy override — 배포 직전은 Major도 0. SSOT §파이프라인별 Override 확인).
+
 Bash로 2개의 agent_end + step_end를 일괄 emit:
 ```bash
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "release-quality-gate-1-$(date -u +%Y%m%d)" "release-quality-gate" "{success|error}" {duration_ms} "배포 전 체크리스트 완료"
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "platform-devops-2-$(date -u +%Y%m%d)" "platform-devops" "{success|error}" {duration_ms} "인프라 점검 완료"
-[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 1 "{done|fail}" {duration_ms}
-[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 2 "{done|fail}" {duration_ms}
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "release-quality-gate-1-$(date -u +%Y%m%d)" "release-quality-gate" "{success|error}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "배포 전 체크리스트 완료"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "platform-devops-2-$(date -u +%Y%m%d)" "platform-devops" "{success|error}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "인프라 점검 완료"
+[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 1 "{done|fail}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
+[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 2 "{done|fail}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
 ```
 
 ## Step 3: 배포 실행
@@ -74,7 +78,7 @@ Bash로 step_start emit:
 
 Bash로 step_end emit:
 ```bash
-[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 3 "{done|fail}" {duration_ms}
+[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 3 "{done|fail}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
 ```
 
 ## Step 4: 배포 후 확인
@@ -90,7 +94,7 @@ Bash로 step_start emit:
 
 Bash로 step_end emit:
 ```bash
-[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 4 "{done|fail}" {duration_ms}
+[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 4 "{done|fail}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
 ```
 
 ### Viz 이벤트: pipeline_end

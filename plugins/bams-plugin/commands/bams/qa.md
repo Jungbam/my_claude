@@ -38,3 +38,7 @@ _QA_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/qa-only/S
 ## Step 3: 결과 정리
 
 발견된 이슈를 심각도별로 정리하고, 수정 필요 항목을 리포트합니다.
+
+**`references/issue-severity.md` §Release Gate 임계값 참조.**
+
+차이점: 본 파이프라인 N값 = **2** (기본값 — SSOT §파이프라인별 Override 확인).

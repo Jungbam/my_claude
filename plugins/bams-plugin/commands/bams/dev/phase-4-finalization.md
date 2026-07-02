@@ -77,7 +77,7 @@ Task tool, subagent_type: **"bams-plugin:executive-reporter"** — 메인이 직
 
 반환 후 agent_end emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "executive-reporter-10a-$(date -u +%Y%m%d)" "executive-reporter" "success" {duration_ms} "Step 10a 완료: 성과 집계 완료"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "executive-reporter-10a-$(date -u +%Y%m%d)" "executive-reporter" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Step 10a 완료: 성과 집계 완료"
 ```
 
 ### Step 10b. 자동 회고 (루프 B — Advisor + 참여 부서장들 병렬 KPT 수집)
@@ -109,7 +109,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 
 반환 후 agent_end emit + Advisor Response 파싱 + CHAIN_VIOLATION 체크:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-10b-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 10b Advisor 응답 수신"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-10b-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Step 10b Advisor 응답 수신"
 ```
 
 ### Step 10b-b. 메인이 executive-reporter + 참여 부서장들 병렬 직접 spawn
@@ -125,7 +125,7 @@ Advisor가 권고한 참여 부서장 목록에 대해, **단일 메시지에 �
 병렬 완료 후 각 부서장 agent_end 일괄 emit:
 ```bash
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "executive-reporter-10b-$(date -u +%Y%m%d)" "executive-reporter" "success" {duration_ms} "정량 데이터 수집 완료"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "executive-reporter-10b-$(date -u +%Y%m%d)" "executive-reporter" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "정량 데이터 수집 완료"
 # 각 참여 부서장에 대해 agent_end 반복 emit
 ```
 
@@ -140,5 +140,5 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 Step 10 완료 시, Bash로 다음을 실행합니다:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 10 "done" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 10 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
 ```

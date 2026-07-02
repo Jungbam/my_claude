@@ -231,7 +231,7 @@ AskUserQuestion(
 ## step_end emit
 
 ```bash
-[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 0 "done" {duration_ms}
+[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 0 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
 ```
 
 Phase 1.5 (Git 체크포인트)로 진행.

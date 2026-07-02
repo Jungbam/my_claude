@@ -70,7 +70,8 @@ Task tool, subagent_type: **"bams-plugin:project-governance"** — 메인이 직
 >   paths: [.crew/artifacts/qg/{slug}-qg-{iteration}.md]
 > quality_criteria:
 >   - 인수 기준 전체 충족
->   - Critical 이슈 0건
+>   - **`references/issue-severity.md` §Release Gate 임계값 참조.**
+>     차이점: 본 파이프라인 N값 = **2** (기본값 — SSOT §파이프라인별 Override 확인)
 >   - 빌드 성공
 >   - 타입 체크 통과
 > ```
@@ -83,7 +84,7 @@ Task tool, subagent_type: **"bams-plugin:project-governance"** — 메인이 직
 
 반환 후 agent_end emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "project-governance-9-$(date -u +%Y%m%d)" "project-governance" "success" {duration_ms} "Step 9 완료: Quality Gate iteration {iteration}"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "project-governance-9-$(date -u +%Y%m%d)" "project-governance" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Step 9 완료: Quality Gate iteration {iteration}"
 ```
 
 **PASS인 경우:** board.md에서 태스크를 `## Done`으로 이동. Phase 4로 진행.
@@ -97,5 +98,5 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 Quality Gate 완료 시, Bash로 다음을 실행합니다:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 9 "{status}" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 9 "{status}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
 ```

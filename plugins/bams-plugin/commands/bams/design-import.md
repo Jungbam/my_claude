@@ -109,5 +109,5 @@ pipeline_end 는 Phase 4(finalization) 실행 마지막에 emit (G-C 준수):
 
 ```bash
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-[ -n "$_EMIT" ] && bash "$_EMIT" pipeline_end "{slug}" "completed" 4 4 0 0 {duration_ms}
+[ -n "$_EMIT" ] && bash "$_EMIT" pipeline_end "{slug}" "completed" 4 4 0 0 "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {pipeline_start_ms} ))"
 ```

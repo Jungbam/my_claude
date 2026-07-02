@@ -55,12 +55,12 @@ Task tool, subagent_type: **"bams-plugin:product-strategy"** — 메인이 직�
 
 반환 후 agent_end emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "product-strategy-12-$(date -u +%Y%m%d)" "product-strategy" "success" {duration_ms} "Step 12 문서 갱신 완료"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "product-strategy-12-$(date -u +%Y%m%d)" "product-strategy" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Step 12 문서 갱신 완료"
 ```
 
 Step 12 완료 시, Bash로 다음을 실행합니다:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 12 "{status}" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 12 "{status}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
 ```
 
 ---
@@ -101,12 +101,12 @@ Task tool, subagent_type: **"bams-plugin:product-strategy"** — 메인이 직�
 
 반환 후 agent_end emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "product-strategy-13-$(date -u +%Y%m%d)" "product-strategy" "success" {duration_ms} "Step 13 스프린트 종료 완료"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "product-strategy-13-$(date -u +%Y%m%d)" "product-strategy" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Step 13 스프린트 종료 완료"
 ```
 
 Step 13 완료 시, Bash로 다음을 실행합니다:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 13 "done" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 13 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
 ```
 
 ---
@@ -152,7 +152,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 
 반환 후 agent_end emit + Advisor Response 파싱 + CHAIN_VIOLATION 체크:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-14-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 14 Advisor 응답 수신"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-14-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Step 14 Advisor 응답 수신"
 ```
 
 ### Step 14-b. 메인이 executive-reporter + 참여 부서장들 병렬 직접 spawn (단일 메시지 복수 Task)
@@ -198,8 +198,8 @@ Advisor가 권고한 부서장들에 대해 agent_start를 일괄 emit한 뒤, *
 병렬 완료 후 각 부서장에 대해 agent_end를 일괄 emit:
 ```bash
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "executive-reporter-14-$(date -u +%Y%m%d)" "executive-reporter" "success" {duration_ms} "정량 데이터 수집 완료"
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "{dept}-14-$(date -u +%Y%m%d)" "{dept}" "success" {duration_ms} "KPT 제출 완료"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "executive-reporter-14-$(date -u +%Y%m%d)" "executive-reporter" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "정량 데이터 수집 완료"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "{dept}-14-$(date -u +%Y%m%d)" "{dept}" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "KPT 제출 완료"
 ```
 
 ### Step 14-c. 메인이 합의 도출 + 피드백 반영 + 보드/히스토리 업데이트
@@ -230,7 +230,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 Step 14 완료 시, Bash로 다음을 실행합니다:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 14 "done" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 14 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
 ```
 
 ---

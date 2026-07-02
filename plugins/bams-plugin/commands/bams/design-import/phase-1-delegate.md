@@ -161,7 +161,7 @@ ls .crew/artifacts/design/{slug}/ 2>/dev/null | grep -E "guide-decomposition|gui
 ## agent_end emit + 결과 파싱
 
 ```bash
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "${_CALL_ID}" "design-director" "{status}" {duration_ms} "Phase A~F 완료: verdict={verdict}"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "${_CALL_ID}" "design-director" "{status}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Phase A~F 완료: verdict={verdict}"
 ```
 
 반환값에서 다음을 추출:
@@ -207,7 +207,7 @@ fi
 ## step_end emit
 
 ```bash
-[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 1 "{status}" {duration_ms}
+[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 1 "{status}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
 ```
 
 SKIP_VERIFY=true 이거나 S3 standalone이면 Phase 4(finalization)로 바로 이동:

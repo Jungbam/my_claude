@@ -123,7 +123,7 @@ if [ "$DRY_RUN" = "false" ]; then
   #     - recompose_vs_impl_diff (참고용)
 
   # F5 완료 후 agent_end emit + verdict 파싱
-  [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "$_F5_CALL_ID" "visual-fidelity-verifier" "{success|error}" {duration_ms} "verdict={PASS|CONDITIONAL|FAIL|ENV_FAIL}"
+  [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "$_F5_CALL_ID" "visual-fidelity-verifier" "{success|error}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "verdict={PASS|CONDITIONAL|FAIL|ENV_FAIL}"
 
   # H-D3: verdict.json 저장 전 디렉터리 보장 (cat redirect 실패 방지)
   mkdir -p ".crew/artifacts/design/${slug}/fidelity"
@@ -172,7 +172,7 @@ AskUserQuestion(
 ## step_end emit
 
 ```bash
-[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 2 "done" {duration_ms}
+[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 2 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
 ```
 
 Phase 4 (마무리 + 회고) 진행:
