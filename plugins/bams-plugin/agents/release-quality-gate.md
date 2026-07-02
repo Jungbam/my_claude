@@ -30,7 +30,7 @@ department: qa
 ### 출시 준비 상태 검토 시
 - 다음 항목을 모두 확인한 후에만 GO 판단을 내림:
   - 모든 P0/P1 기능이 완료되고 검증됨
-  - Critical/Major 미해결 결함이 0건 (또는 인수된 예외 사유가 존재)
+  - Critical/Major 미해결 결함이 0건 (또는 인수된 예외 사유가 존재) — 임계값은 `references/issue-severity.md` §Release Gate 임계값 참조(파이프라인별 override는 SSOT §파이프라인별 Override 확인)
   - 회귀 테스트 스위트 전체 통과
   - 성능 벤치마크가 기준치 이내 (응답 시간, 처리량, 에러율)
   - 모니터링 대시보드와 알림이 설정됨

@@ -56,3 +56,60 @@
 | 80-89% | 높은 확률 이슈 | 보고 (기본 임계값) |
 | 60-79% | 가능성 있는 이슈 | 언급하되 확인 필요 표시 |
 | 0-59% | 불확실 | 보고하지 않음 |
+
+## Release Gate 임계값 (SSOT — 승격 2026-07-02)
+
+모든 릴리스 게이트 판정(review / deep-review / dev QG / feature Phase 3 / hotfix 검증 / ship / deploy)은
+아래 임계값을 SSOT로 사용한다. 파이프라인별 override는 §"파이프라인별 Override"를 참조한다.
+
+### 기본 임계값
+
+| 판정 | Critical | Major | Minor | 조치 |
+|------|----------|-------|-------|------|
+| **PASS (GO)** | 0건 | ≤ 2건 | 자유 | 릴리스 진행 |
+| **CONDITIONAL** | 0건 | 3~5건 또는 테스트 커버리지 미흡 | 자유 | 조건부 진행 (사용자 확인) |
+| **FAIL (NO-GO)** | ≥ 1건 | ≥ 6건 | 자유 | 릴리스 차단, 수정 필수 |
+
+### 파이프라인별 Override
+
+파이프라인 특성에 따라 위 기본값을 더 엄격하게 조정한다. 관대한 완화(loosening)는 허용하지 않는다.
+
+| 파이프라인 | Critical | Major | 근거 |
+|-----------|----------|-------|------|
+| `review` | 0 | ≤ 2 | 기본값 (SSOT 원본) |
+| `deep-review` | 0 | ≤ 2 | 기본값 (심층이지만 게이트 판정 자체는 review와 동일) |
+| `dev` (Phase 3.5 QG) | 0 | ≤ 2 | 기본값 |
+| `feature` (Phase 3) | 0 | ≤ 2 | 기본값 |
+| `hotfix` | 0 | ≤ 1 | 프로덕션 hotfix는 잔여 리스크 최소화 |
+| `ship` | 0 | ≤ 2 | 기본값 |
+| `deploy` | 0 | ≤ 0 | 배포 직전은 Major도 0 (RQG override) |
+| `qa` | 0 | ≤ 2 | 기본값 |
+
+Override는 SSOT를 인용하는 각 커맨드에서 명시적으로 override 근거를 표기해야 하며,
+근거 없는 임의 완화는 금지한다.
+
+### 참조 지점 목록 (Reverse Index)
+
+본 SSOT를 참조하는 커맨드/에이전트/references는 다음과 같다. 신규 참조 추가 시 아래 목록도 갱신한다.
+
+- `commands/bams/review.md` — Phase 4 (릴리스 품질 게이트)
+- `commands/bams/deep-review.md` — 판정 절차 (게이트 미포함, review Phase 4로 위임)
+- `commands/bams/qa.md` — QA 리포트 최종 판정
+- `commands/bams/ship.md` — 사전 게이트 (Quality Gate 판정)
+- `commands/bams/deploy.md` — RQG 게이트 (deploy override 적용)
+- `commands/bams/hotfix/step-3-4-cicd.md` — Step 4 출시 준비 검토 (hotfix override 적용)
+- `commands/bams/dev/phase-3-5-quality-gate.md` — Phase 3.5 QG
+- `commands/bams/feature/phase-3-verification.md` — Phase 3 완료 조건 판정
+- `agents/release-quality-gate.md` — 출시 준비 상태 검토 기준
+
+### 하드코딩 검색 CI 규칙
+
+다음 grep 패턴이 SSOT 파일(본 파일) 외에서 0건이 되어야 한다:
+
+```bash
+grep -rn 'Critical 0건.*Major 2건' plugins/bams-plugin/ \
+  --include='*.md' \
+  | grep -v 'references/issue-severity.md' \
+  | grep -v '차이점: 본 파이프라인 N값'  # SP-1 통일본 예외
+# 결과 0건이어야 PASS
+```
