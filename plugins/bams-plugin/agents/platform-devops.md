@@ -61,6 +61,41 @@ disallowedTools: []
 
 ## 행동 규칙
 
+### ★ Post-Merge Auto Verification SOP (PD-T2)
+
+PR 머지 완료(pipeline_end status=completed) 직후 다음을 실행한다.
+
+1. main 브랜치 최신화 + 즉시 재검증:
+   ```bash
+   git checkout main && git pull origin main
+   bash plugins/bams-plugin/scripts/validate-agent-sync.sh
+   bun test plugins/bams-plugin/tests/  # bun-test.yml 도입 후
+   ```
+2. FAIL 감지 시 즉시 회고 트리거:
+   - hotfix 파이프라인 자동 제안: `/bams:hotfix hotfix_postmerge_CI회귀_{date}`
+   - PR merge author + squash commit sha를 issue에 기록
+3. main HEAD 회귀는 다음 PR도 자동 fail시키므로 감지 지연을 수 시간 이상 방치하지 않는다 — 재검증은 머지 직후 즉시 실행(수 분 이내)한다.
+
+**근거**: PR #13 머지 시 브랜치 마지막 commit은 validate-agent-sync SUCCESS였으나 main 머지 squash commit은 FAIL(design-director.md 신규 `---` 구분자를 sed 파서가 frontmatter 끝으로 오인). 감지는 다음 파이프라인 진입 시점까지 지연됨. 출처: `.crew/memory/platform-devops/improvements/2026-06-30-post-merge-regression-auto-detect.md`, `retro_최근7d회고_1` Top 4.
+
+### ★ emit 스크립트(bams-viz-emit.sh) 인자 파싱 회귀 방어 (T-DQ-1/T-DQ-2)
+
+`bams-viz-emit.sh` 수정 시 다음 3개 가드가 유지되는지 확인한다 (본 스크립트에 구현 완료 — 회귀 방지 목적으로 명문화):
+
+1. `-`로 시작하는 리터럴은 slug 위치 인자로 거절 (옵션 플래그가 slug로 오유입되는 DQ-3 패턴 차단)
+2. `agent_start`/`agent_end`의 agent_type 인자가 `true`/`false` 등 boolean 리터럴이면 즉시 실패 (DQ-2 패턴 차단)
+3. 동일 call_id에 대한 `agent_end` 중복 emit 시 warn 로그 출력 (DQ-1 패턴 감지 — fe agent_end 중복 emit)
+
+이 가드를 우회하거나 제거하는 변경은 금지. 수정 후 `bash -n`으로 문법 검증 필수.
+
+### ★ 경고 감지 즉시 fix 원칙 (T-WARN-1)
+
+작업 중 stat 경고, lint 경고, validate 경고 등을 감지하면 **다음 Wave로 이연하지 않고 즉시 fix**한다.
+
+- 이연이 불가피한 경우(범위 밖, 별도 승인 필요 등)에는 반드시 `.crew/board.md`에 후속 조치 항목으로 등록한다 — 등록 없는 이연은 금지
+- 경고를 방치한 채 다음 단계로 진행하여 이후 FAIL로 재발하면 재시도 유발 및 신뢰성 등급 하향 대상
+- **근거**: Wave3A에서 stat 경고를 이연 → Wave3B에서 FAIL로 재발하여 재spawn 발생 (`retro_최근7d회고_1` Top 3, 재시도율 33.3%)
+
 ### ★ Step 0: 위임 수신 즉시 Preflight 체크 (첫 번째 행동 — 생략 불가)
 
 위임 메시지 수신 시 다른 어떤 작업보다 먼저 아래 3항목을 확인한다. **확인 전 Read/Bash/Edit/Write 사용 금지.**
@@ -187,6 +222,22 @@ fi
 
 
 ## 학습된 교훈
+
+### [2026-07-01] retro_최근7d회고_1 — emit 로직 결함 4건 + post-merge 회귀 감지 지연 + 경고 방치 재발
+
+**맥락**: retro_최근7d회고_1(scope 7d) — A등급(90.0)이나 Top 1(DQ-1~4 emit 결함), Top 3(경고 즉시 fix 미수행), Top 4(post-merge CI 회귀 감지 지연) 3개 Problem 정면 지적. 4개 부서장 KPT 중 3개가 emit 결함을 정면 지적(4/4 교차 일치).
+
+**문제**:
+1. `bams-viz-emit.sh` 인자 파싱 결함 — fe agent_end 중복 emit(DQ-1), agent_type에 `"false"` 리터럴 오염(DQ-2), `--call-id-events.jsonl` 손상(DQ-3), agent_end 누락 8건(DQ-4)
+2. PR #13 머지 후 main HEAD validate-agent-sync FAIL이 다음 파이프라인 진입 시점까지 감지되지 않음 (최소 수 시간 지연)
+3. Wave3A stat 경고를 이연 → Wave3B에서 FAIL로 재발, 재시도율 33.3% 기여
+
+**교훈**:
+- emit 스크립트에 call_id 유일성 assert, agent_type boolean 거절, `-` 리터럴 slug 거절 3개 가드를 구현 완료 — 향후 수정 시 가드 유지 필수
+- PR 머지 직후 main 재검증(validate-agent-sync + bun test)을 즉시 실행 — 다음 파이프라인 진입까지 대기 금지
+- 경고 감지 시 즉시 fix, 이연 불가피 시 board.md 등록 의무 — 무기록 이연 금지
+
+**출처**: retro_최근7d회고_1 (Top 1/3/4), `.crew/memory/platform-devops/improvements/2026-06-30-post-merge-regression-auto-detect.md`
 
 ### [2026-04-18] retro_전체회고_4 — 교훈-행동 단절 패턴 확인
 

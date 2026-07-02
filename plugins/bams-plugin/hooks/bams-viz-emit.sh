@@ -27,6 +27,25 @@ if [ -z "$EVENT_TYPE" ] || [ -z "$SLUG" ]; then
   exit 0
 fi
 
+# DQ-3 방지: '-'로 시작하는 리터럴은 slug 위치에서 거절 (옵션 플래그가 실수로 slug로 유입되는 인자 파싱 결함 차단)
+case "$SLUG" in
+  -*)
+    echo "ERROR: slug 위치 인자가 '-'로 시작함 ('$SLUG') — 옵션 리터럴이 slug로 잘못 유입됨. emit 중단." >&2
+    exit 1
+    ;;
+esac
+
+# DQ-2 방지: agent_start/agent_end의 agent_type 인자가 boolean 리터럴이면 실패
+if [ "$EVENT_TYPE" = "agent_start" ] || [ "$EVENT_TYPE" = "agent_end" ]; then
+  _AT_CHECK="${4:-}"
+  case "$_AT_CHECK" in
+    true|false|True|False|TRUE|FALSE)
+      echo "ERROR: agent_type 인자가 boolean 값('$_AT_CHECK')임 — 인자 순서 오류 의심. emit 중단." >&2
+      exit 1
+      ;;
+  esac
+fi
+
 # Global bams root: all projects share ~/.bams/ for cross-project visibility
 # Override: BAMS_ROOT env var (same name used in event-store.ts, app.ts, global-root.ts)
 BAMS_ROOT="${BAMS_ROOT:-$HOME/.bams}"
@@ -192,6 +211,13 @@ case "$EVENT_TYPE" in
     A_STATUS="${5:-success}"
     IS_ERR="false"
     [ "$A_STATUS" = "error" ] && IS_ERR="true"
+    # DQ-1 방지: 동일 call_id에 대한 중복 agent_end emit 감지 시 warn (fe agent_end 중복 emit 재발 방지)
+    if [ -n "$CALL_ID" ]; then
+      _DUP_FILE="$(_events_file "$SLUG")"
+      if [ -f "$_DUP_FILE" ] && grep -q "\"type\":\"agent_end\".*\"call_id\":\"${CALL_ID}\"" "$_DUP_FILE" 2>/dev/null; then
+        echo "WARN: call_id '${CALL_ID}'에 대한 agent_end가 이미 emit됨 — 중복 emit 감지 (DQ-1 패턴)" >&2
+      fi
+    fi
     EVENT=$(jq -cn \
       --arg type "agent_end" \
       --arg call_id "$CALL_ID" \

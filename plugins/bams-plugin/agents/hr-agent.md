@@ -43,6 +43,21 @@ disallowedTools: []
 
 목표 초과 시 다음 회고에서 병목 원인을 보고한다.
 
+### ★ 대규모 배치 spawn 분할 기준 (P-A1 — 정식 반영)
+
+단일 spawn에 다음 조건 중 하나가 충족되면 반드시 sub-batch로 분할한다:
+
+1. 변경 대상 파일 수 ≥ 5
+2. 변경 hunk 수 ≥ 7
+3. 누적 줄 변경 ≥ +150줄 예상
+4. **처리 항목(에이전트/스킬/설정 단위) 수 ≥ 10**
+
+**분할 단위**: 파일 도메인별(예: agents/ 스키마 vs frontmatter vs 보안) 또는 hunk 카테고리별(구조 변경 vs 단순 텍스트 교체)로 나눈다.
+
+**분할 시 spawn 메시지에 반드시 명시**: `"이 spawn은 sub-batch N/M — 파일 X/Y만 처리"` — 진행 상황을 응답에도 "sub-batch N/M 완료" 형식으로 표기한다.
+
+**근거**: Wave1a에서 "6 BP + 6 specialist + validate"를 단일 spawn으로 처리 → 11,140,000ms(185.7분) 소요. 처리 항목 12개(≥10)였음에도 기존 P-A1이 파일/hunk/줄수 기준만 가지고 있어 미반영 상태였음. 처리항목≥10 조건 추가로 재발 방지. 출처: `.crew/memory/hr-agent/improvements/2026-06-30-large-batch-spawn-time-scaling.md`, `retro_최근7d회고_1` Top 2.
+
 ### 신규 에이전트 생성 시
 
 1. pipeline-orchestrator로부터 위임 메시지를 수신 (task_description에 에이전트 필요 사유, 역할 요약 포함)
@@ -91,6 +106,11 @@ disallowedTools: []
 
 **신규 emit 코드 생성 후 검증 (Major):**
 - 신규 emit 코드(`bams-viz-emit.sh` 호출 등) 작성 후 `plugins/bams-plugin/references/event-schema.json` 대조하여 필드명 drift(예: `timestamp` vs `ts`, `agent_id` vs `agent_type`) 0건 확인.
+
+**배치 spawn 완료 직전 self-validate 강화 (T-SELF):**
+- 배치 spawn 완료 직전, regex/keyword 매칭으로 수정 대상을 판별한 항목에 대해 **실제 diff를 명시적으로 재확인**한다 (오탐 방지).
+- 절차: (1) 매칭된 파일/줄 목록 산출 → (2) 각 항목의 실제 diff(Edit 전/후)를 다시 읽고 의도한 변경과 일치하는지 확인 → (3) 불일치 발견 시 즉시 정정 후 재검증
+- 이 단계 생략 시 qa-strategy가 반복 감지하여 재작업 유발 (재시도율 상승 원인). 출처: `retro_최근7d회고_1` Top 5(hr P2, qa P1 유사).
 
 ### 주간 퍼포먼스 체크 시
 
@@ -262,6 +282,22 @@ quality_criteria:
 - 표준 fallback 메시지: "codex 2회 실패 — general-purpose R6 구조적 리뷰로 대체"
 
 ## 학습된 교훈
+
+### [2026-07-01] retro_최근7d회고_1 — P-A1 처리항목 기준 미반영으로 Wave1a 185분 이상값
+
+**맥락**: retro_최근7d회고_1(scope 7d) — C등급(62.5). Wave1a에서 "6 BP + 6 specialist + validate" 단일 spawn이 11,140,000ms(185.7분) 소요. 재시도율 25%.
+
+**문제**:
+1. 기존 improvement record(2026-06-30)의 P-A1 규칙(파일≥5/hunk≥7/줄수≥150)이 hr-agent.md 행동 규칙에 정식 반영되지 않은 상태였음
+2. Wave1a는 파일 수 기준으로는 임계 미달로 보였으나 처리 항목(12개, BP+specialist+validate)이 많아 실질적으로 대규모 배치였음 — 처리항목 기준 부재
+3. regex/keyword 매칭 기반 self-validate가 오탐을 걸러내지 못해 qa-strategy가 반복 재검증 필요
+
+**교훈**:
+- P-A1에 "처리항목 수 ≥ 10" 조건을 추가 — 파일 수가 적어도 처리 항목이 많으면 sub-batch 분할
+- 분할 시 spawn 메시지에 "sub-batch N/M" 명시를 습관화
+- 배치 완료 직전 regex/keyword 매칭 결과의 실제 diff를 재확인하는 self-validate 단계를 표준 절차로 편입
+
+**출처**: retro_최근7d회고_1 (Top 2, Top 5), `.crew/memory/hr-agent/improvements/2026-06-30-large-batch-spawn-time-scaling.md`
 
 ### [2026-04-18] retro_전체회고_4 — D등급 에러율 69.2% 원인 미분류 문제
 

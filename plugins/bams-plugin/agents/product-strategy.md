@@ -161,6 +161,34 @@ PRD의 완료 기준(DoD)에 다음 6항을 모두 포함한다:
 - spec.md 또는 PRD에 viz emit JSON 예시(`agent_start`, `pipeline_end` 등)를 작성할 때, `plugins/bams-plugin/references/event-schema.json`을 **반드시 Read**한 후 필드명/타입을 대조하여 작성한다 (`ts` vs `timestamp` drift 차단).
 - 출처: `.crew/memory/hr-agent/improvements/2026-05-03-viz-emit-schema-drift.md`
 
+### ★ Spec 작성 전 파일 구조 검증 (P-S2 — 정식 반영)
+
+Spec §"변경 파일 목록"이나 hunk 매핑표를 작성할 때 다음을 필수 실행한다.
+
+1. 언급하는 모든 파일 경로에 대해 `ls` 또는 `find`로 실존 확인:
+   ```bash
+   for f in $(grep -oE 'commands/[a-z]+/[a-z-]+/[a-z0-9-]+\.md' spec.md | sort -u); do
+     [ -f "$f" ] || echo "[MISS] $f"
+   done
+   ```
+2. 파일 존재 시 L번호도 검증:
+   ```bash
+   grep -oE '{file}\.md:L[0-9]+' spec.md | while read match; do
+     f=${match%:*}; ln=${match##*:L}
+     total=$(wc -l < "$f")
+     [ "$ln" -le "$total" ] || echo "[L-OUT-OF-RANGE] $match (total: $total)"
+   done
+   ```
+3. 파일 미존재/L번호 오류 발견 시 spec 재작성(재spawn 또는 응답 재작성) — 우회 매핑으로 넘기지 않는다.
+4. 검증 결과를 spec 응답 끝에 "파일 구조 검증 (P-S2)" 섹션으로 명시:
+   - checked_files: N
+   - missing_files: 0
+   - out_of_range_lines: 0
+
+business-analysis specialist 위임 시에도 동일 검증을 상속시킨다.
+
+**근거**: plan_designimport정밀화 spec §6에서 언급한 파일 경로(`2-extract.md`, `3-scan.md`, `5-fidelity.md`)가 실제 파일 구조(`_common.md`, `phase-0-preflight.md` 등)와 불일치 — Wave 2 platform-devops가 "실제 파일로 매핑" 우회로 대응했으나 spec 신뢰도 저하. 이전 plan_designimport품질개선 spec에서도 유사 라인 번호 부정확 사례 재발성 확인. 출처: `.crew/memory/product-strategy/improvements/2026-06-30-spec-file-path-verification.md`, `retro_최근7d회고_1` 개선안 3.
+
 ### spec 분량 추정 정확도 보정 (T3)
 
 spec 작성 후 다음 §을 spec 본문에 의무 포함한다.
@@ -265,6 +293,22 @@ spec 작성 후 다음 §을 spec 본문에 의무 포함한다.
 
 
 ## 학습된 교훈
+
+### [2026-07-01] retro_최근7d회고_1 — spec 파일 경로 drift 재발성 패턴 정식 반영
+
+**맥락**: retro_최근7d회고_1(scope 7d) — C등급(60.8). 재시도율 41.9%, max 7529초(125분). spec 파일 구조 이슈가 재발성 패턴으로 확인됨.
+
+**문제**:
+1. spec §"변경 파일 목록"에 명시한 경로가 실제 파일 구조와 불일치하는 사례가 2회 연속(plan_designimport품질개선 → plan_designimport정밀화) 발생
+2. spec 작성 시 파일 실존/L번호 검증 절차가 없어 Wave 실행 단계에서 우회 매핑으로 대응 — spec 신뢰도 저하
+3. 기존 improvement record가 존재했으나 행동 규칙에 정식 반영되지 않은 상태
+
+**교훈**:
+- Spec 작성 시 언급 파일 경로 실존 확인(`find`/`ls`) + L번호 검증을 필수 절차로 편입
+- 검증 결과를 spec 응답 끝에 "파일 구조 검증 (P-S2)" 섹션으로 명시하여 가시성 확보
+- business-analysis 위임 시에도 동일 검증 상속 — 하위 위임에서도 drift 재발 차단
+
+**출처**: retro_최근7d회고_1 (개선안 3), `.crew/memory/product-strategy/improvements/2026-06-30-spec-file-path-verification.md`
 
 ### [2026-04-18] retro_전체회고_4 — 트리거-행위 불일치: 역할은 있으나 실행 게이트 부재
 
