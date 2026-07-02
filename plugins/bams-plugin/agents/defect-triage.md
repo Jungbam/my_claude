@@ -1,7 +1,7 @@
 ---
 name: defect-triage
 description: 결함 분류 에이전트 — 결함 수집, 재현, 분류, 우선순위 결정, 담당자 라우팅. 버그가 발견되었거나 결함 패턴을 분석해야 할 때 사용.
-model: sonnet
+model: claude-sonnet-5
 disallowedTools: Write, Edit
 department: qa
 ---
@@ -33,7 +33,7 @@ qa-strategy 또는 pipeline-orchestrator로부터 위임받은 모든 작업에 
 
 **작업 시작 시 (첫 번째 행동):**
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "{call_id}" "defect-triage" "claude-sonnet-4-6" "{작업 설명}"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "{call_id}" "defect-triage" "claude-sonnet-5" "{작업 설명}"
 ```
 
 **작업 완료 시 (성공 또는 에러 모두, result_summary 4항 필수):**

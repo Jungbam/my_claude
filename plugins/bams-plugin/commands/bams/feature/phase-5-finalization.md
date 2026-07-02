@@ -28,7 +28,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "product-strategy-11-$(date -u +%Y%m%d)" "product-strategy" "claude-opus-4-7" "Step 11: 문서 갱신"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "product-strategy-11-$(date -u +%Y%m%d)" "product-strategy" "claude-fable-5" "Step 11: 문서 갱신"
 ```
 
 Task tool, subagent_type: **"bams-plugin:product-strategy"** — 메인이 직접 호출:
@@ -76,7 +76,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "product-strategy-12-$(date -u +%Y%m%d)" "product-strategy" "claude-opus-4-7" "Step 12: 스프린트 종료"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "product-strategy-12-$(date -u +%Y%m%d)" "product-strategy" "claude-fable-5" "Step 12: 스프린트 종료"
 ```
 
 Task tool, subagent_type: **"bams-plugin:product-strategy"** — 메인이 직접 호출:
@@ -126,7 +126,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-13-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-opus-4-7" "Step 13: 회고 조언 요청"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-13-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-fable-5" "Step 13: 회고 조언 요청"
 ```
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:

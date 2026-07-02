@@ -1,7 +1,7 @@
 ---
 name: automation-qa
 description: 테스트 자동화 에이전트 — E2E/API/회귀 테스트 자동화 코드 작성과 CI 연동. 테스트 스크립트를 작성하거나 자동화 파이프라인을 구축해야 할 때 사용.
-model: sonnet
+model: claude-sonnet-5
 department: qa
 disallowedTools: []
 ---
@@ -34,7 +34,7 @@ qa-strategy 또는 pipeline-orchestrator로부터 위임받은 모든 작업에 
 
 **작업 시작 시 (필수):**
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "{call_id}" "automation-qa" "claude-sonnet-4-6" "{작업 설명}"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "{call_id}" "automation-qa" "claude-sonnet-5" "{작업 설명}"
 ```
 
 **작업 완료 시 (성공 또는 에러 모두):**

@@ -27,7 +27,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "executive-reporter-9a-$(date -u +%Y%m%d)" "executive-reporter" "claude-opus-4-7" "Step 9a: 성과 집계"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "executive-reporter-9a-$(date -u +%Y%m%d)" "executive-reporter" "claude-opus-4-8" "Step 9a: 성과 집계"
 ```
 
 Task tool, subagent_type: **"bams-plugin:executive-reporter"** — 메인이 직접 호출:
@@ -88,7 +88,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-9b-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-opus-4-7" "Step 9b: 회고 조언 요청"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-9b-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-fable-5" "Step 9b: 회고 조언 요청"
 ```
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:

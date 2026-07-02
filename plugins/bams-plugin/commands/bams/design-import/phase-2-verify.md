@@ -107,11 +107,11 @@ if [ "$DRY_RUN" = "false" ]; then
 
   # agent_start emit
   _F5_CALL_ID="visual-fidelity-verifier-2d-bis-$(date -u +%Y%m%d%H%M%S)"
-  [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "$_F5_CALL_ID" "visual-fidelity-verifier" "sonnet" "Phase 2-D-bis 실 적용 후 F5 자동 검증"
+  [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "$_F5_CALL_ID" "visual-fidelity-verifier" "claude-sonnet-5" "Phase 2-D-bis 실 적용 후 F5 자동 검증"
 
   # Task tool 호출 (메인이 직접 spawn — Phase F의 일부로 처리)
   # subagent_type: "bams-plugin:visual-fidelity-verifier"
-  # model: "sonnet"
+  # model: "claude-sonnet-5"
   # prompt:
   #   task_description: "DRY_RUN=false 실 적용 완료 후 baseline triplet 픽셀 diff"
   #   input_artifacts:

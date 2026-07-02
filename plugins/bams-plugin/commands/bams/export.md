@@ -217,57 +217,57 @@ agents:
     adapter:
       type: claude_local
       config:
-        model: claude-sonnet-4-6
+        model: claude-fable-5
   backend-engineering:
     adapter:
       type: claude_local
       config:
-        model: claude-opus-4-5
+        model: claude-opus-4-8
   frontend-engineering:
     adapter:
       type: claude_local
       config:
-        model: claude-sonnet-4-6
+        model: claude-opus-4-8
   platform-devops:
     adapter:
       type: claude_local
       config:
-        model: claude-sonnet-4-6
+        model: claude-opus-4-8
   product-strategy:
     adapter:
       type: claude_local
       config:
-        model: claude-opus-4-5
+        model: claude-fable-5
   qa-strategy:
     adapter:
       type: claude_local
       config:
-        model: claude-sonnet-4-6
+        model: claude-opus-4-8
   product-analytics:
     adapter:
       type: claude_local
       config:
-        model: claude-sonnet-4-6
+        model: claude-opus-4-8
   executive-reporter:
     adapter:
       type: claude_local
       config:
-        model: claude-haiku-3-5
+        model: claude-opus-4-8
   resource-optimizer:
     adapter:
       type: claude_local
       config:
-        model: claude-haiku-3-5
+        model: claude-opus-4-8
   cross-department-coordinator:
     adapter:
       type: claude_local
       config:
-        model: claude-sonnet-4-6
+        model: claude-opus-4-8
   hr-agent:
     adapter:
       type: claude_local
       config:
-        model: claude-haiku-3-5
+        model: claude-opus-4-8
 YAML
 
 echo ".paperclip.yaml 생성 완료"

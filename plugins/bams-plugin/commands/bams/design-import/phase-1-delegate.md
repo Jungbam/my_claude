@@ -23,7 +23,7 @@ _CALL_ID="design-director-1-$(date -u +%Y%m%d%H%M%S)"
 
 ## design-director 위임 메시지 (표준 형식 — PRD §F3)
 
-Task tool, subagent_type: **"bams-plugin:design-director"**, model: **"opus"**:
+Task tool, subagent_type: **"bams-plugin:design-director"**:
 
 ```
 task_description: 외부 디자인 가이드 기반 UI 재구성 — F1~F9 파이프라인 실행

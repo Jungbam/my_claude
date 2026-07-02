@@ -38,7 +38,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 Bash로 agent_start를 emit합니다:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "executive-reporter-10-$(date -u +%Y%m%d)" "executive-reporter" "claude-opus-4-7" "Step 10: 종합 보고서 생성"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "executive-reporter-10-$(date -u +%Y%m%d)" "executive-reporter" "claude-opus-4-8" "Step 10: 종합 보고서 생성"
 ```
 
 서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:executive-reporter"**):

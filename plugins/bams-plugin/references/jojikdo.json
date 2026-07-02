@@ -561,7 +561,7 @@
               ]
             }
           ],
-          "model": "sonnet",
+          "model": "claude-opus-4-8",
           "role": "specialist"
         }
       ],
@@ -1966,7 +1966,7 @@
           "skills": [],
           "name": "guide-decomposer",
           "department": "design",
-          "model": "claude-sonnet-4-5",
+          "model": "gpt-5-codex",
           "role": "specialist",
           "trigger": "외부 가이드(React/HTML) 입력 시 분해"
         },
@@ -1979,7 +1979,7 @@
           "skills": [],
           "name": "guide-recomposer",
           "department": "design",
-          "model": "claude-sonnet-4-5",
+          "model": "gpt-5-codex",
           "role": "specialist",
           "trigger": "F1 산출물 재구성 + preview HTML 생성"
         },
@@ -1992,7 +1992,7 @@
           "skills": [],
           "name": "ui-diff-applier",
           "department": "design",
-          "model": "claude-sonnet-4-5",
+          "model": "claude-opus-4-8",
           "role": "specialist",
           "trigger": "가이드와 현재 UI 차이 분석, patch.diff 생성 (Read-only)"
         },
@@ -2005,7 +2005,7 @@
           "skills": [],
           "name": "data-binding-mapper",
           "department": "design",
-          "model": "claude-sonnet-4-5",
+          "model": "gpt-5-codex",
           "role": "specialist",
           "trigger": "비동기 데이터를 화면 구성에 RSC fetch 매핑"
         },
@@ -2018,7 +2018,7 @@
           "skills": [],
           "name": "visual-fidelity-verifier",
           "department": "design",
-          "model": "claude-sonnet-4-5",
+          "model": "claude-sonnet-5",
           "role": "specialist",
           "trigger": "시각 일치성 검증 (bams:browse + viewport 3종)"
         },
@@ -2031,7 +2031,7 @@
           "skills": [],
           "name": "nextjs-convention-mapper",
           "department": "design",
-          "model": "claude-sonnet-4-5",
+          "model": "claude-sonnet-5",
           "role": "specialist",
           "trigger": "App Router 컨벤션 매핑"
         },
@@ -2044,7 +2044,7 @@
           "skills": [],
           "name": "accessibility-auditor",
           "department": "design",
-          "model": "claude-sonnet-4-5",
+          "model": "gpt-5-codex",
           "role": "specialist",
           "trigger": "WCAG 2.2 AA + axe-core 감사"
         },
@@ -2057,7 +2057,7 @@
           "skills": [],
           "name": "routing-strategist",
           "department": "design",
-          "model": "claude-sonnet-4-5",
+          "model": "gpt-5-codex",
           "role": "specialist",
           "trigger": "다중 페이지 라우팅 그래프 설계"
         },
@@ -2070,7 +2070,7 @@
           "skills": [],
           "name": "ssr-csr-decider",
           "department": "design",
-          "model": "claude-sonnet-4-5",
+          "model": "gpt-5-codex",
           "role": "specialist",
           "trigger": "Server/Client Component 경계 결정"
         }
