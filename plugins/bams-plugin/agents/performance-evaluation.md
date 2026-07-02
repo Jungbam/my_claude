@@ -1,7 +1,7 @@
 ---
 name: performance-evaluation
 description: 성능 기준 정의, 부하/안정성 검증, 체감 성능 분석이 필요할 때 호출
-model: sonnet
+model: claude-sonnet-5
 disallowedTools: Write, Edit
 department: evaluation
 ---

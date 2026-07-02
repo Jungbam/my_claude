@@ -24,7 +24,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 Bash로 agent_start를 emit합니다:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-1-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-opus-4-7" "Step 1: PRD 작성 조언 요청"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-1-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-fable-5" "Step 1: PRD 작성 조언 요청"
 ```
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
@@ -53,7 +53,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "product-strategy-1-$(date -u +%Y%m%d)" "product-strategy" "claude-opus-4-7" "Step 1: PRD 작성"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "product-strategy-1-$(date -u +%Y%m%d)" "product-strategy" "claude-fable-5" "Step 1: PRD 작성"
 ```
 
 Task tool, subagent_type: **"bams-plugin:product-strategy"** — 메인이 직접 호출:
@@ -103,7 +103,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-2-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-opus-4-7" "Step 2: 설계/태스크 조언 요청"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-2-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-fable-5" "Step 2: 설계/태스크 조언 요청"
 ```
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
@@ -236,7 +236,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-handoff1-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-opus-4-7" "Step 4: Phase 1→2 게이트 판정 조언"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-handoff1-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-fable-5" "Step 4: Phase 1→2 게이트 판정 조언"
 ```
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
@@ -265,7 +265,7 @@ Advisor 판정이 GO 또는 CONDITIONAL-GO인 경우에 진행합니다. NO-GO�
 
 Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "cross-department-coordinator-4-$(date -u +%Y%m%d)" "cross-department-coordinator" "claude-opus-4-7" "Step 4: 기획→구현 핸드오프 조율"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "cross-department-coordinator-4-$(date -u +%Y%m%d)" "cross-department-coordinator" "claude-opus-4-8" "Step 4: 기획→구현 핸드오프 조율"
 ```
 
 Task tool, subagent_type: **"bams-plugin:cross-department-coordinator"** — 메인이 직접 호출:

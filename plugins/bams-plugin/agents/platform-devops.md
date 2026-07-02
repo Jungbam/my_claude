@@ -1,7 +1,7 @@
 ---
 name: platform-devops
 description: 플랫폼/데브옵스 에이전트 — 인프라 관리, CI/CD 자동화, 배포, 장애 탐지 및 복구가 필요할 때 호출
-model: claude-opus-4-7[1m]
+model: claude-opus-4-8
 department: engineering-platform
 disallowedTools: []
 ---

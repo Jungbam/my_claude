@@ -24,7 +24,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-1-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-opus-4-7" "Step 1: 긴급 진단+수정 조언 요청"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-1-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-fable-5" "Step 1: 긴급 진단+수정 조언 요청"
 ```
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
@@ -59,7 +59,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "qa-strategy-1-$(date -u +%Y%m%d)" "qa-strategy" "claude-opus-4-7" "Step 1: 결함 분류"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "qa-strategy-1-$(date -u +%Y%m%d)" "qa-strategy" "claude-opus-4-8" "Step 1: 결함 분류"
 ```
 
 Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호출:
@@ -98,7 +98,7 @@ Advisor가 권고한 개발부장(frontend-engineering / backend-engineering / p
 
 Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "{dept}-1-$(date -u +%Y%m%d)" "{dept}" "claude-opus-4-7" "Step 1: 외과적 수정"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "{dept}-1-$(date -u +%Y%m%d)" "{dept}" "claude-opus-4-8" "Step 1: 외과적 수정"
 ```
 
 Task tool, subagent_type: **"bams-plugin:{dept}"** — 메인이 직접 호출:
