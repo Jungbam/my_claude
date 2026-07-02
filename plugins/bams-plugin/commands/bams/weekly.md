@@ -13,7 +13,7 @@ argument-hint:
 
 추가 항목:
 - **`.crew/sprints/`** — 활성 스프린트 정보.
-- **`.crew/artifacts/pipeline/`** — 이전 `weekly-*.md`의 `started_at` 이후 실행된 **모든 타입** 파이프라인 기록 (feature, hotfix, deep-review, security, performance).
+- **`~/.bams/artifacts/pipeline/`** — 이전 `weekly-*.md`의 `started_at` 이후 실행된 **모든 타입** 파이프라인 기록 (feature, hotfix, deep-review, security, performance).
   - 각 파일의 **프론트매터 + Execution Log 마지막 줄만** 추출 (전체 파일 읽지 않음).
 - **config.md의 `## Pipeline Learnings`** 에서 `trend:`, `vulnerable:`, `critical:` 항목을 추출 → Step 3(회고), Step 4(다음 스프린트) 의사결정에 활용.
 

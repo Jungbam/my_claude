@@ -149,3 +149,7 @@ if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
   bun run plugins/bams-plugin/tools/bams-db/sync-board.ts {slug} --write
 fi
 ```
+
+## 회고 연결
+
+pipeline_end emit 후 `references/completion-protocol.md` Step 4.95에 따라 `/bams:retro {slug}` 실행 여부를 AskUserQuestion으로 확인한다 (CLAUDE.md §5 회고 의무). hotfix 내장 '개선점 수집'(Step 4.5)은 KPT 회고를 대체하지 않는다.

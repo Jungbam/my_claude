@@ -18,22 +18,29 @@ if [ "$TOOL_NAME" != "Agent" ]; then
 fi
 
 # Resolve project root: BAMS_CREW_DIR > git root > script parent
-BAMS_ROOT="${BAMS_CREW_DIR:-}"
-if [ -z "$BAMS_ROOT" ]; then
-  BAMS_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || true
+# (project-scoped root — used for .crew/artifacts/agents/ and the callstack hash below;
+#  NOT the same root bams-viz-emit.sh uses for pipeline events, see EMIT_ROOT below)
+PROJECT_ROOT="${BAMS_CREW_DIR:-}"
+if [ -z "$PROJECT_ROOT" ]; then
+  PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || true
 fi
-if [ -z "$BAMS_ROOT" ]; then
-  BAMS_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+if [ -z "$PROJECT_ROOT" ]; then
+  PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 fi
 
 # Agent events directory
-CREW_DIR="${BAMS_ROOT}/.crew/artifacts/agents"
+CREW_DIR="${PROJECT_ROOT}/.crew/artifacts/agents"
 mkdir -p "$CREW_DIR" 2>/dev/null || true
 TODAY=$(date -u +%Y-%m-%d)
 AGENTS_FILE="$CREW_DIR/${TODAY}.jsonl"
 
+# Pipeline events root: MUST match bams-viz-emit.sh's actual write path
+# (global BAMS root, default $HOME/.bams, overridable via BAMS_ROOT env var — see hooks/bams-viz-emit.sh:51)
+# NOTE: this is a *different* root than PROJECT_ROOT above — do not conflate the two.
+EMIT_ROOT="${BAMS_ROOT:-$HOME/.bams}"
+
 # Check for active pipeline (optional — enrich agent events with pipeline context)
-PIPELINE_DIR="${BAMS_ROOT}/.crew/artifacts/pipeline"
+PIPELINE_DIR="${EMIT_ROOT}/artifacts/pipeline"
 PIPELINE_SLUG=""
 PIPELINE_EVENTS=""
 if [ -d "$PIPELINE_DIR" ]; then
@@ -48,7 +55,7 @@ TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 HOOK_PHASE="${CLAUDE_HOOK_EVENT:-post}"
 
 # Project-scoped callstack (avoid cross-project collisions)
-PROJ_HASH=$(printf '%s' "$BAMS_ROOT" | md5 2>/dev/null | head -c 8 || printf '%s' "$BAMS_ROOT" | md5sum 2>/dev/null | head -c 8)
+PROJ_HASH=$(printf '%s' "$PROJECT_ROOT" | md5 2>/dev/null | head -c 8 || printf '%s' "$PROJECT_ROOT" | md5sum 2>/dev/null | head -c 8)
 CALLSTACK_FILE="/tmp/bams-viz-callstack-${PROJ_HASH}"
 
 # Parse tool_input — may be nested string or object

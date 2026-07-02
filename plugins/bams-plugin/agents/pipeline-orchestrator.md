@@ -126,7 +126,7 @@ echo "orchestrator 호출 수: ${_COUNT}회 (목표: 2.0회 이하)"
 
 ### 파이프라인 시작 시
 - 커맨드로부터 수신한 위임 메시지(phase, slug, pipeline_type, context, constraints)를 파싱
-- 기존 진행 상태(`.crew/artifacts/pipeline/`)를 확인하여 중단된 파이프라인 재개 지원
+- 기존 진행 상태(`~/.bams/artifacts/pipeline/`)를 확인하여 중단된 파이프라인 재개 지원
 - **★ 미완료 파이프라인 자동 감지 (Step 0 — 신규 파이프라인 시작 전 필수)**:
   ```bash
   _INCOMPLETE=$(grep -l '"pipeline_start"' ~/.bams/artifacts/pipeline/*-events.jsonl 2>/dev/null | \
@@ -144,7 +144,7 @@ echo "orchestrator 호출 수: ${_COUNT}회 (목표: 2.0회 이하)"
   - 해당 call_id를 가진 부서장 spawn은 skip하도록 메인에 권고하고, 다음 미완료 Step부터 재개할 실행 계획을 반환한다
   - skip 처리 시 메인이 executive-reporter에게 "재시작-skip" 이벤트 기록을 요청하도록 응답에 포함
   ```bash
-  _EVENTS=$(find ~/.bams/artifacts/pipeline/ ~/.crew/artifacts/pipeline/ -name "*.jsonl" 2>/dev/null | xargs grep -h '"call_id"' 2>/dev/null | grep '"agent_end"')
+  _EVENTS=$(find ~/.bams/artifacts/pipeline/ -name "*.jsonl" 2>/dev/null | xargs grep -h '"call_id"' 2>/dev/null | grep '"agent_end"')
   # agent_end가 기록된 call_id는 재위임 skip
   ```
 - Pre-flight 체크리스트(config.md, gotchas, 기존 아티팩트) 확인 후 시작

@@ -21,7 +21,7 @@ $ARGUMENTS가 비어있으면 AskUserQuestion으로 버그 설명 받기.
 Bash로 진행 추적 파일을 확인합니다:
 
 ```bash
-_TRACKING=$(ls .crew/artifacts/pipeline/*hotfix*-tracking.md 2>/dev/null | head -1)
+_TRACKING=$(ls ~/.bams/artifacts/pipeline/*hotfix*-tracking.md 2>/dev/null | head -1)
 if [ -n "$_TRACKING" ]; then
   echo "=== 기존 진행 상태 ==="
   grep -E "current_step:|status:" "$_TRACKING" | head -5

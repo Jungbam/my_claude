@@ -118,4 +118,6 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 - [ ] release-quality-gate 완료 (또는 skipped)
 - [ ] PR 생성 완료 (또는 paused_at_step_4)
 
+**이스케이프 기록 의무**: "수동 무시"/"skipped"/"paused_at_step_4" 중 하나를 선택할 경우 반드시 (a) AskUserQuestion으로 사용자 확인 + 사유를 수집하고, (b) step_end emit 결과 요약에 `[게이트 무시] 사유: {사유}`를 명시하며, (c) `.crew/board.md`에 후속 조치 항목을 등록한다 ([G-WARN] 무기록 이연 금지와 동일 원칙). 무기록 이스케이프는 금지된다.
+
 Step 3-4 완료 → 엔트리포인트가 Step 5를 라우팅합니다.

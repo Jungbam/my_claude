@@ -44,7 +44,7 @@
 - `status: completed`, `completed_at: [ISO timestamp]` 기록
 - 모든 Step 상태 최종 확인
 - Execution Log 하단에 산출물 경로 정리
-- `.crew/artifacts/pipeline/[slug].lock` 파일 제거
+- `~/.bams/artifacts/pipeline/[slug].lock` 파일 제거
 
 ## Step 4.5: Viz 이벤트 마무리
 
@@ -145,8 +145,8 @@ cf. `.crew/memory/pipeline-orchestrator/improvements/2026-05-03-retro-skip-track
 ══════════════════
   [각 Step 상태 — ✓/⊘/✗]
 
-기록: .crew/artifacts/pipeline/[파일명]
-이벤트: .crew/artifacts/pipeline/[slug]-events.jsonl
+기록: ~/.bams/artifacts/pipeline/[파일명]
+이벤트: ~/.bams/artifacts/pipeline/[slug]-events.jsonl
 
 다음: [추천 명령어]
 시각화: /bams:viz [slug]

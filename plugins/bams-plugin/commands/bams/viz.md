@@ -25,12 +25,12 @@ $ARGUMENTS를 분석하여 모드를 결정합니다:
 ### Step 1: slug 결정
 
 $ARGUMENTS가 비어있으면:
-1. Glob으로 `.crew/artifacts/pipeline/*-events.jsonl` 파일을 검색합니다.
+1. Glob으로 `~/.bams/artifacts/pipeline/*-events.jsonl` 파일을 검색합니다 (emit 스크립트 실제 write 경로 — `BAMS_ROOT` env var로 override 가능, 기본값 `$HOME/.bams`).
 2. 파일이 없으면: "이벤트 파일이 없습니다. 파이프라인을 실행한 후 다시 시도하세요." 후 종료.
 3. 파일이 1개면: 자동 선택.
 4. 파일이 여러 개면: AskUserQuestion으로 선택.
 
-$ARGUMENTS가 slug이면: `.crew/artifacts/pipeline/{slug}-events.jsonl` 존재 확인.
+$ARGUMENTS가 slug이면: `~/.bams/artifacts/pipeline/{slug}-events.jsonl` 존재 확인.
 
 ### Step 2: 이벤트 파싱
 
@@ -218,7 +218,7 @@ cd "$_VIZ_DIR" && npx next build 2>&1 && npx next start --port 3333 &
 bams-viz 대시보드
 ══════════════════════════════════════
 URL: http://localhost:3333
-감시: .crew/artifacts/pipeline/ + .crew/artifacts/agents/
+감시: ~/.bams/artifacts/pipeline/ + .crew/artifacts/agents/
 
 8개 뷰:
   DAG        — 에이전트 호출 관계 플로우차트

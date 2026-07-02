@@ -266,7 +266,7 @@ fi
 ### 네이밍 규칙
 - slug: `dev_{WU관련요약}` (일반 dev와 동일 형식)
 - pipeline_type: `dev-hotfix` (viz에서 구분 표시)
-- 배치 계획: `.crew/artifacts/pipeline/{slug}-batch-plan.md`
+- 배치 계획: `~/.bams/artifacts/pipeline/{slug}-batch-plan.md`
 
 ### context rot 방지
 - 배치당 최대 4건으로 제한

@@ -122,7 +122,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 ```
 
 **배치 계획 기록:**
-확정된 배치 목록을 `.crew/artifacts/pipeline/{slug}-batch-plan.md`에 기록합니다.
+확정된 배치 목록을 `~/.bams/artifacts/pipeline/{slug}-batch-plan.md`에 기록합니다.
 이 파일은 파이프라인 아티팩트(소스 코드 아님)이므로 커맨드 레벨에서 Bash `cat <<EOF >` 패턴으로 직접 생성합니다.
 
 ```markdown

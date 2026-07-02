@@ -15,7 +15,7 @@
 
 **작업 절차:**
 1. 커맨드 위임 메시지에서 phase, slug, pipeline_type, context, constraints를 파싱한다
-2. `.crew/artifacts/pipeline/` 에서 기존 진행 상태를 확인하여 중단 파이프라인 재개 여부를 판단한다
+2. `~/.bams/artifacts/pipeline/` 에서 기존 진행 상태를 확인하여 중단 파이프라인 재개 여부를 판단한다
 3. `pipeline_type`과 context 내용의 정합성을 검증한다 (hotfix인데 신규 기능 요청이면 재분류 제안)
 4. resource-optimizer에게 모델 선택과 병렬화 전략을 조회한다
 5. Phase의 작업 성격(태그, 파일 패턴)으로 부서장을 결정한다

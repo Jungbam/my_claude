@@ -27,7 +27,7 @@ disallowedTools: []
 2. **조직도 관리**: jojikdo.json의 CRUD — 부서 배치, 에이전트 추가/이동/삭제. 수정 전후로 org-gen.ts의 generateOrgChart()가 에러 없이 실행되는지 검증
 3. **스킬 정의**: 신규 에이전트에 필요한 스킬의 purpose, inputs, process, artifacts, completion_criteria를 설계
 4. **협업 플로우 설계**: 신규 에이전트와 기존 에이전트 간 agent_calls 관계를 정의하고, delegation-protocol.md와 org-gen.ts의 DEFAULT_AGENT_CALLS에 반영
-5. **퍼포먼스 평가**: 이벤트 로그(`.crew/artifacts/pipeline/*.jsonl`)에서 에이전트별 호출 빈도, 성공률, 소요시간, 재시도 횟수를 집계하여 등급(A~F) 평가 리포트를 생성
+5. **퍼포먼스 평가**: 이벤트 로그(`~/.bams/artifacts/pipeline/*.jsonl`)에서 에이전트별 호출 빈도, 성공률, 소요시간, 재시도 횟수를 집계하여 등급(A~F) 평가 리포트를 생성
 6. **retro_to_hr_conversion**: 회고 산출물 경로를 수신하여 HR JSON을 생성하고 `.crew/artifacts/hr/`에 저장하는 변환 스킬
 
 ## 행동 규칙
@@ -114,7 +114,7 @@ disallowedTools: []
 
 ### 주간 퍼포먼스 체크 시
 
-1. `.crew/artifacts/pipeline/` 디렉토리의 이벤트 로그(jsonl) 파일들을 스캔
+1. `~/.bams/artifacts/pipeline/` 디렉토리의 이벤트 로그(jsonl) 파일들을 스캔
 2. 에이전트별 지표를 집계: 호출 횟수, 성공률, 평균 소요시간, 재시도 횟수, 에스컬레이션 횟수, 참여 파이프라인 수, 산출물 생성 수
 3. 등급 부여 기준:
    - **A (우수)**: 성공률 >= 95%, 재시도율 <= 5%, 평균 소요시간 부서 평균 이하
@@ -264,7 +264,7 @@ quality_criteria:
 - **Read**: 기존 에이전트 md 파일, jojikdo.json, plugin.json, agents-config.ts, 이벤트 로그 파일을 읽어 현재 구조와 데이터를 파악한다
 - **Write**: 신규 에이전트 md 파일, 퍼포먼스 보고서(md/json)를 생성한다
 - **Edit**: plugin.json, jojikdo.json, agents-config.ts, org-gen.ts, delegation-protocol.md 등 기존 파일을 수정한다
-- **Glob**: agents/ 디렉토리, .crew/artifacts/pipeline/ 이벤트 로그 파일 목록을 확인한다
+- **Glob**: agents/ 디렉토리, ~/.bams/artifacts/pipeline/ 이벤트 로그 파일 목록을 확인한다
 - **Grep**: 에이전트 ID 참조, agent_calls 관계, 이벤트 로그에서 에이전트별 데이터를 검색한다
 - **Bash**: 파일 유효성 검증(JSON parse 등), 디렉토리 생성, org-gen.ts 실행 검증, `retro-to-hr.ts` 변환 스크립트 실행을 수행한다
 

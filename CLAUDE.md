@@ -113,25 +113,27 @@
 - 커맨드 레벨(메인): `pipeline_start`/`pipeline_end`, `step_start`/`step_end`, `recover`, `error` emit 가능
 - `agent_start`/`agent_end`: 커맨드 → 부서장 → (선택적) 에이전트 2단 위임 체계 내에서만 emit
 
-### 이벤트 타입 (10종)
+### 이벤트 타입 (12종)
 
 | 타입 | 필수 필드 |
 |------|----------|
-| `pipeline_start` | pipeline_slug, pipeline_type, command, arguments, work_unit_slug? |
-| `pipeline_end` | pipeline_slug, status(`completed`\|`failed`\|`paused`\|`rolled_back`), total_steps, completed_steps, failed_steps, skipped_steps, duration_ms |
+| `pipeline_start` | pipeline_slug, pipeline_type, command, arguments, work_unit_slug?, parent_pipeline_slug? |
+| `pipeline_end` | pipeline_slug, status(`completed`\|`failed`\|`paused`\|`rolled_back`\|`cancelled`), total_steps, completed_steps, failed_steps, skipped_steps, duration_ms |
 | `step_start` | pipeline_slug, step_number, step_name, phase |
 | `step_end` | pipeline_slug, step_number, status(`done`\|`fail`\|`skipped`), duration_ms |
 | `agent_start` | call_id, agent_type, department, model, description, step_number |
-| `agent_end` | call_id, agent_type, is_error, status, duration_ms, result_summary |
-| `work_unit_start` | work_unit_slug, work_unit_name, started_at |
-| `work_unit_end` | work_unit_slug, status(`completed`\|`failed`\|`cancelled`), ended_at, duration_ms |
+| `agent_end` | call_id, agent_type, is_error, status(`success`\|`error`\|`timeout`), duration_ms, result_summary |
+| `work_unit_start` | work_unit_slug, work_unit_name, ts |
+| `work_unit_end` | work_unit_slug, status(`completed`\|`failed`\|`cancelled`), ts |
+| `pipeline_linked` | work_unit_slug, pipeline_slug, pipeline_type (pipeline_start 시 활성 WU 존재하면 자동 emit) |
+| `retro_skip` | pipeline_slug, reason, mode(`B`\|`C`) |
 | `error` | pipeline_slug, message, step_number |
-| `recover` | 중단된 이벤트 자동 정리 |
+| `recover` | pipeline_slug (중단된 이벤트 자동 정리 마커) |
 
 ### 데이터 경로
 - 이벤트: `~/.bams/artifacts/pipeline/{slug}-events.jsonl`
 - WU 이벤트: `~/.bams/artifacts/pipeline/{slug}-workunit.jsonl`
-- 에이전트 로그: `~/.bams/artifacts/agents/YYYY-MM-DD.jsonl`
+- 에이전트 로그: `.crew/artifacts/agents/YYYY-MM-DD.jsonl`
 - HR 보고서: `~/.bams/artifacts/hr/`
 - 프로젝트 아티팩트: `.crew/artifacts/` (prd/, design/, review/, report/)
 - DB: `~/.claude/plugins/marketplaces/my-claude/bams.db`
