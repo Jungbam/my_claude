@@ -27,7 +27,7 @@
   4. 롤백 결정 및 회고 트리거 권고
 
 ### Work Unit 선택 규칙 준수 필수 (불변)
-- 활성 WU 2개 이상이면 AskUserQuestion으로 사용자에게 선택 요청
+- 활성 WU 2개 이상이면 최근 사용 WU에 자동 연결 (선택 프롬프트 없음, `--wu`로 오버라이드 가능)
 - 커맨드 레벨에서 임의로 WU 결정 금지 (`_shared_common.md` §Work Unit 선택 참조)
 
 ## 2. 조직도 (8부서 36에이전트)
@@ -67,7 +67,17 @@
 ### Work Unit 선택
 - 활성 WU 0개 → 경고 후 WU 없이 진행
 - 활성 WU 1개 → 자동 선택
-- 활성 WU 2개+ → AskUserQuestion으로 사용자에게 선택 요청
+- 활성 WU 2개+ → **최근 사용 WU 자동 연결** (마지막 `pipeline_linked` 기준, 없으면 `work_unit_start` 기준) — 선택 프롬프트 없음, 연결 결과를 로그로 표시
+- `--wu <slug>` 지정 시 자동 선택 로직을 건너뛰고 명시된 WU에 즉시 연결
+
+### 진입점 매트릭스 (5초 결정표)
+
+| 상황 | 커맨드 | 조건 (1줄 판별) |
+|------|--------|----------------|
+| 버그 수정 | `/bams:hotfix` (1건) · `/bams:dev` (다건) | 재현 가능한 실패 1건이면 hotfix, 여러 이슈 묶음이면 dev |
+| 신규 기능 개발 | `/bams:feature` 또는 `/bams:plan` → `/bams:dev` | 즉시 풀 사이클이면 feature, 계획만 먼저면 plan → dev |
+| 코드 리뷰 | `/bams:review` (게이트 포함) · `/bams:deep-review` (구조+Codex 심층) | 릴리스 게이트 판정까지 필요하면 review, 구조적 리뷰·Codex까지 포함한 심층 조사면 deep-review |
+| 계획 수립 | `/bams:plan` | 구현 없이 PRD/spec/tasks 문서만 작성 |
 
 ### 커맨드 목록
 

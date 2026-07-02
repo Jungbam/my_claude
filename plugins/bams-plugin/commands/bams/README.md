@@ -4,6 +4,17 @@
 v1.1.0: 전체 파이프라인 병렬화 최적화 — 약 30% 타임라인 단축.
 v1.2.0: 에이전트 실행 시각화 (`/bams:viz`) — DAG, 간트 차트, 실시간 대시보드.
 
+## 진입점 매트릭스 (5초 결정표)
+
+| 상황 | 커맨드 | 조건 (1줄 판별) |
+|------|--------|----------------|
+| 버그 수정 | `/bams:hotfix <버그>` (1건) · `/bams:dev <hotfix 목록>` (다건) | 재현 가능한 실패 1건이면 hotfix, 여러 이슈 묶음이면 dev |
+| 신규 기능 개발 | `/bams:feature <설명>` 또는 `/bams:plan` → `/bams:dev` | 즉시 풀 사이클이면 feature, 계획만 먼저면 plan → dev |
+| 코드 리뷰 | `/bams:review <target>` (게이트 포함) · `/bams:deep-review` (구조+Codex 심층) | 릴리스 게이트 판정까지 필요하면 review, 구조적 리뷰·Codex까지 포함한 심층 조사면 deep-review |
+| 계획 수립 | `/bams:plan <피처>` | 구현 없이 PRD/spec/tasks 문서만 작성 |
+
+> 힌트: `--minimal` (dev/feature/hotfix) 플래그로 초경량 변경(<3파일, ±30줄)을 축약 실행
+
 ## 기본 명령어
 
 | 명령어 | 설명 |
