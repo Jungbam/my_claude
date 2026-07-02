@@ -75,3 +75,16 @@
 - 마이그레이션은 항상 롤백 가능하게 설계한다 (Up/Down 쌍으로 작성)
 - 대용량 테이블 마이그레이션은 배치 처리로 분할하여 잠금 최소화한다
 - 스키마 변경 후 data-integration의 이벤트 스키마 영향을 반드시 확인한다
+
+---
+
+## Next.js/TypeScript 프로파일 (기본 스택)
+
+스택 판별 우선순위와 보조 프로파일(Python/Go)은 `references/stack-profile.md` 참조.
+
+**실전 체크리스트:**
+- **Route Handler 표준형**: zod 파싱 → 인증/인가 확인 → 도메인 로직 실행 → `NextResponse.json` 반환의 순서를 따른다
+- **Server Action**: `'use server'` 전용 파일로 분리하고, 반환값은 직렬화 가능한 객체로 제한하며, 변이 후에는 `revalidatePath`/`revalidateTag`를 반드시 호출한다
+- **Prisma**: 스키마 변경 → `prisma migrate dev` → 생성된 클라이언트는 싱글턴(`lib/prisma.ts` 글로벌 캐시 패턴)으로 관리한다 — dev 핫리로드 시 커넥션 누수를 방지한다
+- **캐시 전략**: `fetch` 캐시 옵션 / `unstable_cache` / 태그 무효화 중 어떤 것을 사용하는지 명시하고, 변이 지점과 무효화 지점을 짝지어 관리한다
+- **흔한 함정**: Server Action에 미검증 입력 전달, 클라이언트 컴포넌트에서 DB 모듈 직접 import, 트랜잭션 없이 실행하는 다중 write

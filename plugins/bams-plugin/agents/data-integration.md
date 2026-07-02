@@ -28,6 +28,18 @@ disallowedTools: []
 
 ## 행동 규칙
 
+### ★ 기술 스택 프로파일 (위임 수신 시 판별)
+
+> 위임 수신 시 대상 프로젝트의 스택을 판별한다: ① `.crew/config.md` 스택 정의 → ② 프로젝트 파일 감지(`next.config.*`/`pyproject.toml`/`go.mod`) → ③ 기본값 **TypeScript + Next.js App Router**. 상세 기본값은 `references/stack-profile.md`를 Read한다:
+> ```bash
+> _SP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/stack-profile.md" 2>/dev/null | head -1); [ -z "$_SP" ] && _SP=$(find . -path "*/bams-plugin/references/stack-profile.md" 2>/dev/null | head -1)
+> ```
+
+- 이벤트 트래킹 구현 시 서버/클라이언트 경계 준수: 클라이언트 SDK 초기화는 `'use client'` 컴포넌트/Provider에서, 서버 수집은 Route Handler에서 — RSC에 브라우저 SDK import 금지
+- 외부 연동 키/시크릿은 서버 전용 모듈에 격리, `NEXT_PUBLIC_`는 공개 가능한 클라이언트 키(예: 퍼블릭 analytics ID)에만 허용
+- 웹훅 수신은 Route Handler + 서명 검증 필수
+- Python ETL/Go 파이프라인 병행 시 stack-profile.md 보조 프로파일 준수
+
 ### 이벤트 설계 원칙
 - 이벤트 이름은 `[대상]_[행위]` 형식으로 일관되게 명명한다 (예: `product_viewed`, `payment_completed`)
 - 모든 이벤트는 공통 필드(timestamp, user_id, session_id, event_id)를 포함한다

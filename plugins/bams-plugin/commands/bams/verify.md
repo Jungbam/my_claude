@@ -42,6 +42,19 @@ Task tool을 사용하여 서브에이전트를 실행합니다 (subagent_type: 
 3. 타입체크 (type-check command)
 4. 테스트 (test command)
 
+**명령 결정 우선순위**: `$ARGUMENTS` override > `package.json` scripts > 스택 프로파일 기본값(`references/stack-profile.md` 참조).
+
+Next.js/TS 기본값(스택 프로파일 미확정 시):
+
+| 단계 | 명령 |
+|------|------|
+| typecheck | `bunx tsc --noEmit` |
+| lint | `bun run lint` |
+| build | `bun run build` |
+| test | `bun test` 또는 `bunx vitest run` |
+
+`pyproject.toml`/`requirements.txt`(Python) 또는 `go.mod`(Go) 감지 시 `references/stack-profile.md`의 해당 프로파일 명령을 사용합니다.
+
 4개를 동시에 실행하되, 각 결과를 개별적으로 PASS/FAIL로 보고합니다.
 명령어가 없는 항목은 `skipped`로 처리합니다.
 

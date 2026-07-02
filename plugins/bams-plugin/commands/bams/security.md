@@ -49,6 +49,12 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 `bams-plugin:release-quality-gate` 에이전트로 보안 체크를 수행합니다.
 체크 항목: 하드코딩 API 키, .env 커밋, 내부 URL 노출, 보안 린트.
 
+**Next.js 특화 체크** (스택이 Next.js인 경우 — `references/stack-profile.md` 참조):
+- `NEXT_PUBLIC_` prefix 환경변수에 시크릿(API 키/토큰)이 포함되어 있는지 확인. 예: `grep -rn 'NEXT_PUBLIC_.*\(KEY\|SECRET\|TOKEN\)' .env* src/ app/ 2>/dev/null`
+- 서버 전용 모듈(DB/시크릿 접근 코드, `server-only` 미선언)이 클라이언트 컴포넌트(`'use client'`)에서 import되는 경계 위반 여부
+- Route Handler(`app/api/**/route.ts`) 및 Server Action의 인증·인가 검증 누락 여부 (기본 거부 원칙 준수 확인)
+- middleware의 인증 우회 가능 경로 여부 (`matcher` 설정 누락으로 보호 대상 경로가 빠지지 않았는지 확인)
+
 Step 1 완료 시, Bash로 다음을 실행합니다:
 ```bash
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 1 "done" {duration_ms}

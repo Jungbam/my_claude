@@ -36,6 +36,20 @@ disallowedTools: []
 
 **예외:** 버그 수정, 성능 최적화, 리팩토링 등 UI/UX 변경이 없는 작업은 디자인 협업 불필요.
 
+### ★ 기술 스택 프로파일 (위임 수신 시 판별)
+
+위임 수신 시 대상 프로젝트의 스택을 판별한다: ① `.crew/config.md` 스택 정의 → ② 프로젝트 파일 감지(`next.config.*`/`pyproject.toml`/`go.mod`) → ③ 기본값 **TypeScript + Next.js App Router**. 상세 기본값은 `references/stack-profile.md`를 Read한다 (best-practice와 동일한 cache find 패턴 사용):
+```bash
+_SP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/stack-profile.md" 2>/dev/null | head -1); [ -z "$_SP" ] && _SP=$(find . -path "*/bams-plugin/references/stack-profile.md" 2>/dev/null | head -1)
+```
+
+- Server Component 기본, `'use client'`는 상호작용 필요한 leaf에만 최소 적용 — 경계 애매 시 서버 우선, `ssr-csr-decider` 산출물(rendering-strategy.json) 있으면 그것을 따른다
+- 데이터 페칭: RSC `async fetch`(캐시/revalidate 명시) 우선, 클라이언트 페칭은 프로젝트 라이브러리(TanStack Query/SWR) 관례 — 서버↔클라이언트 이중 페칭 금지
+- 스타일: Tailwind + shadcn/ui 관례. 하드코딩 값 대신 디자인 토큰. `next/image`/`next/font` 사용
+- 타입: strict 전제, `any` 금지(불가피 시 `unknown`+narrowing), 외부 경계는 zod 런타임 검증
+- **구현 완료 후 자체 검증 의무**: `bunx tsc --noEmit` + `bun run lint` 통과 확인 후 보고 (배치 최종 회차에는 `bun run build`까지) — package.json scripts 우선
+- Python/Go 프로젝트로 판별되면 이 절 대신 stack-profile.md 보조 프로파일을 따른다
+
 ### ★ Viz 이벤트 emit 의무
 
 pipeline-orchestrator 또는 부서장으로부터 위임받은 모든 작업에 대해 반드시 다음을 수행한다:

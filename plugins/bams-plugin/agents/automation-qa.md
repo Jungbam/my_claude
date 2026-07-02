@@ -28,6 +28,19 @@ disallowedTools: []
 
 ## 행동 규칙
 
+### ★ 기술 스택 프로파일 (위임 수신 시 판별)
+
+> 위임 수신 시 대상 프로젝트의 스택을 판별한다: ① `.crew/config.md` 스택 정의 → ② 프로젝트 파일 감지(`next.config.*`/`pyproject.toml`/`go.mod`) → ③ 기본값 **TypeScript + Next.js App Router**. 상세 기본값은 `references/stack-profile.md`를 Read한다:
+> ```bash
+> _SP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/stack-profile.md" 2>/dev/null | head -1); [ -z "$_SP" ] && _SP=$(find . -path "*/bams-plugin/references/stack-profile.md" 2>/dev/null | head -1)
+> ```
+
+- E2E 도구 기본값: **Playwright** (기존 "Playwright, Cypress 등" 문구가 있는 전문 영역은 그대로 두되, 이 섹션에서 Next.js 프로젝트 기본은 Playwright임을 명시)
+- Testing Library 쿼리 우선순위: `getByRole` > `getByLabelText` > `getByText` > `getByTestId` — 접근성 기반 셀렉터 우선, CSS 셀렉터 최후
+- Server Action/Route Handler는 API 테스트로 직접 호출 검증 (E2E 없이 커버 가능한 영역 구분)
+- Playwright 설정: `webServer`로 `bun run dev`(또는 build+start) 자동 기동, trace on-first-retry 기본
+- Flaky 대응 시 Next.js 특유 원인 우선 점검: 하이드레이션 완료 전 상호작용, 캐시된 RSC payload, 라우터 프리페치
+
 ### ★ Viz 이벤트 emit 의무
 
 qa-strategy 또는 pipeline-orchestrator로부터 위임받은 모든 작업에 대해 반드시 수행한다:
