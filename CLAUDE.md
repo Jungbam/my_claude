@@ -192,7 +192,19 @@ hr_reports (독립)
 
 ## 현재 상태
 
-> Last updated: 2026-06-30
+> Last updated: 2026-07-02
+
+### 진행 중 (신규 — 2026-07-02, 파이프라인 구조개편 plan)
+- **`plan_파이프라인구조개편`** (Backlog, 12 tasks — TASK-095~106) ⭐ 신규
+  - Work Unit: 전체bams리뷰 / Branch: 현재 `bams/hotfix_파이프라인P0P1` 위 (스택: main ← PR#18 모델3-tier ← 408169b nextjs프롬프트 ← f921a1f P0P1)
+  - 부모 리뷰: `deep-review_파이프라인기획리뷰` (C8/M15/m8, 4관점) — P0/P1은 `hotfix_파이프라인P0P1`(f921a1f)로 선처리 완료, 본 plan은 P2 구조개편
+  - PRD: `.crew/artifacts/prd/plan_파이프라인구조개편-prd.md` (511줄, v2 APPROVED — OQ1~5 전부 Recommended)
+  - 설계 3트랙: `.crew/artifacts/design/plan_파이프라인구조개편-{design-hr(474),design-platform(~400),design-productstrategy(517)}.md`
+  - Spec: `.crew/artifacts/design/plan_파이프라인구조개편-spec.md` (662줄, SV 6/6 PASS, SP-1~SP-5 확정)
+  - OQ 확정: OQ1=(c) dev/feature 유지+_shared SSOT / OQ2=(b) review 양쪽 유지+SSOT / OQ3=(b) README 매트릭스 / OQ4=(b) WU 축소·라벨화 / OQ5=(a) 단일 PR+F-R별 10커밋
+  - 규모: 파일 ~88 (신규 6), 순증 +69~+129줄, 커맨드 파일만 약 -667줄 (성공지표 -15% 달성 예상)
+  - 핵심 발견(트랙 B): macOS `date +%s%3N` 오염(init.md 실측 이미 깨짐), emit pipeline_end duration 파싱 버그, F-R10 숨은 BE 의존성(server/src/app.ts lastLinkedAt)
+  - 다음: `/bams:dev plan_파이프라인구조개편` (Wave1: hr-agent 095~097 + platform-devops 098·099·101 병렬 → Wave2: 100·102~104 → Wave3: qa 105 → Wave4: PR 106)
 
 ### 진행 중 (신규 — 2026-06-30, design-import 품질개선 plan)
 - **`plan_designimport품질개선`** (Backlog, 9 tasks — TASK-077~085) ⭐ 신규
