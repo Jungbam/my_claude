@@ -214,7 +214,10 @@ hr_reports (독립)
   - OQ 확정: OQ1=(c) dev/feature 유지+_shared SSOT / OQ2=(b) review 양쪽 유지+SSOT / OQ3=(b) README 매트릭스 / OQ4=(b) WU 축소·라벨화 / OQ5=(a) 단일 PR+F-R별 10커밋
   - 규모: 파일 ~88 (신규 6), 순증 +69~+129줄, 커맨드 파일만 약 -667줄 (성공지표 -15% 달성 예상)
   - 핵심 발견(트랙 B): macOS `date +%s%3N` 오염(init.md 실측 이미 깨짐), emit pipeline_end duration 파싱 버그, F-R10 숨은 BE 의존성(server/src/app.ts lastLinkedAt)
-  - 다음: `/bams:dev plan_파이프라인구조개편` (Wave1: hr-agent 095~097 + platform-devops 098·099·101 병렬 → Wave2: 100·102~104 → Wave3: qa 105 → Wave4: PR 106)
+  - **`dev_파이프라인구조개편` ✅ COMPLETED (2026-07-03)** — 7 Wave (Advisor 순서역전: 095 선행→099, 6-way 핫스팟 직렬화), QA 조건부 GO → Major 2 해소(stub 19~21줄, migration 82줄) → QG **GO** (실측 7항목, Critical 0/Major 0)
+  - 커밋 8개 (F-R 그룹): 1c0cc12(F-R1) 446c738(F-R4) dc91a0f(F-R6인프라) a8bde92(F-R2/7/9) b726e8e(F-R5/8) 961f418(F-R10) 5167118(F-R3+migration) 00cf49f(횡단 39파일)
+  - 잔여 이연: init.md 사전 존재 git pull 하드코딩 (Minor, F-R5 스코프 밖)
+  - 다음: `/bams:ship` (브랜치 스택 정리: PR#18 머지 → nextjs+P0P1+구조개편 ship) + `/bams:retro dev_파이프라인구조개편`
 
 ### 진행 중 (신규 — 2026-06-30, design-import 품질개선 plan)
 - **`plan_designimport품질개선`** (Backlog, 9 tasks — TASK-077~085) ⭐ 신규
