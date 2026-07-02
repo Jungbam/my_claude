@@ -185,8 +185,3 @@ browse 도구의 스크린샷 캡처가 **2회 연속 실패**할 경우 다음 
    ```
 
 3. **iteration 종료 + CONDITIONAL 반환**: 정적 분석 기반 판정 결과와 함께 루프를 종료하고 `CONDITIONAL` 상태로 반환한다.
-
-4. **[G-SIDECAR] 원인 참조**: browse 렌더 실패의 주요 원인 중 하나는 Tauri sidecar 바이너리 stale이다.
-   - 진단: `curl localhost:3099/api/agents/data` — 404 응답이면 sidecar stale 확정
-   - 해결: `bash plugins/bams-plugin/scripts/build-sidecar.sh` 실행 후 Tauri 재시작
-   - 상세: `.crew/gotchas.md §[G-SIDECAR]` 참조

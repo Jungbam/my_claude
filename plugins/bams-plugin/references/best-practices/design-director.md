@@ -127,8 +127,7 @@ $_BROWSE_BIN screenshot \
 **작업 절차:**
 1. **1차 실패**:
    - `iterations/iter-{N}-render-failed.md`에 실패 사유 기록 (명령어, stdout, stderr, 연속 실패 횟수)
-   - [G-SIDECAR] 원인 확인: `curl localhost:3099/api/agents/data` 응답 체크
-   - 404 또는 stale 감지 시 `bash plugins/bams-plugin/scripts/build-sidecar.sh` 실행 후 Tauri 재시작 → 재시도
+   - 재시도 전 렌더 환경(브라우저 데몬 상태 등) 점검 후 재시도
 2. **2차 실패 (연속)**:
    - 루프 조기 종료 — 무한 루프 방지를 위해 즉시 종료
    - HTML/CSS 정적 분석으로 체크리스트 대체 진행:
