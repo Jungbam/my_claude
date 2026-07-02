@@ -97,6 +97,16 @@ pipeline-orchestrator에게 다음 형식으로 보고한다 (delegation-protoco
 
 ## 행동 규칙
 
+### ★ 이벤트 emit 스키마 검증 P0 케이스 편입 (T-QASCOPE)
+
+dev/hotfix 파이프라인 Wave 계획 수립 시 다음을 테스트 전략 범위에 **P0로 명시 편입**한다:
+
+1. `bams-viz-emit.sh` 또는 emit 관련 코드가 변경 범위에 포함되면, 산출물 회귀 테스트와 함께 계측(emit) 검증을 병행 계획한다
+2. 검증 항목: (a) call_id 중복 emit 여부, (b) agent_type 필드가 부서명 매핑 리스트에 속하는지, (c) slug 위치 인자가 `-`로 시작하는 리터럴로 오염되지 않았는지, (d) agent_start/agent_end 쌍 누락 여부
+3. automation-qa 위임 시 위 항목을 회귀 테스트 케이스에 포함하도록 `quality_criteria`에 명시
+
+**근거**: DQ-1~4(emit 로직 결함 4건)가 platform-devops/qa-strategy/frontend-engineering 3개 부서장에게 정면 지적되었음에도 계측 파이프라인이 QA 스코프에 상시 편입되어 있지 않아 반복 발견됨. 출처: `retro_최근7d회고_1` Top 6 (qa P4).
+
 ### ★ 정량 보고 자기검증 (Major/Critical 등급 — OQ5=A)
 
 Major/Critical 결함의 정량 근거(grep count 등) 보고 시, 동일 명령을 **1회 자기 재실행**하여 결과 일치 확인:
@@ -262,6 +272,20 @@ design-director 에러 감지 또는 agent_end 없을 시:
 
 
 ## 학습된 교훈
+
+### [2026-07-01] retro_최근7d회고_1 — 계측 파이프라인 QA 스코프 미편입으로 DQ 결함 반복 발견
+
+**맥락**: retro_최근7d회고_1(scope 7d) — B등급(79.4). 재시도율 33.3%, DQ-2(agent_type 오염) 사례로 오염 영향 받음.
+
+**문제**:
+1. emit 로직 결함(DQ-1~4)이 4개 부서장 중 3개(platform-devops/qa-strategy/frontend-engineering)에게 정면 지적되었으나 계측 파이프라인이 QA 테스트 전략 범위에 상시 편입되어 있지 않았음
+2. dev/hotfix Wave 계획 수립 시 산출물 회귀 테스트만 계획하고 emit 스키마 검증은 별도 계획 없이 누락되는 경우가 있었음
+
+**교훈**:
+- emit 관련 코드 변경 시 계측 검증(call_id 유일성/agent_type 매핑/slug 오염/start-end 쌍)을 P0로 테스트 전략에 명시 편입
+- automation-qa 위임 quality_criteria에 위 항목을 포함시켜 회귀 테스트로 상시화
+
+**출처**: retro_최근7d회고_1 (Top 6)
 
 ### [2026-04-18] retro_전체회고_4 — QA 투입 가시성 부재와 자동화 저활용
 

@@ -405,43 +405,18 @@ else
 fi
 
 # ─────────────────────────────────────────────
-# 13. Sidecar binary staleness check (WARN)
-#     server/src/app.ts mtime vs sidecar binary mtime
-# ─────────────────────────────────────────────
-SERVER_SRC="$PLUGIN_DIR/server/src/app.ts"
-SIDECAR_BIN="$PLUGIN_DIR/tools/bams-widget/tauri/src-tauri/binaries/bams-server-aarch64-apple-darwin"
-if [[ -f "$SERVER_SRC" && -f "$SIDECAR_BIN" ]]; then
-  if [[ "$(uname)" == "Darwin" ]]; then
-    SRC_MTIME=$(stat -f %m "$SERVER_SRC")
-    BIN_MTIME=$(stat -f %m "$SIDECAR_BIN")
-  else
-    SRC_MTIME=$(stat -c %Y "$SERVER_SRC")
-    BIN_MTIME=$(stat -c %Y "$SIDECAR_BIN")
-  fi
-  if [[ "$BIN_MTIME" -lt "$SRC_MTIME" ]]; then
-    echo -e "  [13/13] sidecar binary staleness ... ${YELLOW}WARN${NC}: sidecar binary is older than server source — rebuild recommended"
-  else
-    echo -e "  [13/13] sidecar binary staleness ... ${GREEN}OK${NC}"
-  fi
-elif [[ ! -f "$SERVER_SRC" ]]; then
-  echo -e "  [13/13] sidecar binary staleness ... ${YELLOW}WARN${NC}: server source not found (${SERVER_SRC})"
-elif [[ ! -f "$SIDECAR_BIN" ]]; then
-  echo -e "  [13/13] sidecar binary staleness ... ${YELLOW}WARN${NC}: sidecar binary not found (skipped)"
-fi
-
-# ─────────────────────────────────────────────
-# 14. specialist-roster SSOT consistency (WARN only)
+# 13. specialist-roster SSOT consistency (WARN only)
 #     sync-specialists.ts dry-run → 0 drifts = OK
 # ─────────────────────────────────────────────
 if command -v bun >/dev/null 2>&1; then
   SYNC_RESULT=$(bun run "$PLUGIN_DIR/scripts/sync-specialists.ts" 2>&1 | tail -1 || true)
   if echo "$SYNC_RESULT" | grep -q "Dry-run: 0 drifts"; then
-    echo -e "  [14/13] specialist-roster SSOT ... ${GREEN}OK${NC}"
+    echo -e "  [13/13] specialist-roster SSOT ... ${GREEN}OK${NC}"
   else
-    echo -e "  [14/13] specialist-roster SSOT ... ${YELLOW}WARN${NC}: drifts detected (run sync-specialists.ts --apply or insert markers)"
+    echo -e "  [13/13] specialist-roster SSOT ... ${YELLOW}WARN${NC}: drifts detected (run sync-specialists.ts --apply or insert markers)"
   fi
 else
-  echo -e "  [14/13] specialist-roster SSOT ... ${YELLOW}SKIP${NC}: bun not installed"
+  echo -e "  [13/13] specialist-roster SSOT ... ${YELLOW}SKIP${NC}: bun not installed"
 fi
 
 # ─────────────────────────────────────────────
