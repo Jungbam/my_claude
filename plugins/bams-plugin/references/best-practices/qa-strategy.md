@@ -93,3 +93,15 @@
 **주의사항:**
 - 허용 오차 기준 없이 비주얼 회귀 테스트를 시작하면 오탐(false positive)이 많이 발생한다
 - 비주얼 회귀 테스트 기준 스크린샷은 design-director 승인 후 업데이트한다
+
+---
+
+## Next.js/TypeScript 프로파일 (기본 스택)
+
+스택 판별 우선순위와 보조 프로파일(Python/Go)은 `references/stack-profile.md` 참조.
+
+**테스트 전략 기본값:**
+- **피라미드 배분 기본값(Next.js)**: 단위 테스트(도메인 로직/유틸/훅)를 다수로, 통합 테스트(Route Handler/Server Action 직접 호출)를 중간 규모로, E2E 테스트(핵심 사용자 플로우 3~7개)를 최소 규모로 배분한다
+- **RSC 검증 매트릭스**: Server Component 렌더는 E2E/통합 테스트로, Client Component 상호작용은 Testing Library로, Server Action은 직접 호출 단위/통합 테스트로 검증한다
+- **회귀 게이트**: tsc(typecheck) / lint / build / test 4종 명령을 기본 게이트로 삼고, 하나라도 실패하면 릴리즈를 차단한다
+- **시각 회귀**: Playwright 스크린샷 비교로 핵심 페이지만 검증 대상으로 삼는다

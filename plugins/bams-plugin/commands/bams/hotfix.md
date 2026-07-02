@@ -1,6 +1,6 @@
 ---
-description: 버그 핫픽스 — 디버깅 → QA → 검증 → 배포 빠른 경로
-argument-hint: <버그 설명 또는 에러 메시지>
+description: 버그 1건 핫픽스 — 재현 → 수정 → 검증 → 배포 (다건이면 `/bams:dev`)
+argument-hint: <버그 설명 또는 에러 메시지> [--minimal]
 ---
 
 # Bams: Hotfix
@@ -9,6 +9,14 @@ argument-hint: <버그 설명 또는 에러 메시지>
 
 입력: $ARGUMENTS
 $ARGUMENTS가 비어있으면 AskUserQuestion으로 버그 설명 받기.
+
+## 경량 경로 (`--minimal`)
+
+`$ARGUMENTS`에 `--minimal`이 포함되어 있는지, 또는 자동 규모 감지 제안을 사용자가 수락했는지에 따라 `--minimal` 축약 모드 여부가 결정됩니다.
+
+**`references/lightweight-path-protocol.md` 참조.** 플래그 인식 + 자동 규모 감지(`git diff --stat` ≤2파일/±30줄) + 스팸 방지(파이프라인당 1회) + 축약 규칙을 표준 프로토콜대로 따릅니다.
+
+차이점: 본 파이프라인 축약 규칙은 SSOT §"hotfix" 목록 적용 (Step 1 진단+수정은 축약 없음).
 
 ## 공통 규칙 로드
 
@@ -21,7 +29,7 @@ $ARGUMENTS가 비어있으면 AskUserQuestion으로 버그 설명 받기.
 Bash로 진행 추적 파일을 확인합니다:
 
 ```bash
-_TRACKING=$(ls .crew/artifacts/pipeline/*hotfix*-tracking.md 2>/dev/null | head -1)
+_TRACKING=$(ls ~/.bams/artifacts/pipeline/*hotfix*-tracking.md 2>/dev/null | head -1)
 if [ -n "$_TRACKING" ]; then
   echo "=== 기존 진행 상태 ==="
   grep -E "current_step:|status:" "$_TRACKING" | head -5

@@ -459,6 +459,12 @@ async function handleRequest(req: Request): Promise<Response> {
     );
     const active = allWu.map((wu) => {
       const dbPipelines = db.getWorkUnitPipelines(wu.slug);
+      // F-R10: WU 자동 연결(선택 프롬프트 대체)을 위한 "최근 사용" 정렬 키.
+      // pipeline_linked 이벤트 중 최신 ts를 우선 사용하고, 아직 하나도 연결되지 않았으면 started_at으로 폴백한다.
+      const wuEvents = db.getWorkUnitEvents(wu.slug);
+      const lastLinked = wuEvents
+        .filter((e) => e.event_type === "pipeline_linked")
+        .sort((a, b) => (b.ts ?? "").localeCompare(a.ts ?? ""))[0];
       return {
         slug: wu.slug,
         name: wu.name ?? wu.slug,
@@ -466,6 +472,7 @@ async function handleRequest(req: Request): Promise<Response> {
         startedAt: wu.started_at ?? null,
         endedAt: null,
         pipelineCount: dbPipelines.length,
+        lastLinkedAt: lastLinked?.ts ?? wu.started_at ?? null,
       };
     });
     // M-10: workunit 단수 키 추가 (하위 호환 — 양쪽 키 제공)

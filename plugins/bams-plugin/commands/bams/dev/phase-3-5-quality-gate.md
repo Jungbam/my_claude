@@ -1,4 +1,4 @@
-# Dev: Phase 3.5 — Quality Gate
+# Dev: Phase 3.5 — Quality Gate (Step 9)
 
 > 이 파일은 `/bams:dev`의 Phase 3.5를 실행합니다.
 > 공통 규칙은 `_common.md`를 참조합니다.
@@ -18,10 +18,10 @@
 
 Bash로 다음을 실행합니다:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 8 "Quality Gate" "Phase 3.5: QG"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 9 "Quality Gate" "Phase 3.5: QG"
 ```
 
-### Step 8. Quality Gate (project-governance 위임)
+### Step 9. Quality Gate (project-governance 위임)
 
 현재 반복 횟수를 `iteration = 1`로 초기화합니다.
 `qg_baseline_commit`을 현재 HEAD 커밋 해시로 기록합니다.
@@ -35,7 +35,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "project-governance-8-$(date -u +%Y%m%d)" "project-governance" "claude-fable-5" "Step 8: Quality Gate iteration {iteration}"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "project-governance-9-$(date -u +%Y%m%d)" "project-governance" "claude-fable-5" "Step 9: Quality Gate iteration {iteration}"
 ```
 
 Task tool, subagent_type: **"bams-plugin:project-governance"** — 메인이 직접 호출:
@@ -70,18 +70,21 @@ Task tool, subagent_type: **"bams-plugin:project-governance"** — 메인이 직
 >   paths: [.crew/artifacts/qg/{slug}-qg-{iteration}.md]
 > quality_criteria:
 >   - 인수 기준 전체 충족
->   - Critical 이슈 0건
+>   - **`references/issue-severity.md` §Release Gate 임계값 참조.**
+>     차이점: 본 파이프라인 N값 = **2** (기본값 — SSOT §파이프라인별 Override 확인)
 >   - 빌드 성공
 >   - 타입 체크 통과
 > ```
 >
 > 검증 대상 파일들을 직접 Read 도구로 읽어서 검증합니다.
 >
-> **기대 산출물**: Quality Gate 판단 (PASS/FAIL), 파일별 상세 결과
+> **판정 전 실측 필수**: '빌드 성공'과 '타입 체크 통과'는 파일 Read 추정이 아니라 **Bash로 실제 명령 실행 결과**로 판정한다. 명령은 대상 프로젝트 package.json scripts 우선, 없으면 `references/stack-profile.md` 표준 명령(typecheck `bunx tsc --noEmit` / lint / build). 실행 로그 요약(명령·종료코드)을 판정 리포트에 포함한다.
+>
+> **기대 산출물**: Quality Gate 판단 (PASS/FAIL), 파일별 상세 결과, 실행 로그 요약(명령·종료코드). QG 산출물(`.crew/artifacts/qg/{slug}-qg-{iteration}.md`)에는 FAIL 이슈별로 **재작업 대상 부서장**(frontend-engineering / backend-engineering / platform-devops 중 지정) 필드를 명시한다.
 
 반환 후 agent_end emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "project-governance-8-$(date -u +%Y%m%d)" "project-governance" "success" {duration_ms} "Step 8 완료: Quality Gate iteration {iteration}"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "project-governance-9-$(date -u +%Y%m%d)" "project-governance" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Step 9 완료: Quality Gate iteration {iteration}"
 ```
 
 **PASS인 경우:** board.md에서 태스크를 `## Done`으로 이동. Phase 4로 진행.
@@ -95,5 +98,5 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 Quality Gate 완료 시, Bash로 다음을 실행합니다:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 8 "{status}" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 9 "{status}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
 ```

@@ -76,3 +76,16 @@
 **주의사항:**
 - 최적화 전 수치와 후 수치를 반드시 비교하여 효과를 정량화한다
 - 과도한 최적화(premature optimization)를 피한다 — 측정 먼저, 최적화는 그 다음이다
+
+---
+
+## Next.js/TypeScript 프로파일 (기본 스택)
+
+스택 판별 우선순위와 보조 프로파일(Python/Go)은 `references/stack-profile.md` 참조.
+
+**실전 체크리스트:**
+- **컴포넌트 배치**: 라우트 전용 컴포넌트는 `app/{route}/_components/`(또는 프로젝트 관례), 공용 컴포넌트는 `src/components/`에 배치한다 — 구현 전 Glob으로 기존 배치 관례를 먼저 확인한다
+- **`'use client'` 결정 트리**: 이벤트 핸들러/훅/브라우저 API가 필요한가? → client. 데이터만 표시하는가? → server. 혼합인가? → server 부모 + client leaf로 분리한다
+- **로딩/에러 UX**: 라우트 레벨은 `loading.tsx`/`error.tsx`, 컴포넌트 레벨은 `<Suspense>` 경계를 사용한다 — 스피너 하드코딩보다 스켈레톤을 우선한다
+- **폼 처리**: Server Action + `useActionState`(또는 프로젝트가 채택한 react-hook-form + zod 관례)를 사용하고, 클라이언트/서버 이중 검증을 원칙으로 한다
+- **흔한 함정**: hydration mismatch(Date/random/브라우저 분기 미처리), `'use client'` 파일에서 서버 전용 모듈 import, 이미지 width/height 누락으로 인한 CLS, 동적 import 미적용으로 인한 대형 클라이언트 번들

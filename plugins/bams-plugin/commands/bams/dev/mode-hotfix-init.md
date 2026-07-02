@@ -71,7 +71,7 @@ fi
 
 Step 0.8 완료 후 step_end emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 0.8 "done" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 0.8 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
 ```
 
 Bash로 step_start를 emit합니다:
@@ -113,7 +113,7 @@ Options:
 
 Step 0.9 완료 후 step_end emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 0.9 "done" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 0.9 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
 ```
 
 Bash로 step_start를 emit합니다:
@@ -122,7 +122,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 ```
 
 **배치 계획 기록:**
-확정된 배치 목록을 `.crew/artifacts/pipeline/{slug}-batch-plan.md`에 기록합니다.
+확정된 배치 목록을 `~/.bams/artifacts/pipeline/{slug}-batch-plan.md`에 기록합니다.
 이 파일은 파이프라인 아티팩트(소스 코드 아님)이므로 커맨드 레벨에서 Bash `cat <<EOF >` 패턴으로 직접 생성합니다.
 
 ```markdown
@@ -171,7 +171,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 Step 0.95 완료 후 step_end emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 0.95 "done" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 0.95 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
 ```
 
 ## 게이트 조건

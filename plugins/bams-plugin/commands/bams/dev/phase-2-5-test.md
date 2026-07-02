@@ -1,4 +1,4 @@
-# Dev: Phase 2.5 — 테스트 코드 생성
+# Dev: Phase 2.5 — 테스트 코드 생성 (Step 7)
 
 > 이 파일은 `/bams:dev`의 Phase 2.5를 실행합니다.
 > 공통 규칙은 `_common.md`를 참조합니다.
@@ -16,7 +16,7 @@
 
 Bash로 다음을 실행합니다:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 6 "테스트 코드 생성" "Phase 2.5: 테스트"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 7 "테스트 코드 생성" "Phase 2.5: 테스트"
 ```
 
 ### Step 6a. 테스트 작성 여부 묻기
@@ -37,7 +37,7 @@ Options:
 
 Bash로 agent_start를 emit합니다:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "qa-strategy-6-$(date -u +%Y%m%d)" "qa-strategy" "claude-opus-4-8" "Step 6: 테스트 작성"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "qa-strategy-7-$(date -u +%Y%m%d)" "qa-strategy" "claude-opus-4-8" "Step 7: 테스트 작성"
 ```
 
 Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호출:
@@ -76,7 +76,7 @@ Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호
 
 qa-strategy 반환 후, Bash로 agent_end를 emit합니다:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "qa-strategy-6-$(date -u +%Y%m%d)" "qa-strategy" "success" {duration_ms} "Step 6 완료: 테스트 작성 완료"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "qa-strategy-7-$(date -u +%Y%m%d)" "qa-strategy" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Step 7 완료: 테스트 작성 완료"
 ```
 
 **Yes 선택 시**: 배치별 오버랩 - `배치 N 테스트 작성 || 배치 N+1 구현`이 병렬로 진행됩니다.
@@ -84,5 +84,5 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 Phase 2.5 완료 시, Bash로 다음을 실행합니다:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 6 "{status}" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 7 "{status}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
 ```

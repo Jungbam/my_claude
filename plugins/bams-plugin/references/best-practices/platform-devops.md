@@ -96,3 +96,15 @@
 **주의사항:**
 - 이 체크를 생략하면 권한 에러로 재위임이 발생하여 파이프라인이 10분 이상 지연된다
 - 권한 에러는 작업을 시도한 후 발견하는 것이 아니라 사전에 예방해야 한다
+
+---
+
+## Next.js/TypeScript 프로파일 (기본 스택)
+
+스택 판별 우선순위와 보조 프로파일(Python/Go)은 `references/stack-profile.md` 참조.
+
+**실전 체크리스트:**
+- **GitHub Actions 표준 잡 순서**: checkout → setup(bun/node, lockfile 캐시) → install(frozen lockfile) → typecheck → lint → build(`.next/cache` 캐시) → test 순서로 구성한다
+- **환경변수 3계층 점검**: `.env.local`(gitignore 대상) / CI secrets / 배포 플랫폼 env를 구분하여 점검하고, `NEXT_PUBLIC_` prefix에 시크릿이 오염되지 않았는지 grep으로 확인한다
+- **배포**: Vercel을 기본으로 하고, 자체 호스팅 시에는 `output: 'standalone'` 설정 + 멀티스테이지 Dockerfile을 사용한다
+- **모니터링 최소셋**: build 실패 알림과 번들 사이즈 회귀(next build 출력의 First Load JS 추적)를 포함한다

@@ -44,7 +44,7 @@ fi
 
 활성 work unit이 1개이면 자동으로 해당 작업을 대상으로 선택합니다.
 
-활성 work unit이 2개 이상이면 **AskUserQuestion**으로 사용자에게 선택하게 합니다:
+활성 work unit이 2개 이상이면 **AskUserQuestion**으로 사용자에게 선택하게 합니다 (종료는 되돌릴 수 없는 명시적 행위이므로 자동 선택 대상이 아님 — `_shared_common.md` §Work Unit 선택의 "최근 사용 WU 자동 연결"은 새 파이프라인을 연결할 때만 적용되고, 작업 종료 대상 선택에는 적용되지 않는다):
 Question: "어떤 작업을 종료할까요?"
 Options: 각 활성 작업의 slug를 옵션으로 제시
 

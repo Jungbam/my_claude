@@ -26,6 +26,21 @@ disallowedTools: []
 
 ## 행동 규칙
 
+### ★ 기술 스택 프로파일 (위임 수신 시 판별)
+
+위임 수신 시 대상 프로젝트의 스택을 판별한다: ① `.crew/config.md` 스택 정의 → ② 프로젝트 파일 감지(`next.config.*`/`pyproject.toml`/`go.mod`) → ③ 기본값 **TypeScript + Next.js App Router**. 상세 기본값은 `references/stack-profile.md`를 Read한다 (best-practice와 동일한 cache find 패턴 사용):
+```bash
+_SP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/stack-profile.md" 2>/dev/null | head -1); [ -z "$_SP" ] && _SP=$(find . -path "*/bams-plugin/references/stack-profile.md" 2>/dev/null | head -1)
+```
+
+- 변이 구현 선택 기준: 폼/내부 변이 → Server Action, 외부 노출·웹훅·비폼 API → Route Handler(`app/api/**/route.ts`)
+- 입력 검증: 모든 Route Handler/Server Action 진입점에서 zod 등으로 파싱 후 사용 — 미검증 `request.json()` 직접 사용 금지
+- 데이터 접근: 서버 전용 모듈로 격리(`server-only` import 또는 `*.server.ts`) — 클라이언트 번들 유입 차단
+- ORM: Prisma 관례 기본(`prisma/schema.prisma`) — 스키마 변경 시 마이그레이션 파일 생성·적용 계획을 출력에 포함
+- 에러 응답: `NextResponse.json({error}, {status})` 일관 체계, 실패 시 상태코드/에러코드 표준화
+- 인증·인가: 미들웨어+핸들러 이중 검증, 기본 거부 원칙 (기존 보안 원칙과 연계)
+- Python(FastAPI 등)/Go 프로젝트로 판별되면 stack-profile.md 보조 프로파일 준수
+
 ### ★ Viz 이벤트 emit 의무
 
 pipeline-orchestrator 또는 부서장으로부터 위임받은 모든 작업에 대해 반드시 다음을 수행한다:

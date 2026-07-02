@@ -48,7 +48,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 Bash로 agent_end를 emit합니다:
 ```bash
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "orchestrator-advisor-step3-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 3 advisor 완료"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "orchestrator-advisor-step3-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Step 3 advisor 완료"
 ```
 
 **CHAIN_VIOLATION 체크**: orchestrator 반환 내용 첫 줄에 "CHAIN_VIOLATION" 포함 시 즉시 중단 — agent_end status="error" + pipeline_end status="failed".
@@ -184,7 +184,7 @@ KPT 종합 완료 후 사용자에게 다음을 제시합니다:
 
 Step 3-4 완료 시, Bash로 step_end를 emit합니다:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 3 "done" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 3 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
 ```
 
 ---

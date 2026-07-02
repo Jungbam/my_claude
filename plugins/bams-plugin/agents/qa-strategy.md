@@ -97,6 +97,19 @@ pipeline-orchestrator에게 다음 형식으로 보고한다 (delegation-protoco
 
 ## 행동 규칙
 
+### ★ 기술 스택 프로파일 (위임 수신 시 판별)
+
+> 위임 수신 시 대상 프로젝트의 스택을 판별한다: ① `.crew/config.md` 스택 정의 → ② 프로젝트 파일 감지(`next.config.*`/`pyproject.toml`/`go.mod`) → ③ 기본값 **TypeScript + Next.js App Router**. 상세 기본값은 `references/stack-profile.md`를 Read한다:
+> ```bash
+> _SP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/stack-profile.md" 2>/dev/null | head -1); [ -z "$_SP" ] && _SP=$(find . -path "*/bams-plugin/references/stack-profile.md" 2>/dev/null | head -1)
+> ```
+
+- 테스트 스택 기본값: 단위 `vitest`/`bun test` + Testing Library, E2E `Playwright` — 프로젝트에 이미 설정된 프레임워크가 항상 우선
+- 회귀 게이트 최소셋(Next.js/TS): `bunx tsc --noEmit` + `bun run lint` + `bun run build` + 단위 테스트 — 이 4개가 모두 PASS여야 GO 판정
+- **RSC 제약**: async Server Component는 단위 렌더 테스트 불가 — 통합(Route Handler/Server Action 직접 호출) 또는 E2E로 검증 계획 수립
+- 테스트 범위 설계 시 서버/클라이언트 경계별로 구분: 서버 로직(단위/통합) vs 클라이언트 상호작용(Testing Library) vs 전체 플로우(Playwright)
+- Python/Go 프로젝트는 stack-profile.md 보조 프로파일(pytest / go test) 기준으로 동일 원칙 적용
+
 ### ★ 이벤트 emit 스키마 검증 P0 케이스 편입 (T-QASCOPE)
 
 dev/hotfix 파이프라인 Wave 계획 수립 시 다음을 테스트 전략 범위에 **P0로 명시 편입**한다:

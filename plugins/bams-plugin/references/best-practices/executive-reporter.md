@@ -14,7 +14,7 @@
 - business-kpi: 사업 성과 지표 통합
 
 **작업 절차:**
-1. `.crew/artifacts/pipeline/` 하위 이벤트 로그에서 pipeline_start/pipeline_end, agent_start/agent_end 이벤트를 파싱한다
+1. `~/.bams/artifacts/pipeline/` 하위 이벤트 로그에서 pipeline_start/pipeline_end, agent_start/agent_end 이벤트를 파싱한다
 2. 진행률(완료 Step / 전체 Step), 소요 시간(Phase별), 블로커 현황을 계산한다
 3. 신호등 체계(Green/Yellow/Red)로 전체 상태를 분류한다
 4. tracking 파일에 Phase 완료 상태를 기록한다

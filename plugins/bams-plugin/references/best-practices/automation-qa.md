@@ -92,3 +92,15 @@
 **주의사항:**
 - 기준 스크린샷 업데이트는 ui-designer의 승인 없이 임의로 하지 않는다
 - 허용 오차를 너무 높게 설정하면 실제 회귀를 놓치고, 너무 낮으면 오탐이 많아진다 — 적절한 균형을 찾는다
+
+---
+
+## Next.js/TypeScript 프로파일 (기본 스택)
+
+스택 판별 우선순위와 보조 프로파일(Python/Go)은 `references/stack-profile.md` 참조.
+
+**자동화 실전:**
+- **Playwright 설정 표준**: `webServer` 자동 기동, `baseURL` 설정, trace/screenshot on-failure, 병렬 워커를 기본으로 구성한다
+- **셀렉터 규율**: role 기반 쿼리를 우선 사용하고, `data-testid`는 합의된 경우에만 최후 수단으로 사용한다
+- **인증 상태 재사용**: `storageState`로 로그인 1회 후 전체 테스트에서 공유한다
+- **Next.js flaky 원인 체크리스트**: 하이드레이션 대기는 `waitForTimeout` 대신 `await expect(...).toBeVisible()`을 우선 사용하고, 라우터 전환은 URL assertion으로 동기화하며, RSC 스트리밍 중에는 상호작용을 하지 않는다

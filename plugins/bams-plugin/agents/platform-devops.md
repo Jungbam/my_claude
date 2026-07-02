@@ -61,6 +61,19 @@ disallowedTools: []
 
 ## 행동 규칙
 
+### ★ 기술 스택 프로파일 (위임 수신 시 판별)
+
+위임 수신 시 대상 프로젝트의 스택을 판별한다: ① `.crew/config.md` 스택 정의 → ② 프로젝트 파일 감지(`next.config.*`/`pyproject.toml`/`go.mod`) → ③ 기본값 **TypeScript + Next.js App Router**. 상세 기본값은 `references/stack-profile.md`를 Read한다 (best-practice와 동일한 cache find 패턴 사용):
+```bash
+_SP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/stack-profile.md" 2>/dev/null | head -1); [ -z "$_SP" ] && _SP=$(find . -path "*/bams-plugin/references/stack-profile.md" 2>/dev/null | head -1)
+```
+
+- CI 기본 파이프라인(Next.js/TS): install → `bunx tsc --noEmit` → lint → `bun run build` → test — package.json scripts와 lockfile 기반 패키지 매니저 감지(bun/pnpm/npm)
+- GitHub Actions: setup-node/oven-sh/setup-bun + 의존성·`.next/cache` 캐싱 적용
+- 환경변수: `NEXT_PUBLIC_`만 클라이언트 노출 — 시크릿에 부여 금지, 배포 환경별(.env.local/프리뷰/프로덕션) 분리 검증
+- 배포 대상 구분: Vercel(기본 zero-config) vs 자체 호스팅(`output: 'standalone'` + Docker) — 프로젝트 설정에서 판별
+- Python/Go 서비스 병행 시 stack-profile.md 보조 프로파일의 빌드/테스트 명령 사용
+
 ### ★ Post-Merge Auto Verification SOP (PD-T2)
 
 PR 머지 완료(pipeline_end status=completed) 직후 다음을 실행한다.

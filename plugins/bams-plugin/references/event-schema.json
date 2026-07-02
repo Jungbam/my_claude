@@ -10,7 +10,11 @@
     { "$ref": "#/definitions/agent_start" },
     { "$ref": "#/definitions/agent_end" },
     { "$ref": "#/definitions/error" },
-    { "$ref": "#/definitions/retro_skip" }
+    { "$ref": "#/definitions/retro_skip" },
+    { "$ref": "#/definitions/work_unit_start" },
+    { "$ref": "#/definitions/work_unit_end" },
+    { "$ref": "#/definitions/pipeline_linked" },
+    { "$ref": "#/definitions/recover" }
   ],
   "definitions": {
     "pipeline_start": {
@@ -19,9 +23,11 @@
       "properties": {
         "type": { "const": "pipeline_start" },
         "pipeline_slug": { "type": "string" },
-        "pipeline_type": { "type": "string", "enum": ["feature", "hotfix", "dev", "debug", "review", "deep-review", "deploy", "weekly", "performance", "security", "project-init", "retro", "plan", "sprint", "ship", "qa", "verify", "browse", "export", "import"] },
+        "pipeline_type": { "type": "string", "enum": ["feature", "hotfix", "dev", "debug", "review", "deep-review", "deploy", "weekly", "performance", "security", "project-init", "retro", "plan", "sprint", "ship", "qa", "verify", "browse", "export", "import", "dept-hub"] },
         "command": { "type": "string" },
         "arguments": { "type": "string", "default": "" },
+        "parent_pipeline_slug": { "type": "string", "description": "Set when this pipeline was spawned from another pipeline" },
+        "work_unit_slug": { "type": "string", "description": "Explicitly passed WU slug, or the most recently started active work unit" },
         "ts": { "type": "string", "format": "date-time" }
       },
       "additionalProperties": false
@@ -32,12 +38,13 @@
       "properties": {
         "type": { "const": "pipeline_end" },
         "pipeline_slug": { "type": "string" },
-        "status": { "type": "string", "enum": ["completed", "failed", "paused", "rolled_back"] },
+        "status": { "type": "string", "enum": ["completed", "failed", "paused", "rolled_back", "cancelled"] },
         "total_steps": { "type": "integer" },
         "completed_steps": { "type": "integer" },
         "failed_steps": { "type": "integer" },
         "skipped_steps": { "type": "integer" },
         "duration_ms": { "type": "integer" },
+        "duration_ms_measured": { "type": "boolean", "description": "true=now_ms 실측, false=placeholder/미전달 폴백" },
         "ts": { "type": "string", "format": "date-time" }
       },
       "additionalProperties": false
@@ -78,7 +85,7 @@
         "trace_id": { "type": "string", "description": "Pipeline slug + run start time, or standalone-{timestamp}" },
         "pipeline_slug": { "type": "string" },
         "agent_type": { "type": "string" },
-        "department": { "type": "string", "enum": ["planning", "engineering", "design", "evaluation", "qa", "management", "general"] },
+        "department": { "type": "string", "enum": ["planning", "engineering-frontend", "engineering-backend", "engineering-platform", "design", "evaluation", "qa", "management", "general"] },
         "model": { "type": "string" },
         "step_number": { "type": ["integer", "null"] },
         "description": { "type": "string" },
@@ -100,7 +107,7 @@
         "pipeline_slug": { "type": "string" },
         "agent_type": { "type": "string" },
         "is_error": { "type": "boolean", "default": false },
-        "status": { "type": "string", "enum": ["success", "error"], "description": "Derived from is_error" },
+        "status": { "type": "string", "enum": ["success", "error", "timeout"], "description": "Derived from is_error; timeout documented as a valid value in _shared_common.md" },
         "duration_ms": { "type": "integer" },
         "result_summary": { "type": "string", "maxLength": 300 },
         "output": { "type": "string", "maxLength": 1000, "description": "Longer result summary (up to 1000 chars)" },
@@ -132,6 +139,52 @@
         "pipeline_slug": { "type": "string" },
         "reason": { "type": "string" },
         "mode": { "type": "string", "enum": ["B", "C"] },
+        "ts": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "work_unit_start": {
+      "type": "object",
+      "required": ["type", "work_unit_slug", "work_unit_name", "ts"],
+      "properties": {
+        "type": { "const": "work_unit_start" },
+        "work_unit_slug": { "type": "string" },
+        "work_unit_name": { "type": "string" },
+        "ts": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "work_unit_end": {
+      "type": "object",
+      "required": ["type", "work_unit_slug", "status", "ts"],
+      "properties": {
+        "type": { "const": "work_unit_end" },
+        "work_unit_slug": { "type": "string" },
+        "status": { "type": "string", "enum": ["completed", "failed", "cancelled"], "default": "completed" },
+        "ts": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "pipeline_linked": {
+      "type": "object",
+      "description": "Emitted alongside pipeline_start when an active work unit exists, linking the pipeline to that WU",
+      "required": ["type", "work_unit_slug", "pipeline_slug", "pipeline_type", "ts"],
+      "properties": {
+        "type": { "const": "pipeline_linked" },
+        "work_unit_slug": { "type": "string" },
+        "pipeline_slug": { "type": "string" },
+        "pipeline_type": { "type": "string" },
+        "ts": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "recover": {
+      "type": "object",
+      "description": "Marker event signaling interrupted-event cleanup for a pipeline slug",
+      "required": ["type", "pipeline_slug", "ts"],
+      "properties": {
+        "type": { "const": "recover" },
+        "pipeline_slug": { "type": "string" },
         "ts": { "type": "string", "format": "date-time" }
       },
       "additionalProperties": false

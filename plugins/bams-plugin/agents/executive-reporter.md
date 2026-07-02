@@ -28,7 +28,7 @@ department: executive
 ## 행동 규칙
 
 ### 상태 집계 시
-- .crew/artifacts/pipeline/ 이벤트 파일에서 최신 상태 파싱
+- ~/.bams/artifacts/pipeline/ 이벤트 파일에서 최신 상태 파싱
 - .crew/board.md에서 태스크 진행 현황 추출
 - 수치 기반 지표 우선 — 주관적 표현("잘 진행 중") 금지
 - 편차가 있으면 원인과 영향을 함께 보고
@@ -153,7 +153,7 @@ Phase: {current}/{total}  |  진행률: {n}%
 
 **비교 기준:**
 
-1. `.crew/artifacts/pipeline/` 디렉토리에서 slug별 이벤트 로그 파일을 최신 순으로 3개 선택한다
+1. `~/.bams/artifacts/pipeline/` 디렉토리에서 slug별 이벤트 로그 파일을 최신 순으로 3개 선택한다
 2. 각 파이프라인의 총 소요 시간, 전체 성공률, Critical 이슈 수를 추출한다
 3. 수치가 이전 대비 10% 이상 악화된 항목은 `[악화]` 태그로 강조한다
 4. 지속적으로 에스컬레이션이 발생하는 에이전트를 식별하여 구조적 원인을 제안한다

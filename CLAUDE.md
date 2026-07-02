@@ -27,7 +27,7 @@
   4. 롤백 결정 및 회고 트리거 권고
 
 ### Work Unit 선택 규칙 준수 필수 (불변)
-- 활성 WU 2개 이상이면 AskUserQuestion으로 사용자에게 선택 요청
+- 활성 WU 2개 이상이면 최근 사용 WU에 자동 연결 (선택 프롬프트 없음, `--wu`로 오버라이드 가능)
 - 커맨드 레벨에서 임의로 WU 결정 금지 (`_shared_common.md` §Work Unit 선택 참조)
 
 ## 2. 조직도 (8부서 36에이전트)
@@ -67,7 +67,17 @@
 ### Work Unit 선택
 - 활성 WU 0개 → 경고 후 WU 없이 진행
 - 활성 WU 1개 → 자동 선택
-- 활성 WU 2개+ → AskUserQuestion으로 사용자에게 선택 요청
+- 활성 WU 2개+ → **최근 사용 WU 자동 연결** (마지막 `pipeline_linked` 기준, 없으면 `work_unit_start` 기준) — 선택 프롬프트 없음, 연결 결과를 로그로 표시
+- `--wu <slug>` 지정 시 자동 선택 로직을 건너뛰고 명시된 WU에 즉시 연결
+
+### 진입점 매트릭스 (5초 결정표)
+
+| 상황 | 커맨드 | 조건 (1줄 판별) |
+|------|--------|----------------|
+| 버그 수정 | `/bams:hotfix` (1건) · `/bams:dev` (다건) | 재현 가능한 실패 1건이면 hotfix, 여러 이슈 묶음이면 dev |
+| 신규 기능 개발 | `/bams:feature` 또는 `/bams:plan` → `/bams:dev` | 즉시 풀 사이클이면 feature, 계획만 먼저면 plan → dev |
+| 코드 리뷰 | `/bams:review` (게이트 포함) · `/bams:deep-review` (구조+Codex 심층) | 릴리스 게이트 판정까지 필요하면 review, 구조적 리뷰·Codex까지 포함한 심층 조사면 deep-review |
+| 계획 수립 | `/bams:plan` | 구현 없이 PRD/spec/tasks 문서만 작성 |
 
 ### 커맨드 목록
 
@@ -113,25 +123,27 @@
 - 커맨드 레벨(메인): `pipeline_start`/`pipeline_end`, `step_start`/`step_end`, `recover`, `error` emit 가능
 - `agent_start`/`agent_end`: 커맨드 → 부서장 → (선택적) 에이전트 2단 위임 체계 내에서만 emit
 
-### 이벤트 타입 (10종)
+### 이벤트 타입 (12종)
 
 | 타입 | 필수 필드 |
 |------|----------|
-| `pipeline_start` | pipeline_slug, pipeline_type, command, arguments, work_unit_slug? |
-| `pipeline_end` | pipeline_slug, status(`completed`\|`failed`\|`paused`\|`rolled_back`), total_steps, completed_steps, failed_steps, skipped_steps, duration_ms |
+| `pipeline_start` | pipeline_slug, pipeline_type, command, arguments, work_unit_slug?, parent_pipeline_slug? |
+| `pipeline_end` | pipeline_slug, status(`completed`\|`failed`\|`paused`\|`rolled_back`\|`cancelled`), total_steps, completed_steps, failed_steps, skipped_steps, duration_ms |
 | `step_start` | pipeline_slug, step_number, step_name, phase |
 | `step_end` | pipeline_slug, step_number, status(`done`\|`fail`\|`skipped`), duration_ms |
 | `agent_start` | call_id, agent_type, department, model, description, step_number |
-| `agent_end` | call_id, agent_type, is_error, status, duration_ms, result_summary |
-| `work_unit_start` | work_unit_slug, work_unit_name, started_at |
-| `work_unit_end` | work_unit_slug, status(`completed`\|`failed`\|`cancelled`), ended_at, duration_ms |
+| `agent_end` | call_id, agent_type, is_error, status(`success`\|`error`\|`timeout`), duration_ms, result_summary |
+| `work_unit_start` | work_unit_slug, work_unit_name, ts |
+| `work_unit_end` | work_unit_slug, status(`completed`\|`failed`\|`cancelled`), ts |
+| `pipeline_linked` | work_unit_slug, pipeline_slug, pipeline_type (pipeline_start 시 활성 WU 존재하면 자동 emit) |
+| `retro_skip` | pipeline_slug, reason, mode(`B`\|`C`) |
 | `error` | pipeline_slug, message, step_number |
-| `recover` | 중단된 이벤트 자동 정리 |
+| `recover` | pipeline_slug (중단된 이벤트 자동 정리 마커) |
 
 ### 데이터 경로
 - 이벤트: `~/.bams/artifacts/pipeline/{slug}-events.jsonl`
 - WU 이벤트: `~/.bams/artifacts/pipeline/{slug}-workunit.jsonl`
-- 에이전트 로그: `~/.bams/artifacts/agents/YYYY-MM-DD.jsonl`
+- 에이전트 로그: `.crew/artifacts/agents/YYYY-MM-DD.jsonl`
 - HR 보고서: `~/.bams/artifacts/hr/`
 - 프로젝트 아티팩트: `.crew/artifacts/` (prd/, design/, review/, report/)
 - DB: `~/.claude/plugins/marketplaces/my-claude/bams.db`
@@ -190,7 +202,22 @@ hr_reports (독립)
 
 ## 현재 상태
 
-> Last updated: 2026-06-30
+> Last updated: 2026-07-02
+
+### 진행 중 (신규 — 2026-07-02, 파이프라인 구조개편 plan)
+- **`plan_파이프라인구조개편`** (Backlog, 12 tasks — TASK-095~106) ⭐ 신규
+  - Work Unit: 전체bams리뷰 / Branch: 현재 `bams/hotfix_파이프라인P0P1` 위 (스택: main ← PR#18 모델3-tier ← 408169b nextjs프롬프트 ← f921a1f P0P1)
+  - 부모 리뷰: `deep-review_파이프라인기획리뷰` (C8/M15/m8, 4관점) — P0/P1은 `hotfix_파이프라인P0P1`(f921a1f)로 선처리 완료, 본 plan은 P2 구조개편
+  - PRD: `.crew/artifacts/prd/plan_파이프라인구조개편-prd.md` (511줄, v2 APPROVED — OQ1~5 전부 Recommended)
+  - 설계 3트랙: `.crew/artifacts/design/plan_파이프라인구조개편-{design-hr(474),design-platform(~400),design-productstrategy(517)}.md`
+  - Spec: `.crew/artifacts/design/plan_파이프라인구조개편-spec.md` (662줄, SV 6/6 PASS, SP-1~SP-5 확정)
+  - OQ 확정: OQ1=(c) dev/feature 유지+_shared SSOT / OQ2=(b) review 양쪽 유지+SSOT / OQ3=(b) README 매트릭스 / OQ4=(b) WU 축소·라벨화 / OQ5=(a) 단일 PR+F-R별 10커밋
+  - 규모: 파일 ~88 (신규 6), 순증 +69~+129줄, 커맨드 파일만 약 -667줄 (성공지표 -15% 달성 예상)
+  - 핵심 발견(트랙 B): macOS `date +%s%3N` 오염(init.md 실측 이미 깨짐), emit pipeline_end duration 파싱 버그, F-R10 숨은 BE 의존성(server/src/app.ts lastLinkedAt)
+  - **`dev_파이프라인구조개편` ✅ COMPLETED (2026-07-03)** — 7 Wave (Advisor 순서역전: 095 선행→099, 6-way 핫스팟 직렬화), QA 조건부 GO → Major 2 해소(stub 19~21줄, migration 82줄) → QG **GO** (실측 7항목, Critical 0/Major 0)
+  - 커밋 8개 (F-R 그룹): 1c0cc12(F-R1) 446c738(F-R4) dc91a0f(F-R6인프라) a8bde92(F-R2/7/9) b726e8e(F-R5/8) 961f418(F-R10) 5167118(F-R3+migration) 00cf49f(횡단 39파일)
+  - 잔여 이연: init.md 사전 존재 git pull 하드코딩 (Minor, F-R5 스코프 밖)
+  - 다음: `/bams:ship` (브랜치 스택 정리: PR#18 머지 → nextjs+P0P1+구조개편 ship) + `/bams:retro dev_파이프라인구조개편`
 
 ### 진행 중 (신규 — 2026-06-30, design-import 품질개선 plan)
 - **`plan_designimport품질개선`** (Backlog, 9 tasks — TASK-077~085) ⭐ 신규

@@ -18,17 +18,22 @@ if [ "$TOOL_NAME" != "Agent" ]; then
   exit 0
 fi
 
-# Resolve project root
-BAMS_ROOT="${BAMS_CREW_DIR:-}"
-if [ -z "$BAMS_ROOT" ]; then
-  BAMS_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || true
+# Resolve project root (project-scoped artifacts, e.g. .crew/artifacts/retro/ below)
+PROJECT_ROOT="${BAMS_CREW_DIR:-}"
+if [ -z "$PROJECT_ROOT" ]; then
+  PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || true
 fi
-if [ -z "$BAMS_ROOT" ]; then
-  BAMS_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+if [ -z "$PROJECT_ROOT" ]; then
+  PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 fi
 
+# Pipeline events root: MUST match bams-viz-emit.sh's actual write path
+# (global BAMS root, default $HOME/.bams, overridable via BAMS_ROOT env var — see hooks/bams-viz-emit.sh:51)
+# NOTE: this is a *different* root than PROJECT_ROOT above — do not conflate the two.
+EMIT_ROOT="${BAMS_ROOT:-$HOME/.bams}"
+
 # Active pipeline 감지
-PIPELINE_DIR="${BAMS_ROOT}/.crew/artifacts/pipeline"
+PIPELINE_DIR="${EMIT_ROOT}/artifacts/pipeline"
 PIPELINE_SLUG=""
 PIPELINE_EVENTS=""
 PIPELINE_TYPE=""
@@ -64,7 +69,7 @@ fi
 PIPELINE_END_TS=$(grep '"pipeline_end"' "$PIPELINE_EVENTS" 2>/dev/null | tail -1 | jq -r '.ts // ""' 2>/dev/null || echo "")
 
 # retro 마커가 이미 존재하면 중복 생성 방지
-RETRO_DIR="${BAMS_ROOT}/.crew/artifacts/retro"
+RETRO_DIR="${PROJECT_ROOT}/.crew/artifacts/retro"
 MARKER_FILE="${RETRO_DIR}/${PIPELINE_SLUG}-retro-pending.json"
 DONE_FILE="${RETRO_DIR}/${PIPELINE_SLUG}-retro-done.json"
 

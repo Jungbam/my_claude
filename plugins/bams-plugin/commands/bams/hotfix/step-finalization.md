@@ -46,7 +46,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 Bash로 agent_end를 emit합니다:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-6-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" {duration_ms} "Step 4.5 조언 완료"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-6-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Step 4.5 조언 완료"
 ```
 
 **Phase 2: 메인이 직접 실행**
@@ -117,7 +117,7 @@ fi
 
 모든 finalization 작업 완료 후 step_end를 emit합니다:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 5 "done" {duration_ms}
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 5 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
 ```
 
 ## Viz 이벤트: pipeline_end
@@ -149,3 +149,7 @@ if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
   bun run plugins/bams-plugin/tools/bams-db/sync-board.ts {slug} --write
 fi
 ```
+
+## 회고 연결
+
+pipeline_end emit 후 `references/completion-protocol.md` Step 4.95에 따라 `/bams:retro {slug}` 실행 여부를 AskUserQuestion으로 확인한다 (CLAUDE.md §5 회고 의무). hotfix 내장 '개선점 수집'(Step 4.5)은 KPT 회고를 대체하지 않는다.

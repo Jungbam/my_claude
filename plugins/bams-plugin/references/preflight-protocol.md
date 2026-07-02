@@ -3,6 +3,17 @@
 모든 pipeline 스킬의 Pre-flight에서 공통으로 수행하는 절차입니다.
 각 스킬은 이 프로토콜을 참조하고, 스킬별 추가 항목만 기술합니다.
 
+## 배치 0: 코드 최신화
+
+배치 A(기본 컨텍스트)보다 먼저 실행합니다. 오래된 코드 기준으로 `config.md` 등을 읽으면 안 되기 때문입니다.
+
+Bash로 `git rev-parse --is-inside-work-tree 2>/dev/null`를 실행하여 git 저장소인지 확인합니다.
+
+- **git 저장소인 경우**: `git branch --show-current`로 현재 브랜치 확인 후 `git pull origin {현재 브랜치}`를 실행합니다. 충돌 발생 시 사용자에게 알리고 중단합니다.
+- **git 저장소가 아닌 경우**: 이 단계를 스킵합니다.
+
+이후 배치 A(기본 컨텍스트)로 진행합니다.
+
 ## 배치 A: 기본 컨텍스트 (병렬 읽기)
 
 다음 3개 파일을 **동시에** 읽습니다:
@@ -24,7 +35,7 @@
 
 4. **`.crew/gotchas.md`** — 프로젝트 gotchas 전체 목록 (있으면).
    - 이번 작업 영역과 관련된 gotchas를 추출하여 이후 단계에 경고로 전달.
-5. **`.crew/artifacts/pipeline/`** — 이전 pipeline 실행 기록.
+5. **`~/.bams/artifacts/pipeline/`** — 이전 pipeline 실행 기록 (emit 스크립트 실제 write 경로 — `BAMS_ROOT` env var로 override 가능, 기본값 `$HOME/.bams`).
    - 같은 pipeline 타입 + slug의 `status: in_progress` 파일 확인.
    - **여러 개** 있으면 타임스탬프 기준 최신 파일을 자동 선택.
    - 재개 여부를 AskUserQuestion으로 확인.
@@ -61,12 +72,12 @@ Glob: ~/.claude/plugins/**/bams-plugin/**/skills/browse/SKILL.md
 | board.md | 경고 후 계속 | 경고 후 계속 |
 | CLAUDE.md | 경고 후 계속 | 경고 후 계속 |
 | gotchas.md | 무시 (첫 실행) | 무시 |
-| artifacts/pipeline/ | 신규 실행 | 경고 후 신규 실행 |
+| ~/.bams/artifacts/pipeline/ | 신규 실행 | 경고 후 신규 실행 |
 | artifacts/review/ | 무시 | 무시 |
 
 ## 파이프라인 충돌 감지
 
-`.crew/artifacts/pipeline/` 스캔 시 `status: in_progress`인 파일이 있으면:
+`~/.bams/artifacts/pipeline/` 스캔 시 `status: in_progress`인 파일이 있으면:
 
 | 실행 중 | 새로 시작 | 행동 |
 |---------|----------|------|
@@ -107,7 +118,7 @@ GSTACK_OK인 경우, pipeline 타입별 필요 스킬을 사전 확인합니다:
 
 ## 동시성 보호
 
-진행 추적 파일 생성 시 `.crew/artifacts/pipeline/[slug].lock` 파일을 생성합니다.
+진행 추적 파일 생성 시 `~/.bams/artifacts/pipeline/[slug].lock` 파일을 생성합니다.
 이미 lock 파일이 존재하면: "다른 세션이 실행 중입니다. 강제 진행할까요?" AskUserQuestion.
 파이프라인 완료 또는 pause 시 lock 파일을 제거합니다.
 
