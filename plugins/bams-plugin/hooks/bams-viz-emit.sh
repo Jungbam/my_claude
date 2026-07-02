@@ -4,8 +4,9 @@ umask 077  # Ensure new files (logs, tmp) are created with 0600 permission
 # Called from pipeline commands (feature, dev, hotfix, etc.)
 #
 # Usage:
+#   bash bams-viz-emit.sh now_ms         (slug 불필요 — 크로스플랫폼 밀리초 epoch, stdout에 정수 출력)
 #   bash bams-viz-emit.sh pipeline_start <slug> <type> [command] [arguments]
-#   bash bams-viz-emit.sh pipeline_end   <slug> <status> [total] [completed] [failed] [skipped]
+#   bash bams-viz-emit.sh pipeline_end   <slug> <status> [total] [completed] [failed] [skipped] [duration_ms]
 #   bash bams-viz-emit.sh step_start     <slug> <step_number> <step_name> <phase>
 #   bash bams-viz-emit.sh step_end       <slug> <step_number> <status> [duration_ms]
 #   bash bams-viz-emit.sh agent_start    <slug> <call_id> <agent_type> [model] [description] [prompt_summary]
@@ -21,6 +22,25 @@ LC_ALL="${LC_ALL:-en_US.UTF-8}"
 export LANG LC_ALL
 
 EVENT_TYPE="${1:-}"
+
+# now_ms: 크로스플랫폼 밀리초 epoch 헬퍼 — slug 불필요, 아래 가드보다 먼저 처리
+# (macOS BSD date는 `date +%s%3N`을 지원하지 않아 오염된 문자열을 반환함 — 실측 확인됨)
+if [ "$EVENT_TYPE" = "now_ms" ]; then
+  if command -v perl >/dev/null 2>&1; then
+    perl -MTime::HiRes -e 'printf("%d\n", Time::HiRes::time()*1000)'
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 -c 'import time; print(int(time.time()*1000))'
+  else
+    _MS_TEST=$(date +%s%3N 2>/dev/null)
+    if printf '%s' "$_MS_TEST" | grep -qE '^[0-9]+$'; then
+      printf '%s\n' "$_MS_TEST"          # GNU date — 이미 밀리초
+    else
+      echo "$(( $(date +%s) * 1000 ))"    # BSD date 최종 폴백 — 초 정밀도만
+    fi
+  fi
+  exit 0
+fi
+
 SLUG="${2:-}"
 
 if [ -z "$EVENT_TYPE" ] || [ -z "$SLUG" ]; then
@@ -167,8 +187,16 @@ case "$EVENT_TYPE" in
     _P_COMPLETED="${5:-0}"
     _P_FAILED="${6:-0}"
     _P_SKIPPED="${7:-0}"
-    _PE_EVT=$(jq -cn --arg slug "$SLUG" --arg status "$_P_STATUS" --argjson total "$_P_TOTAL" --argjson completed "$_P_COMPLETED" --argjson failed "$_P_FAILED" --argjson skipped "$_P_SKIPPED" --arg ts "$TS" \
-      '{type:"pipeline_end",pipeline_slug:$slug,status:$status,total_steps:$total,completed_steps:$completed,failed_steps:$failed,skipped_steps:$skipped,ts:$ts}')
+    # duration_ms (8번째 인자) — now_ms 실측값이면 숫자, 미전달/placeholder면 0으로 안전 폴백
+    _P_DUR="${8:-}"
+    _P_DUR_MEASURED="false"
+    if printf '%s' "$_P_DUR" | grep -qE '^[0-9]+$'; then
+      _P_DUR_MEASURED="true"
+    else
+      _P_DUR="0"
+    fi
+    _PE_EVT=$(jq -cn --arg slug "$SLUG" --arg status "$_P_STATUS" --argjson total "$_P_TOTAL" --argjson completed "$_P_COMPLETED" --argjson failed "$_P_FAILED" --argjson skipped "$_P_SKIPPED" --argjson dur "$_P_DUR" --argjson measured "$_P_DUR_MEASURED" --arg ts "$TS" \
+      '{type:"pipeline_end",pipeline_slug:$slug,status:$status,total_steps:$total,completed_steps:$completed,failed_steps:$failed,skipped_steps:$skipped,duration_ms:$dur,duration_ms_measured:$measured,ts:$ts}')
     _post_event "$_PE_EVT"
     ;;
   step_start)

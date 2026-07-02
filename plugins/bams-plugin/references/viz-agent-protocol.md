@@ -104,3 +104,33 @@ step_start(...)
 ```
 
 이벤트 파일이 없으면 no-op으로 종료한다 (최초 실행 시 안전).
+
+## §4 duration_ms 실측 표준
+
+Step/Pipeline 시작 시각을 캡처하고 종료 시 차분한다. **직접 `date +%s%3N`을 호출하지 않는다** (macOS BSD date는 `%3N`을 지원하지 않아 오염된 문자열을 반환함 — 확인됨). 반드시 `bams-viz-emit.sh now_ms` 서브커맨드를 사용한다 (perl → python3 → GNU date 검증 → BSD date 초 정밀도 순 폴백 체인 내장).
+
+**셸 변수는 Bash 호출 간 비영속이다** (`deploy.md` §pipeline_end 주석에서 이미 확립된 원칙). 따라서 `now_ms`로 캡처한 시작 시각은 셸 변수로 다음 Bash 호출까지 넘기지 않는다 — 출력된 숫자를 대화 컨텍스트에서 그대로 추적하고, 종료 시점 Bash 호출에서 `{step_start_ms}`/`{pipeline_start_ms}` 같은 템플릿 토큰 자리에 **리터럴 숫자로 직접 대입**한다 (`{slug}`, `{status}` 등 다른 템플릿 토큰과 동일한 취급).
+
+### 시작 시점 캡처
+
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
+[ -n "$_EMIT" ] && bash "$_EMIT" now_ms   # 출력값을 기억해 두었다가 종료 시점에 {step_start_ms}로 대입
+```
+
+### 종료 시점 emit
+
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
+_STEP_DUR_MS=$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))
+[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" {step_number} "{status}" "$_STEP_DUR_MS"
+```
+
+`pipeline_end`도 동일 패턴을 따른다 — 파이프라인 최초 진입 시 `now_ms`를 1회 캡처하고, 종료 시 그 값을 `{pipeline_start_ms}`로 대입해 차분한 결과를 `pipeline_end`의 8번째 인자로 전달한다:
+
+```bash
+_PIPELINE_DUR_MS=$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {pipeline_start_ms} ))
+[ -n "$_EMIT" ] && bash "$_EMIT" pipeline_end "{slug}" "{status}" {total} {completed} {failed} {skipped} "$_PIPELINE_DUR_MS"
+```
+
+인자를 넘기지 않거나(`{duration_ms}` placeholder가 남아있는 레거시 호출 포함) 숫자가 아닌 값을 넘기면 `bams-viz-emit.sh`가 `duration_ms=0, duration_ms_measured=false`로 안전 폴백한다 — 하위 호환 100%.
