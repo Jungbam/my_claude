@@ -218,7 +218,10 @@ hr_reports (독립)
   - 확정: step 대역 review 20~24 / deep-review 5~8 (design-hr 원안 4~7의 Advisor call_id 충돌 +1 교정), NF3 실측 +163/180
   - 커밋 4개 (branch `bams/dev_리뷰파이프라인개편`): 5ff3f6b(SSOT) 33a643b(review --aspect) 4c6eac5(deep-review+delegation-protocol) f0303ec(docs)
   - 후속 3건: AC7(머지 후 `--aspect all` dogfooding 실측) / AC8(hooks token_usage null → 별도 hotfix 승격 권고, 반복 이연 2회째) / AC14(dogfooding 리포트)
-  - 다음: `/bams:ship` (PR 생성+머지) → dogfooding → `/bams:retro dev_리뷰파이프라인개편`
+  - **`review_리뷰개편검증` ✅ COMPLETED (2026-07-03)** — 독립 5관점 리뷰가 내부 QA 미검출 이슈 발견: C0/M4/m4, 1차 게이트 NO-GO(M1/M2/M4 결정론 결함 CONFIRMED) → 8건 전수 수정(커밋 24212d2) → 재판정 **GO**
+  - 수정 핵심: M1 Phase 2-b ASPECT_LIST 게이팅(uiux 단독 시 code 리뷰 중복 방지) / M2 aspect step 5~8 emit 스니펫 / M4 `--aspect list` 분기 선행 재번호 / m3 다중 aspect 시 .crew/tmp 경로 1회 전달
+  - P2 잔여(비차단): deep-review aspect agent_start/end 리터럴 bash 명문화 / 리뷰 프로세스 교훈: 부서장 "백그라운드 위임" 조기 반환 1회 발생 → 재개 지시로 해소 (retro 안건)
+  - 다음: `/bams:ship` (PR 생성+머지, 5커밋) → dogfooding → `/bams:retro dev_리뷰파이프라인개편`
 
 ### 진행 중 (이전 — 2026-07-02, 파이프라인 구조개편 plan)
 - **`plan_파이프라인구조개편`** (Backlog, 12 tasks — TASK-095~106) ⭐ 신규
