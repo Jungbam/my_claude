@@ -95,6 +95,14 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 `ASPECT_LIST`에 `code`가 포함된 경우에만 실행한다(기본값 `["code"]`이면 항상 포함되어 기존과 동일). `ASPECT_LIST`에 `code`가 없으면 본 Phase를 건너뛴다(step/agent emit 없이 Phase 2-c로 진행).
 
+`ASPECT_LIST`에 code 외 항목이 1개 이상 있으면(다중 aspect 조합) step 23도 emit한다(단독 code 실행이면 emit 없음 — 기존 흐름 무변경):
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
+if [ "${#ASPECT_LIST[@]}" -gt 1 ]; then
+  [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 23 "aspect-code 리뷰" "Phase 2-b"
+fi
+```
+
 Bash로 agent_start emit:
 ```bash
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "qa-strategy-2-$(date -u +%Y%m%d)" "qa-strategy" "claude-opus-4-8" "Phase 2: 5관점 병렬 리뷰"
@@ -123,6 +131,14 @@ Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "qa-strategy-2-$(date -u +%Y%m%d)" "qa-strategy" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "5관점 리뷰 완료"
 ```
 
+`ASPECT_LIST`에 code 외 항목이 1개 이상 있으면 step 23도 종료한다(단독 code 실행이면 emit 없음):
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
+if [ "${#ASPECT_LIST[@]}" -gt 1 ]; then
+  [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 23 "done" "{duration_ms}"
+fi
+```
+
 **기대 산출물**: 5관점 리뷰 결과 (관점별 발견 사항 목록)
 
 ### Phase 2-c. aspect 확장 라우팅 (ASPECT_LIST에 code 외 항목이 있을 때만)
@@ -132,6 +148,44 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 그 외의 경우, `ASPECT_LIST`의 각 항목(이미 spawn된 `code`는 제외)에 대해 `references/multi-perspective-review.md` §aspect별 위임 메시지 템플릿을 사용하여 해당 부서장을 **병렬** 직접 spawn한다(§aspect 정의 표의 부서장 컬럼).
 
 각 aspect마다 Bash로 step_start/step_end emit(step_number는 §step_number 매핑 참조, step_name=`aspect-{name} 리뷰`) + agent_start/agent_end emit(부서장 spawn 전후).
+
+각 aspect의 step_start/agent_start는 해당 부서장 spawn 직전에 개별 실행합니다(ASPECT_LIST에 포함된 aspect만, code 제외):
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
+for asp in spec functional performance uiux; do
+  case " ${ASPECT_LIST[*]} " in
+    *" $asp "*)
+      case "$asp" in
+        spec) n=20; dept=product-strategy ;;
+        functional) n=21; dept=qa-strategy ;;
+        performance) n=22; dept=product-analytics ;;
+        uiux) n=24; dept=design-director ;;
+      esac
+      [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" "$n" "aspect-${asp} 리뷰" "Phase 2-c"
+      [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "${dept}-${n}-$(date -u +%Y%m%d)" "$dept" "claude-opus-4-8" "Phase 2-c: aspect-${asp} 리뷰"
+      ;;
+  esac
+done
+```
+
+각 부서장이 반환한 후, agent_end/step_end를 실행합니다:
+```bash
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
+for asp in spec functional performance uiux; do
+  case " ${ASPECT_LIST[*]} " in
+    *" $asp "*)
+      case "$asp" in
+        spec) n=20; dept=product-strategy ;;
+        functional) n=21; dept=qa-strategy ;;
+        performance) n=22; dept=product-analytics ;;
+        uiux) n=24; dept=design-director ;;
+      esac
+      [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "${dept}-${n}-$(date -u +%Y%m%d)" "$dept" "success" "{duration_ms}" "aspect-${asp} 리뷰 완료"
+      [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" "$n" "{status}" "{duration_ms}"
+      ;;
+  esac
+done
+```
 
 **기대 산출물**: aspect별 리뷰 결과(관점별 발견 사항 목록) — Phase 3에서 code aspect 결과와 함께 종합.
 

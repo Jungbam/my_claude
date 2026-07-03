@@ -125,7 +125,7 @@ grep -rn 'Critical 0건.*Major 2건' plugins/bams-plugin/ \
 | `spec` | AC 미이행 3건 이상 | AC 미이행 1~2건 | **제안값 — spec 단계에서 최종 확정 필요(PRD §13 로드맵)** |
 | `code` | (변경 없음 — 기존 §기본 임계값 그대로) | (변경 없음) | — |
 
-**다중 aspect 통합 판정 규칙**: 선택된 aspect 각각을 개별 판정한 뒤, **worst-case 원칙**(PASS < CONDITIONAL < FAIL 순으로 가장 낮은 등급 채택)으로 전체 판정을 결정한다.
+**다중 aspect 통합 판정 규칙**: 선택된 aspect 각각을 개별 판정한 뒤, **worst-case 원칙**: 하나라도 FAIL이면 전체 FAIL, FAIL이 없고 하나라도 CONDITIONAL이면 전체 CONDITIONAL, 모두 PASS일 때만 전체 PASS로 전체 판정을 결정한다.
 
 ### aspect 임계값 하드코딩 검색 CI 규칙
 
