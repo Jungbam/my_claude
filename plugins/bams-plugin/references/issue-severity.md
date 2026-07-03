@@ -113,3 +113,19 @@ grep -rn 'Critical 0건.*Major 2건' plugins/bams-plugin/ \
   | grep -v '차이점: 본 파이프라인 N값'  # SP-1 통일본 예외
 # 결과 0건이어야 PASS
 ```
+## aspect별 Override (SSOT — F-R11, plan_리뷰파이프라인개편)
+
+`/bams:review --aspect ...`는 항상 Phase 4 게이트를 실행한다(OQ6=(b)). 아래는 aspect별 추가 Critical/Major 분류 기준이며, §기본 임계값(Critical 0 / Major ≤2)과 **함께** 적용한다(대체 아님).
+
+| aspect | 추가 Critical 기준 | 추가 Major 기준 | 근거 |
+|---|---|---|---|
+| `uiux` | WCAG 2.2 AA 위반 1건 이상 | 시각 diff 임계값(픽셀 불일치) 초과 | PRD F-R11 |
+| `functional` | 기존 회귀 테스트 실패 1건 이상 | 엣지케이스 미커버(신규 발견) 다수 | PRD F-R11 |
+| `performance` | (§Performance Critical 표 그대로 — 메모리 누수 등) | LCP 3s 초과 (기존 §Performance Major와 동일, 신규 아님) | PRD F-R11 |
+| `spec` | AC 미이행 3건 이상 | AC 미이행 1~2건 | **제안값 — spec 단계에서 최종 확정 필요(PRD §13 로드맵)** |
+| `code` | (변경 없음 — 기존 §기본 임계값 그대로) | (변경 없음) | — |
+
+**다중 aspect 통합 판정 규칙**: 선택된 aspect 각각을 개별 판정한 뒤, **worst-case 원칙**(PASS < CONDITIONAL < FAIL 순으로 가장 낮은 등급 채택)으로 전체 판정을 결정한다.
+
+### 참조 지점 목록(Reverse Index) 갱신
+- `commands/bams/review.md` — Phase 4 (aspect override 적용)
