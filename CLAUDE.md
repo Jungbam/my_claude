@@ -76,7 +76,7 @@
 |------|--------|----------------|
 | 버그 수정 | `/bams:hotfix` (1건) · `/bams:dev` (다건) | 재현 가능한 실패 1건이면 hotfix, 여러 이슈 묶음이면 dev |
 | 신규 기능 개발 | `/bams:feature` 또는 `/bams:plan` → `/bams:dev` | 즉시 풀 사이클이면 feature, 계획만 먼저면 plan → dev |
-| 코드 리뷰 | `/bams:review` (게이트 포함) · `/bams:deep-review` (구조+Codex 심층) | 릴리스 게이트 판정까지 필요하면 review, 구조적 리뷰·Codex까지 포함한 심층 조사면 deep-review |
+| 코드 리뷰 | `/bams:review` (게이트 포함) · `/bams:deep-review` (구조+Codex 심층) | 릴리스 게이트 판정까지 필요하면 review, 구조적 리뷰·Codex까지 포함한 심층 조사면 deep-review — 둘 다 `--aspect spec\|functional\|performance\|code\|uiux\|all`로 리뷰 축 선택 가능(기본값 code) |
 | 계획 수립 | `/bams:plan` | 구현 없이 PRD/spec/tasks 문서만 작성 |
 
 ### 커맨드 목록
@@ -92,8 +92,8 @@
 | `/bams:dev` | 멀티에이전트 풀 개발 파이프라인 |
 | `/bams:hotfix` | 버그 핫픽스 빠른 경로 |
 | `/bams:debug` | 버그 분류 → 수정 → 회귀 테스트 |
-| `/bams:deep-review` | 다관점 심층 코드 리뷰 (5관점 + 구조적 리뷰 + 세컨드 오피니언) |
-| `/bams:review` | 5관점 병렬 코드 리뷰 |
+| `/bams:deep-review` | 다관점 심층 코드 리뷰 (5관점 + 구조적 리뷰 + 세컨드 오피니언, `--aspect` 지원) |
+| `/bams:review` | 5관점 병렬 코드 리뷰 (`--aspect` 지원) |
 | `/bams:ship` | PR 생성 + 머지 |
 | `/bams:deploy` | 출시 검증 + Land & Deploy |
 | `/bams:verify` | CI/CD 프리플라이트 (빌드, 린트, 타입체크, 테스트) |
@@ -202,9 +202,25 @@ hr_reports (독립)
 
 ## 현재 상태
 
-> Last updated: 2026-07-02
+> Last updated: 2026-07-03
 
-### 진행 중 (신규 — 2026-07-02, 파이프라인 구조개편 plan)
+### 진행 중 (신규 — 2026-07-03, 리뷰 파이프라인 개편 plan)
+- **`plan_리뷰파이프라인개편`** (Backlog, 8 tasks — TASK-107~114) ⭐ 신규
+  - Work Unit: 전체bams리뷰 / Branch: main (구현 시 `bams/dev_리뷰파이프라인개편` 예정)
+  - 핵심: 5 aspect(spec-compliance/functional/performance/code/uiux) 직교 리뷰 축 도입, 기존 5관점은 code aspect 하위 재배치
+  - PRD: `.crew/artifacts/prd/plan_리뷰파이프라인개편-prd.md` (APPROVED v2 — OQ1~6 전부 Recommended)
+  - Spec: `.crew/artifacts/design/plan_리뷰파이프라인개편-spec.md` (581줄, SV 6/6 PASS)
+  - 설계 2트랙: `-design-hr.md`(434줄, 파일 4개 +153줄/17 hunks) + `-design-platform.md`(~300줄, packaging/병렬/계측)
+  - OQ 확정: OQ1=(c) `--aspect` 하이브리드(기본 code 100% 하위 호환) / OQ2=(b) `review --aspect all`=통합 / OQ3=(b) 특화 라우팅(spec→product-strategy, functional·code→qa-strategy, performance→product-analytics, uiux→design-director) / OQ4=(a) multi-perspective-review.md 확장 / OQ5=(a) 컨텍스트 packaging 첨부(부서장 재Read 금지) / OQ6=(b) review 항상 게이트 + aspect override
+  - NF 목표: 실행시간 -30% / 토큰 -20% / 순증 ≤+180줄 (추정 +153~165) / 신규 커맨드 파일 0
+  - 게이트 CONDITIONAL-GO 기록: ① NF3 추정 편차(spec 165 vs design-hr 153) dev 실측 확정 ② step 번호 대역 충돌(20~24 vs 10~16) TASK-112 단일화 ③ token_usage 하드코딩 null → NF2 측정은 TASK-112 훅 조사 선행
+  - **`dev_리뷰파이프라인개편` ✅ COMPLETED (2026-07-03)** — 4 Wave + 정정 2회 (SSOT step표 5~8, Minor-1 서술), spawn 17회 100% 성공, QA GO(9/9 실측) → QG PASS(iteration 1, Critical 0/Major 0, AC 11/14 + 구조적 2)
+  - 확정: step 대역 review 20~24 / deep-review 5~8 (design-hr 원안 4~7의 Advisor call_id 충돌 +1 교정), NF3 실측 +163/180
+  - 커밋 4개 (branch `bams/dev_리뷰파이프라인개편`): 5ff3f6b(SSOT) 33a643b(review --aspect) 4c6eac5(deep-review+delegation-protocol) f0303ec(docs)
+  - 후속 3건: AC7(머지 후 `--aspect all` dogfooding 실측) / AC8(hooks token_usage null → 별도 hotfix 승격 권고, 반복 이연 2회째) / AC14(dogfooding 리포트)
+  - 다음: `/bams:ship` (PR 생성+머지) → dogfooding → `/bams:retro dev_리뷰파이프라인개편`
+
+### 진행 중 (이전 — 2026-07-02, 파이프라인 구조개편 plan)
 - **`plan_파이프라인구조개편`** (Backlog, 12 tasks — TASK-095~106) ⭐ 신규
   - Work Unit: 전체bams리뷰 / Branch: 현재 `bams/hotfix_파이프라인P0P1` 위 (스택: main ← PR#18 모델3-tier ← 408169b nextjs프롬프트 ← f921a1f P0P1)
   - 부모 리뷰: `deep-review_파이프라인기획리뷰` (C8/M15/m8, 4관점) — P0/P1은 `hotfix_파이프라인P0P1`(f921a1f)로 선처리 완료, 본 plan은 P2 구조개편
