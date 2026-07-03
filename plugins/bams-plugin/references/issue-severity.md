@@ -127,5 +127,22 @@ grep -rn 'Critical 0건.*Major 2건' plugins/bams-plugin/ \
 
 **다중 aspect 통합 판정 규칙**: 선택된 aspect 각각을 개별 판정한 뒤, **worst-case 원칙**(PASS < CONDITIONAL < FAIL 순으로 가장 낮은 등급 채택)으로 전체 판정을 결정한다.
 
+### aspect 임계값 하드코딩 검색 CI 규칙
+
+신규 aspect 임계값을 §aspect별 Override 표에 추가할 때는 아래 CI grep 규칙에도 해당 패턴을 추가할 것.
+
+```bash
+grep -rn 'AC 미이행 [0-9]\+건' plugins/bams-plugin/ \
+  --include='*.md' \
+  | grep -v 'references/issue-severity.md'
+# 결과 0건이어야 PASS
+```
+```bash
+grep -rn 'WCAG 2.2 AA 위반' plugins/bams-plugin/ \
+  --include='*.md' \
+  | grep -v 'references/issue-severity.md'
+# 결과 0건이어야 PASS
+```
+
 ### 참조 지점 목록(Reverse Index) 갱신
 - `commands/bams/review.md` — Phase 4 (aspect override 적용)

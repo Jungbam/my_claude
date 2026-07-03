@@ -93,6 +93,8 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 ### Phase 2-b. 메인이 qa-strategy 직접 spawn (5관점 병렬 리뷰)
 
+`ASPECT_LIST`에 `code`가 포함된 경우에만 실행한다(기본값 `["code"]`이면 항상 포함되어 기존과 동일). `ASPECT_LIST`에 `code`가 없으면 본 Phase를 건너뛴다(step/agent emit 없이 Phase 2-c로 진행).
+
 Bash로 agent_start emit:
 ```bash
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "qa-strategy-2-$(date -u +%Y%m%d)" "qa-strategy" "claude-opus-4-8" "Phase 2: 5관점 병렬 리뷰"
@@ -111,7 +113,7 @@ Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호
 > expected_output:
 >   type: multi_perspective_review
 > quality_criteria:
->   5관점 정의는 `references/multi-perspective-review.md` §5관점 정의 참조.
+>   5관점 정의는 `references/multi-perspective-review.md` §code aspect — 5관점 정의 참조.
 > ```
 >
 > QA부장은 도메인 내 관점별 specialist(automation-qa, defect-triage 등)를 **최대 1회** 추가 spawn 가능(harness 깊이 2 한도).
