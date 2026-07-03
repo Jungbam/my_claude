@@ -92,7 +92,8 @@ pipeline-orchestrator는 Task 호출자가 아닌 **조언자(advisor)** 로서 
 | 항목 | 필수 | 설명 |
 |------|------|------|
 | `task_description` | O | 수행할 작업의 명확한 설명 |
-| `input_artifacts` | O | 입력 산출물 경로 목록 |
+| `input_artifacts` | O | 입력 산출물 경로 목록 (기존 의미 불변 — 경로만, 콘텐츠는 재Read 대상) |
+| `context_package` | 조건부(aspect 통합 리뷰 시 O) | Phase 1에서 1회 수집한 파일 경로+내용(또는 diff)을 Markdown 블록으로 패키징한 텍스트, 또는(크기 초과 시) 임시 파일 경로 1줄. 포맷 상세는 `references/multi-perspective-review.md` §컨텍스트 패키징 포맷 참조(SSOT). **이 필드가 첨부된 경우 부서장은 `input_artifacts`에 나열된 동일 파일을 재Read하지 않는다** — specialist(2단계)는 필요 시 재Read 가능 |
 | `expected_output` | O | 기대하는 산출물 형식과 경로 |
 | `quality_criteria` | O | 품질 기준 (테스트 통과, 린트 통과 등) |
 | `constraints` | - | 수정 가능 파일 범위, 금지 패턴, 시간 제한 |
