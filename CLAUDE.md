@@ -202,9 +202,24 @@ hr_reports (독립)
 
 ## 현재 상태
 
-> Last updated: 2026-07-03
+> Last updated: 2026-07-04
 
-### 진행 중 (신규 — 2026-07-03, 리뷰 파이프라인 개편 plan)
+### 진행 중 (신규 — 2026-07-04, viz 웹 개발 플랫폼)
+- **`plan_viz웹개발플랫폼` ✅ COMPLETED (2026-07-04)** — bams viz를 프로젝트(레포)별 웹 개발 지시 콘솔로 확장하는 기획 (Backlog 12 tasks — TASK-115~126)
+  - Work Unit: samsung-ai-data (자동 연결 — 최근 사용 기준; 의미상 전체bams리뷰가 적합, dev에서 `--wu` 검토)
+  - PRD: `.crew/artifacts/prd/plan_viz웹개발플랫폼-prd.md` (v2 APPROVED — OQ1~5 전부 Recommended)
+  - OQ 확정: OQ1=WorkProfile(코드)/Stack Profile(UI) / OQ2=repo_path $HOME 하위만 / OQ3=must-read 무제한+pref 20건 상한 / OQ4=자동 회고 opt-out / OQ5=uncommitted 경고+3지선택
+  - 설계 5트랙: spec(SV 6/6 PASS) + design-ui(브리프 수임) + design-be(612줄, 25 endpoints) + design-infra(DB v3+보안) + design-fe(842줄, 신규 55파일) — `.crew/artifacts/design/plan_viz웹개발플랫폼-*.md`
+  - 핵심 실측 발견(infra 트랙): bams-server Bun.serve에 hostname 미지정 — **NF-SEC-1(127.0.0.1 bind) 현재 위반 상태**, TASK-116에서 수정
+  - 실행 아키텍처: Option A — bams-server가 `Bun.spawn(["claude","-p",...], cwd=repo_path)` 프로세스 매니저 + SSE 스트림
+  - **`dev_viz웹개발플랫폼` ✅ COMPLETED (2026-07-04)** — 4 Wave 구현 (spawn 12회: Advisor 1 + 인프라 3 + BE 4 + FE 4) + QA/QG 2 iteration
+  - QA iteration 1 **NO-GO**: Critical 1(orchestrator 테스트가 실 bams.db 오염 — DEFAULT_DB_PATH eager 평가, session:% pipelines 79건/execution_% 이벤트 207건 유입) + Major 2(getLogs 종료 세션 로그 소실 / CORS `*`+상태변경 POST CSRF) → 전량 수정(lazy 평가 전환 + LRU 20 보존 + Origin 검증) + DB 오염 정리(백업 `~/.bams/backup/bams.db.bak-20260704-224124` 후 원자 삭제, 무관 데이터 무손상 실측) → QG iteration 2 **PASS** (C0/M0 독립 재검증, 테스트 104+70 pass)
+  - 커밋 5개 (branch `bams/dev_viz웹개발플랫폼`): dfe5bc7(C1 DB v3+이벤트) 95694d6(C2 서버 API 25종+Orchestrator+보안) 413db18(C3 FE Shell/랜딩) cea06bd(C4 FE 상세+실행콘솔) 3d76de7(C5 docs)
+  - 잔여 이연: Minor 4건(override_heading 정규식/KnowledgeLoader 유닛테스트/system_prompt_pref_truncated 스키마 등록/spec §1-3 문서 정합) / 성공지표 대시보드(WCT·PPD·MTTS·KRR·CPR — AC-8 부분 미충족, 후속 스프린트 명시 이연) / server test/api-endpoints.test.ts 14건 이월 실패(main baseline 동일 — 별도 hotfix 승격 권고)
+  - 실 bams.db 마이그레이션(migrate-v3) 실행은 미수행 — 서버 initSchema 멱등 적용이 첫 기동 시 처리 (또는 `bun run migrate-v3.ts` 수동)
+  - 다음: `/bams:ship dev_viz웹개발플랫폼` (PR 생성+머지) → `/bams:retro dev_viz웹개발플랫폼` / 이월: sync-board.ts 버그 + AC8 token_usage hotfix
+
+### 진행 중 (이전 — 2026-07-03, 리뷰 파이프라인 개편 plan)
 - **`plan_리뷰파이프라인개편`** (Backlog, 8 tasks — TASK-107~114) ⭐ 신규
   - Work Unit: 전체bams리뷰 / Branch: main (구현 시 `bams/dev_리뷰파이프라인개편` 예정)
   - 핵심: 5 aspect(spec-compliance/functional/performance/code/uiux) 직교 리뷰 축 도입, 기존 5관점은 code aspect 하위 재배치
@@ -221,7 +236,13 @@ hr_reports (독립)
   - **`review_리뷰개편검증` ✅ COMPLETED (2026-07-03)** — 독립 5관점 리뷰가 내부 QA 미검출 이슈 발견: C0/M4/m4, 1차 게이트 NO-GO(M1/M2/M4 결정론 결함 CONFIRMED) → 8건 전수 수정(커밋 24212d2) → 재판정 **GO**
   - 수정 핵심: M1 Phase 2-b ASPECT_LIST 게이팅(uiux 단독 시 code 리뷰 중복 방지) / M2 aspect step 5~8 emit 스니펫 / M4 `--aspect list` 분기 선행 재번호 / m3 다중 aspect 시 .crew/tmp 경로 1회 전달
   - P2 잔여(비차단): deep-review aspect agent_start/end 리터럴 bash 명문화 / 리뷰 프로세스 교훈: 부서장 "백그라운드 위임" 조기 반환 1회 발생 → 재개 지시로 해소 (retro 안건)
-  - 다음: `/bams:ship` (PR 생성+머지, 5커밋) → dogfooding → `/bams:retro dev_리뷰파이프라인개편`
+  - **ship 완료 (2026-07-03)**: PR #20 squash 머지 → main `2b0b7be` (8파일 +254/-23), cache rsync 적용 — `--aspect` 즉시 사용 가능
+  - **`review_aspect통합도그푸딩` ✅ COMPLETED (2026-07-03)** — `--aspect all` 첫 dogfooding (대상: PR #20 자기 리뷰). 게이트 **CONDITIONAL GO** (Critical 0 / Major 7 / Minor 15, 게이트가 spec C1→하향·performance M4/M5 반박 — 이벤트 로그 실측 5 spawn)
+  - **AC7 실측 충족**: aspect 5종 병렬 wall-clock 278s vs 순차 합산 1,106s = **-74.9%** (NF1 -30% 초과 달성). 다중 aspect .crew/tmp packaging fallback 첫 실사용 — 5부서장 전원 1회 Read 준수
+  - 필수 3건 수정 완료(커밋 `13de326`, main 직접 + cache 적용): M1 all혼용 파싱 HALT / M2 worst-case 문구 자기모순 / M3 review.md step 23 emit + Phase 2-c 리터럴 스니펫. 리포트: `.crew/artifacts/review/review_aspect통합도그푸딩-report.md`
+  - 잔여: **AC8 token_usage null hotfix (48h 필수, 3회째 이연 — 최우선 승격)** / 권장: M6 NF3 측정 방법론, M7 CLAUDE.md 매트릭스 spec 정합, M8 `--aspect list` 노출, m14/m15 레거시 spawn 문구
+  - retro 신규 안건: 비-런타임 대상(markdown) 리뷰 시 performance/uiux aspect 재해석 가이드가 SSOT에 없어 Advisor 임기응변 의존 (M4/M5 오탐 원인)
+  - 다음: `/bams:hotfix token_usage` (AC8) → `/bams:retro dev_리뷰파이프라인개편`
 
 ### 진행 중 (이전 — 2026-07-02, 파이프라인 구조개편 plan)
 - **`plan_파이프라인구조개편`** (Backlog, 12 tasks — TASK-095~106) ⭐ 신규
