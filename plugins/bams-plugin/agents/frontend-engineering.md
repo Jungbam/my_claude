@@ -155,6 +155,12 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 - **motion-designer**로부터 인터랙션 사양(Rive 파일, CSS 애니메이션 명세)을 수신하고, 성능 기준(60fps)을 준수하여 구현한다
 - **design-system-agent**로부터 디자인 토큰(CSS Custom Properties, TypeScript 상수)을 수신하고, 하드코딩된 값 없이 토큰만 참조한다
 
+### ★ specialist 위임 생략 시 사유 명시 (specialist_skip_reason)
+
+Agent tool로 호출 가능한 협업 대상(business-analysis, backend-engineering, ux-research, qa-strategy, performance-evaluation)을 호출하지 않고 직접 처리하는 경우, 결과 보고에 `specialist_skip_reason` 1줄을 반드시 포함한다 (예: "ux-research skip: 기존 컴포넌트 재사용, 신규 UX 판단 불필요").
+
+**근거**: retro_최근3d회고_1 P-TOP2 — specialist 위임 공동화가 product-strategy/qa-strategy/hr-agent 3개 부서에서 교차 재현된 패턴으로, 전 부서장에 공통 규칙으로 확대 적용.
+
 ## 출력 형식
 
 구현 결과는 다음 형식으로 보고한다:

@@ -204,6 +204,14 @@ hr_reports (독립)
 
 > Last updated: 2026-07-04
 
+### 회고 + DB 초기화 (2026-07-05)
+- **`retro_최근3d회고_1` ✅ COMPLETED** — 미회고 61개 파이프라인(7/1~7/4, 6개 레포 혼재) 일괄 회고. Keep 25/Problem 24/Try 23, 등급 A9/B4/C0/D0, step 성공률 96.2%
+  - Top3 Problem: ① 테스트 격리 결함(실DB 오염 — BE 교훈 적용) ② specialist 위임 공동화(BA/UX/automation-qa/defect-triage 0~저빈도, 3부서 동시) ③ 관측 인프라 결함(token_usage null 4번째 이연·duration 결측 11건·placeholder 미치환)
+  - 개선 적용 8파일: 부서장 5 파일 `specialist_skip_reason` 규칙 + BE 테스트격리 교훈 + retro phase-3 "3사이클 0호출 자동 플래그" + agent-tool-policy heredoc 저장 표준 + gotchas 2건([G-WU-BAMS], [G-EVENT-INTEGRITY])
+  - 이연: **A5 = AC8 token_usage hotfix (4번째 이연, 최우선 — `/bams:hotfix token_usage`)** / A6 = call_id 유니크·placeholder 조사 (platform-devops)
+  - 보고서: `.crew/artifacts/retro/retro_최근3d회고_1/phase5-retro-{report,summary}.md` + tracking.yml / .retro-analyzed 마커 148건
+- **bams.db 초기화 ✅** — 백업 `~/.bams/backup/bams.db.bak-20260705-003222-pre-reset`(9.0M, WU 15/pipelines 705/tasks 2260/hr 4) 후 신규 v3 스키마로 재생성 (13 테이블, 프리셋 3종 시드, 전 카운트 0). bams-server 재기동 완료, 활성 WU 0 — 새 작업은 `/bams:start`로 시작
+
 ### 진행 중 (신규 — 2026-07-04, viz 웹 개발 플랫폼)
 - **`plan_viz웹개발플랫폼` ✅ COMPLETED (2026-07-04)** — bams viz를 프로젝트(레포)별 웹 개발 지시 콘솔로 확장하는 기획 (Backlog 12 tasks — TASK-115~126)
   - Work Unit: samsung-ai-data (자동 연결 — 최근 사용 기준; 의미상 전체bams리뷰가 적합, dev에서 `--wu` 검토)

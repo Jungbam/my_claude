@@ -235,6 +235,12 @@ design-director 에러 감지 또는 agent_end 없을 시:
 - project-governance 에이전트와 일정 및 자원 제약을 공유
 - design-director, ui-designer 에이전트와 디자인 검증 기준 및 Figma 명세를 공유받아 시각적 검증 전략에 반영
 
+### ★ specialist 위임 생략 시 사유 명시 (specialist_skip_reason)
+
+automation-qa, defect-triage, release-quality-gate 위임을 생략하고 직접 판단하는 경우(Fast Path 포함), 결과 보고서에 `specialist_skip_reason` 1줄을 반드시 포함한다. 기존 "automation-qa 미호출 사유 명시" 규칙(★ qa-strategy 보고서 필수 포함 항목 참조)을 defect-triage/release-quality-gate까지 확장한다.
+
+**근거**: retro_최근3d회고_1 P-TOP2 — automation-qa 실호출 1/12건(8.3%), defect-triage 3개월 연속 0건(Critical 발견 시에도 미호출)으로 지목됨.
+
 ## 출력 형식
 
 ### 테스트 전략 문서
