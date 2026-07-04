@@ -225,7 +225,8 @@ hr_reports (독립)
   - 커밋 5개 (branch `bams/dev_viz웹개발플랫폼`): dfe5bc7(C1 DB v3+이벤트) 95694d6(C2 서버 API 25종+Orchestrator+보안) 413db18(C3 FE Shell/랜딩) cea06bd(C4 FE 상세+실행콘솔) 3d76de7(C5 docs)
   - 잔여 이연: Minor 4건(override_heading 정규식/KnowledgeLoader 유닛테스트/system_prompt_pref_truncated 스키마 등록/spec §1-3 문서 정합) / 성공지표 대시보드(WCT·PPD·MTTS·KRR·CPR — AC-8 부분 미충족, 후속 스프린트 명시 이연) / server test/api-endpoints.test.ts 14건 이월 실패(main baseline 동일 — 별도 hotfix 승격 권고)
   - 실 bams.db 마이그레이션(migrate-v3) 실행은 미수행 — 서버 initSchema 멱등 적용이 첫 기동 시 처리 (또는 `bun run migrate-v3.ts` 수동)
-  - 다음: `/bams:ship dev_viz웹개발플랫폼` (PR 생성+머지) → `/bams:retro dev_viz웹개발플랫폼` / 이월: sync-board.ts 버그 + AC8 token_usage hotfix
+  - **`ship_viz웹개발플랫폼` ✅ COMPLETED (2026-07-05)** — pre-ship 게이트 CONDITIONAL GO(조건 이행: 버전 범프 2.3.0→2.4.0 d028885 + `.crew/tmp/` gitignore) → PR #21 squash 머지 → main `f33e039` (96파일 +16,936/-264, CI validate pass). retro 개선 8파일은 ffc9ea7로 동승. cache rsync 적용(2.4.0), marketplace는 레포 심링크라 자동 최신, bams-server 재기동 불필요(코드 동일)
+  - 다음: `/bams:retro dev_viz웹개발플랫폼` / 이월: **AC8 token_usage hotfix(최우선)** + sync-board.ts 버그 + api-endpoints.test.ts 14건 hotfix + DB v3 역방향 마이그레이션 스크립트 부재(게이트 지적 — 현재는 백업 복원이 롤백 수단)
 
 ### 진행 중 (이전 — 2026-07-03, 리뷰 파이프라인 개편 plan)
 - **`plan_리뷰파이프라인개편`** (Backlog, 8 tasks — TASK-107~114) ⭐ 신규
