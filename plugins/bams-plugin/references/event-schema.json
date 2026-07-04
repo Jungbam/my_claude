@@ -14,7 +14,10 @@
     { "$ref": "#/definitions/work_unit_start" },
     { "$ref": "#/definitions/work_unit_end" },
     { "$ref": "#/definitions/pipeline_linked" },
-    { "$ref": "#/definitions/recover" }
+    { "$ref": "#/definitions/recover" },
+    { "$ref": "#/definitions/execution_session_start" },
+    { "$ref": "#/definitions/execution_session_end" },
+    { "$ref": "#/definitions/execution_aborted" }
   ],
   "definitions": {
     "pipeline_start": {
@@ -185,6 +188,52 @@
       "properties": {
         "type": { "const": "recover" },
         "pipeline_slug": { "type": "string" },
+        "ts": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "execution_session_start": {
+      "type": "object",
+      "description": "웹 트리거 실행 세션 시작 (NF-OBS-1, plan_viz웹개발플랫폼-design-infra.md §4-1)",
+      "required": ["type", "session_id", "project_slug", "command", "ts"],
+      "properties": {
+        "type": { "const": "execution_session_start" },
+        "session_id": { "type": "string" },
+        "project_slug": { "type": "string" },
+        "pipeline_slug": { "type": "string", "description": "미확정 상태에서는 생략 — pipeline_start 관측 시 후속 이벤트에서 채워짐" },
+        "command": { "type": "string" },
+        "pid": { "type": "integer" },
+        "ts": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "execution_session_end": {
+      "type": "object",
+      "description": "웹 트리거 실행 세션 종료 (NF-OBS-1)",
+      "required": ["type", "session_id", "project_slug", "status", "ts"],
+      "properties": {
+        "type": { "const": "execution_session_end" },
+        "session_id": { "type": "string" },
+        "project_slug": { "type": "string" },
+        "pipeline_slug": { "type": "string" },
+        "status": { "type": "string", "enum": ["completed", "failed", "aborted", "orphaned"] },
+        "exit_code": { "type": "integer" },
+        "duration_ms": { "type": "integer" },
+        "ts": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "execution_aborted": {
+      "type": "object",
+      "description": "사용자 확인 abort 요청 감사 로그 (NF-SEC-6)",
+      "required": ["type", "session_id", "project_slug", "ts"],
+      "properties": {
+        "type": { "const": "execution_aborted" },
+        "session_id": { "type": "string" },
+        "project_slug": { "type": "string" },
+        "reason": { "type": "string", "default": "user_requested" },
+        "grace_period_ms": { "type": "integer", "default": 15000 },
+        "force_killed": { "type": "boolean" },
         "ts": { "type": "string", "format": "date-time" }
       },
       "additionalProperties": false

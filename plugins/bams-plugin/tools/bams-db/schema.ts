@@ -459,3 +459,341 @@ export interface WorkUnitRow {
   deleted_at: string | null;
   created_at: string;
 }
+
+// ─────────────────────────────────────────────────────────────
+// Schema v3 — Projects / WorkProfiles / Rules / Execution Sessions
+// (plan_viz웹개발플랫폼 F-P1/F-P3/F-P4/F-P5/F-P6/F-P10)
+//
+// 컨벤션: 기존 스키마와 동일하게 TEXT PRIMARY KEY(UUID) + DATETIME
+// (datetime('now')) 문자열 타임스탬프를 사용한다 — spec.md 초안은
+// INTEGER AUTOINCREMENT + unix-ms를 제안했으나, 코드베이스 전체가
+// 예외 없이 TEXT/UUID + DATETIME 컨벤션을 쓰므로(schema.ts 전수 확인)
+// 일관성을 우선한다(design-infra.md §0 "컨벤션 준수" 원칙).
+// CHECK 제약은 spec.md §2 DDL을 그대로 채택한다.
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * projects.auto_retro_override 유효 값
+ */
+export const AUTO_RETRO_OVERRIDE = {
+  INHERIT: "inherit",
+  ON: "on",
+  OFF: "off",
+} as const;
+
+export type AutoRetroOverride = (typeof AUTO_RETRO_OVERRIDE)[keyof typeof AUTO_RETRO_OVERRIDE];
+
+/**
+ * projects 테이블 DDL
+ * 로컬 레포 등록 단위. repo_path는 realpath 정규화된 절대 경로.
+ * archived_at IS NULL 조건의 partial unique index로 "아카이브 후 재등록 허용 +
+ * 활성 상태 중복 등록 방지"를 동시에 만족한다(design-infra.md §1-1 결정 #2).
+ */
+export const PROJECTS_TABLE_DDL = `
+  CREATE TABLE IF NOT EXISTS projects (
+    slug                TEXT PRIMARY KEY,
+    name                TEXT NOT NULL,
+    repo_path           TEXT NOT NULL,
+    work_profile_slug   TEXT NOT NULL REFERENCES work_profiles(slug),
+    default_branch      TEXT NOT NULL DEFAULT 'main',
+    auto_retro_override TEXT NOT NULL DEFAULT 'inherit'
+                          CHECK(auto_retro_override IN ('inherit','on','off')),
+    created_at          DATETIME NOT NULL DEFAULT (datetime('now')),
+    updated_at          DATETIME NOT NULL DEFAULT (datetime('now')),
+    archived_at         TEXT
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS projects_repo_path_active_idx
+    ON projects(repo_path) WHERE archived_at IS NULL;
+
+  CREATE INDEX IF NOT EXISTS projects_work_profile_idx
+    ON projects(work_profile_slug);
+
+  CREATE INDEX IF NOT EXISTS projects_archived_at_idx
+    ON projects(archived_at);
+`;
+
+export interface ProjectRow {
+  slug: string;
+  name: string;
+  repo_path: string;
+  work_profile_slug: string;
+  default_branch: string;
+  auto_retro_override: AutoRetroOverride;
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+}
+
+/**
+ * work_profiles 테이블 DDL
+ * 스택 프로파일(Next.js FS / Python API / Go 등). 프리셋 3종은
+ * PRESET_WORK_PROFILES(아래)로 시드하며 is_preset=1로 표시된다.
+ */
+export const WORK_PROFILES_TABLE_DDL = `
+  CREATE TABLE IF NOT EXISTS work_profiles (
+    slug                TEXT PRIMARY KEY,
+    name                TEXT NOT NULL,
+    stack_tags          TEXT NOT NULL DEFAULT '[]',
+    system_prompt_md    TEXT NOT NULL DEFAULT '',
+    auto_retro_enabled  INTEGER NOT NULL DEFAULT 1,
+    is_preset           INTEGER NOT NULL DEFAULT 0,
+    created_at          DATETIME NOT NULL DEFAULT (datetime('now')),
+    updated_at          DATETIME NOT NULL DEFAULT (datetime('now'))
+  );
+`;
+
+export interface WorkProfileRow {
+  slug: string;
+  name: string;
+  stack_tags: string;           // JSON string: string[]
+  system_prompt_md: string;
+  auto_retro_enabled: number;   // 0/1
+  is_preset: number;            // 0/1
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * 프리셋 3종 시드 데이터 (F-P3 AC 요구, spec.md §2 F-P3 표)
+ * migrate-v3.ts(신규 설치 없는 기존 DB)와 TaskDB.initSchema()(신규 설치) 양쪽에서
+ * seedPresetWorkProfiles()를 통해 재사용된다.
+ */
+export const PRESET_WORK_PROFILES: Array<{
+  slug: string;
+  name: string;
+  stack_tags: string[];
+  system_prompt_md: string;
+}> = [
+  {
+    slug: "nextjs-fullstack",
+    name: "Next.js Full-Stack",
+    stack_tags: ["nextjs", "typescript", "tailwind", "prisma"],
+    system_prompt_md:
+      "# Next.js Full-Stack 컨벤션\n\n" +
+      "- App Router 컨벤션(page/layout/loading/error/not-found.tsx)을 따른다.\n" +
+      "- Server Component를 기본으로 하고, 상호작용이 필요한 leaf에만 \"use client\"를 붙인다(RSC/CSR 경계).\n" +
+      "- 데이터 변경은 Server Actions을 우선 사용한다.\n" +
+      "- TypeScript strict 모드를 유지하고 any를 지양한다.\n",
+  },
+  {
+    slug: "python-api",
+    name: "Python API Service",
+    stack_tags: ["python", "fastapi", "pydantic", "pytest"],
+    system_prompt_md:
+      "# Python API Service 컨벤션\n\n" +
+      "- 모든 함수 시그니처에 type hints를 명시한다.\n" +
+      "- 의존성은 FastAPI Depends를 통한 dependency injection으로 주입한다.\n" +
+      "- I/O 바운드 로직은 async/await를 사용한다.\n" +
+      "- 린트는 ruff를 사용하고 경고를 0으로 유지한다.\n",
+  },
+  {
+    slug: "go-service",
+    name: "Go Service",
+    stack_tags: ["go", "fiber", "testify"],
+    system_prompt_md:
+      "# Go Service 컨벤션\n\n" +
+      "- 외부 프레임워크보다 표준 라이브러리를 우선한다.\n" +
+      "- 에러는 fmt.Errorf(\"...: %w\", err)로 wrapping하여 컨텍스트를 보존한다.\n" +
+      "- 테스트는 table-driven test 패턴을 사용한다.\n",
+  },
+];
+
+/**
+ * work_profile_memories.kind 유효 값
+ */
+export const WORK_PROFILE_MEMORY_KIND = {
+  LEARNED_PATTERN: "learned-pattern",
+  GOTCHA: "gotcha",
+  GOLD_SNIPPET: "gold-snippet",
+} as const;
+
+export type WorkProfileMemoryKind =
+  (typeof WORK_PROFILE_MEMORY_KIND)[keyof typeof WORK_PROFILE_MEMORY_KIND];
+
+/**
+ * work_profile_memories 테이블 DDL
+ * 스택 공통 축적 경험(회고 산출물에서 promote). decayed_at이 NULL이면 살아있는 항목.
+ */
+export const WORK_PROFILE_MEMORIES_TABLE_DDL = `
+  CREATE TABLE IF NOT EXISTS work_profile_memories (
+    id                 TEXT PRIMARY KEY,
+    work_profile_slug  TEXT NOT NULL REFERENCES work_profiles(slug),
+    kind               TEXT NOT NULL CHECK(kind IN ('learned-pattern','gotcha','gold-snippet')),
+    source             TEXT NOT NULL,
+    title              TEXT NOT NULL,
+    body_md            TEXT NOT NULL,
+    created_at         DATETIME NOT NULL DEFAULT (datetime('now')),
+    decayed_at         TEXT
+  );
+
+  CREATE INDEX IF NOT EXISTS wpm_profile_created_idx
+    ON work_profile_memories(work_profile_slug, created_at DESC);
+
+  CREATE INDEX IF NOT EXISTS wpm_profile_alive_idx
+    ON work_profile_memories(work_profile_slug, decayed_at);
+`;
+
+export interface WorkProfileMemoryRow {
+  id: string;
+  work_profile_slug: string;
+  kind: WorkProfileMemoryKind;
+  source: string;
+  title: string;
+  body_md: string;
+  created_at: string;
+  decayed_at: string | null;
+}
+
+/**
+ * project_rules.kind 유효 값
+ */
+export const PROJECT_RULE_KIND = {
+  MUST_READ: "must-read",
+  PREF: "pref",
+  STYLE: "style",
+} as const;
+
+export type ProjectRuleKind = (typeof PROJECT_RULE_KIND)[keyof typeof PROJECT_RULE_KIND];
+
+/**
+ * project_rules 테이블 DDL
+ * 프로젝트 로컬 룰. must-read는 ordering으로 시스템 프롬프트 주입 순서를 제어한다.
+ */
+export const PROJECT_RULES_TABLE_DDL = `
+  CREATE TABLE IF NOT EXISTS project_rules (
+    id            TEXT PRIMARY KEY,
+    project_slug  TEXT NOT NULL REFERENCES projects(slug),
+    kind          TEXT NOT NULL CHECK(kind IN ('must-read','pref','style')),
+    title         TEXT NOT NULL,
+    body_md       TEXT NOT NULL,
+    ordering      INTEGER NOT NULL DEFAULT 0,
+    created_at    DATETIME NOT NULL DEFAULT (datetime('now')),
+    updated_at    DATETIME NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS project_rules_project_kind_idx
+    ON project_rules(project_slug, kind, ordering);
+`;
+
+export interface ProjectRuleRow {
+  id: string;
+  project_slug: string;
+  kind: ProjectRuleKind;
+  title: string;
+  body_md: string;
+  ordering: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * execution_sessions.status 유효 값
+ * spec.md §2 F-P6 CHECK 제약을 그대로 채택(design-infra.md 원안의
+ * queued|running|completed|failed|aborted|orphaned에 pending_confirmation·
+ * cancelled를 추가한 상위집합 — OQ-5 uncommitted 확인 분기와 F-P7 취소 분기에 필요).
+ */
+export const EXECUTION_SESSION_STATUS = {
+  PENDING_CONFIRMATION: "pending_confirmation",
+  QUEUED: "queued",
+  RUNNING: "running",
+  COMPLETED: "completed",
+  FAILED: "failed",
+  CANCELLED: "cancelled",
+  ABORTED: "aborted",
+  ORPHANED: "orphaned",
+} as const;
+
+export type ExecutionSessionStatus =
+  (typeof EXECUTION_SESSION_STATUS)[keyof typeof EXECUTION_SESSION_STATUS];
+
+/**
+ * execution_sessions 테이블 DDL
+ * 웹 트리거 실행 세션. id는 PID+nonce가 아니라 UUID(design-infra.md §1-1 결정 #1 —
+ * PID는 OS가 재사용하므로 영구 보존 테이블의 PK로 부적합). pid는 실행 중 프로세스
+ * 식별·kill 용도의 별도 컬럼으로 유지한다.
+ */
+export const EXECUTION_SESSIONS_TABLE_DDL = `
+  CREATE TABLE IF NOT EXISTS execution_sessions (
+    id                TEXT PRIMARY KEY,
+    project_slug      TEXT NOT NULL REFERENCES projects(slug),
+    work_profile_slug TEXT,
+    pipeline_slug     TEXT,
+    command           TEXT NOT NULL,
+    argv_json         TEXT,
+    status            TEXT NOT NULL DEFAULT 'queued'
+                        CHECK(status IN ('pending_confirmation','queued','running','completed','failed','cancelled','aborted','orphaned')),
+    pid               INTEGER,
+    spawn_nonce       TEXT NOT NULL,
+    stash_ref         TEXT,
+    started_at        TEXT,
+    ended_at          TEXT,
+    exit_code         INTEGER,
+    stdout_ring_key   TEXT,
+    created_at        DATETIME NOT NULL DEFAULT (datetime('now')),
+    updated_at        DATETIME NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS execution_sessions_project_idx
+    ON execution_sessions(project_slug, created_at DESC);
+
+  CREATE INDEX IF NOT EXISTS execution_sessions_status_idx
+    ON execution_sessions(status);
+`;
+
+export interface ExecutionSessionRow {
+  id: string;
+  project_slug: string;
+  work_profile_slug: string | null;
+  pipeline_slug: string | null;
+  command: string;
+  argv_json: string | null;
+  status: ExecutionSessionStatus;
+  pid: number | null;
+  spawn_nonce: string;
+  stash_ref: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+  exit_code: number | null;
+  stdout_ring_key: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * v3 신규 테이블 DDL 목록 (FK 의존 순서 — work_profiles → projects →
+ * work_profile_memories/project_rules/execution_sessions).
+ * TaskDB.initSchema()와 migrate-v3.ts가 동일 순서로 재사용한다.
+ */
+export const V3_NEW_TABLES_DDL: string[] = [
+  WORK_PROFILES_TABLE_DDL,
+  PROJECTS_TABLE_DDL,
+  WORK_PROFILE_MEMORIES_TABLE_DDL,
+  PROJECT_RULES_TABLE_DDL,
+  EXECUTION_SESSIONS_TABLE_DDL,
+];
+
+/**
+ * v3에서 기존 테이블에 추가되는 컬럼 목록 (ensureColumn 헬퍼로 멱등 적용).
+ * SQLite ALTER TABLE ADD COLUMN은 IF NOT EXISTS를 지원하지 않으므로
+ * PRAGMA table_info로 존재 여부를 먼저 확인해야 한다(design-infra.md §1-2).
+ */
+export const PROJECT_SLUG_COLUMN_MIGRATIONS: Array<{
+  table: string;
+  column: string;
+  ddlFragment: string;
+  indexDdl: string;
+}> = [
+  {
+    table: "pipelines",
+    column: "project_slug",
+    ddlFragment: "project_slug TEXT REFERENCES projects(slug)",
+    indexDdl: "CREATE INDEX IF NOT EXISTS pipelines_project_slug_idx ON pipelines(project_slug);",
+  },
+  {
+    table: "work_units",
+    column: "project_slug",
+    ddlFragment: "project_slug TEXT REFERENCES projects(slug)",
+    indexDdl: "CREATE INDEX IF NOT EXISTS work_units_project_slug_idx ON work_units(project_slug);",
+  },
+];

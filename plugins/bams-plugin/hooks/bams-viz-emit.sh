@@ -14,6 +14,18 @@ umask 077  # Ensure new files (logs, tmp) are created with 0600 permission
 #   bash bams-viz-emit.sh work_unit_start <slug> [name]
 #   bash bams-viz-emit.sh work_unit_end   <slug> [status]
 #   bash bams-viz-emit.sh error          <slug> <message> [step_number] [error_code]
+#
+# execution_* (NF-OBS-1, plan_viz웹개발플랫폼-design-infra.md §4-2):
+#   bash bams-viz-emit.sh execution_session_start <project_slug> <session_id> <command> [pid]
+#   bash bams-viz-emit.sh execution_session_end   <project_slug> <session_id> <status> [exit_code] [duration_ms]
+#   bash bams-viz-emit.sh execution_aborted       <project_slug> <session_id> [reason] [force_killed]
+#
+#   주의: 2번째 인자는 항상 "$2"=범용 SLUG 가드 위치이므로 execution_* 3종은
+#   설계 문서 표기(session_id가 먼저)와 달리 <project_slug>를 2번째, <session_id>를
+#   3번째 인자로 둔다 — 그래야 기존 DQ-3 '-' 접두사 거절 가드와 충돌하지 않는다.
+#   execution_* 이벤트는 pipeline_slug가 아직 확정되지 않은 시점(세션 생성)에도
+#   발생하므로, 다른 이벤트와 달리 pipeline별 파일이 아닌 고정 파일
+#   ${BAMS_ROOT}/artifacts/pipeline/execution-events.jsonl 에 append된다.
 set -uo pipefail
 
 # Unicode/multibyte slug 안전 처리 (한글 slug 지원)
@@ -155,6 +167,27 @@ _post_event() {
   # 서버 down 시 데이터 손실 방지 + 한글 slug 등 모든 케이스 일관 처리
   local _file
   _file="$(_events_file "$SLUG")"
+  printf '%s\n' "$payload" >> "$_file" 2>/dev/null || true
+}
+
+# execution_* 전용 고정 파일 경로 (pipeline_slug 미확정 시점에도 emit되므로 slug별 파일 대신 공유 파일 사용)
+_execution_events_file() {
+  local dir="${BAMS_ROOT}/artifacts/pipeline"
+  mkdir -p "$dir" 2>/dev/null || true
+  printf '%s/execution-events.jsonl' "$dir"
+}
+
+# execution_* 전용 post — _post_event와 동일한 서버 POST + 이중 file write 패턴이되,
+# 대상 파일만 고정 execution-events.jsonl로 override
+_post_execution_event() {
+  local payload="$1"
+  if [ -n "${BAMS_SERVER_URL:-}" ]; then
+    curl -s --max-time 2 -X POST "${BAMS_SERVER_URL}/api/events" \
+      -H "Content-Type: application/json" \
+      -d "$payload" > /dev/null 2>&1 || true
+  fi
+  local _file
+  _file="$(_execution_events_file)"
   printf '%s\n' "$payload" >> "$_file" 2>/dev/null || true
 }
 
@@ -316,6 +349,74 @@ case "$EVENT_TYPE" in
     _ERR_EVT=$(jq -cn --arg slug "$SLUG" --arg msg "${3:-}" --argjson num "${4:-0}" --arg code "${5:-unknown}" --arg ts "$TS" \
       '{type:"error",pipeline_slug:$slug,message:$msg,step_number:$num,error_code:$code,ts:$ts}')
     _post_event "$_ERR_EVT"
+    ;;
+  execution_session_start)
+    # 인자: $2=project_slug(=SLUG) $3=session_id $4=command [5]=pid
+    _EXS_PROJECT="$SLUG"
+    _EXS_SESSION="${3:-}"
+    _EXS_CMD="${4:-}"
+    _EXS_PID_ARG="${5:-}"
+    _EXS_PID_JSON="null"
+    if printf '%s' "$_EXS_PID_ARG" | grep -qE '^[0-9]+$'; then
+      _EXS_PID_JSON="$_EXS_PID_ARG"
+    fi
+    _EXS_EVT=$(jq -cn \
+      --arg session_id "$_EXS_SESSION" \
+      --arg project_slug "$_EXS_PROJECT" \
+      --arg command "$_EXS_CMD" \
+      --arg ts "$TS" \
+      --argjson pid "$_EXS_PID_JSON" \
+      '{type:"execution_session_start", session_id:$session_id, project_slug:$project_slug, command:$command, ts:$ts}
+       + (if $pid != null then {pid:$pid} else {} end)')
+    _post_execution_event "$_EXS_EVT"
+    ;;
+  execution_session_end)
+    # 인자: $2=project_slug(=SLUG) $3=session_id $4=status [5]=exit_code [6]=duration_ms
+    _EXE_PROJECT="$SLUG"
+    _EXE_SESSION="${3:-}"
+    _EXE_STATUS="${4:-completed}"
+    _EXE_EXITCODE_ARG="${5:-}"
+    _EXE_DUR_ARG="${6:-}"
+    _EXE_EXITCODE_JSON="null"
+    if printf '%s' "$_EXE_EXITCODE_ARG" | grep -qE '^-?[0-9]+$'; then
+      _EXE_EXITCODE_JSON="$_EXE_EXITCODE_ARG"
+    fi
+    _EXE_DUR_JSON="null"
+    if printf '%s' "$_EXE_DUR_ARG" | grep -qE '^[0-9]+$'; then
+      _EXE_DUR_JSON="$_EXE_DUR_ARG"
+    fi
+    _EXE_EVT=$(jq -cn \
+      --arg session_id "$_EXE_SESSION" \
+      --arg project_slug "$_EXE_PROJECT" \
+      --arg status "$_EXE_STATUS" \
+      --arg ts "$TS" \
+      --argjson exit_code "$_EXE_EXITCODE_JSON" \
+      --argjson duration_ms "$_EXE_DUR_JSON" \
+      '{type:"execution_session_end", session_id:$session_id, project_slug:$project_slug, status:$status, ts:$ts}
+       + (if $exit_code != null then {exit_code:$exit_code} else {} end)
+       + (if $duration_ms != null then {duration_ms:$duration_ms} else {} end)')
+    _post_execution_event "$_EXE_EVT"
+    ;;
+  execution_aborted)
+    # 인자: $2=project_slug(=SLUG) $3=session_id [4]=reason [5]=force_killed(true|false)
+    _EXA_PROJECT="$SLUG"
+    _EXA_SESSION="${3:-}"
+    _EXA_REASON="${4:-user_requested}"
+    _EXA_FORCEKILLED_ARG="${5:-}"
+    _EXA_FORCEKILLED_JSON="null"
+    case "$_EXA_FORCEKILLED_ARG" in
+      true|True|TRUE) _EXA_FORCEKILLED_JSON="true" ;;
+      false|False|FALSE) _EXA_FORCEKILLED_JSON="false" ;;
+    esac
+    _EXA_EVT=$(jq -cn \
+      --arg session_id "$_EXA_SESSION" \
+      --arg project_slug "$_EXA_PROJECT" \
+      --arg reason "$_EXA_REASON" \
+      --arg ts "$TS" \
+      --argjson force_killed "$_EXA_FORCEKILLED_JSON" \
+      '{type:"execution_aborted", session_id:$session_id, project_slug:$project_slug, reason:$reason, ts:$ts}
+       + (if $force_killed != null then {force_killed:$force_killed} else {} end)')
+    _post_execution_event "$_EXA_EVT"
     ;;
 esac
 
