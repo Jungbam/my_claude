@@ -38,12 +38,45 @@ import { join } from "path";
 import { getDefaultDB, getDefaultWorkUnitDB, getDefaultHrReportDB } from "../../tools/bams-db/index.ts";
 import { getBroker } from "./sse-broker.ts";
 import type { TaskStatus } from "../../tools/bams-db/schema.ts";
+import { logAccess } from "./access-log.ts";
+// v3 신규 route 매처 (Projects/WorkProfiles/Rules/Memories) — 라우터 chain에 삽입.
+import { matchProjectsRoutes } from "./routes/projects.ts";
+import { matchWorkProfilesRoutes } from "./routes/workprofiles.ts";
+import { matchProjectRulesRoutes } from "./routes/project-rules.ts";
+import { matchWorkProfileMemoryRoutes } from "./routes/work-profile-memory.ts";
+import { matchExecutionsRoutes } from "./routes/executions.ts";
+import { installRealSanitizer } from "./orchestrator/prompt-sanitizer-impl.ts";
+
+// TASK-119 부트스트랩: NF-SEC-5 sanitizer 실구현을 stores/prompt-sanitizer 스텁에 주입.
+// 이 호출 이후 routes/workprofiles·project-rules·work-profile-memory의 scanPromptContent()가
+// NOOP 대신 실 스캐너를 사용한다.
+installRealSanitizer();
+
+// TASK-120 부트스트랩: NF-REL-1 orphan 스캔.
+// 서버 재시작 후 status='queued'|'running' 세션의 pid가 이미 죽었으면 'orphaned'로 정정.
+// **자동 재spawn 금지** — 사용자가 결과 확인 후 명시적으로 재실행해야 한다.
+// 지연 import로 순환 참조 회피 (execution-orchestrator → stores/db → app.ts).
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { getExecutionOrchestrator: getOrchestratorForBoot } =
+    require("./orchestrator/execution-orchestrator.ts") as typeof import("./orchestrator/execution-orchestrator.ts");
+  const scanResult = getOrchestratorForBoot().scanOrphans();
+  if (scanResult.orphaned.length > 0) {
+    console.log(
+      `[bams-server] boot orphan scan: ${scanResult.orphaned.length} session(s) marked orphaned`,
+    );
+  }
+} catch (err) {
+  console.error("[bams-server] boot orphan scan failed (non-fatal):", err);
+}
 
 // ─────────────────────────────────────────────────────────────
 // 설정
 // ─────────────────────────────────────────────────────────────
 
 const PORT = parseInt(process.env.BAMS_SERVER_PORT ?? "3099", 10);
+// NF-SEC-1 — 기본값을 127.0.0.1로 고정하여 외부 인터페이스 노출을 막는다.
+const BIND_HOST = process.env.BAMS_SERVER_HOST ?? "127.0.0.1";
 const AGENTS_DIR = "plugins/bams-plugin/agents";
 
 /**
@@ -235,6 +268,23 @@ async function handleRequest(req: Request): Promise<Response> {
   if (method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders() });
   }
+
+  // ── v3 신규 라우트 chain (Projects / WorkProfiles / Rules / Memories) ─
+  // 각 매처는 매칭되지 않으면 null을 반환하고, 매칭되면 즉시 Response 반환.
+  // NOTE: 더 구체적인 하위 경로(/rules, /memories)를 상위(/api/projects, /api/workprofiles) 앞에 위치시켜야
+  //       상위 매처의 :slug 정규식이 하위 경로를 삼키지 않는다.
+  const projectRulesHit = await matchProjectRulesRoutes(method, path, req, url);
+  if (projectRulesHit) return projectRulesHit;
+  const memoryHit = await matchWorkProfileMemoryRoutes(method, path, req, url);
+  if (memoryHit) return memoryHit;
+  // TASK-119 executions 라우트 — /api/projects/:slug/executions 매칭이 있으므로
+  // 상위 /api/projects/:slug 앞에 위치시켜야 detailMatch(:slug 정규식)가 삼키지 않는다.
+  const executionsHit = await matchExecutionsRoutes(method, path, req, url);
+  if (executionsHit) return executionsHit;
+  const projectsHit = await matchProjectsRoutes(method, path, req, url);
+  if (projectsHit) return projectsHit;
+  const workProfilesHit = await matchWorkProfilesRoutes(method, path, req);
+  if (workProfilesHit) return workProfilesHit;
 
   // ── GET /api/pipelines ──────────────────────────────────────
   if (method === "GET" && path === "/api/pipelines") {
@@ -1397,6 +1447,22 @@ async function handleRequest(req: Request): Promise<Response> {
             });
           }
 
+          // 4. TASK-119 Session ↔ Pipeline 매핑 (design-be §4-7):
+          //    자식이 BAMS_SESSION_ID env를 payload에 실어 emit했으면 orchestrator에
+          //    링크 정보를 전달한다. env 유실 케이스는 stdout best-effort 감지에 위임.
+          try {
+            const bamsSessionId =
+              (body.session_id as string | undefined) ??
+              (body.bams_session_id as string | undefined);
+            if (bamsSessionId) {
+              // 지연 import — 순환 방지
+              const { getExecutionOrchestrator } = require("./orchestrator/execution-orchestrator.ts") as typeof import("./orchestrator/execution-orchestrator.ts");
+              getExecutionOrchestrator().linkPipelineForSession(bamsSessionId, pipelineSlug);
+            }
+          } catch (err) {
+            console.error("[bams-server] linkPipelineForSession failed (non-fatal):", err);
+          }
+
           // SSE push
           pushSseEvent(pipelineSlug, "pipeline_start", body);
           break;
@@ -1657,16 +1723,112 @@ async function handleRequest(req: Request): Promise<Response> {
 // DB is the primary data source — JSONL legacy sync and helpers removed
 console.log("[bams-server] DB is primary data source");
 
+/**
+ * NF-SEC-1 2차 방어선 — Host 헤더 검증.
+ * `hostname` bind만으로 방어되지 않는 경우(예: 리버스 프록시 오구성으로 재바인드)에
+ * 대비해, Host 헤더가 localhost/127.0.0.1/::1(포트 접미 허용) 이외이면 거부한다.
+ */
+function isAllowedHost(hostHeader: string | null): boolean {
+  if (!hostHeader) return false;
+  const host = hostHeader.toLowerCase();
+  return (
+    host === "localhost" || host.startsWith("localhost:") ||
+    host === "127.0.0.1" || host.startsWith("127.0.0.1:") ||
+    host === "::1" || host.startsWith("::1:") ||
+    host === "[::1]" || host.startsWith("[::1]:")
+  );
+}
+
+/**
+ * QG Major-fix (CSRF) — 상태 변경 메서드에 대한 Origin 헤더 검증.
+ *
+ * 배경: CORS_ORIGIN 기본값이 `*`이라서 브라우저發 cross-origin fetch가 상태변경
+ * endpoint(execution 트리거/abort/stash 등)를 호출할 때 프리플라이트를 통과한다.
+ * Host 헤더 검증만으로는 브라우저가 Host를 자동으로 서버 주소(localhost)로 채우므로
+ * 방어되지 않는다. `Origin`은 브라우저가 XHR/fetch/폼 제출 시 자동 부여하고 위조 불가.
+ *
+ * 정책:
+ *   - Origin 없음 (curl/CLI/서버간 호출) → 통과 (기존 emit.sh, bams-viz 서버 사이드 유지)
+ *   - Origin 있음 + localhost/127.0.0.1/::1 계열 → 통과 (bams-viz :3333 등)
+ *   - Origin 있음 + 그 외 → 403 (외부 사이트發 CSRF 차단)
+ *
+ * GET/HEAD/OPTIONS는 부작용 없으므로 대상 아님 (프리플라이트 OPTIONS는 상단에서 처리).
+ */
+const STATE_CHANGING_METHODS = new Set(["POST", "PATCH", "DELETE", "PUT"]);
+
+function isAllowedOrigin(originHeader: string | null): boolean {
+  if (!originHeader) return true; // CLI/서버간 호출 — 통과
+  try {
+    const url = new URL(originHeader);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+    const host = url.hostname.toLowerCase();
+    return host === "localhost" || host === "127.0.0.1" || host === "::1";
+  } catch {
+    // 파싱 실패는 위조 시도 가능성 — 차단
+    return false;
+  }
+}
+
+/**
+ * NF-SEC-1 + NF-OBS-2 미들웨어 래퍼.
+ * handleRequest()의 기존 라우트 로직은 무변경 — bind hostname 옆에서
+ * Host 헤더 가드와 액세스 로그 기록만 얇게 감싼다(대규모 리팩터링 금지 제약 준수).
+ */
+async function fetchWithMiddleware(req: Request): Promise<Response> {
+  const start = performance.now();
+  const url = new URL(req.url);
+
+  if (!isAllowedHost(req.headers.get("host"))) {
+    const res = errorResponse("Forbidden: invalid host", 403);
+    logAccess({
+      ts: new Date().toISOString(),
+      method: req.method,
+      path: url.pathname,
+      status: 403,
+      latency_ms: Math.round(performance.now() - start),
+    });
+    return res;
+  }
+
+  // QG Major-fix: 상태 변경 메서드에 한해 Origin 검증 (CSRF 방어).
+  // GET/OPTIONS/SSE는 CORS_ORIGIN=* 정책 아래서도 부작용이 없어 통과.
+  if (STATE_CHANGING_METHODS.has(req.method)) {
+    const originHeader = req.headers.get("origin");
+    if (!isAllowedOrigin(originHeader)) {
+      const res = errorResponse("Forbidden: invalid origin", 403);
+      logAccess({
+        ts: new Date().toISOString(),
+        method: req.method,
+        path: url.pathname,
+        status: 403,
+        latency_ms: Math.round(performance.now() - start),
+      });
+      return res;
+    }
+  }
+
+  const res = await handleRequest(req);
+  logAccess({
+    ts: new Date().toISOString(),
+    method: req.method,
+    path: url.pathname,
+    status: res.status,
+    latency_ms: Math.round(performance.now() - start),
+  });
+  return res;
+}
+
 const server = Bun.serve({
+  hostname: BIND_HOST,
   port: PORT,
-  fetch: handleRequest,
+  fetch: fetchWithMiddleware,
   error(err) {
     console.error("[bams-server] Unhandled error:", err);
     return new Response("Internal Server Error", { status: 500 });
   },
 });
 
-console.log(`[bams-server] Control Plane running on http://localhost:${PORT}`);
+console.log(`[bams-server] Control Plane running on http://${BIND_HOST}:${PORT}`);
 console.log(`[bams-server] CORS allowed: * (dev mode)`);
 
 export { server };
