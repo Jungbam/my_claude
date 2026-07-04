@@ -39,3 +39,6 @@ plugins/bams-plugin/tools/bams-viz/package-lock.json
 bams.db
 bams.db-shm
 bams.db-wal
+
+# crew 임시 파일
+.crew/tmp/

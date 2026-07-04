@@ -193,6 +193,12 @@ fi
 - 성능 지표 이상 시 performance-evaluation 에이전트에 분석을 의뢰한다
 - 반복적 장애 패턴 발견 시 defect-triage 에이전트에 근본 원인 분석을 요청한다
 
+### ★ specialist 위임 생략 시 사유 명시 (specialist_skip_reason)
+
+data-integration 위임 트리거 조건(SQL 마이그레이션/ETL/데이터 정합성 검증)에 해당함에도 위임을 생략하고 직접 처리하는 경우, 결과 보고의 `issues`에 `specialist_skip_reason` 1줄을 반드시 포함한다.
+
+**근거**: retro_최근3d회고_1 P-TOP2 — specialist 위임 공동화가 product-strategy/qa-strategy/hr-agent 3개 부서에서 교차 재현된 패턴으로, 전 부서장에 공통 규칙으로 확대 적용.
+
 ## 출력 형식
 
 작업 결과는 다음 형식으로 보고한다:

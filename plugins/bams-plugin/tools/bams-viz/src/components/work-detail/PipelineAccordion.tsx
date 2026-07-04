@@ -9,7 +9,13 @@ import type { WorkUnitPipeline, PipelineEvent } from '@/lib/types'
 
 interface PipelineAccordionProps {
   pipeline: WorkUnitPipeline
-  wuSlug: string
+  // design-fe §5-3: wuSlug 또는 projectSlug 중 하나. WU 모드에서는 상태 patch 가능.
+  wuSlug?: string
+  projectSlug?: string
+  // Project 모드에서 이 파이프라인이 링크된 WU slug (있으면 View as Work Unit 링크 노출)
+  pipelineWuSlug?: string | null
+  // Project 모드에서 이 파이프라인이 WU에 링크되지 않은 상태 (unassigned 배지 노출)
+  unassigned?: boolean
   selected?: boolean
   onSelect?: (slug: string) => void
   // M-4: events는 부모(PipelineTabPanel)가 단일 폴링으로 가져온 것을 주입받는다.
@@ -17,7 +23,7 @@ interface PipelineAccordionProps {
   events?: PipelineEvent[] | null
 }
 
-export function PipelineAccordion({ pipeline, wuSlug, selected, onSelect, events }: PipelineAccordionProps) {
+export function PipelineAccordion({ pipeline, wuSlug, projectSlug, pipelineWuSlug, unassigned, selected, onSelect, events }: PipelineAccordionProps) {
   const [open, setOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -39,6 +45,11 @@ export function PipelineAccordion({ pipeline, wuSlug, selected, onSelect, events
   const progressPct = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0
 
   async function handleStatusChange(status: 'completed' | 'failed' | 'paused') {
+    // Project 모드(wuSlug 부재)에서는 WU 스코프 PATCH를 호출하지 않는다.
+    if (!wuSlug) {
+      setMenuOpen(false)
+      return
+    }
     try {
       await bamsApi.patchWorkUnitPipeline(wuSlug, pipeline.slug, { status })
     } catch (err) {
@@ -109,6 +120,45 @@ export function PipelineAccordion({ pipeline, wuSlug, selected, onSelect, events
           {pipeline.type}
         </span>
 
+        {/* Unassigned badge (project 모드 전용) */}
+        {projectSlug && unassigned && (
+          <span
+            title="This pipeline is not linked to any Work Unit"
+            style={{
+              fontSize: '10px',
+              padding: '1px 6px',
+              borderRadius: '4px',
+              background: 'color-mix(in srgb, var(--priority-medium) 18%, transparent)',
+              color: 'var(--priority-medium)',
+              fontWeight: 600,
+              flexShrink: 0,
+            }}
+          >
+            unassigned
+          </span>
+        )}
+
+        {/* View as Work Unit (project 모드에서 WU 링크가 있을 때만) */}
+        {projectSlug && pipelineWuSlug && (
+          <a
+            href={`/work/${encodeURIComponent(pipelineWuSlug)}`}
+            onClick={e => e.stopPropagation()}
+            style={{
+              fontSize: '10px',
+              padding: '1px 6px',
+              borderRadius: '4px',
+              background: 'var(--bg-secondary)',
+              color: 'var(--accent)',
+              textDecoration: 'none',
+              fontWeight: 600,
+              flexShrink: 0,
+            }}
+            title={`View Work Unit: ${pipelineWuSlug}`}
+          >
+            WU &rarr;
+          </a>
+        )}
+
         {/* Status */}
         <StatusBadge status={pipeline.status ?? 'unknown'} size="sm" />
 
@@ -143,7 +193,8 @@ export function PipelineAccordion({ pipeline, wuSlug, selected, onSelect, events
           </span>
         )}
 
-        {/* Actions menu */}
+        {/* Actions menu (WU 모드에서만 — project 모드는 WU 스코프 PATCH 불가) */}
+        {wuSlug && (
         <div
           ref={menuRef}
           style={{ position: 'relative', flexShrink: 0 }}
@@ -184,6 +235,7 @@ export function PipelineAccordion({ pipeline, wuSlug, selected, onSelect, events
             </div>
           )}
         </div>
+        )}
       </div>
 
       {/* Expanded: Task table + Agent summary */}

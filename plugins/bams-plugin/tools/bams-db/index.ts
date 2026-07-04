@@ -24,6 +24,9 @@ import {
   HR_REPORTS_TABLE_DDL,
   PIPELINE_EVENTS_TABLE_DDL,
   WORK_UNIT_EVENTS_TABLE_DDL,
+  V3_NEW_TABLES_DDL,
+  PROJECT_SLUG_COLUMN_MIGRATIONS,
+  PRESET_WORK_PROFILES,
   type Task,
   type TaskEvent,
   type TaskStatus,
@@ -35,10 +38,31 @@ import {
   type PipelineEventRow,
   type WorkUnitEventRow,
   type RunLog,
+  type ProjectRow,
 } from "./schema.ts";
 
-/** DB 파일 기본 경로 — 글로벌 단일 DB */
-const DEFAULT_DB_PATH = join(homedir(), ".claude", "plugins", "marketplaces", "my-claude", "bams.db");
+/**
+ * DB 파일 기본 경로 — **lazy 평가** (호출 시점 함수).
+ *
+ * 이전에는 top-level `const DEFAULT_DB_PATH = join(homedir(), ...)`로 정의되어
+ * 모듈 import 시점에 즉시 확정되었다. ESM 정적 import는 파일 최상단으로 hoist되므로,
+ * 테스트 하네스가 `process.env.HOME`을 재할당해도 그 시점에 이미 실 홈 경로로
+ * 확정되어 프로덕션 DB(`~/.claude/plugins/marketplaces/my-claude/bams.db`)를
+ * 오염시켰다(QA NO-GO Critical).
+ *
+ * lazy 함수로 전환하면 다음 시점에 평가된다:
+ *   - `new TaskDB()`(및 HrReportDB/WorkUnitDB) 호출 시점의 default parameter 평가
+ *   - 이 시점에는 이미 test 코드가 `process.env.HOME`/`BAMS_DB` 세팅을 마친 상태
+ *
+ * 기본 경로 결과는 홈 디렉토리가 바뀌지 않는 한 동일하므로 CLI/서버 동작 무변경.
+ * BAMS_DB 환경변수 지원은 stores/db.ts와 일관 (test isolation 2차 안전선).
+ */
+function getDefaultDbPath(): string {
+  return (
+    process.env.BAMS_DB ??
+    join(homedir(), ".claude", "plugins", "marketplaces", "my-claude", "bams.db")
+  );
+}
 
 /**
  * N-M6: run_log payload 화이트리스트 검증.
@@ -64,10 +88,67 @@ function sanitizeRunLogPayload(payload: unknown): string | null {
   return Object.keys(safe).length > 0 ? JSON.stringify(safe) : null;
 }
 
+/**
+ * v3 마이그레이션: 기존 테이블에 컬럼을 멱등하게 추가한다.
+ * SQLite `ALTER TABLE ADD COLUMN`은 `IF NOT EXISTS`를 지원하지 않으므로
+ * `PRAGMA table_info`로 존재 여부를 먼저 확인한다(design-infra.md §1-2).
+ * `initSchema()`가 서버 부팅마다 실행되는 멱등 함수이므로, 신규 설치·기존
+ * 설치 모두 이 헬퍼 호출만으로 v3 컬럼이 자동 적용된다.
+ */
+export function ensureColumn(
+  db: Database,
+  table: string,
+  column: string,
+  ddlFragment: string
+): boolean {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (cols.some((c) => c.name === column)) return false;
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddlFragment}`);
+  return true;
+}
+
+/**
+ * v3 신규 테이블 + project_slug 컬럼을 멱등하게 적용한다.
+ * TaskDB.initSchema()(신규 설치 경로)와 migrate-v3.ts(기존 프로덕션 DB 안전 마이그레이션
+ * 경로) 양쪽에서 동일 함수를 재사용해 스키마 적용 로직이 한 곳에만 존재하도록 한다.
+ */
+export function applyV3Schema(db: Database): void {
+  for (const ddl of V3_NEW_TABLES_DDL) {
+    db.exec(ddl);
+  }
+  for (const mig of PROJECT_SLUG_COLUMN_MIGRATIONS) {
+    ensureColumn(db, mig.table, mig.column, mig.ddlFragment);
+    db.exec(mig.indexDdl);
+  }
+}
+
+/**
+ * work_profiles 프리셋 3종을 멱등하게 시드한다.
+ * design-infra.md §1-3 Step 6 알고리즘 그대로: work_profiles가 완전히 비어있을 때만
+ * 삽입한다(사용자가 이미 커스텀 프로파일을 만든 상태에서 재실행해도 덮어쓰지 않음).
+ * @returns 삽입된 프리셋 개수 (0 = 이미 시드됨/스킵)
+ */
+export function seedPresetWorkProfiles(db: Database): number {
+  const { count } = db.prepare<{ count: number }>("SELECT COUNT(*) as count FROM work_profiles").get()!;
+  if (count > 0) return 0;
+
+  const stmt = db.prepare(
+    `INSERT INTO work_profiles (slug, name, stack_tags, system_prompt_md, auto_retro_enabled, is_preset)
+     VALUES (?, ?, ?, ?, 1, 1)`
+  );
+  const tx = db.transaction((presets: typeof PRESET_WORK_PROFILES) => {
+    for (const p of presets) {
+      stmt.run(p.slug, p.name, JSON.stringify(p.stack_tags), p.system_prompt_md);
+    }
+  });
+  tx(PRESET_WORK_PROFILES);
+  return PRESET_WORK_PROFILES.length;
+}
+
 export class TaskDB {
   private db: Database;
 
-  constructor(dbPath: string = DEFAULT_DB_PATH) {
+  constructor(dbPath: string = getDefaultDbPath()) {
     // .crew/db/ 디렉터리가 없으면 생성
     const dir = dbPath.substring(0, dbPath.lastIndexOf("/"));
     if (dir) {
@@ -101,6 +182,10 @@ export class TaskDB {
     this.db.exec(WORK_UNIT_EVENTS_TABLE_DDL);
     // hr_reports: retro 완료 시 저장되는 HR 보고서 (독립 테이블, FK 없음)
     this.db.exec(HR_REPORTS_TABLE_DDL);
+    // v3: projects/work_profiles/work_profile_memories/project_rules/execution_sessions
+    // + pipelines.project_slug/work_units.project_slug 컬럼 (멱등, 신규·기존 설치 공통)
+    applyV3Schema(this.db);
+    seedPresetWorkProfiles(this.db);
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -889,6 +974,97 @@ export class TaskDB {
       .all(pipeline.id, limit);
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // v3: Project backfill (design-infra.md §1-4, AC-6 후속)
+  // ─────────────────────────────────────────────────────────────
+
+  /**
+   * slug로 project 단건 조회
+   */
+  getProjectBySlug(slug: string): ProjectRow | null {
+    return (
+      this.db.prepare<ProjectRow>("SELECT * FROM projects WHERE slug = ?").get(slug) ?? null
+    );
+  }
+
+  /**
+   * 마이그레이션 직후 project_slug가 NULL인 기존 파이프라인을 특정 project로
+   * backfill한다. `project_slug IS NULL` 가드로 이미 backfill된 행은 건너뛰어
+   * 재실행해도 안전하다(멱등).
+   * @returns 실제로 갱신된 파이프라인 수
+   */
+  backfillProjectSlug(pipelineSlugs: string[], projectSlug: string): number {
+    if (pipelineSlugs.length === 0) return 0;
+    const stmt = this.db.prepare(
+      `UPDATE pipelines SET project_slug = ?, updated_at = datetime('now') WHERE slug = ? AND project_slug IS NULL`
+    );
+    let n = 0;
+    const tx = this.db.transaction((slugs: string[]) => {
+      for (const s of slugs) {
+        const result = stmt.run(projectSlug, s);
+        n += result.changes;
+      }
+    });
+    tx(pipelineSlugs);
+    return n;
+  }
+
+  /**
+   * dry-run 미리보기용: 실제 UPDATE 없이 특정 WU 소속 중 project_slug가 NULL인
+   * 파이프라인 slug 목록만 조회한다.
+   */
+  getPipelinesByWorkUnitSlugPendingBackfill(workUnitSlug: string): string[] {
+    const wu = this.db
+      .prepare<{ id: string }>("SELECT id FROM work_units WHERE slug = ?")
+      .get(workUnitSlug);
+    if (!wu) return [];
+    return this.db
+      .prepare<{ slug: string }>(
+        `SELECT slug FROM pipelines WHERE work_unit_id = ? AND project_slug IS NULL`
+      )
+      .all(wu.id)
+      .map((r) => r.slug);
+  }
+
+  /**
+   * Work Unit 단위로 project_slug를 backfill한다. work_units.project_slug를 먼저
+   * 채우고, 해당 WU에 속한 파이프라인 중 project_slug가 NULL인 것들을
+   * backfillProjectSlug()로 일괄 backfill한다(WU→Pipeline 순으로 cascade).
+   */
+  backfillProjectSlugForWorkUnit(
+    workUnitSlug: string,
+    projectSlug: string
+  ): { work_unit_updated: boolean; pipelines_updated: number } {
+    const wu = this.db
+      .prepare<{ id: string; project_slug: string | null }>(
+        "SELECT id, project_slug FROM work_units WHERE slug = ?"
+      )
+      .get(workUnitSlug);
+    if (!wu) return { work_unit_updated: false, pipelines_updated: 0 };
+
+    let workUnitUpdated = false;
+    if (wu.project_slug === null) {
+      this.db
+        .prepare(
+          `UPDATE work_units SET project_slug = ? WHERE id = ? AND project_slug IS NULL`
+        )
+        .run(projectSlug, wu.id);
+      workUnitUpdated = true;
+    }
+
+    const pipelineRows = this.db
+      .prepare<{ slug: string }>(
+        `SELECT slug FROM pipelines WHERE work_unit_id = ? AND project_slug IS NULL`
+      )
+      .all(wu.id);
+    const pipelinesUpdated = this.backfillProjectSlug(
+      pipelineRows.map((r) => r.slug),
+      projectSlug
+    );
+
+    return { work_unit_updated: workUnitUpdated, pipelines_updated: pipelinesUpdated };
+  }
+
   /** DB 연결 종료 */
   close(): void {
     this.db.close();
@@ -910,6 +1086,28 @@ export function getDefaultDB(): TaskDB {
 export { TASK_STATUS, TASK_PRIORITY, TASK_SIZE, PIPELINE_EVENT_TYPE } from "./schema.ts";
 export type { Task, TaskEvent, TaskStatus, TaskPriority, TaskSize, PipelineRow, PipelineEventRow, PipelineEventType, WorkUnitEventRow } from "./schema.ts";
 
+// v3: Projects / WorkProfiles / Rules / ExecutionSessions
+export {
+  AUTO_RETRO_OVERRIDE,
+  WORK_PROFILE_MEMORY_KIND,
+  PROJECT_RULE_KIND,
+  EXECUTION_SESSION_STATUS,
+  PRESET_WORK_PROFILES,
+  V3_NEW_TABLES_DDL,
+  PROJECT_SLUG_COLUMN_MIGRATIONS,
+} from "./schema.ts";
+export type {
+  ProjectRow,
+  WorkProfileRow,
+  WorkProfileMemoryRow,
+  ProjectRuleRow,
+  ExecutionSessionRow,
+  AutoRetroOverride,
+  WorkProfileMemoryKind,
+  ProjectRuleKind,
+  ExecutionSessionStatus,
+} from "./schema.ts";
+
 // ─────────────────────────────────────────────────────────────
 // HrReportDB — HR 보고서 CRUD
 // ─────────────────────────────────────────────────────────────
@@ -917,7 +1115,7 @@ export type { Task, TaskEvent, TaskStatus, TaskPriority, TaskSize, PipelineRow, 
 export class HrReportDB {
   private db: Database;
 
-  constructor(dbPath: string = DEFAULT_DB_PATH) {
+  constructor(dbPath: string = getDefaultDbPath()) {
     const fs = require("fs");
     const dir = dbPath.substring(0, dbPath.lastIndexOf("/"));
     if (dir) fs.mkdirSync(dir, { recursive: true });
@@ -1042,7 +1240,7 @@ export type { HrReportRow } from "./schema.ts";
 export class WorkUnitDB {
   private db: Database;
 
-  constructor(dbPath: string = DEFAULT_DB_PATH) {
+  constructor(dbPath: string = getDefaultDbPath()) {
     const fs = require("fs");
     const dir = dbPath.substring(0, dbPath.lastIndexOf("/"));
     if (dir) fs.mkdirSync(dir, { recursive: true });
@@ -1059,6 +1257,10 @@ export class WorkUnitDB {
     this.db.exec(PIPELINES_TABLE_DDL);
     // 마이그레이션: 이미 컬럼이 존재하면 무시
     try { this.db.exec("ALTER TABLE work_units ADD COLUMN deleted_at TEXT"); } catch {}
+    // v3: WorkUnitDB가 TaskDB 없이 단독으로 work_units/pipelines를 생성하는
+    // 경로에서도 project_slug 컬럼이 누락되지 않도록 동일 헬퍼를 재사용한다.
+    applyV3Schema(this.db);
+    seedPresetWorkProfiles(this.db);
   }
 
   /** Work Unit 생성 (idempotent — slug 중복 시 무시) */

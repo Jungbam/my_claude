@@ -239,6 +239,12 @@ spec 작성 후 다음 §을 spec 본문에 의무 포함한다.
 - 기존 아키텍처 제약을 무시한 비현실적 로드맵을 방지
 - README, 설정 파일, 디렉터리 구조를 통해 시스템 경계를 파악
 
+### ★ specialist 위임 생략 시 사유 명시 (specialist_skip_reason)
+
+business-analysis, ux-research, project-governance 위임을 생략하고 PRD 작성을 직접 수행하는 경우, pipeline-orchestrator에게 보내는 결과 보고의 `issues`에 `specialist_skip_reason` 1줄을 반드시 포함한다 (예: "ux-research skip: 신규 사용자 여정 없음, 기존 여정 재사용").
+
+**근거**: retro_최근3d회고_1 P-TOP2 — business-analysis·ux-research 위임 0건(정성 1.0/5)으로 지목됨. specialist 공동화는 product-strategy/qa-strategy/hr-agent 3개 부서 교차 재현 패턴.
+
 ## 출력 형식
 
 ### 제품 비전 문서

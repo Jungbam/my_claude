@@ -36,6 +36,7 @@
 - 분석/전략 에이전트는 산출물을 직접 파일로 쓰지 않는다.
 - 호출자가 반환된 output을 받아 `.crew/artifacts/{slug}/{phase}/` 경로에 저장한다.
 - 산출물 경로는 호출자가 결정하고, 다음 위임 시 `input_artifacts`로 전달한다.
+- 호출자가 Write 도구를 사용할 수 없는 컨텍스트(Bash만 허용된 메인/부서장이 대신 저장하는 경우 등)에서 300줄+ 산출물을 저장해야 할 때는 Bash heredoc(`cat > {path} <<'EOF' ... EOF`)을 표준 저장 방법으로 사용한다 (근거: `retro_최근3d회고_1` P5 — qa-strategy/product-strategy/product-analytics 전원 실증).
 
 ### 구현 에이전트의 산출물 저장 흐름
 

@@ -35,7 +35,17 @@ export type SseEventType =
   | "agent_end"
   | "error"
   | "connected"
-  | "heartbeat";
+  | "heartbeat"
+  // TASK-119: ExecutionOrchestrator (design-be §7-1) — NF-OBS-1
+  | "execution_session_start"
+  | "execution_session_end"
+  | "execution_session_linked"
+  | "execution_slow_start"
+  | "execution_aborted_requested"
+  | "execution_aborted"
+  | "execution_force_killed"
+  | "system_prompt_pref_truncated"
+  | "prompt_injection_flagged";
 
 export interface SseEvent {
   type: SseEventType;
@@ -50,17 +60,38 @@ export interface SseEvent {
 // SSE 브로커 클래스
 // ─────────────────────────────────────────────────────────────
 
+/**
+ * TASK-119 R-7 완화: subscriber 상한 (design-infra §6 항목 3).
+ * 초기값은 실사용 후 조정 여지 있음.
+ */
+export const CHANNEL_SUBSCRIBER_LIMIT = 20;
+export const GLOBAL_SUBSCRIBER_LIMIT = 100;
+
+/**
+ * QG Critical-fix: sse-broker DB 경로 lazy 평가 + BAMS_DB 환경변수 지원.
+ * bams-db/index.ts의 getDefaultDbPath()와 정책을 일치시켜 test isolation을 보장한다
+ * (SseBroker는 pushEvent 시 run_logs INSERT를 수행하므로 실 DB 오염 경로였다).
+ */
+function resolveSseBrokerDbPath(): string {
+  return (
+    process.env.BAMS_DB ??
+    join(homedir(), ".claude", "plugins", "marketplaces", "my-claude", "bams.db")
+  );
+}
+
 export class SseBroker {
   /** pipeline_slug → Set<controller> */
   private clients = new Map<string, Set<ReadableStreamDefaultController<string>>>();
   /** agent_slug → Set<controller> */
   private agentClients = new Map<string, Set<ReadableStreamDefaultController<string>>>();
+  /** 전역 활성 구독자 수 카운터 (per-connection) — 상한 GLOBAL_SUBSCRIBER_LIMIT */
+  private globalSubscriberCount = 0;
 
   private db: Database;
   /** pipeline_slug → pipeline_id 캐시 */
   private pipelineIdCache = new Map<string, string>();
 
-  constructor(dbPath = join(homedir(), ".claude", "plugins", "marketplaces", "my-claude", "bams.db")) {
+  constructor(dbPath = resolveSseBrokerDbPath()) {
     const dir = dbPath.substring(0, dbPath.lastIndexOf("/"));
     if (dir && !existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
@@ -222,11 +253,37 @@ export class SseBroker {
 
     return new ReadableStream<string>({
       start: (controller) => {
+        // TASK-119 R-7: subscriber 상한 검사 — 초과 시 즉시 종료
+        const channelSize = this.clients.get(pipelineKey)?.size ?? 0;
+        if (
+          this.globalSubscriberCount >= GLOBAL_SUBSCRIBER_LIMIT ||
+          channelSize >= CHANNEL_SUBSCRIBER_LIMIT
+        ) {
+          try {
+            controller.enqueue(
+              `event: subscriber_limit\ndata: ${JSON.stringify({
+                channel: pipelineKey,
+                channel_size: channelSize,
+                global: this.globalSubscriberCount,
+                limits: {
+                  channel: CHANNEL_SUBSCRIBER_LIMIT,
+                  global: GLOBAL_SUBSCRIBER_LIMIT,
+                },
+              })}\n\n`,
+            );
+            controller.close();
+          } catch {
+            /* ignore */
+          }
+          return;
+        }
+
         // 파이프라인 채널 등록
         if (!this.clients.has(pipelineKey)) {
           this.clients.set(pipelineKey, new Set());
         }
         this.clients.get(pipelineKey)!.add(controller);
+        this.globalSubscriberCount++;
 
         // 에이전트 채널 등록
         if (agentKey) {
@@ -291,7 +348,11 @@ export class SseBroker {
     pipelineKey: string,
     agentKey?: string
   ): void {
-    this.clients.get(pipelineKey)?.delete(ctrl);
+    const set = this.clients.get(pipelineKey);
+    if (set?.delete(ctrl)) {
+      // 카운터는 실제 제거된 경우에만 감소 (중복 cleanup 방어)
+      this.globalSubscriberCount = Math.max(0, this.globalSubscriberCount - 1);
+    }
     if (agentKey) {
       this.agentClients.get(agentKey)?.delete(ctrl);
     }
