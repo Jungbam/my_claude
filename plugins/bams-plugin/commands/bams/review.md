@@ -145,7 +145,8 @@ fi
 
 `ASPECT_LIST`가 `["code"]`이면 본 절을 건너뛴다(§Aspect 파싱과 동일 조건).
 
-그 외의 경우, `ASPECT_LIST`의 각 항목(이미 spawn된 `code`는 제외)에 대해 `references/multi-perspective-review.md` §aspect별 위임 메시지 템플릿을 사용하여 해당 부서장을 **병렬** 직접 spawn한다(§aspect 정의 표의 부서장 컬럼).
+그 외의 경우, `ASPECT_LIST`의 각 항목(이미 spawn된 `code`는 제외)에 대해 `references/multi-perspective-review.md` §aspect별 위임 메시지 템플릿을 사용하여 해당 부서장을 **병렬** 직접 spawn한다(§aspect 정의 표의 부서장 컬럼).  
+`uiux` aspect는 **항상 `design-director` + `gpt-5-codex`**로 실행한다.
 
 각 aspect마다 Bash로 step_start/step_end emit(step_number는 §step_number 매핑 참조, step_name=`aspect-{name} 리뷰`) + agent_start/agent_end emit(부서장 spawn 전후).
 
@@ -156,13 +157,13 @@ for asp in spec functional performance uiux; do
   case " ${ASPECT_LIST[*]} " in
     *" $asp "*)
       case "$asp" in
-        spec) n=20; dept=product-strategy ;;
-        functional) n=21; dept=qa-strategy ;;
-        performance) n=22; dept=product-analytics ;;
-        uiux) n=24; dept=design-director ;;
+        spec) n=20; dept=product-strategy; model=claude-fable-5 ;;
+        functional) n=21; dept=qa-strategy; model=claude-opus-4-8 ;;
+        performance) n=22; dept=product-analytics; model=claude-opus-4-8 ;;
+        uiux) n=24; dept=design-director; model=gpt-5-codex ;;
       esac
       [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" "$n" "aspect-${asp} 리뷰" "Phase 2-c"
-      [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "${dept}-${n}-$(date -u +%Y%m%d)" "$dept" "claude-opus-4-8" "Phase 2-c: aspect-${asp} 리뷰"
+      [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "${dept}-${n}-$(date -u +%Y%m%d)" "$dept" "$model" "Phase 2-c: aspect-${asp} 리뷰"
       ;;
   esac
 done

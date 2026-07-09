@@ -23,7 +23,7 @@
 | `functional` | 기능 동작·엣지케이스·회귀 | qa-strategy | defect-triage, automation-qa | 21 |
 | `performance` | 벤치마크·N+1·번들·렌더링 | product-analytics | performance-evaluation | 22 |
 | `code` | 정확성/보안/성능/품질/테스트 (기존 5관점, 아래 §code aspect — 5관점 정의 참조) | qa-strategy | automation-qa | 23 |
-| `uiux` | 시각 충실도·접근성·사용성 | design-director | visual-fidelity-verifier, accessibility-auditor | 24 |
+| `uiux` | 시각 충실도·접근성·사용성 | design-director (`gpt-5-codex`) | visual-fidelity-verifier, accessibility-auditor | 24 |
 
 (위 step_number는 review.md 기준. deep-review.md는 §step_number 예약 구간 상세표 참조.)
 
@@ -106,7 +106,7 @@ quality_criteria:
 | spec | PRD/spec/AC 대비 구현 정합성 | `.crew/artifacts/prd/*.md`, `.crew/artifacts/design/*-spec.md` (있는 것만) | spec_compliance_review | PRD/spec 부재 시 "spec aspect 스킵" 경고 후 다른 aspect는 계속 진행 |
 | functional | 기능 동작·엣지케이스·회귀 | (context_package로 충분) | functional_review | defect-triage/automation-qa 라우팅 우선 |
 | performance | 벤치마크·N+1·번들·렌더링 | 최근 benchmark 리포트 경로(있으면) | performance_review | LCP/번들 임계값은 `issue-severity.md` §aspect별 Override 참조 |
-| uiux | 시각 충실도·접근성·사용성 | 스크린샷 경로 또는 대상 URL(없으면 정적 diff만 수행) | uiux_review | WCAG AA 위반은 Critical(issue-severity.md §aspect별 Override) |
+| uiux | 시각 충실도·접근성·사용성 | 스크린샷 경로 또는 대상 URL(없으면 정적 diff만 수행) | uiux_review | WCAG AA 위반은 Critical(issue-severity.md §aspect별 Override), 모델은 `gpt-5-codex` 고정 |
 
 `code` aspect는 위 canonical 템플릿을 적용하지 않고 §qa-strategy 위임 메시지 템플릿(code aspect)을 그대로 사용한다(하위 호환).
 
