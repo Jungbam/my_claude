@@ -35,7 +35,7 @@
 - [ ] `dogfooding.test.ts`로 1회 실행 확인
 
 ## 7. 문서/Commit
-- [ ] CLAUDE.md "현재 상태" 갱신 (claude-md-update-sop.md 절차)
+- [ ] CLAUDE.md는 자동 편집 대상이 아님 확인 (신규 에이전트 등록 시 조직도 갱신은 사용자 승인 하의 별도 프로세스 — §2 조직도 표는 사용자 확인 후에만 수정)
 - [ ] commit 메시지: `feat(plugin): foo-bar specialist 등록`
 - [ ] PR description에 본 체크리스트 결과 첨부
 

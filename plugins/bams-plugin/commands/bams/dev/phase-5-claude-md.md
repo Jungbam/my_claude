@@ -1,4 +1,4 @@
-# Dev: Phase 5 — CLAUDE.md 상태 업데이트 (Step 11)
+# Dev: Phase 5 — 상태 기록 위임 (Step 11)
 
 > 이 파일은 `/bams:dev`의 Phase 5를 실행합니다.
 > 공통 규칙은 `_common.md`를 참조합니다.
@@ -9,21 +9,16 @@
 
 ---
 
-## Phase 5: CLAUDE.md 상태 업데이트
+## Phase 5: 상태 기록 위임
 
 Bash로 다음을 실행합니다:
 ```bash
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 11 "CLAUDE.md 상태 업데이트" "Phase 5: 상태 업데이트"
 ```
 
-### Step 11. CLAUDE.md 업데이트
+### Step 11. 상태 기록 위임
 
-`CLAUDE.md`의 `## Bams 현재 상태` 섹션을 업데이트합니다 (없으면 파일 끝에 추가, 있으면 Edit으로 교체). `.crew/board.md`를 읽어 다음을 포함:
-- 마지막 업데이트 타임스탬프
-- 진행 중인 작업
-- 활성 스프린트 정보
-- 이번 실행에서 생성된 아티팩트 경로
-- 다음에 실행 가능한 태스크/명령 제안
+> **CLAUDE.md 자동 편집 금지** — 상태 기록은 `.crew/board.md`(태스크) / `.crew/history.md`(파이프라인 히스토리) / `.crew/artifacts/`(산출물)에 위임. 본 파이프라인은 CLAUDE.md를 수정하지 않는다.
 
 Step 11 완료 시, Bash로 다음을 실행합니다:
 ```bash

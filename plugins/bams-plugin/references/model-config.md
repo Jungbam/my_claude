@@ -17,7 +17,8 @@
 
 - 부서장급 조율 역할과 더불어, 코드/문서를 직접 구현·변경하는 역할 포함
 - 판단 깊이가 깊거나 여러 하위 에이전트/문서를 종합하는 역할
-- 대상: backend-engineering, platform-devops, qa-strategy, product-analytics, hr-agent, executive-reporter, resource-optimizer, cross-department-coordinator
+- 대상: backend-engineering, platform-devops, qa-strategy, product-analytics, hr-agent, executive-reporter, resource-optimizer, cross-department-coordinator (FE/디자인 부서장 제외 — 아래 예외 참조)
+- **예외**: FE/디자인 도메인 부서장(frontend-engineering, design-director)은 "부서장"이지만 도메인 특성상 Tier 2 대상에서 제외되고 `gpt-5-codex` 버킷에 배정된다. 따라서 "모든 부서장 = Tier 2"로 독해하지 말 것 — 신규 부서장 배정 시 FE/디자인 도메인 여부를 먼저 확인한다.
 
 ### Tier 3 — Sonnet 5 (claude-sonnet-5)
 **specialist**: 정형 구조 출력, 빠른 응답, 단일 도메인 세부 작업
@@ -178,6 +179,11 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
    - 커밋 메시지에 본 문서 경로 + 변경 내역 참조
 
 ## 변경 이력
+
+### 2026-07-09-postscript — Tier 2 예외 명시 (review_codex디자인FE개선 M3 hotfix)
+
+- 파이프라인: `review_codex디자인FE개선` (Major M3 후속 hotfix)
+- 내용: Tier 2 정의가 frontend-engineering·design-director를 "부서장"으로 포함하는 것처럼 읽혀 실제 gpt-5-codex 배정과 taxonomy gap 발생. Tier 2 대상 목록에 "(FE/디자인 부서장 제외)" 각주 + 예외 문단 1건 추가하여 "모든 부서장 = Tier 2" 오독을 차단. 대안 A(최소 침습) 채택 — 기존 tier 명명·매핑표·총계는 불변 (대안 B의 Tier 2-D 승격은 별도 plan 권고).
 
 ### 2026-07-09 — FE/디자인 설계 Codex 우선 정책
 

@@ -18,7 +18,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 ```bash
 _CALL_ID="design-director-1-$(date -u +%Y%m%d%H%M%S)"
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "${_CALL_ID}" "design-director" "opus" "Phase 1: F1~F9 파이프라인 실행"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "${_CALL_ID}" "design-director" "gpt-5-codex" "Phase 1: F1~F9 파이프라인 실행"
 ```
 
 ## design-director 위임 메시지 (표준 형식 — PRD §F3)

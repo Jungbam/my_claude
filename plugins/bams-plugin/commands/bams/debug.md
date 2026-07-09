@@ -246,14 +246,14 @@ Step 4 완료 시, Bash로 다음을 실행합니다:
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 4 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
 ```
 
-## Phase 5: CLAUDE.md 상태 업데이트
+## Phase 5: 상태 기록 위임
 
 Bash로 다음을 실행합니다:
 ```bash
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 5 "CLAUDE.md 상태 업데이트" "Phase 5: 상태 업데이트"
 ```
 
-`CLAUDE.md`의 `## Bams 현재 상태` 섹션을 업데이트합니다.
+> **CLAUDE.md 자동 편집 금지** — 상태 기록은 `.crew/board.md`(태스크) / `.crew/history.md`(파이프라인 히스토리) / `.crew/artifacts/`(산출물)에 위임. 본 파이프라인은 CLAUDE.md를 수정하지 않는다.
 
 업데이트 완료 후, Bash로 다음을 실행합니다:
 ```bash
