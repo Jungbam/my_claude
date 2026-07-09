@@ -259,25 +259,49 @@ Bash로 step_start + 4개 agent_start 일괄 emit:
 # 중단 선택 시: 파이프라인 상태를 failed로 기록 후 Phase 7(pipeline_end)으로 이동
 
 # 5.3-codex: 디자인/FE 리뷰 게이트
-# 목적: FE 설계 + 디자인(UI/UX) 설계를 Codex로 독립 검토
+# 목적: FE 설계 + 디자인(UI/UX) 설계를 Codex로 독립 검토 (advisory — 실패해도 Phase는 진행하되 Reviewer 태스크 강제)
 _CODEX_REVIEW_PATH=".crew/artifacts/review/{slug}-design-fe-codex-review.md"
-if command -v codex >/dev/null 2>&1; then
-  mkdir -p .crew/artifacts/review
-  codex exec "다음 2개 설계 문서를 함께 리뷰하라: .crew/artifacts/design/{slug}-design-fe.md 와 .crew/artifacts/design/{slug}-design-ui.md. UI 구조, UX 흐름, 상태 관리, 라우팅, 접근성, 토큰/스타일 일관성을 점검하고 Critical/Major/Minor로 분류하라. 결과를 한국어 Markdown으로 출력하라." \
-    -s read-only -c 'model="gpt-5-codex"' -c 'model_reasoning_effort="high"' --enable web_search_cached \
-    > "$_CODEX_REVIEW_PATH"
-else
-  mkdir -p .crew/artifacts/review
-  cat > "$_CODEX_REVIEW_PATH" <<'EOF'
+_CODEX_TIMEOUT="${_CODEX_TIMEOUT:-600}"   # A. codex hang 방어 (기본 600s). timeout 시 exit 124 → fallback
+_CODEX_MIN_BYTES=200                       # C. 유효 리뷰 최소 크기 — 빈/부분(partial) 출력 거절 임계값
+_CODEX_OK=0
+mkdir -p .crew/artifacts/review
+
+# 실패 모든 경로에서 동일한 "Skipped" 산출물 보장 (부분출력·빈파일·hang이 거짓 리뷰로 남지 않도록)
+_write_codex_skip() {
+  cat > "$_CODEX_REVIEW_PATH" <<EOF
 # Codex Review Skipped
-- reason: codex CLI unavailable
-- action: Phase 3 태스크에 Reviewer 태스크(TODO: Codex FE+UI/UX design review) 추가 필요
+- reason: $1
+- action: Phase 3 태스크에 Reviewer 태스크(TODO: Codex FE+UI/UX design review) 필수 추가
 EOF
+}
+
+if ! command -v codex >/dev/null 2>&1; then
+  _write_codex_skip "codex CLI unavailable"
+elif ! timeout 60 codex exec "ping" -s read-only -c 'model="gpt-5-codex"' 2>/dev/null | grep -q ""; then
+  # D. 인증 ping — command -v 통과 후 인증만료/모델 미가용을 실제 exec 전 사전 감지
+  _write_codex_skip "codex 인증 실패 또는 gpt-5-codex 미가용 (auth ping failed)"
+else
+  # B. exit code 분기 + A. timeout 래퍼로 실제 리뷰 실행
+  if timeout "$_CODEX_TIMEOUT" codex exec "다음 2개 설계 문서를 함께 리뷰하라: .crew/artifacts/design/{slug}-design-fe.md 와 .crew/artifacts/design/{slug}-design-ui.md. UI 구조, UX 흐름, 상태 관리, 라우팅, 접근성, 토큰/스타일 일관성을 점검하고 Critical/Major/Minor로 분류하라. 결과를 한국어 Markdown으로 출력하라." \
+       -s read-only -c 'model="gpt-5-codex"' -c 'model_reasoning_effort="high"' --enable web_search_cached \
+       > "$_CODEX_REVIEW_PATH" 2>/dev/null; then
+    # C. 산출물 비어있음/부분출력 체크 (최소 바이트 임계값 통과 시에만 유효 리뷰로 인정)
+    if [ -s "$_CODEX_REVIEW_PATH" ] && [ "$(wc -c < "$_CODEX_REVIEW_PATH")" -ge "$_CODEX_MIN_BYTES" ]; then
+      _CODEX_OK=1
+    else
+      _write_codex_skip "codex 출력 없음/부분출력 (< ${_CODEX_MIN_BYTES}B)"
+    fi
+  else
+    # timeout(exit 124) 또는 codex 비정상 종료 → 부분/손상 출력 덮어쓰기
+    _write_codex_skip "codex exec 실패 또는 타임아웃 (exit≠0, timeout=${_CODEX_TIMEOUT}s)"
+  fi
 fi
 
-# step_end — 4트랙 실패가 없고 codex 리뷰 리포트가 생성되면 done
+# step_end — Phase 2의 게이트는 4개 설계 트랙(위 성공/에러 분기)이며 codex는 advisory.
+#   codex 실패/미가용 시에도 step은 done 유지(4트랙 통과 기준)하되, fallback 산출물이
+#   Reviewer 태스크를 강제하므로 부분·빈 출력이 거짓 GO(false pass)로 남지 않음.
 [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 3 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-# → 완료 step으로 카운트 (단, codex unavailable 시 Reviewer 보강 태스크 필수)
+# → codex 검토 결과: $_CODEX_OK (1=독립 검토 완료 / 0=Reviewer 보강 태스크 Phase 3 필수 추가)
 ```
 
 **기대 산출물**: 기능 명세, 디자인(UI/UX) 기술 설계, FE 기술 설계, BE 기술 설계, Codex FE/디자인 리뷰 리포트 (4트랙 + 5.3-codex)
