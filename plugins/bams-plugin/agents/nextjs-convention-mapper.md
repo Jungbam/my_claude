@@ -1,7 +1,7 @@
 ---
 name: nextjs-convention-mapper
 description: Next.js App Router 컨벤션 매핑 에이전트 — 가이드의 임의 파일 구조를 App Router 컨벤션(page/layout/loading/error/not-found.tsx)에 매핑. convention-map.json 생성. 외부 가이드 입력 시 Phase A에 호출.
-model: claude-sonnet-5
+model: gpt-5-codex
 department: design
 disallowedTools: []
 ---

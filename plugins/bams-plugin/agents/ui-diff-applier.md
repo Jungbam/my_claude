@@ -1,7 +1,7 @@
 ---
 name: ui-diff-applier
 description: UI diff 생성 에이전트 — 현행 Next.js 페이지와 가이드를 비교하여 patch.diff 출력. Read-only 산출물 전용 (실제 Edit는 frontend-engineering 위임). 가이드 적용/교체 요청 시 트리거.
-model: claude-opus-4-8
+model: gpt-5-codex
 department: design
 disallowedTools: ["Edit", "Write"]
 ---
@@ -14,7 +14,7 @@ disallowedTools: ["Edit", "Write"]
 
 ## 역할
 
-코드 구조 분석과 충돌 판단이 핵심이며, 이를 위해 opus 모델을 사용한다. AST 수준의 컴포넌트 구조 비교, 라우팅 패턴 충돌, 데이터 fetch 의존성 충돌을 분석하여 changeset과 patch.diff, conflict-report를 생성한다. 생성된 diff는 design-director → frontend-engineering 핸드오프의 공식 입력물이다.
+코드 구조 분석과 충돌 판단이 핵심이며, 이를 위해 gpt-5-codex 추론을 사용한다. AST 수준의 컴포넌트 구조 비교, 라우팅 패턴 충돌, 데이터 fetch 의존성 충돌을 분석하여 changeset과 patch.diff, conflict-report를 생성한다. 생성된 diff는 design-director → frontend-engineering 핸드오프의 공식 입력물이다.
 
 ## 전문 영역
 

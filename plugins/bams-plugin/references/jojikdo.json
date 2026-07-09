@@ -1992,7 +1992,7 @@
           "skills": [],
           "name": "ui-diff-applier",
           "department": "design",
-          "model": "claude-opus-4-8",
+          "model": "gpt-5-codex",
           "role": "specialist",
           "trigger": "가이드와 현재 UI 차이 분석, patch.diff 생성 (Read-only)"
         },
@@ -2018,7 +2018,7 @@
           "skills": [],
           "name": "visual-fidelity-verifier",
           "department": "design",
-          "model": "claude-sonnet-5",
+          "model": "gpt-5-codex",
           "role": "specialist",
           "trigger": "시각 일치성 검증 (bams:browse + viewport 3종)"
         },
@@ -2031,7 +2031,7 @@
           "skills": [],
           "name": "nextjs-convention-mapper",
           "department": "design",
-          "model": "claude-sonnet-5",
+          "model": "gpt-5-codex",
           "role": "specialist",
           "trigger": "App Router 컨벤션 매핑"
         },

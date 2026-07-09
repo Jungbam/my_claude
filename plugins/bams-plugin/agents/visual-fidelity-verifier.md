@@ -1,7 +1,7 @@
 ---
 name: visual-fidelity-verifier
 description: 시각 충실도 검증 에이전트 — bams:browse 스킬로 viewport별 스크린샷 촬영 + 픽셀 diff + WCAG 명도 대비 측정. 가이드 vs 구현 충실도 정량 보고. 가이드 적용 완료 후 시각 검증 트리거.
-model: claude-sonnet-5
+model: gpt-5-codex
 department: design
 disallowedTools: ["Edit", "Write"]
 ---

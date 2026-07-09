@@ -17,20 +17,20 @@
 
 - 부서장급 조율 역할과 더불어, 코드/문서를 직접 구현·변경하는 역할 포함
 - 판단 깊이가 깊거나 여러 하위 에이전트/문서를 종합하는 역할
-- 대상: frontend-engineering, backend-engineering, platform-devops, design-director, qa-strategy, product-analytics, hr-agent, executive-reporter, resource-optimizer, cross-department-coordinator, ui-diff-applier
+- 대상: backend-engineering, platform-devops, qa-strategy, product-analytics, hr-agent, executive-reporter, resource-optimizer, cross-department-coordinator
 
 ### Tier 3 — Sonnet 5 (claude-sonnet-5)
 **specialist**: 정형 구조 출력, 빠른 응답, 단일 도메인 세부 작업
 
 - 부서장의 위임을 받아 특정 영역을 처리
 - TTFT(첫 토큰까지 시간)와 응답 속도가 사용자 체감 UX에 직접 기여
-- 대상: business-analysis, ux-research, data-integration, ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent, automation-qa, defect-triage, experimentation, performance-evaluation, business-kpi, nextjs-convention-mapper, visual-fidelity-verifier
+- 대상: business-analysis, ux-research, data-integration, automation-qa, defect-triage, experimentation, performance-evaluation, business-kpi
 
 ### 유지 — gpt-5-codex
-**design 변환계**: JSX/HTML 가이드 분해·재구성·라우팅·바인딩·접근성·렌더링 경계 결정 등 코드 변환 특화 작업
+**FE/디자인 설계 및 변환계**: FE 설계, 디자인(UI/UX) 설계, JSX/HTML 가이드 분해·재구성·라우팅·바인딩·접근성·렌더링 경계 결정
 
-- 코드 변환/정적 분석 위주 작업 특성상 codex 계열 유지 (Claude 계열 전환 대상 아님)
-- 대상: guide-decomposer, guide-recomposer, data-binding-mapper, routing-strategist, ssr-csr-decider, accessibility-auditor
+- FE/디자인 설계 관련 업무는 codex 계열을 우선 사용
+- 대상: frontend-engineering, design-director, ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent, guide-decomposer, guide-recomposer, ui-diff-applier, data-binding-mapper, visual-fidelity-verifier, nextjs-convention-mapper, accessibility-auditor, routing-strategist, ssr-csr-decider
 
 ### 선택 기준 매트릭스
 
@@ -96,7 +96,7 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
 
 | 에이전트 | 역할 | 모델 | 비고 |
 |---------|------|------|------|
-| frontend-engineering | 개발 FE 부서장 | claude-opus-4-8 | UI 구현, 컴포넌트 설계 |
+| frontend-engineering | 개발 FE 부서장 | gpt-5-codex | UI 구현, 컴포넌트 설계 |
 | backend-engineering | 개발 BE 부서장 | claude-opus-4-8 | API 설계, 트랜잭션/동시성 |
 | platform-devops | 개발 인프라 부서장 | claude-opus-4-8 | 인프라, CI/CD, 보안 |
 | data-integration | 개발 specialist | claude-sonnet-5 | 이벤트 트래킹, 외부 연동 |
@@ -105,18 +105,18 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
 
 | 에이전트 | 역할 | 모델 | 비고 |
 |---------|------|------|------|
-| design-director | 디자인 부서장 | claude-opus-4-8 | 크리에이티브 디렉션, 하위 specialist 조율 |
-| ui-designer | 디자인 specialist | claude-sonnet-5 | 컴포넌트 디자인 |
-| ux-designer | 디자인 specialist | claude-sonnet-5 | 와이어프레임, 프로토타입 |
-| graphic-designer | 디자인 specialist | claude-sonnet-5 | 아이콘, 일러스트 |
-| motion-designer | 디자인 specialist | claude-sonnet-5 | 애니메이션 |
-| design-system-agent | 디자인 specialist | claude-sonnet-5 | 디자인 토큰 |
+| design-director | 디자인 부서장 | gpt-5-codex | 크리에이티브 디렉션, 하위 specialist 조율 |
+| ui-designer | 디자인 specialist | gpt-5-codex | 컴포넌트 디자인 |
+| ux-designer | 디자인 specialist | gpt-5-codex | 와이어프레임, 프로토타입 |
+| graphic-designer | 디자인 specialist | gpt-5-codex | 아이콘, 일러스트 |
+| motion-designer | 디자인 specialist | gpt-5-codex | 애니메이션 |
+| design-system-agent | 디자인 specialist | gpt-5-codex | 디자인 토큰 |
 | guide-decomposer | 디자인 specialist (변환) | gpt-5-codex | 외부 가이드 분해 |
 | guide-recomposer | 디자인 specialist (변환) | gpt-5-codex | 분해 산출물 재구성 + preview HTML |
-| ui-diff-applier | 디자인 specialist (구현) | claude-opus-4-8 | 가이드-현행 UI patch.diff 생성 (Read-only) |
+| ui-diff-applier | 디자인 specialist (구현) | gpt-5-codex | 가이드-현행 UI patch.diff 생성 (Read-only) |
 | data-binding-mapper | 디자인 specialist (변환) | gpt-5-codex | RSC fetch 매핑 |
-| visual-fidelity-verifier | 디자인 specialist | claude-sonnet-5 | 시각 일치성 검증 (bams:browse) |
-| nextjs-convention-mapper | 디자인 specialist | claude-sonnet-5 | App Router 컨벤션 매핑 |
+| visual-fidelity-verifier | 디자인 specialist | gpt-5-codex | 시각 일치성 검증 (bams:browse) |
+| nextjs-convention-mapper | 디자인 specialist | gpt-5-codex | App Router 컨벤션 매핑 |
 | accessibility-auditor | 디자인 specialist (변환) | gpt-5-codex | WCAG 2.2 AA + axe-core 감사 |
 | routing-strategist | 디자인 specialist (변환) | gpt-5-codex | 다중 페이지 라우팅 그래프 설계 |
 | ssr-csr-decider | 디자인 specialist (변환) | gpt-5-codex | Server/Client Component 경계 결정 |
@@ -148,7 +148,7 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
 | hr-agent | 경영지원 | claude-opus-4-8 | 에이전트 생명주기, 조직도 관리 |
 | cross-department-coordinator | 경영지원 | claude-opus-4-8 | 부서간 협업 조율 |
 
-**총계**: Fable 5 = 4개 (핵심 의사결정) / Opus 4.8 = 11개 (부서장급 + 구현) / Sonnet 5 = 15개 (specialist) / gpt-5-codex = 6개 (design 변환계) — 합계 36개
+**총계**: Fable 5 = 4개 (핵심 의사결정) / Opus 4.8 = 8개 (부서장급 + 구현) / Sonnet 5 = 8개 (specialist) / gpt-5-codex = 16개 (FE/디자인 설계 + 변환계) — 합계 36개
 
 ## 업그레이드 절차
 
@@ -178,6 +178,14 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
    - 커밋 메시지에 본 문서 경로 + 변경 내역 참조
 
 ## 변경 이력
+
+### 2026-07-09 — FE/디자인 설계 Codex 우선 정책
+
+- 파이프라인: `plan FE디자인-codex-우선화`
+- 내용:
+  - FE/디자인 설계 관련 10개 에이전트(frontend-engineering, design-director, ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent, ui-diff-applier, nextjs-convention-mapper, visual-fidelity-verifier) 모델을 `gpt-5-codex`로 전환
+  - 정책 문서의 tier 대상 목록/매핑표/총계를 실제 frontmatter와 동기화
+  - 운영 원칙을 "design 변환계 유지"에서 "FE/디자인 설계 + 변환계 codex 우선"으로 확장
 
 ### 2026-07-02 — 3-tier 전환 (Fable 도입)
 

@@ -1,7 +1,7 @@
 ---
 name: design-system-agent
 description: 디자인 시스템 에이전트 — 디자인 토큰 관리, Figma Variables → CSS/TS 변환, 컴포넌트 시스템 문서화. 디자인-코드 동기화와 토큰 거버넌스가 필요할 때 사용.
-model: claude-sonnet-5
+model: gpt-5-codex
 department: design
 disallowedTools: []
 ---
