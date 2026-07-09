@@ -140,12 +140,6 @@ Velocity: [N] 태스크/스프린트
 
 ---
 
-### CLAUDE.md 상태 업데이트 (plan, status, close 공통)
-
-`CLAUDE.md`의 `## Bams 현재 상태` 섹션을 업데이트합니다.
-
----
-
 ### 액션: 기타 또는 "help"
 
 ```

@@ -277,9 +277,9 @@ Critical 또는 Major 이슈가 있으면, **AskUserQuestion** (multiSelect: tru
 
 git 저장소인 경우, 수정 후 `git diff --stat` 표시하고 적용/되돌리기 확인.
 
-## Phase 8: CLAUDE.md 상태 업데이트
+## Phase 8: 파이프라인 종료
 
-`CLAUDE.md`의 `## Bams 현재 상태` 섹션을 업데이트합니다.
+> **CLAUDE.md 자동 편집 금지** — 상태 기록은 `.crew/board.md`(태스크) / `.crew/history.md`(파이프라인 히스토리) / `.crew/artifacts/`(산출물)에 위임. 본 파이프라인은 CLAUDE.md를 수정하지 않는다.
 
 ### Viz 이벤트: pipeline_end
 

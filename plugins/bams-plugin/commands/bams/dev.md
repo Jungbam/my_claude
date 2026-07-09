@@ -100,6 +100,6 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 | Phase 3 (검증) | `plugins/bams-plugin/commands/bams/dev/phase-3-verification.md` |
 | Phase 3.5 (QG) | `plugins/bams-plugin/commands/bams/dev/phase-3-5-quality-gate.md` |
 | Phase 4 (마무리) | `plugins/bams-plugin/commands/bams/dev/phase-4-finalization.md` |
-| Phase 5 (CLAUDE.md) | `plugins/bams-plugin/commands/bams/dev/phase-5-claude-md.md` |
+| Phase 5 (상태 기록 위임) | `plugins/bams-plugin/commands/bams/dev/phase-5-claude-md.md` |
 
 해당 서브파일을 Read한 뒤, 그 파일의 지시를 따릅니다.
