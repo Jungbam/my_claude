@@ -33,6 +33,13 @@
 - FE/디자인 설계 관련 업무는 codex 계열을 우선 사용
 - 대상: frontend-engineering, design-director, ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent, guide-decomposer, guide-recomposer, ui-diff-applier, data-binding-mapper, visual-fidelity-verifier, nextjs-convention-mapper, accessibility-auditor, routing-strategist, ssr-csr-decider
 
+### Tier 4 — Haiku 4.5 (claude-haiku-4-5-20251001)
+**결정론적 절차 자동화**: bash 절차 위주 저비용 실행. 토큰 절감을 최우선 축으로 하는 skill/에이전트 위임 경로.
+
+- 파괴 명령 없거나 별도 확인 게이트로 안전 확보
+- Sonnet 5 대비 약 3배 저렴 ($1/$5 vs $3/$15 per MTok)
+- 대상 에이전트: git-ops-agent
+
 ### 선택 기준 매트릭스
 
 | 요인 | Fable 5 선호 | Opus 4.8 선호 | Sonnet 5 선호 |
@@ -101,6 +108,7 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
 | backend-engineering | 개발 BE 부서장 | claude-opus-4-8 | API 설계, 트랜잭션/동시성 |
 | platform-devops | 개발 인프라 부서장 | claude-opus-4-8 | 인프라, CI/CD, 보안 |
 | data-integration | 개발 specialist | claude-sonnet-5 | 이벤트 트래킹, 외부 연동 |
+| git-ops-agent | 개발 specialist (저비용) | claude-haiku-4-5-20251001 | git skill 실행 전담, 토큰 절감 위임 경로 |
 
 ### 디자인부 (Design)
 
@@ -149,7 +157,7 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
 | hr-agent | 경영지원 | claude-opus-4-8 | 에이전트 생명주기, 조직도 관리 |
 | cross-department-coordinator | 경영지원 | claude-opus-4-8 | 부서간 협업 조율 |
 
-**총계**: Fable 5 = 4개 (핵심 의사결정) / Opus 4.8 = 8개 (부서장급 + 구현) / Sonnet 5 = 8개 (specialist) / gpt-5-codex = 16개 (FE/디자인 설계 + 변환계) — 합계 36개
+**총계**: Fable 5 = 4개 (핵심 의사결정) / Opus 4.8 = 8개 (부서장급 + 구현) / Sonnet 5 = 8개 (specialist) / gpt-5-codex = 16개 (FE/디자인 설계 + 변환계) / Haiku 4.5 = 1개 (저비용 위임) — 합계 37개
 
 ## 업그레이드 절차
 
@@ -179,6 +187,11 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
    - 커밋 메시지에 본 문서 경로 + 변경 내역 참조
 
 ## 변경 이력
+
+### 2026-07-10 — git 관리 skill + Haiku 4.5 Tier 도입
+
+- 파이프라인: plan_git관리skill세트 → dev_git관리skill세트
+- 내용: git-sync/rollback/stash/branch 4 skill 신설 (별도 TASK-131). git-ops-agent(haiku 4.5) 신규 등록. Tier 4 신설 + 총계 36→37.
 
 ### 2026-07-09-postscript — Tier 2 예외 명시 (review_codex디자인FE개선 M3 hotfix)
 
