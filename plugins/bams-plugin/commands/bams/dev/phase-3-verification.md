@@ -15,6 +15,8 @@
 
 ## Phase 3: 검증 (QA부장 + 평가부장 병렬)
 
+> **UI 변경 감지 시**: FE 파일(*.tsx, *.css) 변경이 있으면 `/design-qa <dev-url>` 실행 권장 (자동 트리거 아님). 정성 semantic 판정 — 10항 하이브리드 체크리스트(자동 7 + 사용자 3). visual-fidelity-verifier(정량)와 병존.
+
 Bash로 다음을 실행합니다:
 ```bash
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 8 "검증 (QA + 평가 병렬)" "Phase 3: 검증"
