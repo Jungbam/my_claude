@@ -60,6 +60,15 @@
             "command": "CLAUDE_HOOK_EVENT=pre bash ./hooks/bams-viz-hook.sh"
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ./hooks/claude-md-guard.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [
