@@ -30,15 +30,28 @@ allowed-tools:
 ## 3. 실행 로직
 
 ```bash
+# arg-parse: CLI 플래그를 셸 변수로 바인딩 (M-1)
+POS=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --base) BASE="$2"; shift ;;
+    --strategy) STRATEGY="$2"; shift ;;
+    --) shift; break ;;
+    -*) echo "unknown flag: $1" >&2; exit 2 ;;
+    *) POS+=("$1") ;;
+  esac
+  shift
+done
+
 BASE="${BASE:-main}"
 STRATEGY="${STRATEGY:-ff}"
 
 # 1) fetch (네트워크 실패 → exit 2)
 git fetch origin "$BASE" || { echo "fetch 실패 — 네트워크/원격 확인"; exit 2; }
 
-# 2) dirty 감지 → auto-stash
+# 2) dirty 감지 → auto-stash (untracked 포함, m-3)
 STASHED=0
-if ! git diff --quiet || ! git diff --cached --quiet; then
+if [ -n "$(git status --porcelain)" ]; then
   git stash push -u -m "git-sync auto-stash $(date +%s)" && STASHED=1
 fi
 

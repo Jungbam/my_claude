@@ -30,20 +30,42 @@ allowed-tools:
 ## 3. 실행 로직
 
 ```bash
-SUB="$1"; shift
+# arg-parse: CLI 플래그를 셸 변수로 바인딩 (M-1)
+POS=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --yes) YES=1 ;;
+    -u) STASH_U=1 ;;
+    -m) STASH_MSG="$2"; shift ;;
+    --) shift; break ;;
+    -*) echo "unknown flag: $1" >&2; exit 2 ;;
+    *) POS+=("$1") ;;
+  esac
+  shift
+done
+SUB="${POS[0]}"
 case "$SUB" in
-  push) git stash push "$@" && echo "stash 저장 완료" ;;
-  pop)  IDX="${1:-0}"
+  push) ARGS=()
+        [ "${STASH_U:-0}" = 1 ] && ARGS+=(-u)
+        [ -n "${STASH_MSG:-}" ] && ARGS+=(-m "$STASH_MSG")
+        git stash push "${ARGS[@]}" && echo "stash 저장 완료" ;;
+  pop)  IDX="${POS[1]:-0}"
+        echo "$IDX" | grep -qE '^[0-9]+$' || { echo "IDX는 숫자여야 함: $IDX" >&2; exit 2; }
         git stash list | grep -q "stash@{$IDX}" || { echo "stash 없음: $IDX"; exit 1; }
         git stash pop "stash@{$IDX}" || { echo "pop 충돌 — 수동 병합"; exit 2; } ;;
   list) git stash list; [ -z "$(git stash list)" ] && { echo "(비어있음)"; exit 1; }; exit 0 ;;
   drop)
-        IDX="$1"
+        IDX="${POS[1]}"
+        echo "$IDX" | grep -qE '^[0-9]+$' || { echo "IDX는 숫자여야 함: $IDX" >&2; exit 2; }
         git stash list | grep -q "stash@{$IDX}" || { echo "stash 없음: $IDX"; exit 1; }
         echo "=== 삭제 대상 미리보기 stash@{$IDX} ==="
         git stash show -p "stash@{$IDX}"
         # drop 은 파괴 명령 — --yes 필수
         if [ "$YES" != 1 ]; then echo "삭제하려면 --yes 재실행"; exit 1; fi
+        # 파괴 명령 직전: careful hook 내재화 (M-2)
+        DESTRUCTIVE_CMD="git stash drop stash@{$IDX}"
+        _CH=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/careful/bin/check-careful.sh" 2>/dev/null | head -1)
+        [ -n "$_CH" ] && [ -x "$_CH" ] && CLAUDE_HOOK_TOOL_INPUT="{\"command\": \"$DESTRUCTIVE_CMD\"}" bash "$_CH" 2>&1 | head -5
         git stash drop "stash@{$IDX}" && echo "stash@{$IDX} 삭제됨" ;;
   *) echo "사용법: push|pop|list|drop"; exit 2 ;;
 esac
@@ -53,7 +75,8 @@ esac
 
 - `drop` 은 파괴 명령 — 삭제 전 `git stash show -p` 로 반드시 내용 미리보기.
 - `--yes` 미통과 시 exit 1, 어떤 stash도 삭제되지 않는다.
-- `pop`/`drop` 은 존재하지 않는 인덱스면 즉시 exit 1 (오삭제 방지).
+- `pop`/`drop` 은 존재하지 않는 인덱스면 즉시 exit 1 (오삭제 방지). IDX는 숫자만 허용(비숫자 → exit 2, option-injection 차단).
+- `drop` 실행 직전 careful hook을 skill 내부에서 직접 invoke — 세션 careful 활성 여부와 무관하게 경고 표시.
 
 ## 5. exit code
 
