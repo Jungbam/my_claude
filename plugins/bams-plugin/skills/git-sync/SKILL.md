@@ -1,0 +1,85 @@
+---
+name: git-sync
+version: 1.0.0
+description: |
+  브랜치 최신화 — fetch 후 dirty 감지 시 auto-stash → 전략(ff/rebase/merge) 실행 → stash pop. 로컬 작업 유실 없이 base 브랜치를 따라잡는다.
+  Use when asked to "sync branch", "브랜치 최신화", "pull latest", "rebase onto main".
+allowed-tools:
+  - Bash
+---
+<!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
+<!-- Regenerate: bun run gen:skill-docs -->
+
+# git-sync — 브랜치 최신화
+
+## 1. 목적
+
+현재 브랜치를 base 브랜치 최신 상태로 안전하게 동기화한다. 미커밋 변경이 있으면 자동 stash 후 전략을 실행하고 pop하여 작업을 보존한다.
+
+> 본 skill은 `git-ops-agent` 위임 시 Haiku 4.5로 실행되어 토큰을 절감한다. 사용자 직접 호출 시 main 모델 컨텍스트에서 실행된다.
+
+## 2. 사용법
+
+```
+/git-sync [--base <branch>] [--strategy ff|rebase|merge]
+```
+
+- `--base`: 동기화 기준 브랜치 (기본 `main`)
+- `--strategy`: `ff`(fast-forward, 기본 → 실패 시 rebase 자동), `rebase`, `merge`
+
+## 3. 실행 로직
+
+```bash
+# arg-parse: CLI 플래그를 셸 변수로 바인딩 (M-1)
+POS=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --base) BASE="$2"; shift ;;
+    --strategy) STRATEGY="$2"; shift ;;
+    --) shift; break ;;
+    -*) echo "unknown flag: $1" >&2; exit 2 ;;
+    *) POS+=("$1") ;;
+  esac
+  shift
+done
+
+BASE="${BASE:-main}"
+STRATEGY="${STRATEGY:-ff}"
+
+# 1) fetch (네트워크 실패 → exit 2)
+git fetch origin "$BASE" || { echo "fetch 실패 — 네트워크/원격 확인"; exit 2; }
+
+# 2) dirty 감지 → auto-stash (untracked 포함, m-3)
+STASHED=0
+if [ -n "$(git status --porcelain)" ]; then
+  git stash push -u -m "git-sync auto-stash $(date +%s)" && STASHED=1
+fi
+
+# 3) 전략 실행
+case "$STRATEGY" in
+  ff)     git merge --ff-only "origin/$BASE" || git rebase "origin/$BASE" || { echo "충돌 — 수동 해결 필요"; SYNC_FAIL=1; } ;;
+  rebase) git rebase "origin/$BASE" || { echo "rebase 충돌 — git rebase --continue/--abort"; SYNC_FAIL=1; } ;;
+  merge)  git merge "origin/$BASE" || { echo "merge 충돌 — 수동 해결 필요"; SYNC_FAIL=1; } ;;
+esac
+
+# 4) stash pop (동기화 성공 시에만)
+if [ "$STASHED" = 1 ]; then
+  if [ "${SYNC_FAIL:-0}" = 1 ]; then
+    echo "동기화 미완료 — stash 유지됨 (git stash list 확인)"; exit 1
+  fi
+  git stash pop || { echo "stash pop 충돌 — stash 유지, 수동 병합 필요"; exit 1; }
+fi
+
+[ "${SYNC_FAIL:-0}" = 1 ] && exit 1
+echo "동기화 완료: $BASE ($STRATEGY)"
+```
+
+## 4. exit code
+
+| code | 의미 |
+|------|------|
+| 0 | 동기화 성공 |
+| 1 | 충돌 대기 (수동 해결 필요, stash 보존) |
+| 2 | 네트워크/fetch 실패 |
+
+관련: /ship (PR·land), /land-and-deploy (머지·배포), /careful (실행 직전 hook — git skill은 사전 게이트, 역할 분리는 PRD F-R7 참조)

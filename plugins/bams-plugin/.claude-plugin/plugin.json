@@ -46,7 +46,8 @@
     "./agents/visual-fidelity-verifier.md",
     "./agents/nextjs-convention-mapper.md",
     "./agents/accessibility-auditor.md",
-    "./agents/routing-strategist.md"
+    "./agents/routing-strategist.md",
+    "./agents/git-ops-agent.md"
   ],
   "skills": "./skills/",
   "hooks": {
