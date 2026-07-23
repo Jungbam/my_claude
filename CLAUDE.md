@@ -195,7 +195,7 @@ hr_reports (독립)
 - 위임 20회 이상 예상 → **사전 분할 전략 필수** (Phase당 max 8회)
 
 ### CLAUDE.md 편집 정책
-- **CLAUDE.md 자동 편집 금지**: 프로젝트 불변 정보 전용. 파이프라인/에이전트가 CLAUDE.md를 자동 수정하지 않는다. 진행 상태는 `.crew/board.md`(태스크) / `.crew/history.md`(파이프라인 히스토리) / `.crew/artifacts/{prd,design,review,retro}/`(산출물)에 기록한다. 예외: `/bams:init` 최초 조직 규칙 설치, completion-protocol Step 3(사용자 승인 게이트), 사용자 명시 지시.
+- **CLAUDE.md 자동 편집 금지 ([G-CLAUDE] + hook 강제)**: 프로젝트 불변 정보 전용. 파이프라인/에이전트가 CLAUDE.md를 자동 수정하지 않는다. `hooks/claude-md-guard.sh`가 PreToolUse에서 Edit/Write/NotebookEdit을 **기계적으로 차단** — deny 시 대체 경로 안내. 진행 상태는 `.crew/board.md`(태스크) / `.crew/history.md`(파이프라인 히스토리) / `.crew/artifacts/{prd,design,review,retro}/`(산출물)에 기록한다. 예외 (env 우회): `CLAUDE_MD_INIT=1`(/bams:init 최초 설치), `CLAUDE_MD_STEP3=1`(completion-protocol Step 3), `CLAUDE_MD_EDIT_ALLOWED=1`(사용자 명시 지시).
 
 ## 7. 컨벤션
 
