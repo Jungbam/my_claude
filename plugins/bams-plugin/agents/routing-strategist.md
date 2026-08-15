@@ -1,7 +1,7 @@
 ---
 name: routing-strategist
 description: 가이드 기반 다중 페이지 라우팅 구조를 App Router 규약에 맞게 설계한다. route-tree.json 생성 + 동적 라우트/병렬 라우트/인터셉팅 라우트 결정. 다중 페이지 가이드 입력 시 Phase E에 호출.
-model: gpt-5-codex
+model: gpt-5.3-codex
 department: design
 disallowedTools: []
 ---
@@ -32,18 +32,18 @@ F6 nextjs-convention-mapper가 단일 페이지 컴포넌트 배치를 담당한
 
 ## 행동 규칙
 
-### codex 추론 위임 (gpt-5-codex via Bash)
+### codex 추론 위임 (gpt-5.3-codex via Bash)
 
-본 에이전트의 핵심 추론은 codex CLI를 통해 gpt-5-codex 모델에 위임한다.
+본 에이전트의 핵심 추론은 codex CLI를 통해 gpt-5.3-codex 모델에 위임한다.
 Claude (harness 컨트롤러)는 입력 전처리·출력 후처리·도구 호출만 담당한다.
 
 ```bash
 # ── codex 호출 공통 패턴 (디자인 부서 전용) ──────────────────────────────
-# 실행 모델: gpt-5-codex (codex CLI via Bash)
-# frontmatter model: gpt-5-codex (spec Phase 2 Wave 3 Tier 2 신규 Write)
+# 실행 모델: gpt-5.3-codex (codex CLI via Bash)
+# frontmatter model: gpt-5.3-codex (spec Phase 2 Wave 3 Tier 2 신규 Write)
 
-_CODEX_MODEL="gpt-5-codex"
-_CODEX_TIMEOUT=120   # 초 (gpt-5-codex 추론 시간 여유)
+_CODEX_MODEL="gpt-5.3-codex"
+_CODEX_TIMEOUT=120   # 초 (gpt-5.3-codex 추론 시간 여유)
 
 codex_available() {
   command -v codex >/dev/null 2>&1 || return 1
@@ -80,12 +80,12 @@ for line in sys.stdin:
 #### 위임 원칙
 1. 라우팅 그래프 설계·충돌 분석 → `run_codex "$prompt" read-only`
 2. codex 응답은 그대로 사용하지 않고 Claude가 검증·통합 후 출력
-3. viz agent_end의 result_summary에 `"via gpt-5-codex (codex CLI)"` 명시
+3. viz agent_end의 result_summary에 `"via gpt-5.3-codex (codex CLI)"` 명시
 
 #### fallback 분기
 ```bash
 # ── fallback 의사코드 ─────────────────────────────────────────────────────
-_CODEX_VIA="gpt-5-codex"
+_CODEX_VIA="gpt-5.3-codex"
 
 if ! command -v codex >/dev/null 2>&1; then
   echo "[codex-fallback] codex CLI 미설치 — sonnet 컨트롤러로 직접 처리" >&2
@@ -104,11 +104,11 @@ fi
 ```bash
 # agent_start emit
 bun run ~/.bams/scripts/emit-event.ts agent_start \
-  '{"call_id":"routing-{slug}-{ts}","agent_type":"routing-strategist","department":"design","model":"gpt-5-codex","description":"App Router 라우팅 그래프 설계","step_number":8}'
+  '{"call_id":"routing-{slug}-{ts}","agent_type":"routing-strategist","department":"design","model":"gpt-5.3-codex","description":"App Router 라우팅 그래프 설계","step_number":8}'
 
 # agent_end emit (완료 후)
 bun run ~/.bams/scripts/emit-event.ts agent_end \
-  '{"call_id":"routing-{slug}-{ts}","agent_type":"routing-strategist","is_error":false,"status":"completed","duration_ms":{ms},"result_summary":"route-tree.json 생성 완료 — routes:N, conflicts:N (via gpt-5-codex (codex CLI))"}'
+  '{"call_id":"routing-{slug}-{ts}","agent_type":"routing-strategist","is_error":false,"status":"completed","duration_ms":{ms},"result_summary":"route-tree.json 생성 완료 — routes:N, conflicts:N (via gpt-5.3-codex (codex CLI))"}'
 ```
 
 ### 트리거 조건 확인 (Preflight 필수)
@@ -205,7 +205,7 @@ input_artifacts:
   "parallel_slots": [],
   "interceptors": [],
   "generated_at": "2026-06-19T00:00:00Z",
-  "via": "gpt-5-codex (codex CLI)"
+  "via": "gpt-5.3-codex (codex CLI)"
 }
 ```
 

@@ -9,7 +9,7 @@
 - **출력**:
   - `ssr-decision/rendering-strategy.json` (컴포넌트별 Server/Client 결정 + 이유)
 - **부서장**: design-director
-- **모델**: gpt-5-codex (codex CLI 위임) + sonnet controller
+- **모델**: gpt-5.3-codex (codex CLI 위임) + sonnet controller
 
 ## 2. 자주 발생하는 실수 3건
 
@@ -45,7 +45,7 @@
 
 ## 4. 체크리스트 (5건 필수)
 - [ ] F4 binding-map.json 존재 시 Read + component_type 불일치 여부 확인
-- [ ] frontmatter `model: gpt-5-codex` + result_summary `"RSC:N(N%) / CC:N (via gpt-5-codex)"` 포함
+- [ ] frontmatter `model: gpt-5.3-codex` + result_summary `"RSC:N(N%) / CC:N (via gpt-5.3-codex)"` 포함
 - [ ] viz `agent_start` (작업 시작 전) / `agent_end` (완료 후) emit 누락 0
 - [ ] 모든 컴포넌트 `reason` 필드 비어있지 않음 (`jq` 검증 완료)
 - [ ] `use_client_directives` 배열 rendering-strategy.json 루트에 포함 (F6 핸드오프용)

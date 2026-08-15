@@ -168,8 +168,8 @@ Bash로 step_start + 4개 agent_start 일괄 emit:
 ```bash
 [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 3 "명세+설계 병렬 실행" "Phase 2: 실행"
 [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "product-strategy-2-$(date -u +%Y%m%d)" "product-strategy" "claude-fable-5" "Phase 2: 기능 명세"
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "design-director-2-$(date -u +%Y%m%d)" "design-director" "gpt-5-codex" "Phase 2: 디자인(UI/UX) 기술 설계"
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "frontend-engineering-2-$(date -u +%Y%m%d)" "frontend-engineering" "gpt-5-codex" "Phase 2: FE 기술 설계"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "design-director-2-$(date -u +%Y%m%d)" "design-director" "gpt-5.3-codex" "Phase 2: 디자인(UI/UX) 기술 설계"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "frontend-engineering-2-$(date -u +%Y%m%d)" "frontend-engineering" "gpt-5.3-codex" "Phase 2: FE 기술 설계"
 [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "backend-engineering-2-$(date -u +%Y%m%d)" "backend-engineering" "claude-opus-4-8" "Phase 2: BE 기술 설계"
 ```
 
@@ -277,13 +277,13 @@ EOF
 
 if ! command -v codex >/dev/null 2>&1; then
   _write_codex_skip "codex CLI unavailable"
-elif ! timeout 60 codex exec "ping" -s read-only -c 'model="gpt-5-codex"' 2>/dev/null | grep -q ""; then
+elif ! timeout 60 codex exec "ping" -s read-only -c 'model="gpt-5.3-codex"' 2>/dev/null | grep -q ""; then
   # D. 인증 ping — command -v 통과 후 인증만료/모델 미가용을 실제 exec 전 사전 감지
-  _write_codex_skip "codex 인증 실패 또는 gpt-5-codex 미가용 (auth ping failed)"
+  _write_codex_skip "codex 인증 실패 또는 gpt-5.3-codex 미가용 (auth ping failed)"
 else
   # B. exit code 분기 + A. timeout 래퍼로 실제 리뷰 실행
   if timeout "$_CODEX_TIMEOUT" codex exec "다음 2개 설계 문서를 함께 리뷰하라: .crew/artifacts/design/{slug}-design-fe.md 와 .crew/artifacts/design/{slug}-design-ui.md. UI 구조, UX 흐름, 상태 관리, 라우팅, 접근성, 토큰/스타일 일관성을 점검하고 Critical/Major/Minor로 분류하라. 결과를 한국어 Markdown으로 출력하라." \
-       -s read-only -c 'model="gpt-5-codex"' -c 'model_reasoning_effort="high"' --enable web_search_cached \
+       -s read-only -c 'model="gpt-5.3-codex"' -c 'model_reasoning_effort="high"' --enable web_search_cached \
        > "$_CODEX_REVIEW_PATH" 2>/dev/null; then
     # C. 산출물 비어있음/부분출력 체크 (최소 바이트 임계값 통과 시에만 유효 리뷰로 인정)
     if [ -s "$_CODEX_REVIEW_PATH" ] && [ "$(wc -c < "$_CODEX_REVIEW_PATH")" -ge "$_CODEX_MIN_BYTES" ]; then

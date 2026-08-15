@@ -13,7 +13,7 @@
   - `data-binding/loading-states.md` (Suspense/error boundary/skeleton 설계)
   - `data-binding/fetch-snippets.tsx` (RSC fetch 기반 코드 스니펫)
 - **부서장**: design-director
-- **모델**: gpt-5-codex (codex CLI 위임) + sonnet controller
+- **모델**: gpt-5.3-codex (codex CLI 위임) + sonnet controller
 
 ## 2. 자주 발생하는 실수 3건
 
@@ -50,7 +50,7 @@
 
 ## 4. 체크리스트 (5건 필수)
 - [ ] placeholder-slots.json 슬롯 0건이면 F2 재실행 요청 (빈 슬롯 처리 금지)
-- [ ] frontmatter `model: gpt-5-codex` + result_summary `"RSC:N / CC:N (via gpt-5-codex)"` 포함
+- [ ] frontmatter `model: gpt-5.3-codex` + result_summary `"RSC:N / CC:N (via gpt-5.3-codex)"` 포함
 - [ ] viz `agent_start` (작업 시작 전) / `agent_end` (완료 후) emit 누락 0
 - [ ] 실시간/스트림 슬롯 `"component_type": "client"` 마킹 확인
 - [ ] TBD endpoint가 1건 이상이면 binding-map.json `tbd_count` 집계 + backend-engineering 확인 요청 메모 포함

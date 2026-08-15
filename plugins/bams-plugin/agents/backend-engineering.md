@@ -45,18 +45,28 @@ _SP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/stack-profi
 
 pipeline-orchestrator 또는 부서장으로부터 위임받은 모든 작업에 대해 반드시 다음을 수행한다:
 
-**작업 시작 시 (필수):**
+**작업 시작 시 (최초 위임 수신 및 재개/Phase 재진입 모두 — 필수):**
 ```bash
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "{call_id}" "backend-engineering" "claude-opus-4-8" "{작업 설명}"
+_ST_START=$(date +%s%3N)   # duration_ms 실측용 시작 시각 캐싱 (call_id 키)
 ```
 
 **작업 완료 시 (성공 또는 에러 모두):**
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "{call_id}" "backend-engineering" "{success|error}" {duration_ms} "{결과 요약}"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
+_EVT=$(find ~/.bams/artifacts/pipeline -name "*{slug}*-events.jsonl" 2>/dev/null | head -1)
+if [ -n "$_EVT" ] && ! grep -q "\"call_id\":\"{call_id}\".*agent_start\|agent_start.*\"call_id\":\"{call_id}\"" "$_EVT" 2>/dev/null; then
+  [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "{call_id}" "backend-engineering" "claude-opus-4-8" "재개 backfill: {작업 설명}"
+fi
+_DURATION_MS=$(( $(date +%s%3N) - ${_ST_START:-$(date +%s%3N)} ))
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "{call_id}" "backend-engineering" "{success|error}" "$_DURATION_MS" "{결과 요약}"
 ```
+위 완료 블록의 `_EVT` guard는 매칭 call_id의 agent_start 존재를 확인하고 없으면 backfill하여 고아 end를 방지한다(멱등). `_DURATION_MS`는 캐싱한 시작 시각과의 실측 델타다.
 
 **규칙:**
-- **모든 위임 작업 시작 직전에 agent_start를 반드시 emit** — agent_start 없이 작업 시작 시 start/end 불일치 발생
+- **최초 위임 수신 시작 및 재개/Phase 재진입 시작 직전에 agent_start를 반드시 emit** — 재개/Phase 재진입도 "새 시작"으로 간주한다. agent_start 없이 작업(재개 포함) 시작 시 start/end 불일치·고아 end 발생
+- **모든 agent_end emit(성공·에러 공통) 직전에 매칭 call_id의 agent_start 존재를 grep으로 확인하고, 없으면 backfill emit**한다(위 guard 스니펫). 훅 레벨 backfill(A1, platform-devops)과 이중 방어이며 동일 call_id start는 1회만 발행되도록 멱등 유지
+- **duration_ms는 실측값만 허용** — agent_start 시각을 `_ST_START`로 캐싱해 agent_end에서 델타(ms)를 산출한다. `duration_ms=0`/`measured=false` fallback 금지 (재개 backfill 케이스는 재진입 시각 기준 근사, measured=recover 권고)
 - 작업이 성공적으로 완료된 경우: `status: success`
 - 에러가 발생하여 실패한 경우: `status: error` — **에러 시에도 반드시 emit. 절대 skip 금지.**
 - call_id는 위임 메시지에서 전달받은 값 또는 `backend-engineering-{step}-{timestamp}` 형식으로 생성
@@ -68,9 +78,13 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 작업 실패 감지 시 반드시 다음 순서로 처리:
 
 Step 1: 에러 로그 캡처
-Step 2: agent_end emit (status="error"):
+Step 2: agent_end emit (status="error") — emit 직전 start-존재 guard 필수:
 ```bash
 _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
+_EVT=$(find ~/.bams/artifacts/pipeline -name "*{slug}*-events.jsonl" 2>/dev/null | head -1)
+if [ -n "$_EVT" ] && ! grep -q "\"call_id\":\"{call_id}\".*agent_start\|agent_start.*\"call_id\":\"{call_id}\"" "$_EVT" 2>/dev/null; then
+  [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "{call_id}" "backend-engineering" "claude-opus-4-8" "재개 backfill: {작업 설명}"
+fi
 [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "{call_id}" "backend-engineering" "error" {elapsed_ms} "에러: {에러 요약}"
 ```
 Step 3: pipeline-orchestrator에 에러 보고 (근본 원인 + 영향 범위 포함)
@@ -249,6 +263,24 @@ delegation-protocol.md의 "부서장 → 에이전트" 위임 형식에 따라 �
 
 ## 학습된 교훈
 
+### [2026-08-14] retro_전체회고_1 — emit 규칙 비대칭(end 강제·start 공백)이 재개 경로 고아 end 유발 (04-04/04-05/04-07 emit 교훈 통합)
+
+**맥락**: retro_전체회고_1 — 원B(88.4)→보정A(98.4). Phase 재진입 시 agent_start 누락으로 고아 agent_end 1건(3건 중 33.3%) 발생, 재시도점수 66.7로 소표본 등급 강등. is_error 0·재작업 실체 0 — 순수 계측 아티팩트. 본 교훈은 기존 end 편중 emit 교훈 4건(04-04/04-05/04-07/재확인)을 생애주기 대칭 emit으로 통합·대체하며, 구건은 archives로 회수한다.
+
+**문제**:
+1. "작업 시작" 앵커가 "위임 수신" 시점에 고정 — 재개/Phase 재진입을 "이미 시작한 작업의 연속"으로 인식해 agent_start 재발행 트리거 미작동
+2. 누적 교훈 4건(04-04/04-05/04-07/재확인)이 agent_end 누락 방지에 편중 — end는 코드 강제, 재개 시 start backfill이라는 대칭 규칙 미학습(비대칭 학습)
+3. agent_end emit 직전 start-존재 guard 부재 — 재개로 유실된 start를 자가 복구할 지점 없음
+
+**교훈**:
+- emit 의무는 "최초 위임 수신 시작"뿐 아니라 "재개/Phase 재진입 시작"까지 대칭 포섭한다 — 재개도 "새 시작"으로 명시
+- 모든 agent_end emit(성공·에러 공통) 직전에 매칭 call_id의 agent_start 존재를 grep으로 확인하고, 없으면 backfill emit한다 (훅 A1과 이중 방어, 멱등 조율)
+- duration_ms는 agent_start 시각을 캐싱해 실측 델타로 산출하며 `measured=false`/0 fallback을 금지한다
+- 소표본(≤3건)에서는 단일 계측 결함이 등급 컷을 좌우하므로, 계측 무결성 guard의 우선순위가 산출물 품질보다 낮지 않다 (subagent_type 지정·hotfix 복잡도 평가 등 기존 교훈은 행동 규칙 섹션에 상시 유지)
+
+**적용 범위**: recover/재진입 경로가 존재하는 모든 백엔드 작업
+**출처**: retro_전체회고_1 (BE-P1, 주제 A), phase3 정성 §3 심층분석
+
 ### [2026-07-05] retro_최근3d회고_1 — 테스트 격리 결함으로 실 프로덕션 DB 오염
 
 **맥락**: retro_최근3d회고_1 — P-TOP1(최우선 Problem). orchestrator 테스트가 ESM import 호이스팅으로 `process.env.HOME` 재할당 이전에 top-level 경로 상수가 확정되어, 실 `bams.db`에 세션 79건/이벤트 207건이 오염됨. 정량 지표(성공률 100%)에는 전혀 드러나지 않았고 QA 실측으로만 적발됨.
@@ -281,54 +313,6 @@ delegation-protocol.md의 "부서장 → 에이전트" 위임 형식에 따라 �
 - 작업 완료 시 `.crew/artifacts/be/{slug}/` 에 api-contract.md, domain-rules.md 저장 의무화
 
 **출처**: retro_전체회고_4
-
-### [2026-04-04] retro-all-20260404-3 — agent_end 누락 패턴
-
-**맥락**: retro-all-20260404-3 회고 — 6호출 중 agent_end 2건 누락 (성공률 66.7%). 등급 B→B→C 하락.
-
-**문제**:
-- 에러 발생 시 agent_end emit 없이 종료 — viz 추적 단절
-- 에러인지 미완료인지 구분 불가로 회고 데이터 왜곡
-
-**교훈**:
-- 성공 시뿐 아니라 에러 시에도 agent_end를 반드시 emit
-- emit은 작업 결과와 무관하게 항상 마지막 단계
-
-**출처**: retro-all-20260404-3
-
-### [2026-04-05] retro_전체회고_1에서 확인된 패턴
-
-**맥락**: retro_전체회고_1 회고 — B등급(85.0점). 성공률 85.7% (에러 1건), start/end 이벤트 불일치 3건, 소요시간 max 400,000ms vs min 30,000ms (13배 편차).
-
-**문제**:
-1. subagent_type 미지정으로 "Agent tool 없음" 에러 1건 발생
-2. agent_start emit 누락 — start(4건) vs end(7건) 불일치
-3. 소요시간 편차 13배 — 작업 규모별 전략 미적용
-
-**교훈**:
-- Agent tool 호출 시 subagent_type 반드시 지정 — 미지정 시 "Agent tool 없음" 에러
-- agent_start는 작업 시작 직전 반드시 emit — start/end 쌍이 맞지 않으면 이벤트 무결성 저하
-- 400,000ms 이상 예상 Large 작업은 배치 분할 필수
-
-**적용 범위**: 모든 백엔드 작업 (feature, hotfix, dev)
-**출처**: retro_전체회고_1
-
-### [2026-04-07] retro_전체회고_2에서 확인된 3회 연속 미적용 패턴
-
-**맥락**: retro_전체회고_2 회고 — D등급(48.0점). 성공률 60% (5회 호출 중 2건 no_end). 동일 교훈(agent_end emit)이 retro-all-20260404-3 → retro_전체회고_1 → retro_전체회고_2에 걸쳐 3회 연속 미적용.
-
-**문제**:
-1. 에러 catch 블록에서 agent_end emit 코드 예시 없음 — 텍스트 규칙만으로 강제화 불가
-2. MEMORY.md 로드 후 가시화 로그 출력 패턴 없어 실제 적용 여부 불명확
-3. hotfix 복잡도 사전 평가 기준 미정의로 5-step 과확장 발생
-
-**교훈**:
-- 에러 catch 블록에서 agent_end emit은 텍스트 규칙이 아닌 코드 예시로 강제해야 한다
-- 3회 연속 동일 교훈 미적용 = 코드 레벨 강제화 없이 텍스트 규칙만으로는 무효
-- hotfix 수신 즉시 복잡도 사전 평가 후 영향 파일 3개 이상 시 dev 전환 제안 필수
-
-**적용 범위**: 모든 백엔드 작업 (feature, hotfix, dev)
-**출처**: retro_전체회고_2
 
 ## 메모리
 
