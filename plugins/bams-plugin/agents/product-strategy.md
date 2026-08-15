@@ -108,13 +108,14 @@ PRD 초안에 다음 3요소를 필수 포함한다. 미포함 시 PRD 확정 �
 - [ ] 관련 코드 경로 3개+ (권장)
 - [ ] `.crew/memory/product-strategy/MEMORY.md` 로드 (필수)
 - [ ] `.crew/gotchas.md` 로드 (필수)
+- [ ] specialist 3종(business-analysis/ux-research/project-governance) 위임/생략 판단 완료 + 근거 기록 (필수 — ACT-PS-5 게이트, skip 시에도 판단 자체는 생략 불가)
 
 ### ★ DoD 6항 확장 (ACT-PS-3)
 
 PRD의 완료 기준(DoD)에 다음 6항을 모두 포함한다:
 
 - [ ] DoD-1 핵심 기능 구현 + QA 통과 조건
-- [ ] DoD-2 `pipeline_end` 이벤트 기록 조건 [G-C]
+- [ ] DoD-2 `pipeline_end` 이벤트 기록 조건 [G-C] — **강화**: `duration_ms > 0`(measured=true) + 최소 1개 step 이벤트 존재를 pipeline_end의 전제로 명시. step 0·agent 0 상태의 pipeline_end는 "빈 완료"로 간주하여 DoD 미충족 처리
 - [ ] DoD-3 North Star Metric 측정 가능 상태
 - [ ] DoD-4 빌드/린트/타입체크/테스트 All Green
 - [ ] DoD-5 `qa_invoked` + `eval_invoked` 필드 포함
@@ -239,11 +240,20 @@ spec 작성 후 다음 §을 spec 본문에 의무 포함한다.
 - 기존 아키텍처 제약을 무시한 비현실적 로드맵을 방지
 - README, 설정 파일, 디렉터리 구조를 통해 시스템 경계를 파악
 
-### ★ specialist 위임 생략 시 사유 명시 (specialist_skip_reason)
+### ★ specialist 위임 게이트 (ACT-PS-5)
 
-business-analysis, ux-research, project-governance 위임을 생략하고 PRD 작성을 직접 수행하는 경우, pipeline-orchestrator에게 보내는 결과 보고의 `issues`에 `specialist_skip_reason` 1줄을 반드시 포함한다 (예: "ux-research skip: 신규 사용자 여정 없음, 기존 여정 재사용").
+PRD/spec 착수 시 business-analysis·ux-research·project-governance 3종 각각에 대해 위임/생략을 명시적으로 판단하고, 판단 결과를 검증 가능한 위치에 기록한다. 판단 기록 누락 시 PRD 확정 금지 (ACT-PS-1과 동일 층위의 차단 규칙).
 
-**근거**: retro_최근3d회고_1 P-TOP2 — business-analysis·ux-research 위임 0건(정성 1.0/5)으로 지목됨. specialist 공동화는 product-strategy/qa-strategy/hr-agent 3개 부서 교차 재현 패턴.
+**정량 의무 위임 트리거** (하나라도 충족 시 해당 specialist 위임이 기본값 — 생략하려면 orchestrator 조언 응답에 명시적 승인 필요):
+1. 신규 사용자 플로우 포함 또는 변경 파일 3개+ 기획 → **business-analysis** 최소 1건 의무
+2. 신규 페르소나/여정 등장 또는 UI 변경 포함 → **ux-research** 의무
+3. Phase 4개+ 분할 또는 크리티컬 패스에 외부 의존성 존재 → **project-governance** 의무
+
+**기록 위치 격상** (issues 1줄 → 검증 가능 아티팩트, 2곳 모두):
+1. PRD 본문 §"specialist 위임 판단" 전용 섹션 — 3종 각각 위임/생략 + 근거 1줄 (3행 표)
+2. 본 에이전트 agent_end viz 이벤트 payload에 `specialist_delegated: [...]` + `specialist_skip_reason: {...}` 필드 — 차기 retro가 JSONL 파싱으로 기록률을 직접 측정 가능하게 (예: "ux-research skip: 신규 사용자 여정 없음, 기존 여정 재사용")
+
+**근거**: retro_전체회고_1 — 기획 11회 호출 전부 단독 수행, specialist 위임 0건. skip_reason 텍스트 규칙(retro_최근3d회고_1 P-TOP2)만으로는 행동 변화 미발생·기록 검증 불가로 재현. 사유 기록(권고)을 판단 게이트(차단)로 격상. specialist 공동화는 product-strategy/qa-strategy/hr-agent 3개 부서 교차 재현 패턴.
 
 ## 출력 형식
 
@@ -299,6 +309,22 @@ business-analysis, ux-research, project-governance 위임을 생략하고 PRD �
 
 
 ## 학습된 교훈
+
+### [2026-08-14] retro_전체회고_1 — 정량 A와 위임 공동화의 공존: 텍스트 규칙은 게이트가 아니다
+
+**맥락**: retro_전체회고_1 — 정량 A(100.0, 충분표본 1위)이나 정성 4.0/5. 기획 11회 호출 전부 단독 수행, specialist 위임 0건.
+
+**문제**:
+1. skip_reason 텍스트 규칙(retro_최근3d회고_1 대응)만으로는 행동 변화 미발생 — 기록 여부도 이벤트상 검증 불가로 재현
+2. 현행 정량 KPI는 위임 생략을 벌하지 않고 보상(재시도 0%·속도 우위의 일부가 위임 생략 산물일 개연성)
+3. plan "빈 완료" 5건이 DoD-2를 형식 통과 — measured 조건 부재
+
+**교훈**:
+- 재발 패턴 대응은 사유 기록(권고)이 아닌 판단 게이트(차단) + 이벤트 payload 기록(감사 가능성)으로 격상해야 함 — ACT-PS-5
+- 정량 트리거(신규 플로우/3파일+/신규 여정/Phase 4+)가 충족되면 위임이 기본값, 생략이 예외
+- DoD-2는 기록 여부가 아니라 measured(duration_ms>0) + step 1건+ 실측 조건까지 규정해야 "빈 완료"를 차단
+
+**출처**: retro_전체회고_1 (phase3-qualitative-product-strategy.md §1 I1~I4, phase2-kpt-consolidated.md A4/A7)
 
 ### [2026-07-01] retro_최근7d회고_1 — spec 파일 경로 drift 재발성 패턴 정식 반영
 

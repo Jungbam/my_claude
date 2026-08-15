@@ -1,0 +1,206 @@
+> 진행 상태는 `.crew/board.md`(태스크) / `.crew/history.md`(파이프라인 히스토리) 참조
+
+## 1. 위임 원칙 (최우선 — 예외 없음)
+
+**모든 코드 수정은 반드시 `커맨드 → 부서장 → (선택적) 도메인 에이전트` 2단 위임을 통해 수행한다.**
+
+```
+사용자 커맨드 → 부서장 → (선택적) 도메인 에이전트
+              ↑
+         pipeline-orchestrator는 계획/게이트 판정을 반환하는 "조언자" 모드로 동작
+```
+
+> **배경**: Codex harness에서 서브에이전트가 또 다른 서브에이전트를 Task tool로 spawn할 수 없다(중첩 제한). 따라서 기존 3단 위임(`orchestrator → 부서장 → 에이전트`)은 구조적으로 실행 불가이며, 2단 위임 + orchestrator 조언자 모드로 전환한다.
+
+### 위임 규칙
+- 허용: 커맨드 스킬(메인 대화)이 Agent tool로 부서장을 직접 spawn. 부서장이 자신의 도메인 내에서 specialist를 최대 1회 추가 spawn 가능.
+- 금지: 메인 대화가 Edit/Write로 소스 코드 직접 변경 (읽기 전용 Bash/Glob/Grep/Read는 허용).
+- 금지: 커맨드 레벨에서 Task tool을 중첩 호출하여 서브에이전트가 또 다른 서브에이전트를 spawn하는 시도 (harness 제약).
+- 허용: Bash/Glob으로 상태 확인, 사용자에게 질문, 읽기 전용 응답.
+- "내가 직접 하면 더 빠르다"는 판단으로 위임을 건너뛰지 않는다.
+- 위반 감지 시: 즉시 중단하고 적절한 부서장에게 해당 작업을 위임.
+
+### pipeline-orchestrator 역할 (조언자 모드)
+- orchestrator는 **Task tool 호출자가 아님**. 서브에이전트 레벨에서 중첩 Task tool이 차단되기 때문.
+- 역할:
+  1. Phase 단위 실행 계획 수립 → 메인(커맨드)에 JSON/텍스트로 반환
+  2. Phase 게이트 Go/No-Go 판단 → 메인에 보고
+  3. 부서장 라우팅 조언 → 메인이 실제 spawn 수행
+  4. 롤백 결정 및 회고 트리거 권고
+
+### Work Unit 선택 규칙 준수 필수 (불변)
+- 활성 WU 2개 이상이면 최근 사용 WU에 자동 연결 (선택 프롬프트 없음, `--wu`로 오버라이드 가능)
+- 커맨드 레벨에서 임의로 WU 결정 금지 (`_shared_common.md` §Work Unit 선택 참조)
+
+## 2. 조직도 (8부서 36에이전트)
+
+| 부서 | 부서장 | 소속 에이전트 |
+|------|--------|--------------|
+| 기획 | product-strategy | business-analysis, ux-research, project-governance |
+| 개발(FE) | frontend-engineering | (직접 구현) |
+| 개발(BE) | backend-engineering | (직접 구현) |
+| 개발(인프라) | platform-devops | data-integration |
+| 디자인 | design-director | ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent, guide-decomposer, guide-recomposer, ui-diff-applier, data-binding-mapper, visual-fidelity-verifier, nextjs-convention-mapper, accessibility-auditor, routing-strategist, ssr-csr-decider |
+| QA | qa-strategy | automation-qa, defect-triage, release-quality-gate |
+| 평가 | product-analytics | experimentation, performance-evaluation, business-kpi |
+| 경영지원 | (독립 운영 — orchestrator 직접 조율) | executive-reporter, resource-optimizer, hr-agent, cross-department-coordinator |
+
+**위임 라우팅 — 태그 우선, 파일 패턴 보조:**
+
+| 태그/패턴 | 부서장 |
+|-----------|--------|
+| `frontend` / `*.tsx`, `src/app/**`, `src/components/**`, `*.css` | frontend-engineering |
+| `backend` / `src/app/api/**`, `*.server.ts`, `prisma/**` | backend-engineering |
+| `infra`/`devops` / `Dockerfile`, `.github/**` | platform-devops |
+| `data` / `*.sql`, `scripts/etl/**` | platform-devops |
+| `design`/`ui`/`ux`/`guide` / `*.figma`, `design/**`, `*.html` 가이드, `src/assets/**` | design-director |
+| `qa` | qa-strategy |
+| `planning` | product-strategy |
+| `security` | platform-devops |
+| `agent-management` / `agents/*.md`, `jojikdo.json` | hr-agent |
+
+## 3. 파이프라인 규칙
+
+### 네이밍 (immutable)
+- 형식: `{command}_{한글요약}` (예: `feature_결제플로우구현`, `hotfix_빌드에러수정`)
+- slug는 파이프라인 수명 동안 불변. 상태는 이벤트로 판별 (`pipeline_end` 없음 → 진행 중)
+- 상세: `.crew/references/pipeline-naming-convention.md`
+
+### Work Unit 선택
+- 활성 WU 0개 → 경고 후 WU 없이 진행
+- 활성 WU 1개 → 자동 선택
+- 활성 WU 2개+ → **최근 사용 WU 자동 연결** (마지막 `pipeline_linked` 기준, 없으면 `work_unit_start` 기준) — 선택 프롬프트 없음, 연결 결과를 로그로 표시
+- `--wu <slug>` 지정 시 자동 선택 로직을 건너뛰고 명시된 WU에 즉시 연결
+
+### 진입점 매트릭스 (5초 결정표)
+
+| 상황 | 커맨드 | 조건 (1줄 판별) |
+|------|--------|----------------|
+| 버그 수정 | `/bams:hotfix` (1건) · `/bams:dev` (다건) | 재현 가능한 실패 1건이면 hotfix, 여러 이슈 묶음이면 dev |
+| 신규 기능 개발 | `/bams:feature` 또는 `/bams:plan` → `/bams:dev` | 즉시 풀 사이클이면 feature, 계획만 먼저면 plan → dev |
+| 코드 리뷰 | `/bams:review` (게이트 포함) · `/bams:deep-review` (구조+Codex 심층) | 릴리스 게이트 판정까지 필요하면 review, 구조적 리뷰·Codex까지 포함한 심층 조사면 deep-review — 둘 다 `--aspect spec\|functional\|performance\|code\|uiux\|all`로 리뷰 축 선택 가능(기본값 code) |
+| 계획 수립 | `/bams:plan` | 구현 없이 PRD/spec/tasks 문서만 작성 |
+
+### 커맨드 목록
+
+| 커맨드 | 설명 |
+|--------|------|
+| **파이프라인** | |
+| `/bams:init` | 프로젝트 초기화 |
+| `/bams:start` | 작업 단위(WU) 시작 |
+| `/bams:end` | 작업 단위 종료 |
+| `/bams:plan` | PRD + 기술 설계 + 태스크 분해 |
+| `/bams:feature` | 풀 피처 개발 사이클 |
+| `/bams:dev` | 멀티에이전트 풀 개발 파이프라인 |
+| `/bams:hotfix` | 버그 핫픽스 빠른 경로 |
+| `/bams:debug` | 버그 분류 → 수정 → 회귀 테스트 |
+| `/bams:deep-review` | 다관점 심층 코드 리뷰 (5관점 + 구조적 리뷰 + 세컨드 오피니언, `--aspect` 지원) |
+| `/bams:review` | 5관점 병렬 코드 리뷰 (`--aspect` 지원) |
+| `/bams:ship` | PR 생성 + 머지 |
+| `/bams:deploy` | 출시 검증 + Land & Deploy |
+| `/bams:verify` | CI/CD 프리플라이트 (빌드, 린트, 타입체크, 테스트) |
+| `/bams:performance` | 성능 측정/최적화 (benchmark 기반) |
+| `/bams:security` | 보안 감사 (시크릿 체크 + OWASP/STRIDE) |
+| `/bams:retro` | 파이프라인 회고 + 에이전트 평가 |
+| `/bams:design-import` | 외부 디자인 가이드(React JSX/HTML) → Next.js UI 재구성 파이프라인 (design-director 자동 위임) |
+| `/bams:weekly` | 주간 루틴 (스프린트 마무리 + 회고 + 다음 계획) |
+| **부서 허브** | |
+| `/bams:engineering` | 개발부서 스킬 허브 (FE, BE, 플랫폼, 데이터) |
+| `/bams:planning` | 기획부서 스킬 허브 (전략, 분석, UX, 거버넌스) |
+| `/bams:evaluation` | 평가부서 스킬 허브 (분석, 실험, 성능, KPI) |
+| `/bams:qc` | QA부서 스킬 허브 (전략, 자동화, 결함, 출시 검증) |
+| `/bams:qa` | 브라우저 QA (자동화 테스트 + 브라우저 검증) |
+| **유틸리티** | |
+| `/bams:browse` | 인터랙티브 헤드리스 브라우저 |
+| `/bams:export` | 조직 설정을 이식 가능한 패키지로 내보내기 |
+| `/bams:import` | 패키지를 현재 프로젝트에 가져오기 |
+| `/bams:q` | 코드베이스 질문 (자동 범위 감지 + 코드 기반 답변) |
+| `/bams:status` | 프로젝트 대시보드 현황 |
+| `/bams:sprint` | 스프린트 플래닝 및 관리 |
+| `/bams:viz` | 파이프라인 실행 시각화 |
+
+## 4. viz 이벤트 규칙
+
+### emit 원칙
+- 커맨드 레벨(메인): `pipeline_start`/`pipeline_end`, `step_start`/`step_end`, `recover`, `error` emit 가능
+- `agent_start`/`agent_end`: 커맨드 → 부서장 → (선택적) 에이전트 2단 위임 체계 내에서만 emit
+
+### 이벤트 타입 (12종)
+
+| 타입 | 필수 필드 |
+|------|----------|
+| `pipeline_start` | pipeline_slug, pipeline_type, command, arguments, work_unit_slug?, parent_pipeline_slug? |
+| `pipeline_end` | pipeline_slug, status(`completed`\|`failed`\|`paused`\|`rolled_back`\|`cancelled`), total_steps, completed_steps, failed_steps, skipped_steps, duration_ms |
+| `step_start` | pipeline_slug, step_number, step_name, phase |
+| `step_end` | pipeline_slug, step_number, status(`done`\|`fail`\|`skipped`), duration_ms |
+| `agent_start` | call_id, agent_type, department, model, description, step_number |
+| `agent_end` | call_id, agent_type, is_error, status(`success`\|`error`\|`timeout`), duration_ms, result_summary |
+| `work_unit_start` | work_unit_slug, work_unit_name, ts |
+| `work_unit_end` | work_unit_slug, status(`completed`\|`failed`\|`cancelled`), ts |
+| `pipeline_linked` | work_unit_slug, pipeline_slug, pipeline_type (pipeline_start 시 활성 WU 존재하면 자동 emit) |
+| `retro_skip` | pipeline_slug, reason, mode(`B`\|`C`) |
+| `error` | pipeline_slug, message, step_number |
+| `recover` | pipeline_slug (중단된 이벤트 자동 정리 마커) |
+
+### 데이터 경로
+- 이벤트: `~/.bams/artifacts/pipeline/{slug}-events.jsonl`
+- WU 이벤트: `~/.bams/artifacts/pipeline/{slug}-workunit.jsonl`
+- 에이전트 로그: `.crew/artifacts/agents/YYYY-MM-DD.jsonl`
+- HR 보고서: `~/.bams/artifacts/hr/`
+- 프로젝트 아티팩트: `.crew/artifacts/` (prd/, design/, review/, report/)
+- DB: `~/.Codex/plugins/marketplaces/my-Codex/bams.db`
+
+### DB 스키마 (v2 — FK 기반)
+```
+work_units → pipelines (work_unit_id FK) → tasks (pipeline_id FK)
+                                          → task_events (task_id FK)  -- immutable event sourcing
+                                          → run_logs (pipeline_id FK) -- 30일 auto-cleanup
+hr_reports (독립)
+```
+
+## 5. 회고 규칙
+
+- 파이프라인 완료(정상/실패) 시 **무조건 회고 실행** (사용자 명시적 스킵 요청만 예외)
+- KPT 프레임워크: Keep(유지) / Problem(문제) / Try(시도)
+- 정량 지표 수집: 소요 시간, 성공률, 재시도 횟수, 토큰 사용량
+- 학습 → 에이전트 `.crew/memory/{agent-slug}/MEMORY.md` 기록 (max 10개, 6개월 후 삭제)
+- gotchas 승격 → `.crew/gotchas.md` 갱신
+
+## 6. 에이전트 동작 규칙
+
+### 작업 시작 시 참조
+- `.crew/config.md` — 프로젝트 설정, 아키텍처, 컨벤션
+- `.crew/gotchas.md` — 프로젝트 주의사항
+- `.crew/board.md` — 현재 태스크 상태
+- `.crew/memory/{agent-slug}/MEMORY.md` — 학습된 지식
+
+### 작업 완료 시
+1. 변경 사항 요약 반환
+2. viz 이벤트(`agent_end`) emit
+3. 에러 시 `status="error"`로 보고 (근본 원인 + 영향 범위 포함)
+4. 마지막 에이전트는 `pipeline_end` emit
+
+### Context 관리
+- 파이프라인 완료 후: completion-protocol Step 4.9에 따라 context health를 평가하고 `/compact` 제안
+- 비파이프라인 장기 작업 완료 후: Edit/Write 30회 이상 수행했으면 `/compact` 제안
+- `/compact` 제안 시 반드시 요약 메시지를 포함: `/compact {작업 요약 — 완료 상태, 다음 단계}`
+- context rot 징후 감지 시 (이전 대화 참조 실패, 파일 경로 혼동 등): 즉시 `/compact` 제안
+
+### Critical Gotchas
+- **[G-A]** FE 배치 분할 필수: 변경 10파일 초과 또는 600초 이상 예상 시
+- **[G-B]** Agent tool 호출 시 `subagent_type` 필수 지정
+- **[G-C]** PRD DoD에 `pipeline_end` 기록 조건 포함 필수
+- **[G-D]** 부서장이 spawn한 모든 에이전트는 `agent_start` emit 의무화 (부서장 자신도 커맨드에 의해 spawn될 때 emit)
+- Tool 권한 에러(`Write`/`Edit` 금지) → **재시도 0회, 즉시 에스컬레이션**
+- 위임 20회 이상 예상 → **사전 분할 전략 필수** (Phase당 max 8회)
+
+### AGENTS.md 편집 정책
+- **AGENTS.md 자동 편집 금지 ([G-Codex] + hook 강제)**: 프로젝트 불변 정보 전용. 파이프라인/에이전트가 AGENTS.md를 자동 수정하지 않는다. `hooks/Codex-md-guard.sh`가 PreToolUse에서 Edit/Write/NotebookEdit을 **기계적으로 차단** — deny 시 대체 경로 안내. 진행 상태는 `.crew/board.md`(태스크) / `.crew/history.md`(파이프라인 히스토리) / `.crew/artifacts/{prd,design,review,retro}/`(산출물)에 기록한다. 예외 (env 우회): `CLAUDE_MD_INIT=1`(/bams:init 최초 설치), `CLAUDE_MD_STEP3=1`(completion-protocol Step 3), `CLAUDE_MD_EDIT_ALLOWED=1`(사용자 명시 지시).
+
+## 7. 컨벤션
+
+- TypeScript ESM, `bun:sqlite` (ORM 없음), `Bun.serve()`
+- `SKILL.md`는 `.tmpl`에서 자동 생성 — 직접 편집 금지
+- `git add .` 금지 — 파일명 개별 명시
+- `browse/dist/` 바이너리 커밋 금지
+- 상세: `.crew/config.md` 참조

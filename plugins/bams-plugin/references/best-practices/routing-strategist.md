@@ -12,7 +12,7 @@
   - `routing/nav-strategy.md` (네비게이션 전략)
   - `routing/conflict-routes.md` (기존 라우팅 충돌 목록)
 - **부서장**: design-director
-- **모델**: gpt-5-codex (codex CLI 위임) + sonnet controller
+- **모델**: gpt-5.3-codex (codex CLI 위임) + sonnet controller
 
 ## 2. 자주 발생하는 실수 3건
 
@@ -46,7 +46,7 @@
 - [ ] 현행 `src/app/` Glob 스캔 완료 + 충돌 목록 conflict-routes.md 생성
 - [ ] viz `agent_start` (작업 시작 전) / `agent_end` (완료 후) emit 누락 0
 - [ ] 동적 세그먼트마다 `generate_static_params` + `dynamic` 전략 명시
-- [ ] route-tree.json `"via": "gpt-5-codex (codex CLI)"` 필드 포함
+- [ ] route-tree.json `"via": "gpt-5.3-codex (codex CLI)"` 필드 포함
 
 ## 5. 참고
 - 부모 deep-review: deep-review_designimport품질진단_20260630

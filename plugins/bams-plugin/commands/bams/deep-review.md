@@ -128,7 +128,7 @@ config.md의 컨벤션 + 관련 gotchas + 이전 미해결 이슈를 리뷰 에�
 ### Step 1-extra. aspect 확장 (ASPECT_LIST에 code 외 항목이 있을 때만)
 
 `ASPECT_LIST == ["code"]`이면 스킵. 그 외에는 `references/multi-perspective-review.md` §aspect별 위임 메시지 템플릿으로 code 외 각 aspect 부서장을 Step 1(5관점)·Step 2(구조적)·Step 3(Codex)와 **동시 병렬** spawn한다(동시 spawn 상한 8, 최악 케이스 5 aspect + 구조적 + Codex = 7로 상한 이내).  
-`uiux` aspect는 **항상 `design-director` + `gpt-5-codex`**로 실행한다.
+`uiux` aspect는 **항상 `design-director` + `gpt-5.3-codex`**로 실행한다.
 
 각 aspect마다 step_start(step_number: spec=5/functional=6/performance=7/uiux=8 — SSOT `multi-perspective-review.md` §step_number 예약 구간 표의 deep-review 열 대비 +1 교정 값. 기존 Step 1~3 emit 대역 및 Step 4 Advisor call_id 네임스페이스("pipeline-orchestrator-4-{date}")와의 혼동을 피하기 위해 5부터 시작 — TASK-112 확정)/step_end + agent_start/agent_end emit. code는 기존 Step 1이 담당(신규 번호 없음).
 

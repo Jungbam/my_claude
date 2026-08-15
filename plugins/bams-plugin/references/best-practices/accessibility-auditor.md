@@ -11,7 +11,7 @@
   - `a11y/accessibility-report.md` (우선순위화된 위반 + 권고)
   - `a11y/a11y-verdict.json` (PASS/CONDITIONAL/FAIL + 위반 수)
 - **부서장**: design-director
-- **모델**: gpt-5-codex (codex CLI 위임) + sonnet controller
+- **모델**: gpt-5.3-codex (codex CLI 위임) + sonnet controller
 
 ## 2. 자주 발생하는 실수 3건
 
@@ -48,7 +48,7 @@
 - [ ] SR-3: target_url이 localhost 패턴인지 grep 검사 완료
 - [ ] viz `agent_start` (작업 시작 전) / `agent_end` (완료 후) emit 누락 0
 - [ ] 판정 로직 준수: critical > 0 또는 serious > 0이면 FAIL (CONDITIONAL 오판 금지)
-- [ ] a11y-verdict.json `"via": "gpt-5-codex (codex CLI)"` 필드 포함
+- [ ] a11y-verdict.json `"via": "gpt-5.3-codex (codex CLI)"` 필드 포함
 
 ## 5. 참고
 - 부모 deep-review: deep-review_designimport품질진단_20260630

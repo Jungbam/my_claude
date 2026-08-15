@@ -13,7 +13,7 @@
   - `guide-decomposition/palette.json`
   - (대형 가이드) `guide-decomposition/chunks/chunk-{N}.json`
 - **부서장**: design-director
-- **모델**: gpt-5-codex (codex CLI 위임) + sonnet controller
+- **모델**: gpt-5.3-codex (codex CLI 위임) + sonnet controller
 
 ## 2. 자주 발생하는 실수 3건
 
@@ -43,7 +43,7 @@
 
 ## 4. 체크리스트 (5건 필수)
 - [ ] 입력 파일 `guide-input/` 격리 완료 + 시크릿 패턴 Grep PASS
-- [ ] frontmatter `model: gpt-5-codex` + result_summary `"via gpt-5-codex (codex CLI)"` 일치
+- [ ] frontmatter `model: gpt-5.3-codex` + result_summary `"via gpt-5.3-codex (codex CLI)"` 일치
 - [ ] viz `agent_start` (작업 시작 전) / `agent_end` (완료 후) emit 누락 0
 - [ ] components.json v1.1 스키마 — 6 optional 필드 모두 포함 (`null` 허용, omit 금지)
 - [ ] 4종 산출물 전원 존재 확인: components.json, tokens.css, typography.json, palette.json

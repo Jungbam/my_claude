@@ -15,7 +15,7 @@
   - `guide-recomposition/placeholder-slots.json` (F4 입력)
   - `guide-recomposition/normalized-guide.json` (F3/F4 공통 입력)
 - **부서장**: design-director
-- **모델**: gpt-5-codex (codex CLI 위임) + sonnet controller
+- **모델**: gpt-5.3-codex (codex CLI 위임) + sonnet controller
 
 ## 2. 자주 발생하는 실수 3건
 
@@ -42,7 +42,7 @@
 
 ## 4. 체크리스트 (5건 필수)
 - [ ] F1 산출물 4종 존재 확인 후 시작 (missing → design-director 에스컬레이션)
-- [ ] frontmatter `model: gpt-5-codex` + result_summary `"via gpt-5-codex (codex CLI)"` 일치
+- [ ] frontmatter `model: gpt-5.3-codex` + result_summary `"via gpt-5.3-codex (codex CLI)"` 일치
 - [ ] viz `agent_start` (작업 시작 전) / `agent_end` (완료 후) emit 누락 0
 - [ ] loss-report.json severity=high 건수 확인 — 1건 이상 시 F3 진행 중단 + design-director 에스컬레이션
 - [ ] placeholder-slots.json 슬롯 목록 비어있지 않음 (더미 텍스트 Grep 실행 완료)

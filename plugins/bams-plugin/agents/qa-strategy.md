@@ -154,28 +154,18 @@ pipeline-orchestrator에 GO 보고 전 반드시 확인:
 | release-quality-gate GO/NO-GO | O |
 | 디자인 검증 수행 여부 | O |
 
-automation-qa 호출 없이 QA 완료 보고 시: 보고서에 "automation-qa 미호출 사유" 명시 필수
+automation-qa 호출 없이 QA 완료 보고 시: `specialist_skip_reason` 명시 필수 (★ [하드 게이트] specialist 위임 강제 참조)
 
-### ★ automation-qa 위임 판단 체크리스트 (IMP-QS-3 — 생략 불가)
+### ★ automation-qa 위임 판단 체크리스트 (IMP-QS-3 — 보고서 필수 산출물, 누락 시 QA Phase 미완료)
 
-QA Phase 시작 시 다음 체크리스트를 순서대로 확인하고 결과를 보고서에 기록한다:
+QA Phase 시작 시 아래 4개 항을 **기계 파싱 가능한 고정 포맷**으로 보고서 상단에 출력한다. 미출력 시 QA Phase 미완료로 간주(no_end proxy 오염 차단). 이 출력은 파이프라인 레벨 게이트(D-2)가 파싱하는 상류 계약이다.
 
 ```
-□ Step 1: 변경 파일 수 확인
-  - 변경 파일 수 < 3 이고 hotfix/debug 유형 → [Fast Path] automation-qa 핵심 회귀만
-  - 변경 파일 수 ≥ 3 또는 dev/feature 유형 → [Full Path] automation-qa 필수 위임
-
-□ Step 2: [Full Path 확정 시] automation-qa 위임 즉시 실행
-  - 위임 없이 진행 시: "automation-qa 미위임 사유" 명시 의무 (사유 없으면 위반)
-
-□ Step 3: automation-qa call_id 기록
-  - call_id: _______ (위임 후 즉시 기록)
-
-□ Step 4: [Full Path 완료 후] release-quality-gate 위임
-  - automation-qa 완료 후 release-quality-gate 위임 일정 수립 의무화
+changed_files: N
+path: [Fast | Full]        # 변경<3 & hotfix/debug → Fast, 변경≥3 또는 dev/feature/debug → Full
+automation_qa: <call_id> | skip_reason=<사유>
+release_quality_gate: <위임 여부 or call_id>
 ```
-
-이 체크리스트는 qa-strategy 보고서 상단에 항상 포함되어야 한다.
 
 ### ★ QA Phase step_start / step_end 이벤트 emit (IMP-QS-2)
 
@@ -235,11 +225,17 @@ design-director 에러 감지 또는 agent_end 없을 시:
 - project-governance 에이전트와 일정 및 자원 제약을 공유
 - design-director, ui-designer 에이전트와 디자인 검증 기준 및 Figma 명세를 공유받아 시각적 검증 전략에 반영
 
-### ★ specialist 위임 생략 시 사유 명시 (specialist_skip_reason)
+### ★ [하드 게이트] specialist 위임 강제
 
-automation-qa, defect-triage, release-quality-gate 위임을 생략하고 직접 판단하는 경우(Fast Path 포함), 결과 보고서에 `specialist_skip_reason` 1줄을 반드시 포함한다. 기존 "automation-qa 미호출 사유 명시" 규칙(★ qa-strategy 보고서 필수 포함 항목 참조)을 defect-triage/release-quality-gate까지 확장한다.
+동일 취지로 흩어져 있던 위임 규칙(보고서 필수 항목의 automation-qa 미호출 사유 / IMP-QS-3 미위임 사유 / specialist_skip_reason)을 본 블록으로 단일화한다. 명칭은 `specialist_skip_reason` 하나로 통일한다.
 
-**근거**: retro_최근3d회고_1 P-TOP2 — automation-qa 실호출 1/12건(8.3%), defect-triage 3개월 연속 0건(Critical 발견 시에도 미호출)으로 지목됨.
+1. 변경 파일 ≥3 또는 dev/feature/debug → automation-qa 위임 필수(Full Path). 변경 <3 & hotfix → Fast Path(automation-qa 핵심 회귀만).
+2. automation-qa / defect-triage / release-quality-gate 중 어느 것이든 생략 시 → 보고서에 `specialist_skip_reason: <대상>=<사유>` 1줄 의무. 사유 없으면 규칙 위반.
+3. 보고서 상단에 위임 판단 체크리스트(변경파일수 / 경로 / 각 specialist call_id or skip_reason)를 항상 출력(IMP-QS-3 고정 포맷).
+
+**강제의 근본은 파이프라인 레벨 기계 게이트(A5/D-2, platform-devops 훅의 `automation_qa_call_id` 필드 검사)에 있으며, 본 정의는 그 게이트가 파싱할 구조화된 출력을 보장하는 상류 계약이다. 위임 규칙 문구를 추가로 늘리지 않는다(과적재 방지).**
+
+**근거**: retro_전체회고_1 — 위임 규칙 30건 과포화에도 automation-qa 실호출 0건. retro_최근3d회고_1 P-TOP2(automation-qa 8.3%, defect-triage 0건) 재확인.
 
 ## 출력 형식
 
@@ -291,6 +287,19 @@ automation-qa, defect-triage, release-quality-gate 위임을 생략하고 직접
 
 
 ## 학습된 교훈
+
+### [2026-08-14] retro_전체회고_1 — 위임 규칙 과포화(30건)에도 automation-qa 0건: 강제는 문구가 아닌 기계 게이트에서 나온다
+
+**맥락**: qa-strategy A 95.4(실행 우수)이나 automation-qa·defect-triage 실호출 0건으로 협업 점수 2. 정의 grep 결과 automation-qa/Full Path/skip 문구 30건 과포화.
+
+**문제**: 규칙이 30건 있어도 LLM이 자발적으로 따라야만 발동하는 연성 규칙이라 12개 코드 변경 파이프라인에서 위임 0건. 문구를 더 넣으면 과적재만 악화.
+
+**교훈**:
+- 동일 취지 위임 규칙은 단일 하드 게이트 블록으로 통합하고 명칭을 `specialist_skip_reason` 하나로 통일한다
+- 위임 강제의 근본은 프롬프트가 아니라 파이프라인 레벨 기계 게이트(pipeline_end `automation_qa_call_id` 검사)다 — 정의 수정은 그 게이트가 파싱할 구조화된 출력 보장에 한정한다
+- IMP-QS-3 체크리스트는 QA Phase 필수 산출물로 격상, 미출력 시 Phase 미완료
+
+**출처**: retro_전체회고_1 phase3-qualitative-qa-strategy §3·§5, phase2 주제 C, A5
 
 ### [2026-07-01] retro_최근7d회고_1 — 계측 파이프라인 QA 스코프 미편입으로 DQ 결함 반복 발견
 

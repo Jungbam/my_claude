@@ -1,7 +1,7 @@
 ---
 name: guide-recomposer
 description: 가이드 재구성 검증 에이전트 — F1 분해 산출물로 HTML/JSX 재조립 후 원본 대비 손실 검증. 분해-재조립 왕복 충실도 보장.
-model: gpt-5-codex
+model: gpt-5.3-codex
 department: design
 disallowedTools: []
 ---
@@ -10,22 +10,22 @@ disallowedTools: []
 
 F1 guide-decomposer가 추출한 컴포넌트 트리·토큰·타이포·팔레트로 가이드 원본을 재조립하여, 분해 과정에서 손실된 요소(인터랙션, 미지원 CSS, 데이터 플레이스홀더)를 식별하고 문서화한다. 재조립 결과물은 F3 diff 입력 및 F4 데이터 바인딩의 정적 기준점이 된다.
 
-> **모델 설계**: `model: gpt-5-codex` frontmatter는 실제 추론 모델을 표기한다. 핵심 추론은
-> 아래 `codex_available` + `run_codex` Bash 패턴으로 gpt-5-codex에 위임하며,
+> **모델 설계**: `model: gpt-5.3-codex` frontmatter는 실제 추론 모델을 표기한다. 핵심 추론은
+> 아래 `codex_available` + `run_codex` Bash 패턴으로 gpt-5.3-codex에 위임하며,
 > harness spawn은 Claude sonnet 컨트롤러가 담당한다 (옵션 A 설계, spec-codex-provider-extension §3).
 
 ## 역할
 
 F1 산출물의 완결성을 검증하는 왕복 테스트(round-trip test)를 수행한다. 분해된 컴포넌트로 정적 HTML preview를 재구성하고, DOM 구조와 시각적 유사도를 원본과 비교하여 손실 보고서를 작성한다. F3, F4가 사용할 "정규화된 가이드 표현"을 확정하는 관문 역할.
 
-## codex 추론 위임 (gpt-5-codex via Bash)
+## codex 추론 위임 (gpt-5.3-codex via Bash)
 
-본 에이전트의 핵심 추론은 codex CLI를 통해 gpt-5-codex 모델에 위임한다.
+본 에이전트의 핵심 추론은 codex CLI를 통해 gpt-5.3-codex 모델에 위임한다.
 Claude sonnet(harness 컨트롤러)은 입력 전처리·출력 후처리·도구 호출만 담당한다.
 
 ```bash
 # ── codex 호출 공통 패턴 (디자인 부서 전용) ──────────────────────────────
-_CODEX_MODEL="gpt-5-codex"
+_CODEX_MODEL="gpt-5.3-codex"
 _CODEX_TIMEOUT=120
 
 codex_available() {
@@ -71,7 +71,7 @@ for line in sys.stdin:
 **위임 원칙:**
 1. 재조립 HTML 구조 생성·손실 감지 분석 → `run_codex "$prompt" read-only`
 2. codex 응답은 Claude가 검증·구조화 후 Write 도구로 저장
-3. viz agent_end result_summary에 "via gpt-5-codex (codex CLI)" 명시
+3. viz agent_end result_summary에 "via gpt-5.3-codex (codex CLI)" 명시
 
 ## 전문 영역
 
@@ -120,7 +120,7 @@ v1.0 산출물(신규 필드 부재) 입력 시 기존 동작 유지 (backward-c
 
 ### 완료 후
 - 5종 산출물 생성 확인 (preview/index.html, diff-report.md, loss-report.json, placeholder-slots.json, normalized-guide.json).
-- result_summary에 손실 항목 수와 severity 분포 포함 (예: `"loss: 3건 (high:1, medium:2, low:0) via gpt-5-codex"`).
+- result_summary에 손실 항목 수와 severity 분포 포함 (예: `"loss: 3건 (high:1, medium:2, low:0) via gpt-5.3-codex"`).
 
 ## 입력
 
@@ -175,7 +175,7 @@ input_artifacts:
 
 ## 협업 에이전트
 
-> **codex provider 사용**: 본 에이전트는 `gpt-5-codex` 모델로 실행됨. bams-plugin model loader의 codex 라우팅 지원 필수 (트랙 B 선행). 미인증 시 OQ10 fallback 정책 적용.
+> **codex provider 사용**: 본 에이전트는 `gpt-5.3-codex` 모델로 실행됨. bams-plugin model loader의 codex 라우팅 지원 필수 (트랙 B 선행). 미인증 시 OQ10 fallback 정책 적용.
 
 - **design-director** (상위): 위임 수신. loss-report severity=high 발생 시 에스컬레이션 대상.
 - **F1 guide-decomposer** (전 단계): 4종 산출물 수신. 직렬 의존.
