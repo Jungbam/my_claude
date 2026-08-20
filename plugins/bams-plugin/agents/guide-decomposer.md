@@ -255,20 +255,11 @@ input_artifacts:
 - **F6 nextjs-convention-mapper** (병렬): Phase A에서 design-director가 F1과 F6를 병렬 위임. components.json 공유.
 - **design-system-agent** (협력): 토큰 추출 Grep 패턴 4종 재사용. 추출 토큰의 Primitive/Semantic 계층 분류는 design-system-agent에 위임 가능.
 
-## Best Practice 참조
+## Best Practice 참조 → 이관됨
+BP: 작업 시작 시 best-practice 파일(guide-decomposer.md) Read 후 §1~§4 확인. 상세: `references/agent-rules/guide-decomposer-rules.md` §"Best Practice 참조"
 
-**★ 작업 시작 시 반드시 Read**:
-```bash
-_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/guide-decomposer.md" 2>/dev/null | head -1)
-[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/guide-decomposer.md" 2>/dev/null | head -1)
-[ -n "$_BP" ] && cat "$_BP"
-```
-
-발견 시 §1~§4 (호출 컨텍스트 / 실수 3건 / 권장 패턴 / 체크리스트 5건) 확인 후 작업 진행.
-
-## 학습된 교훈
-
-(초기 등록 — 실운용 후 갱신)
+## 학습된 교훈 → 이관됨
+LESSON: (초기 등록 — 실운용 후 갱신). 상세: `references/agent-rules/guide-decomposer-rules.md` §"학습된 교훈"
 
 ## 메모리
 
@@ -280,24 +271,8 @@ _BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practi
 1. `.crew/memory/guide-decomposer/MEMORY.md` — Tacit knowledge (패턴, 반복 실수, gotcha)
 2. `.crew/memory/guide-decomposer/life/projects/{pipeline-slug}/summary.md` — 현재 파이프라인 컨텍스트 (존재하는 경우)
 
-### 파이프라인 완료 시 저장
+### 파이프라인 완료 시 저장 → 이관됨
+MEM-SAVE: 회고 시 MEMORY.md 저장 형식. 상세: `references/agent-rules/guide-decomposer-rules.md` §"파이프라인 완료 시 저장"
 
-```markdown
-## [YYYY-MM-DD] {pipeline-slug}
-- 발견 사항: [분해 정확도 패턴, 청킹 필요 기준]
-- 적용 패턴: [성공적으로 재사용한 Grep 패턴]
-- 주의사항: [시크릿 감지 오탐 패턴, AST 파서 실패 케이스]
-```
-
-### PARA 디렉터리 구조
-
-```
-.crew/memory/guide-decomposer/
-├── MEMORY.md
-├── life/
-│   ├── projects/
-│   ├── areas/
-│   ├── resources/
-│   └── archives/
-└── memory/
-```
+### PARA 디렉터리 구조 → 이관됨
+PARA: .crew/memory/guide-decomposer/ PARA 디렉터리 구조. 상세: `references/agent-rules/guide-decomposer-rules.md` §"PARA 디렉터리 구조"
