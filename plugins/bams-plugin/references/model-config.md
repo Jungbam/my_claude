@@ -25,7 +25,7 @@
 
 - 부서장의 위임을 받아 특정 영역을 처리
 - TTFT(첫 토큰까지 시간)와 응답 속도가 사용자 체감 UX에 직접 기여
-- 대상: business-analysis, ux-research, data-integration, automation-qa, defect-triage, experimentation, performance-evaluation, business-kpi
+- 대상: business-analysis, ux-research, data-integration, automation-qa, defect-triage, experimentation, business-kpi
 
 ### 유지 — gpt-5-codex
 **FE/디자인 설계 및 변환계**: FE 설계, 디자인(UI/UX) 설계, JSX/HTML 가이드 분해·재구성·라우팅·바인딩·접근성·렌더링 경계 결정
@@ -38,7 +38,7 @@
 
 - 파괴 명령 없거나 별도 확인 게이트로 안전 확보
 - Sonnet 5 대비 약 3배 저렴 ($1/$5 vs $3/$15 per MTok)
-- 대상 에이전트: git-ops-agent
+- 대상 에이전트: git-ops-agent, performance-evaluation
 
 ### 선택 기준 매트릭스
 
@@ -145,7 +145,7 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
 |---------|------|------|------|
 | product-analytics | 평가 부서장 | claude-opus-4-8 | 행동 분석, 릴리즈 영향 |
 | experimentation | 평가 specialist | claude-sonnet-5 | A/B 테스트 |
-| performance-evaluation | 평가 specialist | claude-sonnet-5 | 부하/성능 |
+| performance-evaluation | 평가 specialist (저비용) | claude-haiku-4-5-20251001 | 부하/성능 — IMP-PE-2 판정 기준 완전 수치화로 결정론화, 최고빈도 자동트리거 → haiku 하향 (plan_모델재분배프롬프트세분화) |
 | business-kpi | 평가 specialist | claude-sonnet-5 | KPI 지표 |
 
 ### 경영지원 (Operations — 독립 부서장급)
@@ -157,7 +157,7 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
 | hr-agent | 경영지원 | claude-opus-4-8 | 에이전트 생명주기, 조직도 관리 |
 | cross-department-coordinator | 경영지원 | claude-opus-4-8 | 부서간 협업 조율 |
 
-**총계**: Fable 5 = 4개 (핵심 의사결정) / Opus 4.8 = 8개 (부서장급 + 구현) / Sonnet 5 = 8개 (specialist) / gpt-5-codex = 16개 (FE/디자인 설계 + 변환계) / Haiku 4.5 = 1개 (저비용 위임) — 합계 37개
+**총계**: Fable 5 = 4개 (핵심 의사결정) / Opus 4.8 = 8개 (부서장급 + 구현) / Sonnet 5 = 7개 (specialist) / gpt-5-codex = 16개 (FE/디자인 설계 + 변환계) / Haiku 4.5 = 2개 (저비용/결정론) — 합계 37개
 
 ## 업그레이드 절차
 
@@ -187,6 +187,13 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
    - 커밋 메시지에 본 문서 경로 + 변경 내역 참조
 
 ## 변경 이력
+
+### 2026-08-20 — specialist 정밀 재분배 (haiku 하향 1건)
+
+- 파이프라인: plan_모델재분배프롬프트세분화 → (후속 dev)
+- 내용: performance-evaluation을 Tier 3 → Tier 4로 이동 (claude-sonnet-5 → claude-haiku-4-5-20251001). 8개 specialist 전수 개별 평가 결과 유일한 변경 근거 보유 — IMP-PE-2로 판정 기준 완전 수치화(p95 +10%=FAIL / -5%=PASS / 그외=CONDITIONAL), dev/feature/hotfix 전건 자동트리거 최고빈도. 나머지 7개 sonnet-5 유지. 상승 방향 변경 0건 (NFR-1).
+- orphan 커밋 b936931(specialist 8개 전면 opus 승격)은 본 재분배 확정으로 공식 폐기 — cherry-pick 영구 금지 (FR-M10).
+- 근거: `.crew/artifacts/prd/plan_모델재분배프롬프트세분화-prd.md` §4 FR-M1~M10
 
 ### 2026-07-10 — git 관리 skill + Haiku 4.5 Tier 도입
 
