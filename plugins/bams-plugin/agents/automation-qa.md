@@ -98,10 +98,34 @@ agent_end emit 시 result_summary는 반드시 다음 4항을 포함한다:
 
 qa-strategy로부터 feature Phase 3 위임을 받지 않은 경우, pipeline-orchestrator에게 "QA 참여 누락" 알림 전송.
 
+### ★ E2E 실행 구조 최적화 (IMP-AQA-3 — C-P3 대응)
+
+D등급(speed clamp) 재발 방지를 위해 E2E 스위트 구성 시 아래 3개 레버를 **기본값으로 적용**한다:
+
+**(a) 병렬 워커**
+- `playwright.config.ts`에 `workers: process.env.CI ? 4 : '50%'` 명시 — 기본 순차(workers=1) 금지.
+- `fullyParallel: true` 설정으로 파일 내 테스트도 병렬화. 공유 자원 충돌은 워커별 격리 fixture로 방지(테스트 간 상태 공유 금지 규칙과 정합).
+
+**(b) 이벤트 기반 wait (고정 sleep 근절)**
+- `page.waitForTimeout()` / `sleep` **전면 금지**. `expect(locator).toBeVisible()`, `page.waitForResponse()`, `expect.poll()`로 치환.
+- 폴링 필요 시 `expect.poll(fn, { timeout, intervals: [100, 250, 500] })` — 고정 장기 폴링(예: 30s 단일 대기) 금지.
+- Next.js 특유 대기 조건(하이드레이션 완료, RSC payload) 우선 점검.
+
+**(c) 재시도 지수 백오프**
+- CI 리트라이는 `retries: 1` + `trace: 'on-first-retry'`. 네트워크/외부 의존 재시도는 지수 백오프(base 250ms, factor 2, max 3회) 적용.
+- flaky 3회 연속 시 quarantine(Flaky 테스트 대응 규칙 연계) — 백오프로 은폐 금지.
+
+**판정 출력 의무**: E2E 스위트 착수 시 위 (a)(b)(c) 적용 여부를 체크리스트로 출력한다.
+```
+[ ] workers 설정: {N} (순차 금지)
+[ ] sleep/waitForTimeout 잔존: {0건 목표} / grep 검출 {N}건
+[ ] 백오프 적용 재시도 지점: {N}곳
+```
+
 ### E2E 테스트 작성 시
 - 기존 테스트 코드 구조를 Glob, Read로 먼저 파악하여 프로젝트 컨벤션을 따름
 - 페이지 객체 패턴(POM)을 적용하여 UI 변경 시 테스트 수정 범위를 최소화
-- 하드코딩된 대기(sleep)를 지양하고, 명시적 대기(waitFor)를 사용
+- 하드코딩된 대기(sleep)를 지양하고, 명시적 대기(waitFor)를 사용 — page.waitForTimeout 금지, expect.poll/waitForResponse 사용(IMP-AQA-3 참조)
 - 하나의 테스트는 하나의 시나리오만 검증 — 테스트 간 상태 공유 금지
 - 테스트 실패 시 스크린샷, 콘솔 로그를 자동 캡처하는 설정 포함
 
@@ -170,6 +194,20 @@ qa-strategy로부터 feature Phase 3 위임을 받지 않은 경우, pipeline-or
 
 
 ## 학습된 교훈
+
+### [2026-08-20] retro_전체회고_2 — speed clamp는 품질이 아닌 E2E 실행 구조 문제
+
+**맥락**: retro_전체회고_2 — D등급(57.50). success 5/6(품질 정상)이나 avg 738,002ms(12.3분)로 specialist median의 4.02배, speed clamp 하한 적중.
+
+**문제**:
+- D 귀인이 "품질 미달"로 왜곡 — 실제 원인은 순차 실행·고정 sleep·장기 폴링의 E2E 실행 구조 비효율
+- 정의에 병렬 워커/이벤트 기반 wait 지침이 원칙 문구로만 존재하고 구체 설정값·백오프 계수 부재
+
+**교훈**:
+- speed D는 모델 다운/업시프트가 아니라 실행 구조 최적화 레버(병렬 워커/이벤트 wait/지수 백오프)로 대응 — IMP-AQA-3
+- E2E 착수 시 workers/sleep잔존/백오프 체크리스트 출력을 습관화, 보수적 목표 ≤6분(360,000ms)
+
+**출처**: retro_전체회고_2 (consolidated #6 / C-P3)
 
 ### [2026-04-18] retro_전체회고_4 — 고성능 저활용 패턴 지속
 

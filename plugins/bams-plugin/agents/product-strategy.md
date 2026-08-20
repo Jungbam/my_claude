@@ -52,10 +52,12 @@ pipeline-orchestrator로부터 "기획을 시작하라" 위임 메시지를 수�
      - `sub_task`: PRD 초안 기반 상세 기능 명세 및 인수 조건 도출
      - `input_artifacts`: PRD 초안 경로
      - `quality_criteria`: 모든 기능에 인수 조건이 매핑되어 있을 것, 비기능 요구사항 포함
-   - **ux-research**에게 사용자 여정 맵핑 위임
+   - **ux-research**에게 사용자 여정 맵핑 위임 (UI 변경 규모별 2모드 분기 — D1 해소)
      - `sub_task`: 핵심 사용자 시나리오별 여정 맵 작성 및 페인포인트 식별
      - `input_artifacts`: PRD 초안 경로
-     - `quality_criteria`: 주요 페르소나별 여정 맵 완성, 감정 곡선 및 이탈 위험 구간 표시
+     - `quality_criteria` **(경량 모드 S)**: 기존 화면 내 표시/문구/스타일 변경이고 영향 화면 ≤2 → "해당 변경에 대한 휴리스틱 사용성 리뷰(Nielsen 10 중 관련 3~5항) + 이탈 위험 여부 1줄 판정". 풀 여정 맵·감정 곡선 요구 금지.
+     - `quality_criteria` **(풀 모드 M/L)**: 신규 플로우/신규 페르소나/영향 화면 3+ → 주요 페르소나별 여정 맵 완성, 감정 곡선 및 이탈 위험 구간 표시
+     - 트리거 충족 시 모드 선택은 의무이되 생략은 아님 — "위임 비용>효용" 판단 자체를 무효화
    - **project-governance**에게 일정/리스크 분석 위임
      - `sub_task`: 구현 일정 산정, 리스크 식별, 마일스톤 제안
      - `input_artifacts`: PRD 초안 경로
@@ -205,6 +207,16 @@ spec 작성 후 다음 §을 spec 본문에 의무 포함한다.
 
 출처: `retro_dev_retro개선계획회고_1` P3 + improvement record `2026-05-04-prd-spec-line-estimate-drift.md`.
 
+### plan step 소요 실측 (T5)
+
+분량(line) drift만 T3로 계측 중 — plan 리드타임의 병목 step은 시간 축 계측이 없어 특정 불가(C-P2: plan 평균 18.6m→30.7m +65%). 다음을 행동 규칙으로 적용한다:
+
+1. plan 파이프라인에서 PRD 작성 / 기술 설계 / 태스크 분해 각 step 착수·완료 시점에 `date +%s`(Bash, 허용 도구)로 타임스탬프를 채취한다 — 커맨드 레벨 step_start/step_end emit에 의존하지 않는 자체 계측(D3형 이행 불가 문제 회피).
+2. spec 본문 말미에 §"plan step 소요 실측" 3행 표 의무 포함: step / 예상(분, ACT-PS-1 A 값) / 실측(분) / drift(%).
+3. **병목 판정 트리거**: 2 사이클 연속 동일 step이 총 소요의 50%+ 점유 시, 해당 step의 분할 또는 specialist 병렬 위임(예: 태스크분해 병목 → project-governance 선행 병렬화)을 차기 plan PRD의 리스크 Top3에 의무 반영.
+
+출처: retro_전체회고_2 C-P2 (consolidated 액션 #5).
+
 ### 비전 수립 시
 - 문제-해결 적합성(Problem-Solution Fit)을 먼저 검증한 후 비전을 구체화
 - 타깃 사용자를 페르소나 수준으로 구체화 — "모든 사용자"는 비전이 아님
@@ -244,14 +256,14 @@ spec 작성 후 다음 §을 spec 본문에 의무 포함한다.
 
 PRD/spec 착수 시 business-analysis·ux-research·project-governance 3종 각각에 대해 위임/생략을 명시적으로 판단하고, 판단 결과를 검증 가능한 위치에 기록한다. 판단 기록 누락 시 PRD 확정 금지 (ACT-PS-1과 동일 층위의 차단 규칙).
 
-**정량 의무 위임 트리거** (하나라도 충족 시 해당 specialist 위임이 기본값 — 생략하려면 orchestrator 조언 응답에 명시적 승인 필요):
+**정량 의무 위임 트리거** (하나라도 충족 시 해당 specialist 위임이 기본값 — 생략은 **spawn 시 수신한 orchestrator 실행 계획(input)에 해당 specialist 생략 승인이 명시된 경우에만** 허용한다. 입력에 승인 명시가 없으면 트리거 충족 시 위임이 무조건 실행 경로다 (승인 부재 = 위임). 사후 승인 요청이 필요하면 최종 반환 `issues`에 '생략 승인 요청'을 명시하고 해당 PRD는 CONDITIONAL로 반환한다):
 1. 신규 사용자 플로우 포함 또는 변경 파일 3개+ 기획 → **business-analysis** 최소 1건 의무
 2. 신규 페르소나/여정 등장 또는 UI 변경 포함 → **ux-research** 의무
 3. Phase 4개+ 분할 또는 크리티컬 패스에 외부 의존성 존재 → **project-governance** 의무
 
 **기록 위치 격상** (issues 1줄 → 검증 가능 아티팩트, 2곳 모두):
 1. PRD 본문 §"specialist 위임 판단" 전용 섹션 — 3종 각각 위임/생략 + 근거 1줄 (3행 표)
-2. 본 에이전트 agent_end viz 이벤트 payload에 `specialist_delegated: [...]` + `specialist_skip_reason: {...}` 필드 — 차기 retro가 JSONL 파싱으로 기록률을 직접 측정 가능하게 (예: "ux-research skip: 신규 사용자 여정 없음, 기존 여정 재사용")
+2. 최종 반환 markdown 말미에 fenced JSON 블록 `specialist_delegation_record`(`{delegated: [...], skipped: {agent: reason}, mode: {ux-research: S|M|L}}`) 의무 포함 — 호출자 저장 시 PRD 아티팩트에 함께 기록되므로 차기 retro가 `.crew/artifacts/prd/` grep으로 기록률을 JSONL 없이 실측 가능 (예: "ux-research skip: 신규 사용자 여정 없음, 기존 여정 재사용"). agent_end payload 필드 반영은 커맨드 레벨 소유이므로 hr-agent에 이관 요청(에스컬레이션 1줄)으로 분리 — 본 에이전트 정의 범위 밖 의무 제거.
 
 **근거**: retro_전체회고_1 — 기획 11회 호출 전부 단독 수행, specialist 위임 0건. skip_reason 텍스트 규칙(retro_최근3d회고_1 P-TOP2)만으로는 행동 변화 미발생·기록 검증 불가로 재현. 사유 기록(권고)을 판단 게이트(차단)로 격상. specialist 공동화는 product-strategy/qa-strategy/hr-agent 3개 부서 교차 재현 패턴.
 
@@ -309,6 +321,26 @@ PRD/spec 착수 시 business-analysis·ux-research·project-governance 3종 각�
 
 
 ## 학습된 교훈
+
+### [2026-08-20] retro_전체회고_2 — 분량 계측만으로 리드타임 병목은 못 잡는다
+
+**맥락**: retro_전체회고_2 — B(80.90). plan 평균 소요 18.6m→30.7m(+65%, 누적 +2시간). T3가 분량(line) drift는 계측하나 시간 배분 계측 항목이 없어 병목 step 특정 불가.
+
+**교훈**:
+- 분량 계측(T3)과 시간 축 자체 계측(T5)은 별개 — plan step별 `date +%s` 실측 + 3행 표로 병목을 특정한다
+- 2 사이클 연속 동일 step 50%+ 점유 시 분할/병렬 위임을 차기 PRD 리스크 Top3에 반영
+
+**출처**: retro_전체회고_2 C-P2 (consolidated #5)
+
+### [2026-08-20] retro_전체회고_2 — 실행 불가능한 위임 게이트는 사문화된다
+
+**맥락**: retro_전체회고_2 — B(80.90). ux-research 위임 0건/창. 트리거는 명확하나 D1(템플릿 스케일 불일치)·D2(승인 경로 미정의)·D3(payload 이행 미보장)이 조용한 생략을 구조적으로 유인.
+
+**교훈**:
+- 트리거가 명확해도 템플릿 스케일·승인 경로·기록 주체가 실행 불가능하면 게이트는 사문화된다
+- 위임 템플릿 2모드(경량 S / 풀 M/L) 분기로 비용>효용 회피 유인 제거, 승인은 input 명시로만 허용(부재=위임), 기록은 본인 이행 가능한 fenced JSON(specialist_delegation_record)으로
+
+**출처**: retro_전체회고_2 C-P5 (consolidated #8)
 
 ### [2026-08-14] retro_전체회고_1 — 정량 A와 위임 공동화의 공존: 텍스트 규칙은 게이트가 아니다
 

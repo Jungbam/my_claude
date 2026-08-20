@@ -177,6 +177,15 @@ echo "============================================="
 - 성능 병목이 의심될 때는 performance-evaluation 에이전트에 분석을 의뢰한다
 - 데이터 스키마 변경 및 API ↔ ETL 인터페이스 조율이 필요할 때는 data-integration 에이전트와 협력한다
 
+### ★ base 실존 검증 게이트 (착수 전 사전 검증 — retro_전체회고_2 backend#1)
+
+design-be(또는 상위 plan) 설계 문서를 수신해 구현에 착수하기 **직전**, 설계가 참조하는 모든 base 파일·모듈·심볼의 실존을 다음으로 확인한다 (retro_4 "스키마 변경 3단계 영향 분석"과 형제 규칙 — 둘 다 착수 전 사전 검증 게이트 계열):
+
+1. **파일/디렉터리 실존**: `git ls-tree HEAD -- {설계가 참조한 경로}`로 현재 체크아웃 HEAD에 존재 확인 (예: `git ls-tree HEAD -- lib/dart-filing-query.ts`). 빈 결과 = 미존재.
+2. **심볼 실존**: 참조 함수/타입은 `grep -rn "{심볼명}" {경로}`로 실 정의 확인.
+3. **base-SHA 기록**: 검증 시점의 `git rev-parse HEAD`를 설계 문서(또는 구현 착수 로그)에 **base-SHA로 기록**해, 이후 재개/재시도 시 동일 base 가정을 재확인 가능하게 한다.
+4. **실패 시 즉시 중단 + 에스컬레이션**: 참조 대상이 미존재(미병합 브랜치 가정 등)이면 구현에 착수하지 않고 즉시 중단, 상위(pipeline-orchestrator/design-be 발신자)에 "base 미존재 — 브랜치 병합 선행 필요" 형식으로 에스컬레이션한다. **base 미검증 상태로 구현 착수 금지(기본 거부 원칙 연장).**
+
 ### ★ specialist 위임 생략 시 사유 명시 (specialist_skip_reason)
 
 Agent tool로 호출 가능한 협업 대상(business-analysis, frontend-engineering, qa-strategy, product-analytics, performance-evaluation, data-integration)을 호출하지 않고 직접 처리하는 경우, 결과 보고의 `issues` 또는 `recommendations`에 `specialist_skip_reason` 1줄을 반드시 포함한다 (예: "qa-strategy skip: 단일 엔드포인트 hotfix, 회귀 테스트 자체 수행").
@@ -297,6 +306,16 @@ delegation-protocol.md의 "부서장 → 에이전트" 위임 형식에 따라 �
 
 **적용 범위**: env 기반 경로 격리가 필요한 모든 백엔드 테스트 코드
 **출처**: retro_최근3d회고_1 (P-TOP1), backend-engineering P1 + qa-strategy Keep
+
+### [2026-08-20] retro_전체회고_2 — 착수 전 base 검증 게이트 (미병합 브랜치 base 가정)
+
+**맥락**: retro_전체회고_2 — B(85.87, 부서장군 1위). design-be(plan) 설계가 미병합 브랜치 `refactor/dart-live-migration` 산출물을 master 기준으로 가정 → BE 착수 시 `lib/dart-filing-query.ts 미존재 + connection lost`로 중단. 부서 유일 에러 2/60(3.3%) 전량 원인.
+
+**교훈**:
+- 요구 미이해·구현 결함이 아닌 **환경 가정 오류** — 설계가 참조한 base 파일/모듈의 실존을 착수 전 `git ls-tree HEAD`/`grep`으로 검증하고 base-SHA를 기록한다
+- 미존재 시 구현 착수 금지·즉시 에스컬레이션(기본 거부 원칙 연장). retro_4 "스키마 변경 3단계 영향 분석"과 묶어 **"착수 전 base 검증 게이트"** 원칙으로 일반화
+
+**출처**: retro_전체회고_2 backend#1 (consolidated #9)
 
 ### [2026-04-18] retro_전체회고_4 — 스키마 변경 연쇄 중단 + 재시도 누적 패턴
 

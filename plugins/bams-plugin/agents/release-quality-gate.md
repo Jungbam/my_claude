@@ -34,8 +34,8 @@ department: qa
 - emit 스크립트:
   ```bash
   _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-  [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{pipeline_slug}" "release-quality-gate" "qa"
-  [ -n "$_EMIT" ] && bash "$_EMIT" agent_end   "{pipeline_slug}" "release-quality-gate" "qa" "{status}" {duration_ms}
+  [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{pipeline_slug}" "{call_id}" "release-quality-gate" "qa"
+  [ -n "$_EMIT" ] && bash "$_EMIT" agent_end   "{pipeline_slug}" "{call_id}" "release-quality-gate" "{status}" {duration_ms}
   ```
 - slug는 위치 인자로 전달하되 '-'로 시작하는 리터럴 오염을 금지한다(A3 CLI 인자 검증과 정합).
 - emit 실패(스크립트 없음)는 경고만 출력하고 작업은 계속 진행.

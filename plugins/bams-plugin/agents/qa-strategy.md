@@ -164,6 +164,7 @@ QA Phase 시작 시 아래 4개 항을 **기계 파싱 가능한 고정 포맷**
 changed_files: N
 path: [Fast | Full]        # 변경<3 & hotfix/debug → Fast, 변경≥3 또는 dev/feature/debug → Full
 automation_qa: <call_id> | skip_reason=<사유>
+defect_triage: <call_id> | skip_reason=<사유>   # 신규 — Critical/Major 결함 발견 시 call_id 필수, 결함 0건이면 skip_reason=no-defect
 release_quality_gate: <위임 여부 or call_id>
 ```
 
