@@ -163,6 +163,16 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
 
 새 모델 도입 시 (예: Opus 4.9, Sonnet 5.1):
 
+0. **Spawn ping 사전검증 (필수 — SSOT 갱신 전)**:
+   - 신규/변경 모델로 전환하기 전, 대상 그룹 중 **저위험 에이전트 1개**를 canary로 선정해 실제 spawn 테스트를 먼저 수행한다(trivial task, 예: "역할 1문장 요약").
+   - `agent_end status=success`로 정상 응답하면 접근 가능으로 판정 → 나머지 SSOT 갱신(1~5단계) 진행.
+   - 실패 시: 전환 자체를 보류하고 대체 모델 또는 폴백(Claude 계열)을 재검토한다. 재시도는 최대 1회(모델명 오타 등 확인용)로 제한 — 반복 재시도 금지.
+   - **세션 캐싱 주의**: harness가 에이전트 정의를 세션 시작 시점에 이미 로드해, 파일을 고쳐도 같은 세션의 canary spawn이 stale 값으로 실패할 수 있다(2026-08-21 hotfix_codex모델명전환에서 실측 확인). 이 경우:
+     (a) 독립 CLI(예: `codex exec ... -c 'model="{모델명}"'`)로 대체 검증하고,
+     (b) SSOT는 갱신을 진행하되 커밋 메시지/변경 이력에 "harness Task tool 레벨은 세션 재시작 후 검증 필요"를 명시하며,
+     (c) 다음 세션에서 실제 canary 재검증을 최우선 항목으로 등록한다.
+   - 근거: `.crew/memory/hr-agent/improvements/2026-07-09-codex-model-access-untested.md`, `.crew/memory/hr-agent/improvements/2026-08-21-codex-model-deprecated-recurrence.md`
+
 1. **본 정책 문서 갱신**:
    - 위 매핑 테이블의 모델 ID 열을 일괄 변경
    - 변경 이력 섹션에 날짜/사유 추가
