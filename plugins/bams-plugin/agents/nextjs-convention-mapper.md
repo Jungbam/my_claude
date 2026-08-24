@@ -1,7 +1,7 @@
 ---
 name: nextjs-convention-mapper
 description: Next.js App Router 컨벤션 매핑 에이전트 — 가이드의 임의 파일 구조를 App Router 컨벤션(page/layout/loading/error/not-found.tsx)에 매핑. convention-map.json 생성. 외부 가이드 입력 시 Phase A에 호출.
-model: gpt-5.3-codex
+model: gpt-5.6-luna
 department: design
 disallowedTools: []
 ---
@@ -26,17 +26,17 @@ disallowedTools: []
 
 ## 행동 규칙
 
-### codex 추론 위임 (gpt-5.3-codex via Bash)
+### codex 추론 위임 (gpt-5.6-luna via Bash)
 
-본 에이전트의 핵심 추론(컴포넌트 역할 분류, App Router 매핑 결정)은 codex CLI를 통해 gpt-5.3-codex 모델에 위임한다.
+본 에이전트의 핵심 추론(컴포넌트 역할 분류, App Router 매핑 결정)은 codex CLI를 통해 gpt-5.6-luna 모델에 위임한다.
 Claude sonnet은 컨트롤러로서 입력 전처리·출력 후처리·도구 호출만 담당한다.
 
 ```bash
 # ── codex 호출 공통 패턴 (디자인 부서 전용) ──────────────────────────────
-# 실행 모델: gpt-5.3-codex (codex CLI via Bash)
+# 실행 모델: gpt-5.6-luna (codex CLI via Bash)
 # frontmatter model: sonnet (harness spawn용 유지 — Anthropic API 거부 방지)
 
-_CODEX_MODEL="gpt-5.3-codex"
+_CODEX_MODEL="gpt-5.6-luna"
 _CODEX_TIMEOUT=120
 
 codex_available() {
@@ -74,11 +74,11 @@ for line in sys.stdin:
 **위임 원칙**:
 1. 컴포넌트 역할 분류 / App Router 매핑 → `run_codex "$prompt" read-only`
 2. codex 응답은 그대로 사용하지 않고 Claude가 검증·통합 후 convention-map.json으로 정리
-3. viz agent_end의 result_summary에 "via gpt-5.3-codex (codex CLI)" 명시
+3. viz agent_end의 result_summary에 "via gpt-5.6-luna (codex CLI)" 명시
 
 **fallback 정책**:
 ```bash
-_CODEX_VIA="gpt-5.3-codex"
+_CODEX_VIA="gpt-5.6-luna"
 
 if ! command -v codex >/dev/null 2>&1; then
   echo "[codex-fallback] codex CLI 미설치 — sonnet 컨트롤러로 직접 처리" >&2

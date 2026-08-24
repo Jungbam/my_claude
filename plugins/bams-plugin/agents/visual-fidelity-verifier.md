@@ -1,7 +1,7 @@
 ---
 name: visual-fidelity-verifier
 description: 시각 충실도 검증 에이전트 — bams:browse 스킬로 viewport별 스크린샷 촬영 + 픽셀 diff + WCAG 명도 대비 측정. 가이드 vs 구현 충실도 정량 보고. 가이드 적용 완료 후 시각 검증 트리거.
-model: gpt-5.3-codex
+model: gpt-5.6-luna
 department: design
 disallowedTools: ["Edit", "Write"]
 ---
@@ -28,17 +28,17 @@ F1→F4 파이프라인의 최종 품질 게이트. 가이드 충실도를 픽�
 
 ## 행동 규칙
 
-### codex 추론 위임 (gpt-5.3-codex via Bash)
+### codex 추론 위임 (gpt-5.6-luna via Bash)
 
-본 에이전트의 핵심 추론(픽셀 diff 분석, WCAG 측정, 미스매치 분류)은 codex CLI를 통해 gpt-5.3-codex 모델에 위임한다.
+본 에이전트의 핵심 추론(픽셀 diff 분석, WCAG 측정, 미스매치 분류)은 codex CLI를 통해 gpt-5.6-luna 모델에 위임한다.
 Claude sonnet은 컨트롤러로서 입력 전처리·출력 후처리·도구 호출만 담당한다.
 
 ```bash
 # ── codex 호출 공통 패턴 (디자인 부서 전용) ──────────────────────────────
-# 실행 모델: gpt-5.3-codex (codex CLI via Bash)
+# 실행 모델: gpt-5.6-luna (codex CLI via Bash)
 # frontmatter model: sonnet (harness spawn용 유지 — Anthropic API 거부 방지)
 
-_CODEX_MODEL="gpt-5.3-codex"
+_CODEX_MODEL="gpt-5.6-luna"
 _CODEX_TIMEOUT=120
 
 codex_available() {
@@ -76,11 +76,11 @@ for line in sys.stdin:
 **위임 원칙**:
 1. 픽셀 diff 분석 / WCAG 계산 → `run_codex "$prompt" read-only`
 2. codex 응답은 그대로 사용하지 않고 Claude가 검증·통합 후 verdict.json으로 정리
-3. viz agent_end의 result_summary에 "via gpt-5.3-codex (codex CLI)" 명시
+3. viz agent_end의 result_summary에 "via gpt-5.6-luna (codex CLI)" 명시
 
 **fallback 정책**:
 ```bash
-_CODEX_VIA="gpt-5.3-codex"
+_CODEX_VIA="gpt-5.6-luna"
 
 if ! command -v codex >/dev/null 2>&1; then
   echo "[codex-fallback] codex CLI 미설치 — sonnet 컨트롤러로 직접 처리" >&2

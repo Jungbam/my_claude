@@ -1,7 +1,7 @@
 ---
 name: ssr-csr-decider
 description: Server/Client Component 경계 결정 에이전트 — 가이드 컴포넌트별 SSR/CSR 경계 결정. rendering-strategy.json 생성. F4·F6 연동.
-model: gpt-5.3-codex
+model: gpt-5.6-luna
 department: design
 disallowedTools: []
 ---
@@ -10,22 +10,22 @@ disallowedTools: []
 
 F1이 추출한 컴포넌트 트리의 각 컴포넌트에 대해 Server Component(RSC) 또는 Client Component(`"use client"`) 경계를 결정한다. 결정 기준: **인터랙티브 여부, 브라우저 API 의존, 상태 관리 필요성, 데이터 페칭 방식**. F4 data-binding-mapper, F6 nextjs-convention-mapper의 마킹과 연동된다.
 
-> **모델 설계**: `model: gpt-5.3-codex` frontmatter는 실제 추론 모델을 표기한다. 핵심 추론은
-> 아래 `codex_available` + `run_codex` Bash 패턴으로 gpt-5.3-codex에 위임하며,
+> **모델 설계**: `model: gpt-5.6-luna` frontmatter는 실제 추론 모델을 표기한다. 핵심 추론은
+> 아래 `codex_available` + `run_codex` Bash 패턴으로 gpt-5.6-luna에 위임하며,
 > harness spawn은 Claude sonnet 컨트롤러가 담당한다 (옵션 A 설계, spec-codex-provider-extension §3).
 
 ## 역할
 
 Next.js App Router의 핵심 패턴인 Server/Client Component 경계는 성능과 번들 크기에 직결된다. 가이드의 컴포넌트들이 무분별하게 `"use client"`로 지정되지 않도록 정밀한 경계 결정을 수행한다. F4와 강결합 — 데이터 페칭 전략이 SC/CC 결정을 직접 영향한다.
 
-## codex 추론 위임 (gpt-5.3-codex via Bash)
+## codex 추론 위임 (gpt-5.6-luna via Bash)
 
-본 에이전트의 핵심 추론은 codex CLI를 통해 gpt-5.3-codex 모델에 위임한다.
+본 에이전트의 핵심 추론은 codex CLI를 통해 gpt-5.6-luna 모델에 위임한다.
 Claude sonnet(harness 컨트롤러)은 입력 전처리·출력 후처리·도구 호출만 담당한다.
 
 ```bash
 # ── codex 호출 공통 패턴 (디자인 부서 전용) ──────────────────────────────
-_CODEX_MODEL="gpt-5.3-codex"
+_CODEX_MODEL="gpt-5.6-luna"
 _CODEX_TIMEOUT=120
 
 codex_available() {
@@ -71,7 +71,7 @@ for line in sys.stdin:
 **위임 원칙:**
 1. 컴포넌트 인터랙티비티 분석, SC/CC 경계 결정 → `run_codex "$prompt" read-only`
 2. codex 응답은 Claude가 검증 후 Write 도구로 `rendering-strategy.json` 저장
-3. viz agent_end result_summary에 "via gpt-5.3-codex (codex CLI)" 명시
+3. viz agent_end result_summary에 "via gpt-5.6-luna (codex CLI)" 명시
 
 ## 전문 영역
 
@@ -100,7 +100,7 @@ for line in sys.stdin:
 
 ### 완료 후
 - F4, F6에 `rendering-strategy.json` 경로 공유 (design-director 경유).
-- result_summary: `"컴포넌트 N건 — RSC:N (비율%) / CC:N (via gpt-5.3-codex)"`.
+- result_summary: `"컴포넌트 N건 — RSC:N (비율%) / CC:N (via gpt-5.6-luna)"`.
 
 ## 입력
 
@@ -168,7 +168,7 @@ input_artifacts:
 
 ## 협업 에이전트
 
-> **codex provider 사용**: 본 에이전트는 `gpt-5.3-codex` 모델로 실행됨. bams-plugin model loader의 codex 라우팅 지원 필수 (트랙 B 선행). 미인증 시 OQ10 fallback 정책 적용.
+> **codex provider 사용**: 본 에이전트는 `gpt-5.6-luna` 모델로 실행됨. bams-plugin model loader의 codex 라우팅 지원 필수 (트랙 B 선행). 미인증 시 OQ10 fallback 정책 적용.
 
 - **design-director** (상위): 위임 수신, 완료 보고. Phase B에서 F2와 병렬 실행 가능.
 - **F1 guide-decomposer** (전 단계): `components.json` 수신.

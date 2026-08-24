@@ -18,7 +18,7 @@
 - 부서장급 조율 역할과 더불어, 코드/문서를 직접 구현·변경하는 역할 포함
 - 판단 깊이가 깊거나 여러 하위 에이전트/문서를 종합하는 역할
 - 대상: backend-engineering, platform-devops, qa-strategy, product-analytics, hr-agent, executive-reporter, resource-optimizer, cross-department-coordinator (FE/디자인 부서장 제외 — 아래 예외 참조)
-- **예외**: FE/디자인 도메인 부서장(frontend-engineering, design-director)은 "부서장"이지만 도메인 특성상 Tier 2 대상에서 제외되고 `gpt-5-codex` 버킷에 배정된다. 따라서 "모든 부서장 = Tier 2"로 독해하지 말 것 — 신규 부서장 배정 시 FE/디자인 도메인 여부를 먼저 확인한다.
+- **예외**: FE/디자인 도메인 부서장(frontend-engineering, design-director)은 "부서장"이지만 도메인 특성상 Tier 2 대상에서 제외되고 `gpt-5.6-luna` 버킷에 배정된다. 따라서 "모든 부서장 = Tier 2"로 독해하지 말 것 — 신규 부서장 배정 시 FE/디자인 도메인 여부를 먼저 확인한다.
 
 ### Tier 3 — Sonnet 5 (claude-sonnet-5)
 **specialist**: 정형 구조 출력, 빠른 응답, 단일 도메인 세부 작업
@@ -27,7 +27,7 @@
 - TTFT(첫 토큰까지 시간)와 응답 속도가 사용자 체감 UX에 직접 기여
 - 대상: business-analysis, ux-research, data-integration, automation-qa, defect-triage, experimentation, business-kpi
 
-### 유지 — gpt-5-codex
+### 유지 — gpt-5.6-luna
 **FE/디자인 설계 및 변환계**: FE 설계, 디자인(UI/UX) 설계, JSX/HTML 가이드 분해·재구성·라우팅·바인딩·접근성·렌더링 경계 결정
 
 - FE/디자인 설계 관련 업무는 codex 계열을 우선 사용
@@ -104,7 +104,7 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
 
 | 에이전트 | 역할 | 모델 | 비고 |
 |---------|------|------|------|
-| frontend-engineering | 개발 FE 부서장 | gpt-5-codex | UI 구현, 컴포넌트 설계 |
+| frontend-engineering | 개발 FE 부서장 | gpt-5.6-luna | UI 구현, 컴포넌트 설계 |
 | backend-engineering | 개발 BE 부서장 | claude-opus-4-8 | API 설계, 트랜잭션/동시성 |
 | platform-devops | 개발 인프라 부서장 | claude-opus-4-8 | 인프라, CI/CD, 보안 |
 | data-integration | 개발 specialist | claude-sonnet-5 | 이벤트 트래킹, 외부 연동 |
@@ -114,21 +114,21 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
 
 | 에이전트 | 역할 | 모델 | 비고 |
 |---------|------|------|------|
-| design-director | 디자인 부서장 | gpt-5-codex | 크리에이티브 디렉션, 하위 specialist 조율 |
-| ui-designer | 디자인 specialist | gpt-5-codex | 컴포넌트 디자인 |
-| ux-designer | 디자인 specialist | gpt-5-codex | 와이어프레임, 프로토타입 |
-| graphic-designer | 디자인 specialist | gpt-5-codex | 아이콘, 일러스트 |
-| motion-designer | 디자인 specialist | gpt-5-codex | 애니메이션 |
-| design-system-agent | 디자인 specialist | gpt-5-codex | 디자인 토큰 |
-| guide-decomposer | 디자인 specialist (변환) | gpt-5-codex | 외부 가이드 분해 |
-| guide-recomposer | 디자인 specialist (변환) | gpt-5-codex | 분해 산출물 재구성 + preview HTML |
-| ui-diff-applier | 디자인 specialist (구현) | gpt-5-codex | 가이드-현행 UI patch.diff 생성 (Read-only) |
-| data-binding-mapper | 디자인 specialist (변환) | gpt-5-codex | RSC fetch 매핑 |
-| visual-fidelity-verifier | 디자인 specialist | gpt-5-codex | 시각 일치성 검증 (bams:browse) |
-| nextjs-convention-mapper | 디자인 specialist | gpt-5-codex | App Router 컨벤션 매핑 |
-| accessibility-auditor | 디자인 specialist (변환) | gpt-5-codex | WCAG 2.2 AA + axe-core 감사 |
-| routing-strategist | 디자인 specialist (변환) | gpt-5-codex | 다중 페이지 라우팅 그래프 설계 |
-| ssr-csr-decider | 디자인 specialist (변환) | gpt-5-codex | Server/Client Component 경계 결정 |
+| design-director | 디자인 부서장 | gpt-5.6-luna | 크리에이티브 디렉션, 하위 specialist 조율 |
+| ui-designer | 디자인 specialist | gpt-5.6-luna | 컴포넌트 디자인 |
+| ux-designer | 디자인 specialist | gpt-5.6-luna | 와이어프레임, 프로토타입 |
+| graphic-designer | 디자인 specialist | gpt-5.6-luna | 아이콘, 일러스트 |
+| motion-designer | 디자인 specialist | gpt-5.6-luna | 애니메이션 |
+| design-system-agent | 디자인 specialist | gpt-5.6-luna | 디자인 토큰 |
+| guide-decomposer | 디자인 specialist (변환) | gpt-5.6-luna | 외부 가이드 분해 |
+| guide-recomposer | 디자인 specialist (변환) | gpt-5.6-luna | 분해 산출물 재구성 + preview HTML |
+| ui-diff-applier | 디자인 specialist (구현) | gpt-5.6-luna | 가이드-현행 UI patch.diff 생성 (Read-only) |
+| data-binding-mapper | 디자인 specialist (변환) | gpt-5.6-luna | RSC fetch 매핑 |
+| visual-fidelity-verifier | 디자인 specialist | gpt-5.6-luna | 시각 일치성 검증 (bams:browse) |
+| nextjs-convention-mapper | 디자인 specialist | gpt-5.6-luna | App Router 컨벤션 매핑 |
+| accessibility-auditor | 디자인 specialist (변환) | gpt-5.6-luna | WCAG 2.2 AA + axe-core 감사 |
+| routing-strategist | 디자인 specialist (변환) | gpt-5.6-luna | 다중 페이지 라우팅 그래프 설계 |
+| ssr-csr-decider | 디자인 specialist (변환) | gpt-5.6-luna | Server/Client Component 경계 결정 |
 
 ### QA부 (Quality)
 
@@ -157,7 +157,7 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
 | hr-agent | 경영지원 | claude-opus-4-8 | 에이전트 생명주기, 조직도 관리 |
 | cross-department-coordinator | 경영지원 | claude-opus-4-8 | 부서간 협업 조율 |
 
-**총계**: Fable 5 = 4개 (핵심 의사결정) / Opus 4.8 = 8개 (부서장급 + 구현) / Sonnet 5 = 7개 (specialist) / gpt-5-codex = 16개 (FE/디자인 설계 + 변환계) / Haiku 4.5 = 2개 (저비용/결정론) — 합계 37개
+**총계**: Fable 5 = 4개 (핵심 의사결정) / Opus 4.8 = 8개 (부서장급 + 구현) / Sonnet 5 = 7개 (specialist) / gpt-5.6-luna = 16개 (FE/디자인 설계 + 변환계) / Haiku 4.5 = 2개 (저비용/결정론) — 합계 37개
 
 ## 업그레이드 절차
 
@@ -187,6 +187,16 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
    - 커밋 메시지에 본 문서 경로 + 변경 내역 참조
 
 ## 변경 이력
+
+### 2026-08-21 — codex 계열 16개 에이전트 모델명 전환 (deprecated 대응)
+
+- 파이프라인: hotfix_codex모델명전환
+- 내용: gpt-5.3-codex(구, 2026-07-09 이전 세대)가 deprecated되어 spawn 전면 실패.
+  GPT-5.6 세대(2026-07-09 출시) 중 luna(빠른 작업) tier로 16개 에이전트 전체 통일 전환.
+  ~/.codex/config.toml 개인 설정 및 codex CLI 레벨에서 gpt-5.6-luna 정상 동작 검증 완료.
+  harness Task tool 레벨 검증은 세션 캐싱 이슈로 이번 세션 내 불가 — 재시작 후 확인 필요.
+- 근거: 2026-07-09 hotfix_codex_model_access 선례(당시 SSOT 유지 결정) 재검토,
+  이번엔 올바른 대체 모델명이 확인되어 SSOT 갱신으로 전환.
 
 ### 2026-08-20 — specialist 정밀 재분배 (haiku 하향 1건)
 

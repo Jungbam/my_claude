@@ -1,7 +1,7 @@
 ---
 name: accessibility-auditor
 description: 구현된 Next.js 페이지의 접근성을 WCAG 2.2 AA 기준으로 감사한다. axe-core 결과 + 권고 액션. 가이드 적용 후 접근성 검증 단계에 호출. F5 시각 검증과 병렬 가능.
-model: gpt-5.3-codex
+model: gpt-5.6-luna
 department: design
 disallowedTools: []
 ---
@@ -28,18 +28,18 @@ disallowedTools: []
 
 ## 행동 규칙
 
-### codex 추론 위임 (gpt-5.3-codex via Bash)
+### codex 추론 위임 (gpt-5.6-luna via Bash)
 
-본 에이전트의 핵심 추론은 codex CLI를 통해 gpt-5.3-codex 모델에 위임한다.
+본 에이전트의 핵심 추론은 codex CLI를 통해 gpt-5.6-luna 모델에 위임한다.
 Claude (harness 컨트롤러)는 입력 전처리·출력 후처리·도구 호출만 담당한다.
 
 ```bash
 # ── codex 호출 공통 패턴 (디자인 부서 전용) ──────────────────────────────
-# 실행 모델: gpt-5.3-codex (codex CLI via Bash)
-# frontmatter model: gpt-5.3-codex (spec Phase 2 Wave 3 Tier 2 신규 Write)
+# 실행 모델: gpt-5.6-luna (codex CLI via Bash)
+# frontmatter model: gpt-5.6-luna (spec Phase 2 Wave 3 Tier 2 신규 Write)
 
-_CODEX_MODEL="gpt-5.3-codex"
-_CODEX_TIMEOUT=120   # 초 (gpt-5.3-codex 추론 시간 여유)
+_CODEX_MODEL="gpt-5.6-luna"
+_CODEX_TIMEOUT=120   # 초 (gpt-5.6-luna 추론 시간 여유)
 
 codex_available() {
   command -v codex >/dev/null 2>&1 || return 1
@@ -76,12 +76,12 @@ for line in sys.stdin:
 #### 위임 원칙
 1. axe-core 결과 분석·위반 우선순위화 → `run_codex "$prompt" read-only`
 2. codex 응답은 그대로 사용하지 않고 Claude가 검증·통합 후 출력
-3. viz agent_end의 result_summary에 `"via gpt-5.3-codex (codex CLI)"` 명시
+3. viz agent_end의 result_summary에 `"via gpt-5.6-luna (codex CLI)"` 명시
 
 #### fallback 분기
 ```bash
 # ── fallback 의사코드 ─────────────────────────────────────────────────────
-_CODEX_VIA="gpt-5.3-codex"
+_CODEX_VIA="gpt-5.6-luna"
 
 if ! command -v codex >/dev/null 2>&1; then
   echo "[codex-fallback] codex CLI 미설치 — sonnet 컨트롤러로 직접 처리" >&2
@@ -100,11 +100,11 @@ fi
 ```bash
 # agent_start emit
 bun run ~/.bams/scripts/emit-event.ts agent_start \
-  '{"call_id":"a11y-{slug}-{ts}","agent_type":"accessibility-auditor","department":"design","model":"gpt-5.3-codex","description":"WCAG 2.2 AA 자동 감사","step_number":7}'
+  '{"call_id":"a11y-{slug}-{ts}","agent_type":"accessibility-auditor","department":"design","model":"gpt-5.6-luna","description":"WCAG 2.2 AA 자동 감사","step_number":7}'
 
 # agent_end emit (완료 후)
 bun run ~/.bams/scripts/emit-event.ts agent_end \
-  '{"call_id":"a11y-{slug}-{ts}","agent_type":"accessibility-auditor","is_error":false,"status":"completed","duration_ms":{ms},"result_summary":"WCAG 2.2 AA 감사 완료 — verdict:{PASS|CONDITIONAL|FAIL}, critical:0, serious:N (via gpt-5.3-codex (codex CLI))"}'
+  '{"call_id":"a11y-{slug}-{ts}","agent_type":"accessibility-auditor","is_error":false,"status":"completed","duration_ms":{ms},"result_summary":"WCAG 2.2 AA 감사 완료 — verdict:{PASS|CONDITIONAL|FAIL}, critical:0, serious:N (via gpt-5.6-luna (codex CLI))"}'
 ```
 
 ### 감사 시
@@ -223,7 +223,7 @@ input_artifacts:
     }
   ],
   "generated_at": "2026-06-19T00:00:00Z",
-  "via": "gpt-5.3-codex (codex CLI)"
+  "via": "gpt-5.6-luna (codex CLI)"
 }
 ```
 

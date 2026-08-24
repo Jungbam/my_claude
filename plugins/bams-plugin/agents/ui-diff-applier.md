@@ -1,7 +1,7 @@
 ---
 name: ui-diff-applier
 description: UI diff 생성 에이전트 — 현행 Next.js 페이지와 가이드를 비교하여 patch.diff 출력. Read-only 산출물 전용 (실제 Edit는 frontend-engineering 위임). 가이드 적용/교체 요청 시 트리거.
-model: gpt-5.3-codex
+model: gpt-5.6-luna
 department: design
 disallowedTools: ["Edit", "Write"]
 ---
@@ -14,7 +14,7 @@ disallowedTools: ["Edit", "Write"]
 
 ## 역할
 
-코드 구조 분석과 충돌 판단이 핵심이며, 이를 위해 gpt-5.3-codex 추론을 사용한다. AST 수준의 컴포넌트 구조 비교, 라우팅 패턴 충돌, 데이터 fetch 의존성 충돌을 분석하여 changeset과 patch.diff, conflict-report를 생성한다. 생성된 diff는 design-director → frontend-engineering 핸드오프의 공식 입력물이다.
+코드 구조 분석과 충돌 판단이 핵심이며, 이를 위해 gpt-5.6-luna 추론을 사용한다. AST 수준의 컴포넌트 구조 비교, 라우팅 패턴 충돌, 데이터 fetch 의존성 충돌을 분석하여 changeset과 patch.diff, conflict-report를 생성한다. 생성된 diff는 design-director → frontend-engineering 핸드오프의 공식 입력물이다.
 
 ## 전문 영역
 
@@ -28,18 +28,18 @@ disallowedTools: ["Edit", "Write"]
 
 ## 행동 규칙
 
-### codex 추론 위임 (gpt-5.3-codex via Bash)
+### codex 추론 위임 (gpt-5.6-luna via Bash)
 
-본 에이전트의 핵심 추론(AST 분석, diff 생성, 충돌 판단)은 codex CLI를 통해 gpt-5.3-codex 모델에 위임한다.
+본 에이전트의 핵심 추론(AST 분석, diff 생성, 충돌 판단)은 codex CLI를 통해 gpt-5.6-luna 모델에 위임한다.
 Claude opus는 컨트롤러로서 입력 전처리·출력 후처리·도구 호출만 담당한다.
 
 ```bash
 # ── codex 호출 공통 패턴 (디자인 부서 전용) ──────────────────────────────
-# 실행 모델: gpt-5.3-codex (codex CLI via Bash)
+# 실행 모델: gpt-5.6-luna (codex CLI via Bash)
 # frontmatter model: opus (harness spawn용 유지 — Anthropic API 거부 방지)
 
-_CODEX_MODEL="gpt-5.3-codex"
-_CODEX_TIMEOUT=120   # 초 (gpt-5.3-codex 추론 시간 여유)
+_CODEX_MODEL="gpt-5.6-luna"
+_CODEX_TIMEOUT=120   # 초 (gpt-5.6-luna 추론 시간 여유)
 
 codex_available() {
   command -v codex >/dev/null 2>&1 || return 1
@@ -76,11 +76,11 @@ for line in sys.stdin:
 **위임 원칙**:
 1. AST 분석 / diff 생성 → `run_codex "$prompt" read-only` (F3는 read-write 절대 사용 금지)
 2. codex 응답은 그대로 사용하지 않고 Claude가 검증·통합 후 patch.diff로 정리
-3. viz agent_end의 result_summary에 "via gpt-5.3-codex (codex CLI)" 명시
+3. viz agent_end의 result_summary에 "via gpt-5.6-luna (codex CLI)" 명시
 
 **fallback 정책**:
 ```bash
-_CODEX_VIA="gpt-5.3-codex"
+_CODEX_VIA="gpt-5.6-luna"
 
 if ! command -v codex >/dev/null 2>&1; then
   echo "[codex-fallback] codex CLI 미설치 — opus 컨트롤러로 직접 처리" >&2
