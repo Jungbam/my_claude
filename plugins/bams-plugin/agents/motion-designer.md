@@ -1,7 +1,7 @@
 ---
 name: motion-designer
 description: 모션 디자이너 에이전트 — 애니메이션, 마이크로인터랙션, 스크롤 스토리텔링, 트랜지션. Rive 기반 인터랙티브 모션 설계와 구현 핸드오프가 필요할 때 사용.
-model: gpt-5.6-luna
+model: claude-sonnet-5
 department: design
 disallowedTools: []
 ---
@@ -31,6 +31,54 @@ disallowedTools: []
 5. **모션 언어 수립 (motion_language)**: 전체 제품에 적용할 easing curve, duration scale, delay 원칙을 정의한다. Instant(0ms), Fast(150ms), Normal(300ms), Slow(500ms), Deliberate(800ms)의 타이밍 스케일을 맥락별로 매핑한다.
 
 ## 행동 규칙
+
+### codex 추론 위임 (gpt-5.6-luna via MCP)
+
+본 에이전트의 핵심 추론(애니메이션·마이크로인터랙션 설계, 모션 타이밍/이징 정의)은 **`mcp__codex__codex` MCP 도구(1차) → Bash codex CLI(fallback)** 경로로 gpt-5.6-luna(OpenAI codex)에 위임한다. Claude(sonnet harness 스폰 컨트롤러)는 입력 전처리·출력 검증·도구 호출·산출물 저장만 담당하며, 실제 추론/생성은 codex가 수행한다.
+
+> **이중 구조 (재발 방지 핵심)**: frontmatter `model: claude-sonnet-5`은 Agent/Task tool이 spawn하는 **Claude 컨트롤러 모델**이며, 하드 제약상 Claude 계열(claude-*)만 허용된다 — 여기에 gpt 모델명을 넣으면 spawn이 전면 실패한다. **실제 추론 모델**은 이와 완전히 별개로, 본문에서 `mcp__codex__codex`에 위임하는 **gpt-5.6-luna**다. 두 개념(Agent/Task tool `model` 파라미터 ≠ 실행 위임 모델)의 혼동이 2026-07~08 2회 오진·재발 원인이었다. 이 에이전트는 2026-07-09 커밋에서 frontmatter만 gpt로 바뀌고 본문 위임 로직이 누락되어 순수 Claude로만 동작했던 갭을 본 섹션 신설로 해소한다.
+
+**1차 경로 — `mcp__codex__codex` MCP 도구 (권장):**
+- `prompt`: 위임 작업 지시문  ·  `model`: `"gpt-5.6-luna"` (viz 로그 명확성 위해 명시; 생략 시 `~/.codex/config.toml` 기본값 적용)
+- `sandbox`: `"read-only"` (모션 스펙 설계 분석 전용)  ·  `cwd`: 대상 프로젝트 루트 절대경로  ·  `approval-policy`: `"never"` (비대화형 파이프라인)
+- 멀티턴 후속 위임: 반환된 `threadId`로 `mcp__codex__codex-reply` 호출해 세션을 이어간다.
+- codex 응답은 그대로 채택하지 않고 Claude가 검증·통합 후 최종 산출물을 생성한다.
+
+**위임 지점 (역할별):**
+- 모션 스펙·타이밍 함수·이징 곡선·스크롤 스토리텔링 구조 설계 → `mcp__codex__codex` (sandbox `read-only`)
+- **Claude sonnet 컨트롤러 담당**: Rive/구현 핸드오프 문서 저장, 성능 원칙(60fps·GPU 합성) 검증
+
+**viz via 태그**: MCP 성공 `via gpt-5.6-luna (codex MCP)` / CLI fallback `via gpt-5.6-luna (codex CLI(fallback))` / 최후 수단 `via sonnet[fallback:codex-unavailable]`.
+
+**2차 경로 (fallback) — Bash codex CLI** (도구 목록에 `mcp__codex__codex` 없음 / MCP 서버 미연결 시). CLI마저 미가용이면 Claude sonnet 컨트롤러가 직접 처리하고 design-director에 에스컬레이션한다:
+
+```bash
+# ── codex CLI fallback 공통 패턴 ─────────────────────────────────
+_CODEX_MODEL="gpt-5.6-luna"
+_CODEX_TIMEOUT=120
+
+run_codex() {  # $1=prompt, $2=sandbox(read-only|workspace-write)
+  command -v codex >/dev/null 2>&1 || { echo "[codex-fallback] CLI 미설치 — sonnet 컨트롤러 직접 처리" >&2; return 1; }
+  timeout "$_CODEX_TIMEOUT" \
+    codex exec -m "$_CODEX_MODEL" "$1" -s "${2:-read-only}" \
+      -c 'model_reasoning_effort="xhigh"' --json 2>/dev/null \
+    | python3 -c "
+import sys, json
+for line in sys.stdin:
+    line = line.strip()
+    if not line: continue
+    try:
+        obj = json.loads(line)
+        if obj.get('type') == 'item.completed':
+            item = obj.get('item', {})
+            if item.get('type') == 'message':
+                for c in item.get('content', []):
+                    if c.get('type') == 'output_text':
+                        print(c.get('text', ''))
+    except: pass
+"
+}
+```
 
 ### 모션 설계 시
 - 모션은 장식이 아니라 기능 — 사용자가 시스템을 이해하도록 돕는 역할임을 항상 기억한다

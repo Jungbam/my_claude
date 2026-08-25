@@ -42,7 +42,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 > ```
 >
 > **수행할 작업:**
-> 1. 파이프라인 유형(dev)과 규모를 분석하여 각 에이전트별 모델 선택(fable/opus/sonnet/haiku — fable은 게이트 판정 등 핵심 의사결정 전용)과 병렬화 전략을 수립합니다.
+> 1. 파이프라인 유형(dev)과 규모를 분석하여 각 에이전트별 모델 선택(opus-5/opus-4-8/sonnet/haiku — opus-5(claude-opus-5)는 게이트 판정 등 핵심 의사결정 전용 Tier 1)과 병렬화 전략을 수립합니다.
 > 2. Pre-flight 체크리스트를 확인합니다: config.md, gotchas, 기존 아티팩트 존재 여부.
 > 3. 파이프라인 실행 계획을 수립하여 보고합니다.
 >

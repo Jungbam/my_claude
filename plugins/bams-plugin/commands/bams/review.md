@@ -67,7 +67,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-2-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-fable-5" "Phase 2: 5관점 리뷰 조언 요청"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-2-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-opus-5" "Phase 2: 5관점 리뷰 조언 요청"
 ```
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
@@ -157,7 +157,7 @@ for asp in spec functional performance uiux; do
   case " ${ASPECT_LIST[*]} " in
     *" $asp "*)
       case "$asp" in
-        spec) n=20; dept=product-strategy; model=claude-fable-5 ;;
+        spec) n=20; dept=product-strategy; model=claude-opus-5 ;;
         functional) n=21; dept=qa-strategy; model=claude-opus-4-8 ;;
         performance) n=22; dept=product-analytics; model=claude-opus-4-8 ;;
         uiux) n=24; dept=design-director; model=gpt-5.3-codex ;;

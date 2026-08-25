@@ -33,7 +33,7 @@ board.md에서 태스크 목록을 의존성 순서로 정렬합니다. 배치�
 
 Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-{STEP_N}-{N}-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-fable-5" "Step {STEP_N}: 배치 {N} 라우팅 조언 요청"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-{STEP_N}-{N}-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-opus-5" "Step {STEP_N}: 배치 {N} 라우팅 조언 요청"
 ```
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
@@ -171,7 +171,7 @@ Options:
 
 Bash로 agent_start emit:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-handoff2-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-fable-5" "구현→검증 게이트 판정 조언"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-handoff2-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-opus-5" "구현→검증 게이트 판정 조언"
 ```
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:

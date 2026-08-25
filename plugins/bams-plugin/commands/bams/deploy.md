@@ -35,7 +35,7 @@ Bash로 step_start + 2개의 agent_start를 일괄 emit:
 ```bash
 [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 1 "배포 전 검증" "Deploy"
 [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 2 "인프라 점검" "Deploy"
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "release-quality-gate-1-$(date -u +%Y%m%d)" "release-quality-gate" "claude-fable-5" "Step 1: 배포 전 체크리스트"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "release-quality-gate-1-$(date -u +%Y%m%d)" "release-quality-gate" "claude-opus-5" "Step 1: 배포 전 체크리스트"
 [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "platform-devops-2-$(date -u +%Y%m%d)" "platform-devops" "claude-opus-4-8" "Step 2: 배포 대상 환경 점검"
 ```
 

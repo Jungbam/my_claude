@@ -217,7 +217,7 @@ agents:
     adapter:
       type: claude_local
       config:
-        model: claude-fable-5
+        model: claude-opus-5
   backend-engineering:
     adapter:
       type: claude_local
@@ -237,7 +237,7 @@ agents:
     adapter:
       type: claude_local
       config:
-        model: claude-fable-5
+        model: claude-opus-5
   qa-strategy:
     adapter:
       type: claude_local

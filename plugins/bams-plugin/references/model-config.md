@@ -5,33 +5,28 @@
 
 ## 정책 원칙 (3-tier)
 
-### Tier 1 — Fable 5 (claude-fable-5)
+### Tier 1 — Opus 5 (claude-opus-5)
 **핵심 의사결정**: 파이프라인 전체의 방향을 좌우하는 Phase 계획/게이트 Go-No-Go 판단, PRD/전략 수립, Quality Gate 최종 판정
 
 - 파이프라인당 호출 빈도는 가장 낮으나(Phase당 1~2회) 판단 오류의 다운스트림 영향이 최대
 - 여러 부서/에이전트의 산출물을 종합하여 단일 판정을 내려야 하는 지점에만 배정
 - 대상: pipeline-orchestrator, product-strategy, project-governance, release-quality-gate
 
+> **⚠ 모델 ID 혼동 주의 (재발 방지 핵심)**: **Tier 1 = Opus 5 (`claude-opus-5`)** 와 **Tier 2 = Opus 4.8 (`claude-opus-4-8`)** 는 **서로 다른 세대의 별개 모델**이다. 이름이 비슷하다고 동일시하거나 통합하지 말 것 — 두 tier는 의도적으로 공존한다(Tier 1은 최신 Opus 5, Tier 2는 구세대 Opus 4.8). 이번 세션에서 gpt-5.6-luna 모델명 혼동으로 2회 반복된 오진과 같은 유형의 실수를 예방하기 위한 주의. Tier 1은 2026-08-25 **토큰 사용량 부담**을 이유로 Fable 5 → Opus 5로 전면 교체됐다.
+
 ### Tier 2 — Opus 4.8 (claude-opus-4-8)
 **부서장/구현**: 복잡 추론, 다중 specialist 조율, 실제 구현/변경 작업 수행
 
 - 부서장급 조율 역할과 더불어, 코드/문서를 직접 구현·변경하는 역할 포함
 - 판단 깊이가 깊거나 여러 하위 에이전트/문서를 종합하는 역할
-- 대상: backend-engineering, platform-devops, qa-strategy, product-analytics, hr-agent, executive-reporter, resource-optimizer, cross-department-coordinator (FE/디자인 부서장 제외 — 아래 예외 참조)
-- **예외**: FE/디자인 도메인 부서장(frontend-engineering, design-director)은 "부서장"이지만 도메인 특성상 Tier 2 대상에서 제외되고 `gpt-5.6-luna` 버킷에 배정된다. 따라서 "모든 부서장 = Tier 2"로 독해하지 말 것 — 신규 부서장 배정 시 FE/디자인 도메인 여부를 먼저 확인한다.
+- 대상: frontend-engineering, design-director, backend-engineering, platform-devops, qa-strategy, product-analytics, hr-agent, executive-reporter, resource-optimizer, cross-department-coordinator (모든 부서장 포함 — 예외 없음)
 
 ### Tier 3 — Sonnet 5 (claude-sonnet-5)
 **specialist**: 정형 구조 출력, 빠른 응답, 단일 도메인 세부 작업
 
 - 부서장의 위임을 받아 특정 영역을 처리
 - TTFT(첫 토큰까지 시간)와 응답 속도가 사용자 체감 UX에 직접 기여
-- 대상: business-analysis, ux-research, data-integration, automation-qa, defect-triage, experimentation, business-kpi
-
-### 유지 — gpt-5.6-luna
-**FE/디자인 설계 및 변환계**: FE 설계, 디자인(UI/UX) 설계, JSX/HTML 가이드 분해·재구성·라우팅·바인딩·접근성·렌더링 경계 결정
-
-- FE/디자인 설계 관련 업무는 codex 계열을 우선 사용
-- 대상: frontend-engineering, design-director, ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent, guide-decomposer, guide-recomposer, ui-diff-applier, data-binding-mapper, visual-fidelity-verifier, nextjs-convention-mapper, accessibility-auditor, routing-strategist, ssr-csr-decider
+- 대상: business-analysis, ux-research, data-integration, automation-qa, defect-triage, experimentation, business-kpi, ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent, guide-decomposer, guide-recomposer, ui-diff-applier, data-binding-mapper, visual-fidelity-verifier, nextjs-convention-mapper, accessibility-auditor, routing-strategist, ssr-csr-decider
 
 ### Tier 4 — Haiku 4.5 (claude-haiku-4-5-20251001)
 **결정론적 절차 자동화**: bash 절차 위주 저비용 실행. 토큰 절감을 최우선 축으로 하는 skill/에이전트 위임 경로.
@@ -42,7 +37,7 @@
 
 ### 선택 기준 매트릭스
 
-| 요인 | Fable 5 선호 | Opus 4.8 선호 | Sonnet 5 선호 |
+| 요인 | Opus 5 선호 | Opus 4.8 선호 | Sonnet 5 선호 |
 |------|-------------|---------------|----------------|
 | 역할 | 파이프라인 게이트/전략 판정 | 부서장/구현/크로스도메인 | 단일 전문가 |
 | 입력 크기 | 중~대 (종합 판단) | 중~대 (수십만 토큰) | 소~중 |
@@ -52,6 +47,30 @@
 | 체감 UX | 판정 정확도 우선 | 품질 우선 | 속도 우선 |
 
 **참고**: `[1m]` 1M 컨텍스트 서픽스는 실제 입력이 200K를 초과하는 경우에만 사용. 대부분의 부서장 호출은 40K 이하이므로 기본 200K 컨텍스트로 충분하며 `[1m]`은 latency 손해만 발생. 본 정책은 기본적으로 `[1m]` 서픽스 미사용.
+
+## FE/디자인 이중 구조 — Claude 스폰 컨트롤러 + codex 실행 위임 모델
+
+> **이 절은 재발 방지의 핵심이다.** 2026-07~08 두 차례의 오진·재발(gpt 모델명을 frontmatter에 반복 삽입 → spawn 전면 실패)은 아래 **두 개념을 혼동**한 데서 비롯됐다. 반드시 구분한다.
+
+FE/디자인 16개 에이전트(frontend-engineering, design-director + 디자인 specialist 14)는 **두 개의 서로 다른 모델 개념**을 동시에 사용한다:
+
+| 개념 | 값 | 정의 | 제약 |
+|------|-----|------|------|
+| **① frontmatter `model:` (스폰 컨트롤러)** | Claude 계열 (`claude-opus-4-8` / `claude-sonnet-5`) | Claude Code **Agent/Task tool이 spawn하는 harness 컨트롤러 모델**. 입력 전처리·출력 검증·도구 호출·산출물 저장을 담당. | **하드 제약**: Claude 별칭(sonnet/opus/haiku/fable) 또는 `claude-*` ID만 허용. **OpenAI(gpt-*) 모델명을 넣으면 spawn 자체가 "model may not exist / no access" 에러로 전면 실패**. |
+| **② 실행 위임 모델 (핵심 추론)** | `gpt-5.6-luna` (OpenAI codex) | 에이전트 **본문**에서 `mcp__codex__codex` MCP 도구(1차) → Bash `codex` CLI(fallback)로 위임하는 **실제 핵심 추론/생성 모델**. | frontmatter와 **무관**. MCP 도구 파라미터 `model: "gpt-5.6-luna"`로 지정하거나 `~/.codex/config.toml` 기본값(현재 `gpt-5.6-luna`) 사용. |
+
+**핵심 규칙 (절대 위반 금지):**
+1. **frontmatter `model:` 필드와 jojikdo.json `model` 필드에는 Claude 모델명만 기입한다.** gpt-* 모델명은 이 두 곳에 절대 넣지 않는다 (spawn 실패 원인).
+2. **codex(gpt-5.6-luna)는 오직 에이전트 본문의 `mcp__codex__codex` 호출 / `codex` CLI 인자로만 지정한다.** 이것은 `skills/codex/SKILL.md`가 codex CLI를 호출하는 것과 동일한 별도 메커니즘이다.
+3. `model_config.md`의 "에이전트별 모델 매핑" 테이블의 모델 컬럼은 **①(스폰 컨트롤러)** 값이다. **②(실행 위임 모델)**는 본 절과 각 에이전트 본문 "codex 추론 위임" 섹션에서만 정의한다.
+
+**실행 위임 경로 (본문 공통 패턴):**
+- **1차**: `mcp__codex__codex` MCP 도구 — `prompt` / `model: "gpt-5.6-luna"` / `sandbox`(read-only|workspace-write) / `cwd` / `approval-policy: "never"`. 후속 턴은 `mcp__codex__codex-reply`(threadId).
+- **2차(fallback)**: Bash `codex exec -m gpt-5.6-luna ...` CLI (MCP 도구 미가용 시).
+- **최후**: Claude 컨트롤러 직접 처리 + design-director 에스컬레이션.
+- **viz via 태그**: MCP 성공 `via gpt-5.6-luna (codex MCP)` / CLI fallback `via gpt-5.6-luna (codex CLI(fallback))` / 최후 `via {sonnet|opus}[fallback:codex-unavailable]`.
+
+**접근성 검증**: `mcp__codex__codex`(model=`gpt-5.6-luna`)는 2026-08-25 ping 테스트에서 정상 응답 확인됨. 사용자 `~/.codex/config.toml`에 `model = "gpt-5.6-luna"`가 기본값으로 설정되어 있어 codex 계정에서 접근 가능.
 
 ## 환경 요구사항
 
@@ -85,26 +104,28 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
 
 ## 에이전트별 모델 매핑 (36개)
 
+> **모델 컬럼 = frontmatter 스폰 컨트롤러(①) 값**이다. FE/디자인 16개 에이전트는 이와 별개로 본문에서 **gpt-5.6-luna를 `mcp__codex__codex`(1차)/codex CLI(fallback)로 실행 위임(②)**한다 — 상세는 위 "FE/디자인 이중 구조 — Claude 스폰 컨트롤러 + codex 실행 위임 모델" 절 참조. 매핑표에는 gpt 모델명을 절대 기입하지 않는다.
+
 ### 총괄팀
 
 | 에이전트 | 역할 | 모델 | 비고 |
 |---------|------|------|------|
-| pipeline-orchestrator | 조언자 (총괄) | claude-fable-5 | Phase 계획, 부서장 라우팅 조언, 게이트 Go/No-Go 판단 |
+| pipeline-orchestrator | 조언자 (총괄) | claude-opus-5 | Phase 계획, 부서장 라우팅 조언, 게이트 Go/No-Go 판단 |
 
 ### 기획부 (Product)
 
 | 에이전트 | 역할 | 모델 | 비고 |
 |---------|------|------|------|
-| product-strategy | 기획 부서장 | claude-fable-5 | 제품 비전, PRD/전략 작성, 하위 specialist 조율 |
+| product-strategy | 기획 부서장 | claude-opus-5 | 제품 비전, PRD/전략 작성, 하위 specialist 조율 |
 | business-analysis | 기획 specialist | claude-sonnet-5 | 요구사항 분해, 기능 명세 (정형 출력) |
 | ux-research | 기획 specialist | claude-sonnet-5 | 사용자 리서치 |
-| project-governance | 프로젝트 거버넌스 | claude-fable-5 | Quality Gate 판정 — 다관점 종합 판단 |
+| project-governance | 프로젝트 거버넌스 | claude-opus-5 | Quality Gate 판정 — 다관점 종합 판단 |
 
 ### 개발부 (Engineering)
 
 | 에이전트 | 역할 | 모델 | 비고 |
 |---------|------|------|------|
-| frontend-engineering | 개발 FE 부서장 | gpt-5.6-luna | UI 구현, 컴포넌트 설계 |
+| frontend-engineering | 개발 FE 부서장 | claude-opus-4-8 | UI 구현, 컴포넌트 설계 |
 | backend-engineering | 개발 BE 부서장 | claude-opus-4-8 | API 설계, 트랜잭션/동시성 |
 | platform-devops | 개발 인프라 부서장 | claude-opus-4-8 | 인프라, CI/CD, 보안 |
 | data-integration | 개발 specialist | claude-sonnet-5 | 이벤트 트래킹, 외부 연동 |
@@ -114,21 +135,21 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
 
 | 에이전트 | 역할 | 모델 | 비고 |
 |---------|------|------|------|
-| design-director | 디자인 부서장 | gpt-5.6-luna | 크리에이티브 디렉션, 하위 specialist 조율 |
-| ui-designer | 디자인 specialist | gpt-5.6-luna | 컴포넌트 디자인 |
-| ux-designer | 디자인 specialist | gpt-5.6-luna | 와이어프레임, 프로토타입 |
-| graphic-designer | 디자인 specialist | gpt-5.6-luna | 아이콘, 일러스트 |
-| motion-designer | 디자인 specialist | gpt-5.6-luna | 애니메이션 |
-| design-system-agent | 디자인 specialist | gpt-5.6-luna | 디자인 토큰 |
-| guide-decomposer | 디자인 specialist (변환) | gpt-5.6-luna | 외부 가이드 분해 |
-| guide-recomposer | 디자인 specialist (변환) | gpt-5.6-luna | 분해 산출물 재구성 + preview HTML |
-| ui-diff-applier | 디자인 specialist (구현) | gpt-5.6-luna | 가이드-현행 UI patch.diff 생성 (Read-only) |
-| data-binding-mapper | 디자인 specialist (변환) | gpt-5.6-luna | RSC fetch 매핑 |
-| visual-fidelity-verifier | 디자인 specialist | gpt-5.6-luna | 시각 일치성 검증 (bams:browse) |
-| nextjs-convention-mapper | 디자인 specialist | gpt-5.6-luna | App Router 컨벤션 매핑 |
-| accessibility-auditor | 디자인 specialist (변환) | gpt-5.6-luna | WCAG 2.2 AA + axe-core 감사 |
-| routing-strategist | 디자인 specialist (변환) | gpt-5.6-luna | 다중 페이지 라우팅 그래프 설계 |
-| ssr-csr-decider | 디자인 specialist (변환) | gpt-5.6-luna | Server/Client Component 경계 결정 |
+| design-director | 디자인 부서장 | claude-opus-4-8 | 크리에이티브 디렉션, 하위 specialist 조율 |
+| ui-designer | 디자인 specialist | claude-sonnet-5 | 컴포넌트 디자인 |
+| ux-designer | 디자인 specialist | claude-sonnet-5 | 와이어프레임, 프로토타입 |
+| graphic-designer | 디자인 specialist | claude-sonnet-5 | 아이콘, 일러스트 |
+| motion-designer | 디자인 specialist | claude-sonnet-5 | 애니메이션 |
+| design-system-agent | 디자인 specialist | claude-sonnet-5 | 디자인 토큰 |
+| guide-decomposer | 디자인 specialist (변환) | claude-sonnet-5 | 외부 가이드 분해 |
+| guide-recomposer | 디자인 specialist (변환) | claude-sonnet-5 | 분해 산출물 재구성 + preview HTML |
+| ui-diff-applier | 디자인 specialist (구현) | claude-sonnet-5 | 가이드-현행 UI patch.diff 생성 (Read-only) |
+| data-binding-mapper | 디자인 specialist (변환) | claude-sonnet-5 | RSC fetch 매핑 |
+| visual-fidelity-verifier | 디자인 specialist | claude-sonnet-5 | 시각 일치성 검증 (bams:browse) |
+| nextjs-convention-mapper | 디자인 specialist | claude-sonnet-5 | App Router 컨벤션 매핑 |
+| accessibility-auditor | 디자인 specialist (변환) | claude-sonnet-5 | WCAG 2.2 AA + axe-core 감사 |
+| routing-strategist | 디자인 specialist (변환) | claude-sonnet-5 | 다중 페이지 라우팅 그래프 설계 |
+| ssr-csr-decider | 디자인 specialist (변환) | claude-sonnet-5 | Server/Client Component 경계 결정 |
 
 ### QA부 (Quality)
 
@@ -137,7 +158,7 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
 | qa-strategy | QA 부서장 | claude-opus-4-8 | 테스트 전략, 리스크 분석 |
 | automation-qa | QA specialist | claude-sonnet-5 | E2E 자동화 |
 | defect-triage | QA specialist | claude-sonnet-5 | 결함 분류 |
-| release-quality-gate | QA 최종 승인 | claude-fable-5 | 출시 가능 여부 최종 판단 (sonnet → fable 승격) |
+| release-quality-gate | QA 최종 승인 | claude-opus-5 | 출시 가능 여부 최종 판단 (Tier 1 — sonnet에서 2단계 승격 이력) |
 
 ### 평가부 (Evaluation)
 
@@ -157,7 +178,7 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
 | hr-agent | 경영지원 | claude-opus-4-8 | 에이전트 생명주기, 조직도 관리 |
 | cross-department-coordinator | 경영지원 | claude-opus-4-8 | 부서간 협업 조율 |
 
-**총계**: Fable 5 = 4개 (핵심 의사결정) / Opus 4.8 = 8개 (부서장급 + 구현) / Sonnet 5 = 7개 (specialist) / gpt-5.6-luna = 16개 (FE/디자인 설계 + 변환계) / Haiku 4.5 = 2개 (저비용/결정론) — 합계 37개
+**총계**: Opus 5 = 4개 (핵심 의사결정, Tier 1) / Opus 4.8 = 10개 (부서장급 + 구현, Tier 2) / Sonnet 5 = 21개 (specialist) / Haiku 4.5 = 2개 (저비용/결정론) — 합계 37개
 
 ## 업그레이드 절차
 
@@ -197,6 +218,42 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
    - 커밋 메시지에 본 문서 경로 + 변경 내역 참조
 
 ## 변경 이력
+
+### 2026-08-25c — Tier 1 Fable 5 → Opus 5 전면 교체 (claude-opus-5 신설)
+
+- 파이프라인: hotfix_tier1_fable를opus5로
+- 사유: **Tier 1(claude-fable-5) 토큰 사용량 부담** (사용자 요청).
+- 내용:
+  - Tier 1 모델을 `claude-fable-5` → **`claude-opus-5`**(Anthropic 최신 Opus 5)로 전면 교체. 대상 4개 에이전트: pipeline-orchestrator, product-strategy, project-governance, release-quality-gate.
+  - **claude-opus-5(Tier 1)와 claude-opus-4-8(Tier 2)은 서로 다른 세대의 별개 모델로 의도적으로 공존**한다. 사용자가 "opus-4-8과 통합" 대신 "opus-5 신설(별도 tier 공존)"을 선택. Tier 1 정의부에 혼동 방지 주의 문구 추가(재발 방지 — 이번 세션 gpt-5.6-luna 혼동 2회와 동일 유형 예방).
+  - 교체 범위: agents frontmatter 4곳, 커맨드 viz emit 문자열 30곳(+ `commands/bams/dev/phase-0-init.md`의 stale "fable" 모델선택 설명문 1곳 — 코디네이터 목록 외였으나 verification 정합 위해 함께 갱신), export.md 템플릿 예시 2곳, model-config.md SSOT(Tier 1 헤딩·매트릭스 컬럼·매핑표 4행·총계).
+  - jojikdo.json은 model 필드 부재로 대상 아님.
+- 불변: 총계 37개 유지(Tier 1 = 4개, 모델명만 fable→opus-5). Tier 2~4 배정 불변.
+- 참고: `fable`은 여전히 유효한 Claude 별칭이며(모델 자체 존재), 본 프로젝트에서 Tier 1 배정만 해제된 것 — model-config의 "Claude 별칭(...fable)" 언급은 정상.
+
+### 2026-08-25b — FE/디자인 codex 실행 위임 MCP 전환 + 이중 구조 정식 문서화
+
+- 파이프라인: hotfix_gpt모델명frontmatter복구 (후속 — 사용자 의도 정정 반영)
+- 배경: 사용자 의도는 "FE/디자인 에이전트가 **실제 추론을 codex(OpenAI)에 위임**"하는 것 (MCP로 codex 연결됨). frontmatter=Claude 하드 제약은 유지하되, 위임은 본문 로직으로 구현.
+- 내용:
+  - **실행 위임 모델(②)** 개념을 frontmatter 스폰 컨트롤러(①)와 명확히 분리하여 "FE/디자인 이중 구조" 절로 정식 문서화 (재발 방지 핵심 — 지난 2회 오진의 원인이 이 두 개념 혼동이었음).
+  - FE/디자인 16개 에이전트 본문의 codex 위임 경로를 **`mcp__codex__codex` MCP 도구 1차 + Bash codex CLI fallback**으로 통일. 기존 위임 로직 보유 9개는 CLI→MCP 1차 전환, 로직 부재 7개(frontend-engineering, design-director, design-system-agent, graphic-designer, motion-designer, ui-designer, ux-designer)는 위임 섹션 신설(07-09 커밋에서 frontmatter만 gpt로 바뀌고 본문 위임이 누락돼 순수 Claude로만 동작하던 갭 해소).
+  - viz result_summary via 태그를 `via gpt-5.6-luna (codex MCP)`로 통일 (fallback 시 `codex CLI(fallback)` / `{tier}[fallback:codex-unavailable]`).
+  - `mcp__codex__codex`(model=gpt-5.6-luna) ping 테스트 통과 — codex 계정 접근 가능 확인.
+- 불변: frontmatter `model:`(①)과 jojikdo.json `model`은 Claude 계열 유지. gpt 모델명은 두 필드에 절대 미기입.
+
+### 2026-08-25 — FE/디자인 16개 에이전트 근본원인 복구 (gpt 모델명 → Claude 계열)
+
+- 파이프라인: hotfix_gpt모델명frontmatter복구
+- 근본 원인: **Claude Code harness의 Agent/Task tool `model` 파라미터는 Claude 모델만 허용한다** (별칭 sonnet/opus/haiku/fable 또는 `claude-*` 전체 ID). OpenAI 모델명(gpt-5-codex, gpt-5.3-codex, gpt-5.6-luna 등)은 이 필드에 애초에 넣을 수 없는 값이며, harness가 이를 literal spawn 모델로 읽어 "model may not exist / no access" 에러로 spawn을 전면 실패시킨다. `codex` 스킬이 codex CLI를 bash로 호출하며 `-c 'model="gpt-5.x-codex"'`로 OpenAI 모델을 지정하는 것과는 **완전히 별개의 메커니즘**이다.
+- 오류 발생 경위: 2026-07-09 커밋 aea7fac에서 FE/디자인 16개 에이전트 frontmatter를 gpt-5-codex로 변경하면서 시작. 이후 07-09·08-24 두 차례 "핫픽스"가 "deprecated된 모델명을 최신명으로 교체하면 된다"고 오진(gpt-5.3-codex → gpt-5.6-luna, 커밋 ef73d17)하여 근본 원인을 놓치고 동일 에러가 반복 재발. 07-09 직전 커밋 8aa19d4(3-tier 전환) 시점에는 claude-opus-4-8/claude-sonnet-5로 정상 동작했음.
+- 복구 내용:
+  - 16개 에이전트 frontmatter `model:` → 부서장 2곳(frontend-engineering, design-director) = claude-opus-4-8, specialist 14곳 = claude-sonnet-5로 원상 복구.
+  - "유지 — gpt-5.6-luna" 버킷 섹션 삭제. FE/디자인 부서장 2곳을 Tier 2, specialist 14곳을 Tier 3로 재편입. Tier 2 "FE/디자인 부서장 제외" 예외 문구 삭제 (이제 모든 부서장 = Tier 2, 예외 없음).
+  - 매핑표 16행 모델 컬럼 갱신, 총계 재계산(Opus 8→10, Sonnet 7→21, gpt 버킷 제거, 합계 37 불변).
+  - jojikdo.json model 필드 9곳(design specialist) → claude-sonnet-5.
+  - agents/*.md 본문의 spawn/frontmatter 식별 모델 참조(viz agent_start `model` 필드 2건, "frontmatter model:" 서술)도 Claude로 동기화. codex CLI 위임 인자(`_CODEX_MODEL=` 등)는 codex 스킬과 동일한 별도 메커니즘이므로 유지 — 단, frontmatter가 Claude로 복구됨에 따라 codex 위임 아키텍처 자체의 존치 여부는 별도 검토 권고.
+- **재발 방지 원칙**: agents/*.md frontmatter `model:`과 jojikdo.json `model` 필드에는 Claude 모델명만 기입한다. OpenAI(gpt-*) 모델은 codex CLI 호출 인자 전용이며 이 두 필드에 절대 사용 금지.
 
 ### 2026-08-21 — codex 계열 16개 에이전트 모델명 전환 (deprecated 대응)
 

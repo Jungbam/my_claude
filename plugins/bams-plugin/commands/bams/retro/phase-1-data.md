@@ -28,7 +28,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 Bash로 agent_start를 emit합니다:
 ```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "orchestrator-advisor-step1-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-fable-5" "Step 1 advisor: 파이프라인 지표 수집 전략 조언"
+_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "orchestrator-advisor-step1-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-opus-5" "Step 1 advisor: 파이프라인 지표 수집 전략 조언"
 ```
 
 서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, **조언자 모드**): Advisor Response 계약 준수(spawn 지시 금지). 컨텍스트: scope={TARGET_SCOPE}, events_dir=~/.bams/artifacts/pipeline/. 반환 항목: (1) 필터 규칙, (2) executive-reporter 태스크 초안, (3) 주의사항(자기참조·마커 제외).

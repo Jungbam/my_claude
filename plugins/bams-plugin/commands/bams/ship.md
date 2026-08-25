@@ -34,7 +34,7 @@ _SHIP_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/ship/SK
 Bash로 step_start + agent_start emit:
 ```bash
 [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 1 "출시 준비 검토" "Ship"
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "release-quality-gate-1-$(date -u +%Y%m%d)" "release-quality-gate" "claude-fable-5" "Step 1: pre-ship 체크"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "release-quality-gate-1-$(date -u +%Y%m%d)" "release-quality-gate" "claude-opus-5" "Step 1: pre-ship 체크"
 ```
 
 `bams-plugin:release-quality-gate` 에이전트로 pre-ship 체크를 수행합니다.

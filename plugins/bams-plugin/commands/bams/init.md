@@ -420,7 +420,7 @@ fi
 Task tool spawn 직전 `agent_start`, 응답 수신 직후 `agent_end` emit:
 ```bash
 _CALL_ID="init-step6-$(date +%s)"
-echo "{\"type\":\"agent_start\",\"call_id\":\"${_CALL_ID}\",\"agent_type\":\"product-strategy\",\"department\":\"planning\",\"model\":\"claude-fable-5\",\"description\":\"프로젝트 초기 분석 모드\",\"step_number\":6,\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"pipeline_slug\":\"${_INIT_SLUG}\"}" >> "$_EVENTS_FILE"
+echo "{\"type\":\"agent_start\",\"call_id\":\"${_CALL_ID}\",\"agent_type\":\"product-strategy\",\"department\":\"planning\",\"model\":\"claude-opus-5\",\"description\":\"프로젝트 초기 분석 모드\",\"step_number\":6,\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"pipeline_slug\":\"${_INIT_SLUG}\"}" >> "$_EVENTS_FILE"
 ```
 서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:product-strategy"**):
 

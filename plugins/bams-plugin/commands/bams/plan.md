@@ -69,7 +69,7 @@ Phase 1은 단일 도메인(기획)이므로 **루프 A**를 따른다. orchestr
 Bash로 step_start + agent_start emit:
 ```bash
 [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 1 "PRD 작성" "Phase 1: 기획"
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "product-strategy-1-$(date -u +%Y%m%d)" "product-strategy" "claude-fable-5" "Phase 1: PRD 작성"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "product-strategy-1-$(date -u +%Y%m%d)" "product-strategy" "claude-opus-5" "Phase 1: PRD 작성"
 ```
 
 Task tool, subagent_type: **"bams-plugin:product-strategy"** — 메인이 직접 호출:
@@ -123,7 +123,7 @@ Phase 2는 기획/개발 **다부서** 병렬 트랙이므로 **루프 B**를 �
 Bash로 step_start + agent_start emit:
 ```bash
 [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 2 "명세+설계 계획" "Phase 2: Advisor"
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-2-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-fable-5" "Phase 2: 기능명세+기술설계 조언 요청"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-2-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-opus-5" "Phase 2: 기능명세+기술설계 조언 요청"
 ```
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
@@ -167,7 +167,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 Bash로 step_start + 4개 agent_start 일괄 emit:
 ```bash
 [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 3 "명세+설계 병렬 실행" "Phase 2: 실행"
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "product-strategy-2-$(date -u +%Y%m%d)" "product-strategy" "claude-fable-5" "Phase 2: 기능 명세"
+[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "product-strategy-2-$(date -u +%Y%m%d)" "product-strategy" "claude-opus-5" "Phase 2: 기능 명세"
 [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "design-director-2-$(date -u +%Y%m%d)" "design-director" "gpt-5.3-codex" "Phase 2: 디자인(UI/UX) 기술 설계"
 [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "frontend-engineering-2-$(date -u +%Y%m%d)" "frontend-engineering" "gpt-5.3-codex" "Phase 2: FE 기술 설계"
 [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "backend-engineering-2-$(date -u +%Y%m%d)" "backend-engineering" "claude-opus-4-8" "Phase 2: BE 기술 설계"

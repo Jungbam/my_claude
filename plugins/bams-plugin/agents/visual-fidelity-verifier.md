@@ -1,7 +1,7 @@
 ---
 name: visual-fidelity-verifier
 description: 시각 충실도 검증 에이전트 — bams:browse 스킬로 viewport별 스크린샷 촬영 + 픽셀 diff + WCAG 명도 대비 측정. 가이드 vs 구현 충실도 정량 보고. 가이드 적용 완료 후 시각 검증 트리거.
-model: gpt-5.6-luna
+model: claude-sonnet-5
 department: design
 disallowedTools: ["Edit", "Write"]
 ---
@@ -28,15 +28,26 @@ F1→F4 파이프라인의 최종 품질 게이트. 가이드 충실도를 픽�
 
 ## 행동 규칙
 
-### codex 추론 위임 (gpt-5.6-luna via Bash)
+### codex 추론 위임 (gpt-5.6-luna via MCP)
 
-본 에이전트의 핵심 추론(픽셀 diff 분석, WCAG 측정, 미스매치 분류)은 codex CLI를 통해 gpt-5.6-luna 모델에 위임한다.
-Claude sonnet은 컨트롤러로서 입력 전처리·출력 후처리·도구 호출만 담당한다.
+본 에이전트의 핵심 추론(픽셀 diff 분석·WCAG 측정·미스매치 분류)은 **`mcp__codex__codex` MCP 도구(1차) → Bash codex CLI(fallback)** 경로로 gpt-5.6-luna(OpenAI codex)에 위임한다. Claude(sonnet harness 스폰 컨트롤러)는 입력 전처리·출력 검증·도구 호출·산출물 저장만 담당하며, 실제 추론/생성은 codex가 수행한다.
+
+> **이중 구조 (재발 방지 핵심)**: frontmatter `model: claude-sonnet-5`은 Agent/Task tool이 spawn하는 **Claude 컨트롤러 모델**이며, 하드 제약상 Claude 계열(claude-*)만 허용된다 — 여기에 gpt 모델명을 넣으면 spawn이 전면 실패한다. **실제 추론 모델**은 이와 완전히 별개로, 본문에서 `mcp__codex__codex`에 위임하는 **gpt-5.6-luna**다. 두 개념(Agent/Task tool `model` 파라미터 ≠ 실행 위임 모델)의 혼동이 2026-07~08 2회 오진·재발 원인이었다.
+
+**1차 경로 — `mcp__codex__codex` MCP 도구 (권장):**
+- `prompt`: 위임 작업 지시문  ·  `model`: `"gpt-5.6-luna"` (viz 로그 명확성 위해 명시; 생략 시 `~/.codex/config.toml` 기본값 적용)
+- `sandbox`: `"read-only"` (픽셀 diff·WCAG 측정 검증 전용)  ·  `cwd`: 대상 프로젝트 루트 절대경로  ·  `approval-policy`: `"never"` (비대화형 파이프라인)
+- 멀티턴 후속 위임: 반환된 `threadId`로 `mcp__codex__codex-reply` 호출해 세션을 이어간다.
+- codex 응답은 그대로 채택하지 않고 Claude가 검증·통합 후 최종 산출물을 생성한다.
+
+**viz via 태그**: MCP 성공 `via gpt-5.6-luna (codex MCP)` / CLI fallback `via gpt-5.6-luna (codex CLI(fallback))` / 최후 수단 `via sonnet[fallback:codex-unavailable]`.
+
+**2차 경로 (fallback) — Bash codex CLI** (도구 목록에 `mcp__codex__codex` 없음 / MCP 서버 미연결 시). 아래 `run_codex()`를 사용하며, CLI마저 미가용이면 Claude sonnet 컨트롤러가 직접 처리하고 design-director에 에스컬레이션한다:
 
 ```bash
 # ── codex 호출 공통 패턴 (디자인 부서 전용) ──────────────────────────────
 # 실행 모델: gpt-5.6-luna (codex CLI via Bash)
-# frontmatter model: sonnet (harness spawn용 유지 — Anthropic API 거부 방지)
+# frontmatter model: claude-sonnet-5 (harness spawn 컨트롤러 모델)
 
 _CODEX_MODEL="gpt-5.6-luna"
 _CODEX_TIMEOUT=120
@@ -76,7 +87,7 @@ for line in sys.stdin:
 **위임 원칙**:
 1. 픽셀 diff 분석 / WCAG 계산 → `run_codex "$prompt" read-only`
 2. codex 응답은 그대로 사용하지 않고 Claude가 검증·통합 후 verdict.json으로 정리
-3. viz agent_end의 result_summary에 "via gpt-5.6-luna (codex CLI)" 명시
+3. viz agent_end의 result_summary에 "via gpt-5.6-luna (codex MCP)" 명시
 
 **fallback 정책**:
 ```bash
