@@ -88,6 +88,7 @@ config.md의 컨벤션 + 관련 gotchas + 이전 미해결 이슈를 리뷰 에�
 리뷰에서 발견된 이슈 중 에이전트 개선 가능한 항목을 기록합니다. 이 단계는 코드 수정이 없는 분석/파일 기록 전용 작업이므로 pipeline-orchestrator를 **조언자(Advisor) 모드 1회**로 직접 호출하여 개선 레코드를 수집합니다. 부서장 spawn은 발생하지 않습니다.
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
+<!-- load_profile:exempt non-department-lead spawn -->
 
 > **코드 품질 관점 에이전트 개선점 분석 모드 (Advisor)** — 리뷰에서 반복적으로 발견된 패턴을 에이전트 개선 기회로 기록합니다.
 >

@@ -1,0 +1,6 @@
+# load-profile-b2-whitelist.txt — guard-b2 예외 (design-infra §3-4 b2)
+# heavy-lead(design-director·product-strategy) exempt 금지의 예외 파일.
+# init.md 의 product-strategy·platform-devops spawn 은 init-time 코드베이스 분석 모드라
+# 파이프라인 도메인 산출물 의존이 없어 heavy-lead 값 주입 대상에서 제외한다.
+# 경로: commands/bams 기준 상대경로.
+init.md

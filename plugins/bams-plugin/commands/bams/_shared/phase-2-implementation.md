@@ -28,6 +28,8 @@ board.md에서 태스크 목록을 의존성 순서로 정렬합니다. 배치�
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
 
+<!-- load_profile:exempt non-department-lead spawn -->
+
 > **Phase 2 배치 {N} Advisor 호출 — 부서장 라우팅 권고**
 >
 > **컨텍스트:**
@@ -84,6 +86,9 @@ Task tool, subagent_type: **"bams-plugin:{dept}"** (frontend-engineering / backe
 >   allowed_files: [{태스크 파일 범위}]
 > {STEP_N_GOTCHAS_LINE}
 > ```
+> <!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
+
+> **주의**: `{dept}`가 heavy-lead(design-director·product-strategy)로 치환되면 위 exempt 대신 `_shared_common §위임 원칙`의 heavy-lead 값 주입 규칙을 따라 doc-specific refs 값을 발행한다.
 
 각 부서장은 자신의 도메인 내 specialist를 최대 1회 추가 spawn 가능(harness 깊이 2 한도). 파일 겹침 태스크는 cross-department-coordinator(메인이 추가로 직접 spawn)로 조율합니다.
 
@@ -98,6 +103,8 @@ Task tool, subagent_type: **"bams-plugin:design-director"**:
 > - UI 컴포넌트 설계 리뷰
 > - 디자인 시스템 일관성 확인
 > - 접근성(a11y) 가이드라인 제공
+>
+> load_profile: { level: L2, refs: [{doc: design-artifact-layout, section: "§경계 마커"}, {doc: design-artifact-templates}] }
 >
 > design-director는 내부적으로 ui-designer, ux-designer, design-system-agent 등 specialist를 최대 1회 추가 spawn 가능.
 
@@ -138,6 +145,8 @@ Options:
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
 
+<!-- load_profile:exempt non-department-lead spawn -->
+
 > **Phase 2 → Phase 3 Advisor 호출 — 게이트 판정 + 핸드오프 라우팅**
 >
 > **컨텍스트:**
@@ -160,6 +169,8 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 Advisor 판정이 GO 또는 CONDITIONAL-GO인 경우에 진행. NO-GO이면 미충족 항목을 사용자에게 보고하고 해결 후 재시도.
 
 Task tool, subagent_type: **"bams-plugin:cross-department-coordinator"** — 메인이 직접 호출:
+
+<!-- load_profile:exempt non-department-lead spawn -->
 
 > **Phase 2→3 핸드오프 조율**
 >

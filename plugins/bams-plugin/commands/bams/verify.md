@@ -19,6 +19,7 @@ argument-hint: [test command override]
 ## Phase 1: 자동화 QA 검증
 
 Task tool을 사용하여 서브에이전트를 실행합니다 (subagent_type: **"bams-plugin:automation-qa"**):
+<!-- load_profile:exempt non-department-lead spawn -->
 
 ---
 
@@ -57,6 +58,7 @@ Next.js/TS 기본값(스택 프로파일 미확정 시):
 Phase 1 결과를 기반으로 릴리즈 준비 상태를 판단합니다.
 
 Task tool (subagent_type: **"bams-plugin:release-quality-gate"**):
+<!-- load_profile:exempt non-department-lead spawn -->
 
 ---
 

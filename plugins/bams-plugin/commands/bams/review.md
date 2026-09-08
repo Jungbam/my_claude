@@ -65,6 +65,7 @@ Bams 오케스트레이터로서 5개 전문 병렬 qa-strategy 에이전트를 
 ### Phase 2-a. pipeline-orchestrator 조언 요청 (Advisor)
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
+<!-- load_profile:exempt non-department-lead spawn -->
 
 > **Review Phase 2 Advisor 호출 — 5관점 리뷰 라우팅 권고**
 >
@@ -87,6 +88,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 `ASPECT_LIST`에 `code`가 포함된 경우에만 실행한다(기본값 `["code"]`이면 항상 포함되어 기존과 동일). `ASPECT_LIST`에 `code`가 없으면 본 Phase를 건너뛰고 Phase 2-c로 진행한다.
 
 Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호출:
+<!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 
 > **Review Phase 2 — 5관점 병렬 코드 리뷰**
 >
@@ -130,6 +132,7 @@ pipeline-orchestrator(QA부장)가 반환한 후, 5관점 리뷰 결과를 종�
 Phase 4는 단일 도메인(QA)의 판정 작업이므로 **루프 A**를 따른다. orchestrator 조언을 생략하고 메인이 qa-strategy를 직접 호출한다.
 
 Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호출:
+<!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 
 > **Review Phase 4 — 릴리스 품질 게이트**
 >

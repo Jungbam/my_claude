@@ -98,6 +98,7 @@ pipeline-orchestrator는 Task 호출자가 아닌 **조언자(advisor)** 로서 
 | `quality_criteria` | O | 품질 기준 (테스트 통과, 린트 통과 등) |
 | `constraints` | - | 수정 가능 파일 범위, 금지 패턴, 시간 제한 |
 | `gotchas` | - | 이 작업과 관련된 gotchas 항목 |
+| `load_profile` | 조건부(spawn 발행 커맨드는 항상 첨부) | 이 위임에서 부서장이 사전 로드할 L1 문서/구간의 명시 목록. 스키마는 §2-2-a. 부재 시 정의 파일 stub이 전 항목 L2 자기 트리거(V4). 부서장은 §2-3으로 재판정 없이 상속(V3) |
 
 ```
 예시:
@@ -118,9 +119,33 @@ pipeline-orchestrator는 Task 호출자가 아닌 **조언자(advisor)** 로서 
     - "결제 API 응답 지연 시 타임아웃 처리 필수 (이전 hotfix 참조)"
 ```
 
+### 2-2-a. load_profile 스키마
+
+`load_profile`은 이 위임에서 부서장이 spawn 즉시 사전 로드할 L1 문서/구간을 커맨드가 명시하는 필드입니다. **스키마 원문(SSOT)은 이 소절 한 곳에만 둡니다** — 커맨드·spec은 이 스키마를 재기술하지 않고 참조합니다(NFR-7). 필드-doc 유효 조합과 검증 규칙(V1~V5)은 `design-agentcfg §1.3`을 따릅니다.
+
+```yaml
+load_profile:
+  level: L2                 # 프로파일 전역 기본값(L1|L2, 기본 L2). refs 미지목/필드 부재 시 적용
+  refs:                     # 이 spawn에서 사전 로드를 지시하는 문서 목록. 공백/부재 → 전 항목 L2(V4)
+    - {doc: config,                 section: "§아키텍처,§컨벤션"}
+    - {doc: gotchas,                ids: "G-A,G-C"}
+    - {doc: stack-profile,          level: L1}                          # per-ref override
+    - {doc: best-practices,         agent: frontend-engineering, block: "핸드오프"}
+    - {doc: agent-rules,            agent: product-strategy,     section: "P-S2"}
+    - {doc: design-artifact-layout, section: "§경계 마커"}
+  inherit: true             # 기본 true — §2-3 reference로 재판정 없이 상속(V3). false일 때만 미상속
+# doc enum 8종: config·gotchas·stack-profile·best-practices·agent-rules·design-artifact-layout·design-artifact-templates·codex-delegation
+# enum 외 자유 경로 금지(NFR-7·V1). design-artifact-templates·codex-delegation은 T4 문서명 확정 후 편입
+```
+
+- 필드: `doc`(필수, enum 8종) · `level`(선택, per-ref override) · `section`(선택, §명) · `ids`(gotchas 전용) · `agent`(best-practices·agent-rules 전용) · `block`(best-practices 전용) · `inherit`(기본 true).
+- 부재/공백 시 폴백은 **전 항목 L2**(정의 파일 stub 자기 트리거) — 기능 손실 없음(V4).
+
 ### 2-3. 부서장 → 도메인 specialist (선택적, 깊이 2)
 
 부서장이 도메인 내 specialist에게 **최대 1회** 하위 작업을 위임할 때 전달하는 항목입니다. harness가 중첩 Task tool을 차단하면 부서장이 직접 수행하거나 메인에 재라우팅을 에스컬레이션합니다.
+
+> 부서장은 §2-2에서 수신한 `load_profile`을 재해석하지 않고 상속하며, 필요 시 specialist 전용 satellite 문서만 `refs`에 덧붙인다. 이 상속은 위임 단계를 늘리지 않는다(**깊이 2 불변 · 위임 1회 한도 보존**).
 
 | 항목 | 필수 | 설명 |
 |------|------|------|
@@ -129,6 +154,7 @@ pipeline-orchestrator는 Task 호출자가 아닌 **조언자(advisor)** 로서 
 | `deadline_hint` | - | 예상 소요 시간 또는 기한 힌트 |
 | `quality_criteria` | O | 이 하위 작업의 품질 기준 |
 | `reference` | - | 참고할 기존 코드, 패턴, 문서 |
+| `load_profile` | - | 커맨드에게서 상속받은 프로파일을 재판정 없이 전달(V3). specialist 전용 문서만 refs에 append 가능(remove 금지). 깊이 2·위임 1회 한도 불변 |
 
 ### 2-4. specialist → 부서장 (보고)
 

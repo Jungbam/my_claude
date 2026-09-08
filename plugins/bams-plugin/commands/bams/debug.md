@@ -48,6 +48,7 @@ Options:
 ### 1b. qa-strategy 부서장 (defect-triage 위임)
 
 서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:qa-strategy"**):
+<!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 
 > **버그 분류 및 재현 모드**로 보고된 버그를 분류하고 재현을 시도합니다.
 >
@@ -103,6 +104,7 @@ defect-triage 결과의 수정 대상 파일에 따라 적절한 에이전트를
 - 양쪽 모두 -> 두 에이전트를 병렬 실행
 
 서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:frontend-engineering"** 또는 **"bams-plugin:backend-engineering"**):
+<!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 
 > **버그 수정 모드**로 버그를 최소 범위로 수정합니다.
 >
@@ -132,6 +134,7 @@ git 저장소인 경우, `git diff --stat` 표시.
 
 **3b — 회귀 테스트 생성:**
 서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:qa-strategy"**):
+<!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 
 > **회귀 테스트 모드**로 버그 수정에 대한 회귀 테스트를 작성합니다.
 >

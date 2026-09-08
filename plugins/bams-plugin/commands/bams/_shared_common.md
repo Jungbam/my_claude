@@ -36,6 +36,15 @@ Claude Code harness에서 서브에이전트는 또 다른 서브에이전트를
 - orchestrator가 응답 상단에 **"CHAIN_VIOLATION"** 경고를 반환하면: 즉시 해당 Phase를 중단하고 메인(커맨드) 대화로 에스컬레이션한다. 재시도 금지.
 - 메인이 부서장 spawn을 건너뛰고 직접 Edit/Write를 시도한 정황 감지 시도 동일하게 중단 + 에스컬레이션.
 
+### load_profile 발행 규칙 (기본 프로파일 · SSOT-b)
+
+부서장 spawn 블록은 이 위임에서 부서장이 사전 로드할 문서를 `load_profile`로 명시한다. 스키마 원문은 `references/delegation-protocol.md §2-2-a`(SSOT) 참조.
+
+- **기본 프로파일** (exempt 마커가 상속하는 값): `load_profile: { level: L2, refs: [{doc: best-practices}, {doc: agent-rules}] }`
+- **모든 부서장 spawn 블록은 인라인 `> load_profile: {값}` 또는 감사 가능한 exempt 마커 중 정확히 하나를 보유한다.** 값도 마커도 없는 블록은 silent underload(FAIL)이다.
+- **heavy-lead(design-director·product-strategy) 블록은 값 주입 필수** — exempt 마커 금지(최대 로드원이므로 doc-specific refs 명시).
+- 그 외 부서장 블록은 `<!-- load_profile:exempt inherits _shared_common §위임 원칙 -->` 마커로 위 기본 프로파일을 상속할 수 있다. 비-부서장(조언자/specialist) spawn 파일은 `<!-- load_profile:exempt non-department-lead spawn -->` 마커를 쓴다.
+
 ---
 
 ## ★ 파이프라인 완료 기록 (상태 판별의 SSOT)

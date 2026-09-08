@@ -54,6 +54,8 @@ Task tool, subagent_type: **"bams-plugin:product-strategy"** — 메인이 직�
 >   - 미결 질문 명시
 > ```
 >
+> load_profile: { level: L2, refs: [{doc: config, section: "§아키텍처,§컨벤션"}, {doc: agent-rules, agent: product-strategy}] }
+>
 > 기획부장은 도메인 내 business-analysis / ux-research specialist를 **최대 1회** 추가 spawn 가능(harness 깊이 2 한도).
 >
 > **미결 질문이 있으면** 반드시 보고하세요.
@@ -71,6 +73,8 @@ Phase 2는 기획/개발 **다부서** 병렬 트랙이므로 **루프 B**를 �
 ### Phase 2-a. pipeline-orchestrator 조언 요청 (Advisor)
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
+
+<!-- load_profile:exempt non-department-lead spawn -->
 
 > **Plan Phase 2 Advisor 호출 — 기능 명세 + 기술 설계 라우팅 권고**
 >
@@ -111,6 +115,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
    >   - 에러 시나리오 및 처리 방법
    >   - 외부 시스템 연동 명세
    > ```
+   > load_profile: { level: L2, refs: [{doc: config, section: "§아키텍처,§컨벤션"}, {doc: agent-rules, agent: product-strategy}] }
    > 기획부장은 business-analysis specialist를 최대 1회 추가 spawn 가능.
 
 2. Task tool, subagent_type: **"bams-plugin:design-director"**
@@ -125,6 +130,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
    >   - 디자인 토큰/스타일 전략 명시
    >   - FE 구현 핸드오프 가능 수준
    > ```
+   > load_profile: { level: L2, refs: [{doc: design-artifact-layout, section: "§경계 마커"}, {doc: design-artifact-templates}] }
 
 3. Task tool, subagent_type: **"bams-plugin:frontend-engineering"**
    > **Plan Phase 2 — FE 기술 설계**
@@ -137,6 +143,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
    >   - 상태 관리/라우팅/스타일링 전략
    >   - 파일 목록
    > ```
+   > <!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 
 4. Task tool, subagent_type: **"bams-plugin:backend-engineering"**
    > **Plan Phase 2 — BE 기술 설계**
@@ -150,6 +157,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
    >   - 인증/권한
    >   - 파일 목록
    > ```
+   > <!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 
 4개 반환 후 각 에이전트 결과를 확인합니다. 에러가 있으면 사용자에게 어떤 트랙이 실패했는지 보고하고 계속 진행할지 중단할지 AskUserQuestion으로 확인한다(중단 선택 시 파이프라인 상태를 failed로 기록 후 Phase 7로 이동).
 

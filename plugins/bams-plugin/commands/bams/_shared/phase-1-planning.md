@@ -20,6 +20,8 @@
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
 
+<!-- load_profile:exempt non-department-lead spawn -->
+
 > **Phase 1 Step {STEP_1} Advisor 호출 — PRD 작성 라우팅 권고**
 >
 > **컨텍스트:**
@@ -57,6 +59,8 @@ Task tool, subagent_type: **"bams-plugin:product-strategy"** — 메인이 직�
 >   - 스코프 경계 명시
 > ```
 >
+> load_profile: { level: L2, refs: [{doc: config, section: "§아키텍처,§컨벤션"}, {doc: agent-rules, agent: product-strategy}] }
+>
 > product-strategy는 자신의 도메인 내에서 business-analysis/ux-research specialist를 최대 1회 추가 spawn할 수 있습니다 (harness 깊이 2 한도).
 >
 > **미결 질문이 있으면** 반드시 보고하세요.
@@ -70,6 +74,8 @@ Task tool, subagent_type: **"bams-plugin:product-strategy"** — 메인이 직�
 ### Step {STEP_2}-a. pipeline-orchestrator 조언 요청 (Advisor)
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
+
+<!-- load_profile:exempt non-department-lead spawn -->
 
 > **Phase 1 Step {STEP_2} Advisor 호출 — 기술 설계 + 태스크 분해 라우팅 권고**
 >
@@ -102,6 +108,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 >   - 엣지 케이스 정의
 >   - 데이터 모델 명시
 > ```
+> load_profile: { level: L2, refs: [{doc: config, section: "§아키텍처,§컨벤션"}, {doc: agent-rules, agent: product-strategy}] }
 > product-strategy는 business-analysis specialist를 최대 1회 추가 spawn 가능.
 
 2. Task tool, subagent_type: **"bams-plugin:frontend-engineering"**:
@@ -115,6 +122,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 >   - 컴포넌트 구조 명확
 >   - 데이터 흐름 명시
 > ```
+> <!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 
 3. Task tool, subagent_type: **"bams-plugin:backend-engineering"**:
 > ```
@@ -127,6 +135,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 >   - API 엔드포인트 정의
 >   - DB 스키마 명확
 > ```
+> <!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 
 3개 결과 수신 후 메인이 종합하여 태스크를 분해합니다 (각 태스크에 범위, 역할 할당, 우선순위, 의존성, 인수 기준 포함, board.md 형식).
 
@@ -157,6 +166,8 @@ orchestrator로부터 받은 결과물을 저장합니다:
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
 
+<!-- load_profile:exempt non-department-lead spawn -->
+
 > **Phase 1 → Phase 2 Advisor 호출 — 게이트 판정 + 핸드오프 라우팅**
 >
 > **컨텍스트:**
@@ -178,6 +189,8 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 Advisor 판정이 GO 또는 CONDITIONAL-GO인 경우에 진행합니다. NO-GO이면 미충족 항목을 사용자에게 보고하고 해결 후 재시도합니다.
 
 Task tool, subagent_type: **"bams-plugin:cross-department-coordinator"** — 메인이 직접 호출:
+
+<!-- load_profile:exempt non-department-lead spawn -->
 
 > **Phase 1→2 핸드오프 조율**
 >

@@ -1,0 +1,33 @@
+# load-profile-exempt.txt — AC-16 exempt 마커 allowlist (design-infra §3-2 / spec §3-2)
+# 분모: grep -rlE "subagent_type" --include='*.md' commands/bams | sort = 28파일 (17 lead + 11 non-lead)
+# 경로: commands/bams 기준 상대경로. 데이터 라인(비-# 비-공백)은 전역 sort 순서로, 인라인 '#' 주석으로 lead/non-lead 표기.
+# lead     = 부서장 spawn 파일(값 주입 또는 lead-exempt 마커). non-lead = 비-부서장 spawn(non-department-lead 마커).
+# 재생성: grep -rlE "subagent_type" --include='*.md' commands/bams | sort | sed 's#.*commands/bams/##'
+_shared/phase-1-planning.md          # lead
+_shared/phase-2-implementation.md    # lead
+debug.md                             # lead
+deep-review.md                       # non-lead
+design-import/phase-1-delegate.md    # lead
+design-import/phase-2-verify.md      # non-lead
+dev/phase-0-init.md                  # non-lead
+dev/phase-2-5-test.md                # lead
+dev/phase-3-5-quality-gate.md        # non-lead
+dev/phase-3-verification.md          # lead
+dev/phase-4-finalization.md          # non-lead
+feature/phase-0-init.md              # non-lead
+feature/phase-3-verification.md      # lead
+feature/phase-4-deploy.md            # lead
+feature/phase-5-finalization.md      # lead
+hotfix/step-1-diagnose.md            # lead
+hotfix/step-2-qa.md                  # lead
+hotfix/step-3-4-cicd.md              # lead
+hotfix/step-5-deploy.md              # lead
+hotfix/step-finalization.md          # non-lead
+init.md                              # non-lead (b2 화이트리스트 — init-time 분석 spawn)
+plan.md                              # lead
+retro/phase-2-retro.md               # non-lead
+retro/phase-4-improve.md             # lead
+retro/phase-5-report.md              # lead
+review.md                            # lead
+sprint.md                            # non-lead
+verify.md                            # non-lead

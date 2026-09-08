@@ -374,6 +374,7 @@ fi
 **Step 6 — product-strategy 에이전트 (opus):**
 
 서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:product-strategy"**):
+<!-- load_profile:exempt non-department-lead spawn -->
 
 > **프로젝트 초기 분석 모드**로 이 프로젝트의 전체 구조를 분석합니다.
 >
@@ -389,6 +390,7 @@ fi
 **Step 7 — platform-devops 에이전트 (opus):**
 
 서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:platform-devops"**):
+<!-- load_profile:exempt non-department-lead spawn -->
 
 > **배포 환경 점검 모드**로 현재 프로젝트의 인프라/배포 상태를 확인합니다.
 >
