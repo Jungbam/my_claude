@@ -142,6 +142,8 @@ tokens.json(Style Dictionary 호환)·tokens.ts(`as const`)·CSS 출력 예시·
 - 위임 지점: 토큰 추출·정규화, Figma Variables → CSS 변수/TS 상수 변환, 컴포넌트 문서화 초안. Claude 컨트롤러는 토큰 네이밍 규약·스키마 검증·최종 Write만 담당.
 - codex 미가용 시: design-director 에스컬레이션 후 대기.
 
+### 행동 규칙 참조 ($_AR)
+
 세부 행동 규칙은 agent-rules로 이관됨. 아래 stub이 참조하는 `$_AR` 경로 폴백: [L2]
 
 ```bash

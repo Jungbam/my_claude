@@ -11,6 +11,8 @@
 #       (b2 화이트리스트 init.md 예외 / '{dept}' 등 플레이스홀더 앵커는 DYNAMIC 판정)
 #       DYNAMIC 앵커(rev1 Minor fix): load-profile-dynamic-allowlist.txt 에 <파일>:<앵커> 로
 #       등재된 것만 OK, 미등재 dynamic 은 FAIL(WARN-only 종료 폐기).
+#       NOANCHOR(rev2 Minor fix): 마커는 있으나 선행 subagent_type 앵커 부재 시 FAIL 승격.
+#       단 load-profile-dynamic-allowlist.txt 에 <파일>:NOANCHOR 로 등재된 것만 OK.
 # 판정: 위반 1건이라도 있으면 exit 1. (마커 미존재 시 해당 가드 N/A → PASS)
 # 실행 위치: repo 고정(캐시 사본 실행 금지) — scripts/는 repo-fixed 운영 도구(design-infra §2-3).
 set -u
@@ -94,7 +96,12 @@ for f in "${FILES[@]}"; do
             RC=1
           fi ;;
         NOANCHOR)
-          echo "GUARD-d WARN: $rel — non-department-lead 마커의 선행 subagent_type 앵커 부재" ;;
+          if printf '%s\n' "$DYNLIST" | grep -Fxq "$rel:NOANCHOR"; then
+            echo "GUARD-d OK: $rel — 선행 subagent_type 앵커 부재(NOANCHOR) allowlist(load-profile-dynamic-allowlist.txt) 등재"
+          else
+            echo "GUARD-d FAIL: $rel — non-department-lead 마커의 선행 subagent_type 앵커 부재 (load-profile-dynamic-allowlist.txt 에 '$rel:NOANCHOR' 등재 필요)"
+            RC=1
+          fi ;;
         *) : ;;  # OK: 비-부서장 앵커 블록 → 정상
       esac
     done < <(awk -v leads="$LEADS7" '

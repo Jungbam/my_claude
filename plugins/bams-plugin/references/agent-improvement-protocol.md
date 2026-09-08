@@ -128,10 +128,11 @@ deep-review 및 hotfix finalization에서 개선점이 발견될 때 이 프로�
 
 - `## 메모리` 절은 `references/agent-memory.md` 참조 2줄로 고정한다(항목 원문·형식을 정의 파일에 재기술 금지).
 
-### 8.4 codex 위임 6줄 stub
+### 8.4 codex 위임 stub (헤딩 + 본문 ≤8줄)
 
-- codex 추론 위임은 **6줄 stub**만 정의 파일에 남긴다. 헤딩 `## codex 추론 위임 (gpt-5.6-luna via MCP)`(마크다운 레벨은 파일 문맥 따라 `##`/`###` 허용, 문자열 "codex 추론 위임" 불변)과 `codex sandbox:` 값 줄은 **반드시 보존한다**(각각 게이트 판정의 유일 소스이므로 감축·재작성 시에도 삭제 금지).
-- run_codex() 정본·이중구조 설명·viz 태그·fallback 3단 체인 본문은 `references/codex-delegation.md`(SSOT)에 1회만 두고, stub은 `find ~/.claude/plugins/cache … || find .` 폴백으로 참조한다(bare 경로 금지).
+- codex 위임 절은 헤딩 `## codex 추론 위임 (gpt-5.6-luna via MCP)`(마크다운 레벨은 파일 문맥 따라 `##`/`###` 허용, 문자열 "codex 추론 위임" 불변) + 본문 **≤8줄**(위임 문장 · `references/codex-delegation.md` 경로 폴백 · `codex sandbox:` 값 줄 · 위임 지점 · 미가용 폴백)로 제한하고, 절차 본문·`run_codex()` 정본·이중구조 설명·viz 태그·fallback 3단 체인은 `references/codex-delegation.md`(SSOT)에만 둔다. stub은 `find ~/.claude/plugins/cache … || find .` 폴백으로 참조한다(bare 경로 금지).
+- 리터럴 2개(헤딩 문자열 "codex 추론 위임", `codex sandbox:` 값 줄)는 각각 게이트 판정의 유일 소스이므로 감축·재작성 시에도 **삭제 금지**(AC-7c/7d).
+- 검증: `bash scripts/codex-block-lines.sh` → `FILES=16`, 파일당 블록(헤딩 포함) **≤9줄**.
 
 ### 8.5 gotchas·config 로드 규약
 
