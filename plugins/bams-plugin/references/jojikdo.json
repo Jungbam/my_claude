@@ -158,11 +158,6 @@
                   "callee_agent": "release_quality_gate_agent",
                   "call_purpose": "출시 게이트 판단 위임 (Phase 4 이후)",
                   "expected_output": "release_decision"
-                },
-                {
-                  "callee_agent": "executive_reporter_agent",
-                  "call_purpose": "게이트 결과를 상태 대시보드에 반영",
-                  "expected_output": "dashboard_updated"
                 }
               ],
               "completion_criteria": [
@@ -296,95 +291,110 @@
           "role": "specialist"
         },
         {
-          "agent_id": "executive_reporter_agent",
-          "agent_name": "Executive Reporter Agent",
-          "responsibility": "파이프라인 상태 집계, 대시보드 생성, 주간/스프린트 보고",
+          "agent_id": "git_ops_agent",
+          "agent_name": "Git Ops Agent",
+          "responsibility": "git 관리 skill(sync/rollback/stash/branch) 저비용 실행 전담, 파괴 명령 dry-run + --yes 게이트 준수",
           "inputs": [
-            "파이프라인 이벤트 로그",
-            "board.md",
-            "tracking 파일",
-            "리뷰/테스트 결과"
+            "git 조작 위임 요청",
+            "base 브랜치",
+            "동기화/롤백/스태시/브랜치 전략"
           ],
           "outputs": [
-            "pipeline_dashboard",
-            "weekly_summary",
-            "sprint_report"
+            "git_command_result",
+            "sync_summary",
+            "rollback_preview"
           ],
           "skills": [
             {
-              "skill_id": "generate_dashboard",
-              "skill_name": "Pipeline Dashboard Generation",
-              "purpose": "파이프라인 상태를 실시간 대시보드로 집계한다",
+              "skill_id": "sync_branch",
+              "skill_name": "Branch Sync",
+              "purpose": "fetch 후 auto-stash → ff/rebase/merge 전략으로 base 브랜치를 따라잡고 stash pop한다",
               "inputs": [
-                "파이프라인 이벤트",
-                "board.md",
-                "아티팩트 상태"
+                "base 브랜치",
+                "동기화 전략",
+                "작업 트리 상태"
               ],
               "process": [
-                "이벤트 파일에서 Phase별 진행률을 파싱한다",
-                "에이전트별 활동 상태를 집계한다",
-                "블로커와 리스크를 수집한다",
-                "신호등 체계로 요약한다"
+                "fetch로 원격 최신 상태를 가져온다",
+                "dirty 감지 시 auto-stash한다",
+                "ff/rebase/merge 전략을 실행한다",
+                "stash pop으로 로컬 작업을 복원한다"
               ],
               "artifacts": [
-                "pipeline_dashboard",
-                "status_summary"
+                "sync_summary"
               ],
-              "agent_calls": [
-                {
-                  "callee_agent": "project_governance_agent",
-                  "call_purpose": "일정/마일스톤 데이터 조회",
-                  "expected_output": "milestone_status"
-                },
-                {
-                  "callee_agent": "product_analytics_agent",
-                  "call_purpose": "KPI 데이터 조회",
-                  "expected_output": "kpi_snapshot"
-                }
-              ],
+              "agent_calls": [],
               "completion_criteria": [
-                "모든 활성 파이프라인의 상태가 집계되어 있다",
-                "블로커가 하이라이트되어 있다"
+                "로컬 작업 유실 없이 base 브랜치를 따라잡았다"
               ]
             },
             {
-              "skill_id": "compile_weekly_summary",
-              "skill_name": "Weekly Summary Compilation",
-              "purpose": "주간 활동을 성과, 진행, 블로커, 계획으로 구조화하여 보고한다",
+              "skill_id": "rollback_change",
+              "skill_name": "Commit/File Rollback",
+              "purpose": "commit revert 또는 file restore를 dry-run 미리보기 후 --yes 게이트로 실행한다",
               "inputs": [
-                "git log",
-                "board.md",
-                "파이프라인 이력",
-                "리뷰 결과"
+                "롤백 대상 (commit/file)",
+                "dry-run 결과",
+                "사용자 승인"
               ],
               "process": [
-                "주간 완료 태스크를 집계한다",
-                "진행 중 태스크와 블로커를 정리한다",
-                "다음 주 계획을 수립한다",
-                "수치 요약을 작성한다"
+                "dry-run diff로 롤백 범위를 미리 확인한다",
+                "사용자 승인이 확인되면 --yes로 실행한다",
+                "commit은 git revert, file은 git restore --source로 index 오염 없이 되돌린다",
+                "결과를 exit code와 함께 반환한다"
               ],
               "artifacts": [
-                "weekly_summary",
-                "trend_analysis"
+                "rollback_preview",
+                "rollback_result"
               ],
-              "agent_calls": [
-                {
-                  "callee_agent": "business_kpi_agent",
-                  "call_purpose": "사업 성과 지표 조회",
-                  "expected_output": "business_metrics_snapshot"
-                },
-                {
-                  "callee_agent": "performance_evaluation_agent",
-                  "call_purpose": "성능 수치 조회",
-                  "expected_output": "performance_metrics"
-                }
-              ],
+              "agent_calls": [],
               "completion_criteria": [
-                "핵심 성과가 수치와 함께 정리되어 있다",
-                "다음 주 액션 아이템이 담당자와 함께 명시되어 있다"
+                "파괴 명령이 게이트 통과 후에만 실행되었다"
+              ]
+            },
+            {
+              "skill_id": "manage_stash",
+              "skill_name": "Work Stash Management",
+              "purpose": "미커밋 변경을 유실 없이 스택에 보관하고 pop/list/drop을 안전하게 수행한다",
+              "inputs": [
+                "스태시 조작 (push/pop/list/drop)",
+                "작업 트리 상태"
+              ],
+              "process": [
+                "push/pop/list는 직접 매핑으로 실행한다",
+                "drop은 미리보기 후 --yes 게이트로 안전 삭제한다"
+              ],
+              "artifacts": [
+                "stash_result"
+              ],
+              "agent_calls": [],
+              "completion_criteria": [
+                "미커밋 변경이 유실 없이 보관/복원되었다"
+              ]
+            },
+            {
+              "skill_id": "manage_branch",
+              "skill_name": "Branch Management",
+              "purpose": "브랜치 list/create/rename/delete를 컨벤션 검증과 게이트 하에 수행한다",
+              "inputs": [
+                "브랜치 조작 (list/create/rename/delete)",
+                "브랜치명",
+                "컨벤션 규칙"
+              ],
+              "process": [
+                "브랜치명을 컨벤션 정규식으로 검증한다",
+                "delete는 기본 -d(merged만), --force=-D는 --yes 게이트를 요구한다"
+              ],
+              "artifacts": [
+                "branch_result"
+              ],
+              "agent_calls": [],
+              "completion_criteria": [
+                "컨벤션 위반 또는 미승인 강제 삭제가 차단되었다"
               ]
             }
           ],
+          "model": "claude-haiku-4-5-20251001",
           "role": "specialist"
         },
         {
@@ -548,13 +558,7 @@
                 "weekly_report_md",
                 "weekly_report_json"
               ],
-              "agent_calls": [
-                {
-                  "callee_agent": "executive_reporter_agent",
-                  "call_purpose": "퍼포먼스 요약을 경영진 대시보드에 반영",
-                  "expected_output": "dashboard_updated"
-                }
-              ],
+              "agent_calls": [],
               "completion_criteria": [
                 "모든 활성 에이전트에 대해 등급이 부여되어 있다",
                 "보고서가 md와 json 형식 모두 생성되어 있다"

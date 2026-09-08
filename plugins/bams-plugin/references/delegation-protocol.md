@@ -41,7 +41,7 @@ pipeline-orchestrator는 Task 호출자가 아닌 **조언자(advisor)** 로서 
 <!-- SYNC-SPECIALISTS:END -->
 - QA부장: **qa-strategy** — 산하 specialist: automation-qa, defect-triage, release-quality-gate
 - 평가부장: **product-analytics** — 산하 specialist: experimentation, performance-evaluation, business-kpi
-- 경영지원(독립): **resource-optimizer**, **hr-agent**, **cross-department-coordinator**
+- 경영지원(독립): **resource-optimizer**, **hr-agent**, **cross-department-coordinator**, **git-ops-agent** (git skill 저비용 실행 전담 — sync/rollback/stash/branch)
 - 조언자(Task 비호출): **pipeline-orchestrator**
 
 > engineering 부서는 engineering-frontend, engineering-backend, engineering-platform 3개 부서로 공식 분할 완료 (2026-04-09, dev_개발부서3분할공식화).
