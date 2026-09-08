@@ -2,6 +2,13 @@
 
 ## Responsibility: 부서 간 의존성 관리, 갈등 중재, Phase 전환 핸드오프 조율
 
+| 블록 | 트리거 | 라인범위 |
+|------|--------|----------|
+| 의존성 매핑 (map_dependencies) | 복수 부서 Phase 시작·블로커 발생 시 | L14-32 |
+| 갈등 중재 (mediate_conflict) | 부서 간 우선순위·리소스 충돌 시 | L36-55 |
+| 핸드오프 관리 (manage_handoff) | Phase 전환 산출물 인계 시 | L59-78 |
+| 블로커 해소 (resolve_blocker) | 한 에이전트 지연이 타 에이전트 블로킹 시 | L82-100 |
+
 ---
 
 ### 의존성 매핑 (map_dependencies)

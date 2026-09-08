@@ -2,6 +2,13 @@
 
 ## Responsibility: 매출/비용 영향 분석, 경영진 보고 수치 요약, ROI 분석, 목표 추적 및 예측, 비즈니스 이상 탐지
 
+| 블록 | 트리거 | 라인범위 |
+|------|--------|----------|
+| 매출/비용 영향 분석 (analyze_revenue_cost_impact) | 릴리즈 후 매출·비용 영향 평가 시 | L14-32 |
+| 경영진 보고 수치 요약 (summarize_executive_metrics) | 경영진·이사회 보고 준비 시 | L36-53 |
+| ROI 분석 (analyze_roi) | 개발 투자 대비 성과 산출 시 | L57-75 |
+| 목표 추적 및 예측 (track_and_forecast_targets) | OKR/KPI 달성률 추적·예측 시 | L79-96 |
+
 ---
 
 ### 매출/비용 영향 분석 (analyze_revenue_cost_impact)

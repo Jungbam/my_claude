@@ -2,6 +2,13 @@
 
 ## Responsibility: 이벤트 트래킹 구현, 외부 시스템 연동, 데이터 파이프라인 관리, 데이터 스키마 관리
 
+| 블록 | 트리거 | 라인범위 |
+|------|--------|----------|
+| 이벤트 트래킹 구현 (implement_event_tracking) | 행동 데이터 수집·이벤트 스키마 변경 시 | L14-35 |
+| 외부 시스템 연동 (integrate_external_systems) | 결제·인증·메시지·파트너 연동 시 | L39-58 |
+| 데이터 파이프라인 관리 (manage_data_pipeline) | ETL/ELT 설계·파이프라인 장애 해결 시 | L62-82 |
+| 데이터 스키마 관리 (manage_data_schema) | 데이터 모델 설계·스키마 변경 시 | L86-105 |
+
 ---
 
 ### 이벤트 트래킹 구현 (implement_event_tracking)

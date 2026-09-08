@@ -1,5 +1,13 @@
 # Best Practice: data-binding-mapper
 
+| 블록 | 트리거 | 라인범위 |
+|------|--------|----------|
+| 1. 호출 컨텍스트 | 트리거·입출력·부서장·모델 확인 | L11-24 |
+| 2. 자주 발생하는 실수 3건 | 반복 실수·회피책 참조 | L26-41 |
+| 3. 권장 패턴 | F9 우선·RSC fetch·loading-states 패턴 | L43-57 |
+| 4. 체크리스트 (5건 필수) | 착수 전 필수 점검 | L59-63 |
+| 5. 참고 | 출처·협업 링크 | L65-69 |
+
 ## 1. 호출 컨텍스트
 - **트리거**: design-import 파이프라인의 Phase C에서 design-director가 위임. F3 ui-diff-applier와 병렬 실행 가능. F9 ssr-csr-decider와도 병렬.
 - **입력**:

@@ -2,6 +2,13 @@
 
 ## Responsibility: 요구사항 도출, 기능 명세 작성, 스코프 분해
 
+| 블록 | 트리거 | 라인범위 |
+|------|--------|----------|
+| 요구사항 도출 (elicit_requirements) | PRD 초안에서 상세 요구사항 도출 시 | L14-35 |
+| 기능 명세 작성 (write_functional_spec) | 구현 가능한 수준의 명세 작성 시 | L39-59 |
+| 스코프 분해 (decompose_scope) | 대규모 요구사항을 구현 단위로 분해 시 | L63-81 |
+| 업무 규칙 정형화 (formalize_business_rules) | 복잡한 비즈니스 로직 명세 시 | L85-103 |
+
 ---
 
 ### 요구사항 도출 (elicit_requirements)
