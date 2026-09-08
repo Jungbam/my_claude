@@ -2,6 +2,13 @@
 
 ## Responsibility: 출시 준비 상태 검토, 롤백 준비 상태 확인, 출시 후 품질 모니터링, 출시 기준 관리
 
+| 블록 | 트리거 | 라인범위 |
+|------|--------|----------|
+| 출시 준비 상태 검토 (review_release_readiness) | 배포 전 GO/NO-GO 판단 | L14-42 |
+| 롤백 준비 상태 확인 (check_rollback_readiness) | 배포 전 롤백 절차 준비 확인 | L43-66 |
+| 출시 후 품질 모니터링 (monitor_post_release_quality) | 배포 완료 후 초기 안정성 확인 | L67-89 |
+| 품질 회고 (conduct_quality_retrospective) | 출시 완료 후 게이트 기준 개선 | L90-108 |
+
 ---
 
 ### 출시 준비 상태 검토 (review_release_readiness)

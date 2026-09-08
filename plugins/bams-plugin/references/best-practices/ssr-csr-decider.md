@@ -1,5 +1,13 @@
 # Best Practice: ssr-csr-decider
 
+| 블록 | 트리거 | 라인범위 |
+|------|--------|----------|
+| 호출 컨텍스트 | Phase B/C 위임 트리거·입출력·모델 확인 | L11-21 |
+| 자주 발생하는 실수 3건 | use client 경계·binding-map 불일치·reason 누락 회피 | L22-38 |
+| 권장 패턴 | SC 우선 룰·use client 과다 감지·directives 배열 | L39-53 |
+| 체크리스트 | rendering-strategy.json 저장 전 5건 필수 점검 | L54-59 |
+| 참고 | 부모 파이프라인·후속 PR·협업 관계 | L60-64 |
+
 ## 1. 호출 컨텍스트
 - **트리거**: design-import 파이프라인의 Phase B 또는 C에서 design-director가 위임. F2 guide-recomposer 및 F4 data-binding-mapper와 병렬 실행 가능.
 - **입력**:

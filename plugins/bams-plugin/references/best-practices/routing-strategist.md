@@ -1,5 +1,13 @@
 # Best Practice: routing-strategist
 
+| 블록 | 트리거 | 라인범위 |
+|------|--------|----------|
+| 호출 컨텍스트 | Phase E 위임 트리거·입출력·모델 확인 | L11-24 |
+| 자주 발생하는 실수 3건 | Preflight 누락·generateStaticParams·충돌 미감지 회피 | L25-45 |
+| 권장 패턴 | 라우팅 Glob 선행·라우트 그룹·parallel 근거 | L46-51 |
+| 체크리스트 | route-tree.json 저장 전 5건 필수 점검 | L52-57 |
+| 참고 | 부모 파이프라인·후속 PR·협업 관계 | L58-62 |
+
 ## 1. 호출 컨텍스트
 - **트리거**: design-import 파이프라인의 Phase E에서 design-director가 조건부 위임. **트리거 조건: F1 산출물 components.json에 페이지 >= 2인 경우에만 호출. 단일 페이지 가이드는 본 단계 생략.**
 - **입력**:
