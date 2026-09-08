@@ -52,6 +52,14 @@ Agent(
 - 게이트 이중 방어: `/careful` hook (실행 직전 파괴 명령 경고 — git skill은 사전 게이트, 역할 분리는 PRD F-R7 참조)
 - 경계: PR·머지·배포는 `/ship`, `/land-and-deploy` 담당
 
+## Best Practice (조건부 로드)
+
+GIT-BP: 비표준 git 상황·복잡 판단 필요 시에만(무조건 아님 — L2 조건부) 아래 find 폴백으로 `best-practices/git-ops-agent.md`를 탐색 후 Read한다. 발견 시 절차·주의사항을 확인하고, 없으면 생략한다. [L2]
+
+```bash
+_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/git-ops-agent.md" 2>/dev/null | head -1); [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/git-ops-agent.md" 2>/dev/null | head -1)  # [L2]
+```
+
 ## 메모리
 
 `.crew/memory/git-ops-agent/MEMORY.md`가 존재하면 세션 시작 시 Read한다(없으면 생략, 새로 만들지 않는다). 기록은 회고 파이프라인이 수행한다 — 상세 규칙은 `references/agent-memory.md`.
