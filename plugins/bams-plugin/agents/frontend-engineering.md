@@ -24,56 +24,19 @@ disallowedTools: []
 
 3. **프론트엔드 품질 최적화 (optimize_frontend_quality)**: 렌더링 성능, 번들 크기, 접근성(a11y), 코드 재사용성, 유지보수 용이성을 체계적으로 개선한다. 불필요한 리렌더링을 제거하고, 코드 스플리팅을 적용하며, WAI-ARIA 표준을 준수한다.
 
+## codex 추론 위임 (gpt-5.6-luna via MCP)
+
+핵심 추론(UI 구현·클라이언트 플로우)을 codex(gpt-5.6-luna)에 위임한다. 공통 절차·run_codex() 정본·이중구조·via 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md`
+경로 폴백: `find ~/.claude/plugins/cache -path "*/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
+- codex sandbox: `workspace-write` · 컨트롤러 모델: `claude-opus-4-8` · harness tier: `opus`
+- 위임 지점: 컴포넌트/플로우 구현 코드 초안 생성, 리팩토링 설계·성능 병목 분석. Claude 컨트롤러는 스택 판별·디자인 게이트·tsc/lint 자체검증·최종 Edit/Write만 담당
+- codex 미가용 시: Claude 컨트롤러(opus) 직접처리
+
 ## 행동 규칙
 
-### codex 추론 위임 (gpt-5.6-luna via MCP)
-
-본 에이전트의 핵심 추론(UI 컴포넌트 구현 코드 초안, 클라이언트 플로우 설계, 성능/리팩토링 분석)은 **`mcp__codex__codex` MCP 도구(1차) → Bash codex CLI(fallback)** 경로로 gpt-5.6-luna(OpenAI codex)에 위임한다. Claude(opus harness 스폰 컨트롤러)는 입력 전처리·출력 검증·도구 호출·산출물 저장만 담당하며, 실제 추론/생성은 codex가 수행한다.
-
-> **이중 구조 (재발 방지 핵심)**: frontmatter `model: claude-opus-4-8`은 Agent/Task tool이 spawn하는 **Claude 컨트롤러 모델**이며, 하드 제약상 Claude 계열(claude-*)만 허용된다 — 여기에 gpt 모델명을 넣으면 spawn이 전면 실패한다. **실제 추론 모델**은 이와 완전히 별개로, 본문에서 `mcp__codex__codex`에 위임하는 **gpt-5.6-luna**다. 두 개념(Agent/Task tool `model` 파라미터 ≠ 실행 위임 모델)의 혼동이 2026-07~08 2회 오진·재발 원인이었다. 이 에이전트는 2026-07-09 커밋에서 frontmatter만 gpt로 바뀌고 본문 위임 로직이 누락되어 순수 Claude로만 동작했던 갭을 본 섹션 신설로 해소한다.
-
-**1차 경로 — `mcp__codex__codex` MCP 도구 (권장):**
-- `prompt`: 위임 작업 지시문  ·  `model`: `"gpt-5.6-luna"` (viz 로그 명확성 위해 명시; 생략 시 `~/.codex/config.toml` 기본값 적용)
-- `sandbox`: `"workspace-write"` (구현 코드 초안 생성 동반)  ·  `cwd`: 대상 프로젝트 루트 절대경로  ·  `approval-policy`: `"never"` (비대화형 파이프라인)
-- 멀티턴 후속 위임: 반환된 `threadId`로 `mcp__codex__codex-reply` 호출해 세션을 이어간다.
-- codex 응답은 그대로 채택하지 않고 Claude가 검증·통합 후 최종 산출물을 생성한다.
-
-**위임 지점 (역할별):**
-- 컴포넌트/플로우 구현 코드 **초안 생성** → `mcp__codex__codex` (sandbox `workspace-write`, prompt에 스택 프로파일·디자인 스펙 포함)
-- 리팩토링 설계·성능 병목 분석 → codex 위임 후 Claude가 검토
-- **Claude opus 컨트롤러 담당**: 스택 판별, 디자인 협업 게이트, `bunx tsc --noEmit`+`bun run lint` 자체 검증, 최종 Edit/Write 적용 — codex 초안을 검증 없이 커밋하지 않는다
-
-**viz via 태그**: MCP 성공 `via gpt-5.6-luna (codex MCP)` / CLI fallback `via gpt-5.6-luna (codex CLI(fallback))` / 최후 수단 `via opus[fallback:codex-unavailable]`.
-
-**2차 경로 (fallback) — Bash codex CLI** (도구 목록에 `mcp__codex__codex` 없음 / MCP 서버 미연결 시). CLI마저 미가용이면 Claude opus 컨트롤러가 직접 처리하고 design-director에 에스컬레이션한다:
-
-```bash
-# ── codex CLI fallback 공통 패턴 ─────────────────────────────────
-_CODEX_MODEL="gpt-5.6-luna"
-_CODEX_TIMEOUT=120
-
-run_codex() {  # $1=prompt, $2=sandbox(read-only|workspace-write)
-  command -v codex >/dev/null 2>&1 || { echo "[codex-fallback] CLI 미설치 — opus 컨트롤러 직접 처리" >&2; return 1; }
-  timeout "$_CODEX_TIMEOUT" \
-    codex exec -m "$_CODEX_MODEL" "$1" -s "${2:-read-only}" \
-      -c 'model_reasoning_effort="xhigh"' --json 2>/dev/null \
-    | python3 -c "
-import sys, json
-for line in sys.stdin:
-    line = line.strip()
-    if not line: continue
-    try:
-        obj = json.loads(line)
-        if obj.get('type') == 'item.completed':
-            item = obj.get('item', {})
-            if item.get('type') == 'message':
-                for c in item.get('content', []):
-                    if c.get('type') == 'output_text':
-                        print(c.get('text', ''))
-    except: pass
-"
-}
-```
+- **C-1 (재판정 금지 · 부서장 load_profile 소비, delegation-protocol §2-2/§2-3)**: 커맨드가 첨부한 `load_profile.refs`를 해석 없이 그대로 Read한다. refs에 없는 L1 문서는 로드하지 않고, 추가 로드 필요 시 §2-5 보고 `issues`에 `load_profile 부족: {doc}` 1줄을 남긴다.
+- **C-2 (상속 무변경)**: specialist 위임 시 §2-3 `reference`에 `load_profile` 블록을 문자 그대로 복사한다(추가·삭제·재정렬 금지, `inherit: false`만 미상속). 위임 깊이 2 불변.
+- **C-3 (L2 불간섭)**: `load_profile`은 L2를 억제·허가하지 않는다. `level: L2` 위임에서도 정의 파일 stub 분기 조건이 참이면 L2 Read는 정상 동작한다.
 
 ### ★ 디자인 협업 필수 규칙
 
@@ -87,9 +50,10 @@ for line in sys.stdin:
 
 ### ★ 기술 스택 프로파일 (위임 수신 시 판별)
 
-위임 수신 시 대상 프로젝트의 스택을 판별한다: ① `.crew/config.md` 스택 정의 → ② 프로젝트 파일 감지(`next.config.*`/`pyproject.toml`/`go.mod`) → ③ 기본값 **TypeScript + Next.js App Router**. 상세 기본값은 `references/stack-profile.md`를 Read한다 (best-practice와 동일한 cache find 패턴 사용):
+위임 수신 시 대상 프로젝트의 스택을 판별한다: ① `.crew/config.md` 스택 정의 절 → ② 프로젝트 파일 감지(`next.config.*`/`pyproject.toml`/`go.mod`) → ③ 기본값 **TypeScript + Next.js App Router**.
+상세 기본값이 필요할 때만(조건부) `references/stack-profile.md`를 아래 find 폴백으로 로드한다 — 무조건 Read 아님 [L2]:
 ```bash
-_SP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/stack-profile.md" 2>/dev/null | head -1); [ -z "$_SP" ] && _SP=$(find . -path "*/bams-plugin/references/stack-profile.md" 2>/dev/null | head -1)
+_SP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/stack-profile.md" 2>/dev/null | head -1); [ -z "$_SP" ] && _SP=$(find . -path "*/bams-plugin/references/stack-profile.md" 2>/dev/null | head -1)  # [L2]
 ```
 
 - Server Component 기본, `'use client'`는 상호작용 필요한 leaf에만 최소 적용 — 경계 애매 시 서버 우선, `ssr-csr-decider` 산출물(rendering-strategy.json) 있으면 그것을 따른다
@@ -97,7 +61,7 @@ _SP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/stack-profi
 - 스타일: Tailwind + shadcn/ui 관례. 하드코딩 값 대신 디자인 토큰. `next/image`/`next/font` 사용
 - 타입: strict 전제, `any` 금지(불가피 시 `unknown`+narrowing), 외부 경계는 zod 런타임 검증
 - **구현 완료 후 자체 검증 의무**: `bunx tsc --noEmit` + `bun run lint` 통과 확인 후 보고 (배치 최종 회차에는 `bun run build`까지) — package.json scripts 우선
-- Python/Go 프로젝트로 판별되면 이 절 대신 stack-profile.md 보조 프로파일을 따른다
+- Python/Go 프로젝트로 판별되면 이 절 대신 보조 프로파일을 따른다(§조건부 로드)
 
 ### ★ 반복 도메인 통합 대응 규칙 (필수 — 인라인 Bash 실행형 하드 게이트)
 
@@ -132,21 +96,16 @@ _SP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/stack-profi
 
 **[G-A] 배치 임계(파일 5개)**: 배치 임계값은 파일 5개다. 변경 파일 5개 초과 또는 예상 600,000ms 이상이면 배치 분할하며, 배치당 최대 5파일을 넘지 않는다.
 
-**[G-A2] 배치표 배선 컬럼 필수화**: Large 판정으로 배치 분할 계획(배치표)을 산출할 때,
-각 배치 행에 아래 2개 컬럼을 반드시 포함한다. 미기재 배치표는 착수 불가(하드 게이트).
+**[G-A2] 배치표 배선 컬럼 필수화**: Large 판정으로 배치 분할 계획(배치표)을 산출할 때, 각 배치 행에 아래 2개 컬럼을 반드시 포함한다. 미기재 배치표는 착수 불가(하드 게이트).
 
 | 배치 | 신규/대상 파일 | **배선 대상 기존 파일 경로** | **diff 성격** | 파일 수 |
 |---|---|---|---|---|
 | P1 | (신규) src/components/{NewComponent}.tsx | src/app/{route}/page.tsx | 신규 import만 | 3 |
 | P2 | — | src/components/{ExistingComponent}.tsx | **본문 수정** | 3 |
 
-- **배선 대상 기존 파일 경로**: 이 배치가 import·wrapping·구독 추가로 건드리는 기존 파일의 실경로.
-  신규 파일만 생성하는 배치는 "—"로 명기(공란 금지).
-- **diff 성격**: `신규 import만`(기존 파일에 import/래핑만 추가, 본문 로직 무변경) /
-  `본문 수정`(기존 컴포넌트 본문·JSX·로직 변경) 중 택1.
-- **무변경 게이트 예외 선등재**: `본문 수정`으로 표기된 배치는, 그 대상 파일이 무변경 게이트
-  (AC diff-0 술어)의 검사 경로에 포함되는지 착수 전 확인하고, 포함되면 해당 파일을
-  **게이트 예외로 배치표에 선등재**한다(사후 개별 승인 금지). 선등재 없이 본문 수정 시 게이트 FAIL로 간주.
+- **배선 대상 기존 파일 경로**: 이 배치가 import·wrapping·구독 추가로 건드리는 기존 파일의 실경로. 신규 파일만 생성하는 배치는 "—"로 명기(공란 금지).
+- **diff 성격**: `신규 import만`(기존 파일에 import/래핑만 추가, 본문 로직 무변경) / `본문 수정`(기존 컴포넌트 본문·JSX·로직 변경) 중 택1.
+- **무변경 게이트 예외 선등재**: `본문 수정`으로 표기된 배치는, 그 대상 파일이 무변경 게이트(AC diff-0 술어)의 검사 경로에 포함되는지 착수 전 확인하고, 포함되면 해당 파일을 **게이트 예외로 배치표에 선등재**한다(사후 개별 승인 금지). 선등재 없이 본문 수정 시 게이트 FAIL로 간주.
 
 ### ★ 동일 파이프라인 내 재호출 상한 (T-WARN-2)
 
@@ -298,14 +257,10 @@ delegation-protocol.md의 "부서장 → 에이전트" 위임 형식에 따라 �
 
 `.crew/memory/frontend-engineering/MEMORY.md`가 존재하면 세션 시작 시 Read한다(없으면 생략, 새로 만들지 않는다). 기록은 회고 파이프라인이 수행한다 — 상세 규칙은 `references/agent-memory.md`.
 
-## Best Practice 참조
+## Best Practice (조건부 로드)
 
-**★ 작업 시작 시 반드시 Read:**
-Bash로 best-practice 파일을 찾아 Read합니다:
+FE-BP: 복잡 판단·신규 패턴 필요 시에만(무조건 아님 — L2 조건부) 아래 find 폴백으로 `best-practices/frontend-engineering.md`를 탐색 후 Read한다. 발견 시 Responsibility별 협업 대상·절차·주의사항을 확인하고, 없으면 생략한다. [L2]
+
 ```bash
-_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/frontend-engineering.md" 2>/dev/null | head -1)
-[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/frontend-engineering.md" 2>/dev/null | head -1)
-[ -n "$_BP" ] && echo "참조: $_BP"
+_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/frontend-engineering.md" 2>/dev/null | head -1); [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/frontend-engineering.md" 2>/dev/null | head -1)  # [L2]
 ```
-- 파일이 발견되면 Read하여 해당 Responsibility별 협업 대상, 작업 절차, 주의사항을 확인
-- 파일이 없으면 건너뛰고 진행

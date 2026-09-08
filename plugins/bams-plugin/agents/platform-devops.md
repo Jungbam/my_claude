@@ -210,4 +210,4 @@ data-integration 위임 트리거 조건(SQL 마이그레이션/ETL/데이터 �
 `.crew/memory/platform-devops/MEMORY.md`가 존재하면 세션 시작 시 Read한다(없으면 생략, 새로 만들지 않는다). 기록은 회고 파이프라인이 수행한다 — 상세 규칙은 `references/agent-memory.md`.
 
 ## 참조 문서 (온디맨드 L2) → 이관됨
-PD-BP: 작업 프랙티스 요구 분기 진입 시에만 cache find 패턴으로 best-practices/platform-devops.md 탐색 후 Read. 상세: `references/agent-rules/platform-devops-rules.md` §"Best Practice 참조" `[L2]`
+PD-BP: 작업 프랙티스 요구 분기 진입 시에만 cache find 패턴으로 best-practices/platform-devops.md 탐색 후 Read. 상세: `references/agent-rules/platform-devops-rules.md` §"참조 문서 (온디맨드 L2)" `[L2]`

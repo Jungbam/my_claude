@@ -205,4 +205,4 @@ delegation-protocol.md의 "부서장 → 에이전트" 위임 형식에 따라 �
 `.crew/memory/backend-engineering/MEMORY.md`가 존재하면 세션 시작 시 Read한다(없으면 생략, 새로 만들지 않는다). 기록은 회고 파이프라인이 수행한다 — 상세 규칙은 `references/agent-memory.md`.
 
 ## 참조 문서 (온디맨드 L2) → 이관됨
-BE-BP: 작업 프랙티스 요구 분기 진입 시에만 cache find 패턴으로 best-practices/backend-engineering.md 탐색 후 Read. 상세: `references/agent-rules/backend-engineering-rules.md` §"Best Practice 참조" `[L2]`
+BE-BP: 작업 프랙티스 요구 분기 진입 시에만 cache find 패턴으로 best-practices/backend-engineering.md 탐색 후 Read. 상세: `references/agent-rules/backend-engineering-rules.md` §"참조 문서 (온디맨드 L2)" `[L2]`
