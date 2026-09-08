@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# validate-agent-sync.sh — 에이전트 11 checks 동기화 검증
+# validate-agent-sync.sh — 에이전트 12 checks 동기화 검증 (11 + [12] repo↔cache diff)
 # 사용법: bash plugins/bams-plugin/scripts/validate-agent-sync.sh
 # Exit code: 0=정합, 1=불일치
 
@@ -47,18 +47,18 @@ compare_source() {
   extra=$(comm -13 "$CANONICAL" "$src")
 
   if [[ -z "$missing" && -z "$extra" ]]; then
-    echo -e "  [${num}/11] ${label} ... ${GREEN}OK${NC} (${src_count}/${CANONICAL_COUNT})"
+    echo -e "  [${num}/12] ${label} ... ${GREEN}OK${NC} (${src_count}/${CANONICAL_COUNT})"
   else
     if [[ -n "$missing" ]]; then
       local missing_list
       missing_list=$(echo "$missing" | tr '\n' ', ' | sed 's/,$//')
-      echo -e "  [${num}/11] ${label} ... ${RED}MISSING${NC}: ${missing_list}"
+      echo -e "  [${num}/12] ${label} ... ${RED}MISSING${NC}: ${missing_list}"
       ERRORS=$((ERRORS + 1))
     fi
     if [[ -n "$extra" ]]; then
       local extra_list
       extra_list=$(echo "$extra" | tr '\n' ', ' | sed 's/,$//')
-      echo -e "  [${num}/11] ${label} ... ${YELLOW}EXTRA${NC}: ${extra_list}"
+      echo -e "  [${num}/12] ${label} ... ${YELLOW}EXTRA${NC}: ${extra_list}"
       ERRORS=$((ERRORS + 1))
     fi
   fi
@@ -75,7 +75,7 @@ if [[ -f "$PLUGIN_JSON" ]]; then
     | sort > "$SRC_PLUGIN"
   compare_source "1" "plugin.json" "$SRC_PLUGIN"
 else
-  echo -e "  [1/11] plugin.json ... ${RED}FILE NOT FOUND${NC}"
+  echo -e "  [1/12] plugin.json ... ${RED}FILE NOT FOUND${NC}"
   ERRORS=$((ERRORS + 1))
 fi
 
@@ -127,11 +127,11 @@ if [[ -f "$JOJIKDO" ]]; then
   done < "$SRC_JOJIKDO_RAW"
 
   if [[ -n "$WARNINGS" ]]; then
-    echo -e "  [2/11] jojikdo.json ... ${YELLOW}WARN${NC}: naming mismatch (${WARNINGS%, })"
+    echo -e "  [2/12] jojikdo.json ... ${YELLOW}WARN${NC}: naming mismatch (${WARNINGS%, })"
   fi
   compare_source "2" "jojikdo.json" "$SRC_JOJIKDO"
 else
-  echo -e "  [2/11] jojikdo.json ... ${RED}FILE NOT FOUND${NC}"
+  echo -e "  [2/12] jojikdo.json ... ${RED}FILE NOT FOUND${NC}"
   ERRORS=$((ERRORS + 1))
 fi
 
@@ -152,7 +152,7 @@ if [[ -f "$DELEG" ]]; then
   sort -o "$SRC_DELEG" "$SRC_DELEG"
   compare_source "3" "delegation-protocol.md" "$SRC_DELEG"
 else
-  echo -e "  [3/11] delegation-protocol.md ... ${RED}FILE NOT FOUND${NC}"
+  echo -e "  [3/12] delegation-protocol.md ... ${RED}FILE NOT FOUND${NC}"
   ERRORS=$((ERRORS + 1))
 fi
 
@@ -175,7 +175,7 @@ if [[ -f "$INIT_MD" ]]; then
   sort -o "$SRC_INIT" "$SRC_INIT"
   compare_source "4" "init.md CLAUDE.md" "$SRC_INIT"
 else
-  echo -e "  [4/11] init.md ... ${RED}FILE NOT FOUND${NC}"
+  echo -e "  [4/12] init.md ... ${RED}FILE NOT FOUND${NC}"
   ERRORS=$((ERRORS + 1))
 fi
 
@@ -191,12 +191,12 @@ if [[ -d "$BP_DIR" ]]; then
     | sort > "$SRC_BP"
   compare_source "5" "best-practices/" "$SRC_BP"
 else
-  echo -e "  [5/11] best-practices/ ... ${RED}DIRECTORY NOT FOUND${NC}"
+  echo -e "  [5/12] best-practices/ ... ${RED}DIRECTORY NOT FOUND${NC}"
   ERRORS=$((ERRORS + 1))
 fi
 
 # ─────────────────────────────────────────────
-# [5b/11] best-practice 콘텐츠 검증 (Wave 1 6 파일 한정)
+# [5b/12] best-practice 콘텐츠 검증 (Wave 1 6 파일 한정)
 # ─────────────────────────────────────────────
 _BP_WAVE1=(guide-decomposer guide-recomposer data-binding-mapper accessibility-auditor routing-strategist ssr-csr-decider)
 _BP_WAVE1_FAIL=0
@@ -205,7 +205,7 @@ for slug in "${_BP_WAVE1[@]}"; do
   if [ -f "$bp" ]; then
     # placeholder 패턴 감지 (실제 미작성 패턴만 — 파일명/변수명 내 용어 제외)
     if grep -qE '\(추후 작성\)|^> Placeholder|TODO: |^\(TODO\)' "$bp"; then
-      echo -e "  [5b/11] best-practice 콘텐츠 ... ${RED}FAIL${NC}: ${slug} placeholder 잔존"
+      echo -e "  [5b/12] best-practice 콘텐츠 ... ${RED}FAIL${NC}: ${slug} placeholder 잔존"
       ERRORS=$((ERRORS + 1))
       _BP_WAVE1_FAIL=$((_BP_WAVE1_FAIL + 1))
       continue
@@ -213,14 +213,14 @@ for slug in "${_BP_WAVE1[@]}"; do
     # 줄수 >= 30 (50 목표지만 안전 margin)
     _LINES=$(wc -l < "$bp" | tr -d ' ')
     if [ "$_LINES" -lt 30 ]; then
-      echo -e "  [5b/11] best-practice 줄수 ... ${RED}FAIL${NC}: ${slug} ${_LINES}줄 < 30"
+      echo -e "  [5b/12] best-practice 줄수 ... ${RED}FAIL${NC}: ${slug} ${_LINES}줄 < 30"
       ERRORS=$((ERRORS + 1))
       _BP_WAVE1_FAIL=$((_BP_WAVE1_FAIL + 1))
     fi
   fi
 done
 if [ "$_BP_WAVE1_FAIL" -eq 0 ]; then
-  echo -e "  [5b/11] best-practice 콘텐츠 (Wave 1 6) ... ${GREEN}OK${NC}"
+  echo -e "  [5b/12] best-practice 콘텐츠 (Wave 1 6) ... ${GREEN}OK${NC}"
 fi
 
 # ─────────────────────────────────────────────
@@ -233,9 +233,9 @@ for f in "$PLUGIN_DIR"/agents/*.md; do
   fi
 done
 if [[ -z "$MISSING_DEPT" ]]; then
-  echo -e "  [6/11] frontmatter department: ... ${GREEN}OK${NC} (${CANONICAL_COUNT}/${CANONICAL_COUNT})"
+  echo -e "  [6/12] frontmatter department: ... ${GREEN}OK${NC} (${CANONICAL_COUNT}/${CANONICAL_COUNT})"
 else
-  echo -e "  [6/11] frontmatter department: ... ${RED}MISSING${NC}: ${MISSING_DEPT%, }"
+  echo -e "  [6/12] frontmatter department: ... ${RED}MISSING${NC}: ${MISSING_DEPT%, }"
   ERRORS=$((ERRORS + 1))
 fi
 
@@ -249,9 +249,9 @@ for f in "$PLUGIN_DIR"/agents/*.md; do
   fi
 done
 if [[ -z "$MISSING_DT" ]]; then
-  echo -e "  [7/11] frontmatter disallowedTools: ... ${GREEN}OK${NC} (${CANONICAL_COUNT}/${CANONICAL_COUNT})"
+  echo -e "  [7/12] frontmatter disallowedTools: ... ${GREEN}OK${NC} (${CANONICAL_COUNT}/${CANONICAL_COUNT})"
 else
-  echo -e "  [7/11] frontmatter disallowedTools: ... ${YELLOW}WARN${NC}: ${MISSING_DT%, }"
+  echo -e "  [7/12] frontmatter disallowedTools: ... ${YELLOW}WARN${NC}: ${MISSING_DT%, }"
 fi
 
 # ─────────────────────────────────────────────
@@ -259,9 +259,9 @@ fi
 # ─────────────────────────────────────────────
 PNC="$PLUGIN_DIR/references/pipeline-naming-convention.md"
 if [[ -f "$PNC" ]]; then
-  echo -e "  [8/11] pipeline-naming-convention.md ... ${GREEN}OK${NC}"
+  echo -e "  [8/12] pipeline-naming-convention.md ... ${GREEN}OK${NC}"
 else
-  echo -e "  [8/11] pipeline-naming-convention.md ... ${YELLOW}WARN${NC}: not found"
+  echo -e "  [8/12] pipeline-naming-convention.md ... ${YELLOW}WARN${NC}: not found"
 fi
 
 # ─────────────────────────────────────────────
@@ -272,12 +272,12 @@ if [[ -f "$JOJIKDO" ]] && grep -q "data_integration_engineering_agent" "$JOJIKDO
   # Verify data_integration is under engineering-platform department
   _DI_DEPT=$(jq -r '.departments[] | select(.agents[]?.agent_id == "data_integration_engineering_agent") | .department_id' "$JOJIKDO" 2>/dev/null)
   if [[ "$_DI_DEPT" == "engineering-platform" ]]; then
-    echo -e "  [9/11] jojikdo data_integration department ... ${GREEN}OK${NC} (engineering-platform 소속, department_lead: platform_devops_agent)"
+    echo -e "  [9/12] jojikdo data_integration department ... ${GREEN}OK${NC} (engineering-platform 소속, department_lead: platform_devops_agent)"
   else
-    echo -e "  [9/11] jojikdo data_integration department ... ${YELLOW}WARN${NC}: expected engineering-platform, got ${_DI_DEPT:-unknown}"
+    echo -e "  [9/12] jojikdo data_integration department ... ${YELLOW}WARN${NC}: expected engineering-platform, got ${_DI_DEPT:-unknown}"
   fi
 else
-  echo -e "  [9/11] jojikdo data_integration special case ... ${YELLOW}INFO${NC}: special case key not found"
+  echo -e "  [9/12] jojikdo data_integration special case ... ${YELLOW}INFO${NC}: special case key not found"
 fi
 
 # ─────────────────────────────────────────────
@@ -313,21 +313,21 @@ if [[ -f "$POLICY" ]]; then
   MISSING_IN_CODE=$(comm -13 "$ACTUAL_IMPL" "$POLICY_IMPL")
 
   if [[ -z "$MISSING_IN_POLICY" && -z "$MISSING_IN_CODE" ]]; then
-    echo -e "  [10/11] policy-code drift (agent-tool-policy) ... ${GREEN}OK${NC} (${ACTUAL_COUNT}=${POLICY_COUNT})"
+    echo -e "  [10/12] policy-code drift (agent-tool-policy) ... ${GREEN}OK${NC} (${ACTUAL_COUNT}=${POLICY_COUNT})"
   else
     if [[ -n "$MISSING_IN_POLICY" ]]; then
       ml=$(echo "$MISSING_IN_POLICY" | tr '\n' ', ' | sed 's/,$//')
-      echo -e "  [10/11] policy-code drift ... ${RED}MISSING IN POLICY${NC}: ${ml}"
+      echo -e "  [10/12] policy-code drift ... ${RED}MISSING IN POLICY${NC}: ${ml}"
       ERRORS=$((ERRORS + 1))
     fi
     if [[ -n "$MISSING_IN_CODE" ]]; then
       el=$(echo "$MISSING_IN_CODE" | tr '\n' ', ' | sed 's/,$//')
-      echo -e "  [10/11] policy-code drift ... ${RED}MISSING IN CODE${NC}: ${el}"
+      echo -e "  [10/12] policy-code drift ... ${RED}MISSING IN CODE${NC}: ${el}"
       ERRORS=$((ERRORS + 1))
     fi
   fi
 else
-  echo -e "  [10/11] policy-code drift ... ${RED}FILE NOT FOUND${NC}: agent-tool-policy.md"
+  echo -e "  [10/12] policy-code drift ... ${RED}FILE NOT FOUND${NC}: agent-tool-policy.md"
   ERRORS=$((ERRORS + 1))
 fi
 
@@ -338,12 +338,36 @@ fi
 if command -v bun >/dev/null 2>&1; then
   SYNC_RESULT=$(bun run "$PLUGIN_DIR/scripts/sync-specialists.ts" 2>&1 | tail -1 || true)
   if echo "$SYNC_RESULT" | grep -q "Dry-run: 0 drifts"; then
-    echo -e "  [11/11] specialist-roster SSOT ... ${GREEN}OK${NC}"
+    echo -e "  [11/12] specialist-roster SSOT ... ${GREEN}OK${NC}"
   else
-    echo -e "  [11/11] specialist-roster SSOT ... ${YELLOW}WARN${NC}: drifts detected (run sync-specialists.ts --apply or insert markers)"
+    echo -e "  [11/12] specialist-roster SSOT ... ${YELLOW}WARN${NC}: drifts detected (run sync-specialists.ts --apply or insert markers)"
   fi
 else
-  echo -e "  [11/11] specialist-roster SSOT ... ${YELLOW}SKIP${NC}: bun not installed"
+  echo -e "  [11/12] specialist-roster SSOT ... ${YELLOW}SKIP${NC}: bun not installed"
+fi
+
+# ─────────────────────────────────────────────
+# 12. repo ↔ plugin-cache diff (agents / references / commands) (FAIL)
+#     캐시 경로는 resolve-cache.sh(installed_plugins.json installPath SSOT)로 확정.
+#     scripts/ 는 repo-fixed 실행이라 diff 대상에서 제외(런타임 미로드).
+#     CACHE_ROOT 해석 실패 시 SKIP이 아니라 ERRORS++ (E-2b ADJ-2 — R-2 무력화 방지).
+# ─────────────────────────────────────────────
+CACHE_ROOT="$("$PLUGIN_DIR/scripts/resolve-cache.sh")" || {
+  echo -e "  [12/12] repo↔cache diff ... ${RED}FAIL${NC}: 캐시 경로 확정 실패(installPath 후보≠1)"
+  ERRORS=$((ERRORS + 1)); CACHE_ROOT=""
+}
+if [[ -n "$CACHE_ROOT" ]]; then
+  _DIFF_FAIL=0
+  for sub in agents references commands; do   # scripts 제외(repo-fixed)
+    if [[ -d "$PLUGIN_DIR/$sub" && -d "$CACHE_ROOT/$sub" ]]; then
+      d=$(diff -rq "$PLUGIN_DIR/$sub" "$CACHE_ROOT/$sub" 2>&1) || true   # diff exit1(차이)로 set -e 중단 방지
+      [[ -n "$d" ]] && { echo -e "  [12/12] repo↔cache ($sub) ... ${RED}MISMATCH${NC}"; \
+        echo "$d" | sed 's/^/        /' | head -20; ERRORS=$((ERRORS+1)); _DIFF_FAIL=$((_DIFF_FAIL+1)); }
+    else
+      echo -e "  [12/12] repo↔cache ($sub) ... ${YELLOW}WARN${NC}: 한쪽 디렉터리 부재"
+    fi
+  done
+  [[ "$_DIFF_FAIL" -eq 0 ]] && echo -e "  [12/12] repo↔cache diff ... ${GREEN}OK${NC} (${CACHE_ROOT##*/bams-plugin/})"
 fi
 
 # ─────────────────────────────────────────────

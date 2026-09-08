@@ -7,7 +7,8 @@ set -euo pipefail
 # ──────────────────────────────────────────────────────────────────────────────
 
 PLUGIN_DIR="$(cd "$(dirname "$0")" && pwd)"
-CACHE_BASE="$HOME/.claude/plugins/cache/my-claude/bams-plugin"
+# 캐시 경로는 하드코딩 금지 — resolve-cache.sh(installed_plugins.json installPath SSOT)로 확정.
+# (design-infra §5-1 E-2: sync/validate/게이트/SOP 4곳이 동일 SSOT 함수 사용)
 
 # ─── 플래그 파싱 ─────────────────────────────────────────────────────────────
 DRY_RUN=false
@@ -42,18 +43,13 @@ if [ ! -d "$PLUGIN_DIR" ]; then
   exit 1
 fi
 
-# ─── Cache 버전 디렉토리 자동 감지 ──────────────────────────────────────────
-if [ ! -d "$CACHE_BASE" ]; then
-  echo "Error: cache base 디렉토리를 찾을 수 없습니다: $CACHE_BASE" >&2
+# ─── Cache 버전 디렉토리 확정 (installPath SSOT) ─────────────────────────────
+# `ls -d … | sort -V | tail -1`(최고 버전 문자열 추정) 폐기 —
+# 2.4.0/2.1.0 드리프트 시 존재하지 않는 디렉터리 선택 위험. installPath로 1개 확정.
+VERSION_DIR="$("$PLUGIN_DIR/scripts/resolve-cache.sh")" || {
+  echo "Error: 캐시 경로 확정 실패(installPath 후보≠1) — resolve-cache.sh 종료코드 확인" >&2
   exit 1
-fi
-
-VERSION_DIR=$(ls -d "$CACHE_BASE"/*/ 2>/dev/null | sort -V | tail -1)
-
-if [ -z "$VERSION_DIR" ]; then
-  echo "Error: cache 버전 디렉토리가 없습니다: $CACHE_BASE/*/" >&2
-  exit 1
-fi
+}
 
 # 끝 슬래시 보장
 VERSION_DIR="${VERSION_DIR%/}/"
