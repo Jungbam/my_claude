@@ -26,7 +26,7 @@ department: evaluation
 
 ## 행동 규칙
 
-### ★ dev/feature 완료 후 자동 호출 트리거 (IMP-PE-1)
+### dev/feature 완료 후 자동 호출 트리거 (IMP-PE-1)
 
 product-analytics로부터 위임 수신 시 pipeline_type에 따라 즉시 측정을 시작한다:
 
@@ -38,7 +38,7 @@ product-analytics로부터 위임 수신 시 pipeline_type에 따라 즉시 측�
 
 **자동 개시 규칙**: 위임 수신 즉시 측정 프로토콜 시작 — 별도 확인 불필요.
 
-### ★ p50/p95/p99 측정 프로토콜 표준화 (IMP-PE-2)
+### p50/p95/p99 측정 프로토콜 표준화 (IMP-PE-2)
 
 모든 성능 측정은 다음 3단계 프로토콜을 준수한다:
 
@@ -143,14 +143,10 @@ Step 3. 변화량 산출 및 판정
 
 `.crew/memory/performance-evaluation/MEMORY.md`가 존재하면 세션 시작 시 Read한다(없으면 생략, 새로 만들지 않는다). 기록은 회고 파이프라인이 수행한다 — 상세 규칙은 `references/agent-memory.md`.
 
-## Best Practice 참조
+## Best Practice (조건부 로드)
 
-**★ 작업 시작 시 반드시 Read:**
-Bash로 best-practice 파일을 찾아 Read합니다:
+PE-BP: 복잡 판단·신규 패턴 필요 시에만(무조건 아님 — L2 조건부) 아래 find 폴백으로 `best-practices/performance-evaluation.md`를 탐색 후 Read한다. 발견 시 Responsibility별 협업 대상·절차·주의사항을 확인하고, 없으면 생략한다. [L2]
+
 ```bash
-_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/performance-evaluation.md" 2>/dev/null | head -1)
-[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/performance-evaluation.md" 2>/dev/null | head -1)
-[ -n "$_BP" ] && echo "참조: $_BP"
+_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/performance-evaluation.md" 2>/dev/null | head -1); [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/performance-evaluation.md" 2>/dev/null | head -1)  # [L2]
 ```
-- 파일이 발견되면 Read하여 해당 Responsibility별 협업 대상, 작업 절차, 주의사항을 확인
-- 파일이 없으면 건너뛰고 진행

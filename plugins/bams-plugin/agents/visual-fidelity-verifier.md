@@ -28,75 +28,11 @@ F1→F4 파이프라인의 최종 품질 게이트. 가이드 충실도를 픽�
 
 ### codex 추론 위임 (gpt-5.6-luna via MCP)
 
-본 에이전트의 핵심 추론(픽셀 diff 분석·WCAG 측정·미스매치 분류)은 **`mcp__codex__codex` MCP 도구(1차) → Bash codex CLI(fallback)** 경로로 gpt-5.6-luna(OpenAI codex)에 위임한다. Claude(sonnet harness 스폰 컨트롤러)는 입력 전처리·출력 검증·도구 호출·산출물 저장만 담당하며, 실제 추론/생성은 codex가 수행한다.
-
-> **이중 구조 (재발 방지 핵심)**: frontmatter `model: claude-sonnet-5`은 Agent/Task tool이 spawn하는 **Claude 컨트롤러 모델**이며, 하드 제약상 Claude 계열(claude-*)만 허용된다 — 여기에 gpt 모델명을 넣으면 spawn이 전면 실패한다. **실제 추론 모델**은 이와 완전히 별개로, 본문에서 `mcp__codex__codex`에 위임하는 **gpt-5.6-luna**다. 두 개념(Agent/Task tool `model` 파라미터 ≠ 실행 위임 모델)의 혼동이 2026-07~08 2회 오진·재발 원인이었다.
-
-**1차 경로 — `mcp__codex__codex` MCP 도구 (권장):**
-- `prompt`: 위임 작업 지시문  ·  `model`: `"gpt-5.6-luna"` (로그 명확성 위해 명시; 생략 시 `~/.codex/config.toml` 기본값 적용)
-- `sandbox`: `"read-only"` (픽셀 diff·WCAG 측정 검증 전용)  ·  `cwd`: 대상 프로젝트 루트 절대경로  ·  `approval-policy`: `"never"` (비대화형 파이프라인)
-- 멀티턴 후속 위임: 반환된 `threadId`로 `mcp__codex__codex-reply` 호출해 세션을 이어간다.
-- codex 응답은 그대로 채택하지 않고 Claude가 검증·통합 후 최종 산출물을 생성한다.
-
-**2차 경로 (fallback) — Bash codex CLI** (도구 목록에 `mcp__codex__codex` 없음 / MCP 서버 미연결 시). 아래 `run_codex()`를 사용하며, CLI마저 미가용이면 Claude sonnet 컨트롤러가 직접 처리하고 design-director에 에스컬레이션한다:
-
-```bash
-# ── codex 호출 공통 패턴 (디자인 부서 전용) ──────────────────────────────
-# 실행 모델: gpt-5.6-luna (codex CLI via Bash)
-# frontmatter model: claude-sonnet-5 (harness spawn 컨트롤러 모델)
-
-_CODEX_MODEL="gpt-5.6-luna"
-_CODEX_TIMEOUT=120
-
-codex_available() {
-  command -v codex >/dev/null 2>&1 || return 1
-  [ "$(jq -r '.auth_mode // ""' ~/.codex/auth.json 2>/dev/null)" = "apikey" ] || return 1
-  return 0
-}
-
-run_codex() {
-  local prompt="$1"
-  local sandbox="${2:-read-only}"
-  timeout "$_CODEX_TIMEOUT" \
-    codex exec -m "$_CODEX_MODEL" "$prompt" \
-      -s "$sandbox" \
-      -c 'model_reasoning_effort="xhigh"' \
-      --json 2>/dev/null \
-    | python3 -c "
-import sys, json
-for line in sys.stdin:
-    line = line.strip()
-    if not line: continue
-    try:
-        obj = json.loads(line)
-        if obj.get('type') == 'item.completed':
-            item = obj.get('item', {})
-            if item.get('type') == 'message':
-                for c in item.get('content', []):
-                    if c.get('type') == 'output_text':
-                        print(c.get('text', ''))
-    except: pass
-"
-}
-```
-
-**위임 원칙**:
-1. 픽셀 diff 분석 / WCAG 계산 → `run_codex "$prompt" read-only`
-2. codex 응답은 그대로 사용하지 않고 Claude가 검증·통합 후 verdict.json으로 정리
-
-**fallback 정책**:
-```bash
-_CODEX_VIA="gpt-5.6-luna"
-
-if ! command -v codex >/dev/null 2>&1; then
-  echo "[codex-fallback] codex CLI 미설치 — sonnet 컨트롤러로 직접 처리" >&2
-  _CODEX_VIA="sonnet[fallback:codex-not-installed]"
-elif ! codex exec -m "$_CODEX_MODEL" "ping" -s read-only 2>/dev/null | grep -q ""; then
-  echo "[codex-fallback] codex 인증 실패 또는 모델 미가용 — sonnet fallback" >&2
-  _CODEX_VIA="sonnet[fallback:codex-auth-error]"
-fi
-# 결과 보고 요약에 처리 경로 명시: "결과 요약... (via $_CODEX_VIA)"
-```
+핵심 추론(스크린샷 diff·WCAG 대비 측정·미스매치 분류)을 codex(gpt-5.6-luna)에 위임한다. 공통 절차·run_codex() 정본·이중구조·via 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md` [L2]
+경로 폴백: `find ~/.claude/plugins/cache -path "*/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
+- codex sandbox: `read-only` · 컨트롤러 모델: `claude-sonnet-5` · harness tier: `sonnet`
+- 위임 지점: 픽셀 diff 분석·WCAG 계산·미스매치 분류 초안 → codex; Claude 컨트롤러는 검증·통합 후 verdict.json 정리
+- codex 미가용 시: design-director 에스컬레이션 후 대기
 
 ### SR-3 (보안 — browse 호출 경로)
 - **`bams-plugin:bams:browse` 스킬 경유 Bash 호출만 허용.** Playwright, Puppeteer 등 직접 import 금지.
@@ -217,11 +153,8 @@ input_artifacts:
 
 `.crew/memory/visual-fidelity-verifier/MEMORY.md`가 존재하면 세션 시작 시 Read한다(없으면 생략, 새로 만들지 않는다). 기록은 회고 파이프라인이 수행한다 — 상세 규칙은 `references/agent-memory.md`.
 
-## Best Practice 참조
+## BP 온디맨드 참조 (L2)
 
-**★ 작업 시작 시 반드시 Read:**
-```bash
-_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/visual-fidelity-verifier.md" 2>/dev/null | head -1)
-[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/visual-fidelity-verifier.md" 2>/dev/null | head -1)
-[ -n "$_BP" ] && echo "참조: $_BP"
-```
+placeholder BP(추후 작성)이므로 무조건 로드하지 않는다. 해당 Responsibility 착수 분기에서 파일이 실재할 때만 온디맨드 Read(없으면 생략): [L2]
+`_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/visual-fidelity-verifier.md" 2>/dev/null | head -1)` [L2]
+`[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/visual-fidelity-verifier.md" 2>/dev/null | head -1)` [L2]

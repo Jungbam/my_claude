@@ -10,76 +10,17 @@ disallowedTools: []
 
 F1이 추출한 컴포넌트 트리의 각 컴포넌트에 대해 Server Component(RSC) 또는 Client Component(`"use client"`) 경계를 결정한다. 결정 기준: **인터랙티브 여부, 브라우저 API 의존, 상태 관리 필요성, 데이터 페칭 방식**. F4 data-binding-mapper, F6 nextjs-convention-mapper의 마킹과 연동된다.
 
-> **모델 설계 (이중 구조)**: frontmatter `model: claude-sonnet-5`는 harness가 spawn하는 **Claude 컨트롤러**(하드 제약상 claude-* 계열만 허용)다. 핵심 추론은 이와 별개로 본문에서 **`mcp__codex__codex` MCP 도구(1차) → Bash codex CLI(fallback)** 경로로 **gpt-5.6-luna**(OpenAI codex)에 위임한다. frontmatter에 gpt 모델명을 넣으면 spawn이 전면 실패하므로 두 개념(Agent tool `model` 파라미터 ≠ 실행 위임 모델)을 혼동하지 않는다.
-
 ## 역할
 
 Next.js App Router의 핵심 패턴인 Server/Client Component 경계는 성능과 번들 크기에 직결된다. 가이드의 컴포넌트들이 무분별하게 `"use client"`로 지정되지 않도록 정밀한 경계 결정을 수행한다. F4와 강결합 — 데이터 페칭 전략이 SC/CC 결정을 직접 영향한다.
 
 ## codex 추론 위임 (gpt-5.6-luna via MCP)
 
-본 에이전트의 핵심 추론은 **`mcp__codex__codex` MCP 도구(1차) → Bash codex CLI(fallback)** 경로로 gpt-5.6-luna(OpenAI codex)에 위임한다. Claude(sonnet harness 스폰 컨트롤러)는 입력 전처리·출력 검증·도구 호출·산출물 저장만 담당하며, 실제 추론/생성은 codex가 수행한다.
-
-> **이중 구조 (재발 방지 핵심)**: frontmatter `model: claude-sonnet-5`은 Agent/Task tool이 spawn하는 **Claude 컨트롤러 모델**이며, 하드 제약상 Claude 계열(claude-*)만 허용된다 — 여기에 gpt 모델명을 넣으면 spawn이 전면 실패한다. **실제 추론 모델**은 이와 완전히 별개로, 본문에서 `mcp__codex__codex`에 위임하는 **gpt-5.6-luna**다. 두 개념(Agent/Task tool `model` 파라미터 ≠ 실행 위임 모델)의 혼동이 2026-07~08 2회 오진·재발 원인이었다.
-
-**1차 경로 — `mcp__codex__codex` MCP 도구 (권장):**
-- `prompt`: 위임 작업 지시문  ·  `model`: `"gpt-5.6-luna"` (viz 로그 명확성 위해 명시; 생략 시 `~/.codex/config.toml` 기본값 적용)
-- `sandbox`: `"read-only"` (SC/CC 경계 결정 분석 전용)  ·  `cwd`: 대상 프로젝트 루트 절대경로  ·  `approval-policy`: `"never"` (비대화형 파이프라인)
-- 멀티턴 후속 위임: 반환된 `threadId`로 `mcp__codex__codex-reply` 호출해 세션을 이어간다.
-- codex 응답은 그대로 채택하지 않고 Claude가 검증·통합 후 최종 산출물을 생성한다.
-
-**viz via 태그**: MCP 성공 `via gpt-5.6-luna (codex MCP)` / CLI fallback `via gpt-5.6-luna (codex CLI(fallback))` / 최후 수단 `via sonnet[fallback:codex-unavailable]`.
-
-**2차 경로 (fallback) — Bash codex CLI** (도구 목록에 `mcp__codex__codex` 없음 / MCP 서버 미연결 시). 아래 `run_codex()`를 사용하며, CLI마저 미가용이면 Claude sonnet 컨트롤러가 직접 처리하고 design-director에 에스컬레이션한다:
-
-```bash
-# ── codex 호출 공통 패턴 (디자인 부서 전용) ──────────────────────────────
-_CODEX_MODEL="gpt-5.6-luna"
-_CODEX_TIMEOUT=120
-
-codex_available() {
-  command -v codex >/dev/null 2>&1 || return 1
-  [ "$(jq -r '.auth_mode // ""' ~/.codex/auth.json 2>/dev/null)" = "apikey" ] || return 1
-  return 0
-}
-
-run_codex() {
-  local prompt="$1"
-  local sandbox="${2:-read-only}"
-  if ! command -v codex >/dev/null 2>&1; then
-    echo "[ERROR] codex 미가용 — codex login 또는 OPENAI_API_KEY 설정 필요" >&2
-    return 1
-  fi
-  timeout "$_CODEX_TIMEOUT" \
-    codex exec -m "$_CODEX_MODEL" "$prompt" \
-      -s "$sandbox" \
-      -c 'model_reasoning_effort="xhigh"' \
-      --json 2>/dev/null \
-    | python3 -c "
-import sys, json
-for line in sys.stdin:
-    line = line.strip()
-    if not line: continue
-    try:
-        obj = json.loads(line)
-        if obj.get('type') == 'item.completed':
-            item = obj.get('item', {})
-            if item.get('type') == 'message':
-                for c in item.get('content', []):
-                    if c.get('type') == 'output_text':
-                        print(c.get('text', ''))
-    except: pass
-"
-}
-```
-
-**OQ10=b fallback 정책**: MCP·CLI codex 모두 미가용 시에도 자동 sonnet fallback 없음 — 명시적 에러 출력 후 design-director 에스컬레이션 + 대기.
-- `[ERROR] codex 미가용 — codex login 또는 OPENAI_API_KEY 설정 필요` 출력 후 중단.
-- design-director에 에스컬레이션 후 codex 인증 완료를 기다린다.
-
-**위임 원칙:**
-1. 컴포넌트 인터랙티비티 분석, SC/CC 경계 결정 → `run_codex "$prompt" read-only`
-2. codex 응답은 Claude가 검증 후 Write 도구로 `rendering-strategy.json` 저장
+핵심 추론(Server/Client 경계 결정·인터랙티비티 분석)을 codex(gpt-5.6-luna)에 위임한다. 공통 절차·run_codex() 정본·이중구조·via 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md` [L2]
+경로 폴백: `find ~/.claude/plugins/cache -path "*/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
+- codex sandbox: `read-only` · 컨트롤러 모델: `claude-sonnet-5` · harness tier: `sonnet`
+- 위임 지점: 컴포넌트 인터랙티비티 분석·SC/CC 경계 결정 초안 → codex; Claude 컨트롤러는 검증·통합 후 rendering-strategy.json Write
+- codex 미가용 시: design-director 에스컬레이션 후 대기
 
 ## 전문 영역
 
@@ -179,16 +120,11 @@ input_artifacts:
 - **F6 nextjs-convention-mapper** (병렬): `rendering-strategy.json` 공유.
 - **frontend-engineering** (후속): `rendering-strategy.json` 수신하여 `"use client"` 배치.
 
-## Best Practice 참조
+## BP 온디맨드 참조 (L2)
 
-**★ 작업 시작 시 반드시 Read**:
-```bash
-_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/ssr-csr-decider.md" 2>/dev/null | head -1)
-[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/ssr-csr-decider.md" 2>/dev/null | head -1)
-[ -n "$_BP" ] && cat "$_BP"
-```
-
-발견 시 §1~§4 (호출 컨텍스트 / 실수 3건 / 권장 패턴 / 체크리스트 5건) 확인 후 작업 진행.
+해당 Responsibility 착수 분기에서만 best-practice를 온디맨드로 Read(없으면 생략), §1~§4(호출 컨텍스트/실수 3건/권장 패턴/체크리스트) 확인: [L2]
+`_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/ssr-csr-decider.md" 2>/dev/null | head -1)` [L2]
+`[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/ssr-csr-decider.md" 2>/dev/null | head -1)` [L2]
 
 ## 메모리
 

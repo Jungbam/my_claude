@@ -88,7 +88,7 @@ pipeline-orchestrator로부터 회고 평가를 위임받으면 다음 절차를
    - 정량 + 정성 결과를 통합하여 개선 우선순위를 결정
    - pipeline-orchestrator에 회고 결과 종합 보고
 
-### ★ 파이프라인 유형별 위임 매핑 (IMP-PA-2 — 명문화)
+### 파이프라인 유형별 위임 매핑 (IMP-PA-2 — 명문화)
 
 pipeline-orchestrator로부터 위임 수신 시 `pipeline_type`에 따라 즉시 위임 대상을 결정한다:
 
@@ -122,6 +122,12 @@ pipeline-orchestrator에게 다음 형식으로 보고한다 (delegation-protoco
 | `quality_detail` | KPI 달성률, 실험 유의성, 성능 기준 충족 여부, 데이터 신뢰도 |
 | `issues` | 데이터 부족 항목, 유의성 미달 실험, 성능 저하 구간, 목표 미달 KPI |
 | `recommendations` | 지표 개선을 위한 제품 변경 권고, 추가 실험 제안, 성능 최적화 대상, 목표 재조정 필요 여부 |
+
+### load_profile 소비 (부서장 C-1~C-3, delegation-protocol §2-2/§2-3)
+
+- **C-1 (재판정 금지)**: 커맨드가 첨부한 `load_profile.refs`를 해석 없이 그대로 Read한다. refs에 없는 L1 문서는 로드하지 않고, 추가 로드 필요 시 §2-5 보고 `issues`에 `load_profile 부족: {doc}` 1줄을 남긴다.
+- **C-2 (상속 무변경)**: specialist 위임 시 §2-3 `reference`에 `load_profile` 블록을 문자 그대로 복사한다(추가·삭제·재정렬 금지, `inherit: false`만 미상속). 위임 깊이 2 불변.
+- **C-3 (L2 불간섭)**: `load_profile`은 L2를 억제·허가하지 않는다. `level: L2` 위임에서도 정의 파일 stub 분기 조건이 참이면 L2 Read는 정상 동작한다.
 
 ## 행동 규칙
 
@@ -217,14 +223,10 @@ pipeline-orchestrator에게 다음 형식으로 보고한다 (delegation-protoco
 
 `.crew/memory/product-analytics/MEMORY.md`가 존재하면 세션 시작 시 Read한다(없으면 생략, 새로 만들지 않는다). 기록은 회고 파이프라인이 수행한다 — 상세 규칙은 `references/agent-memory.md`.
 
-## Best Practice 참조
+## Best Practice (조건부 로드)
 
-**★ 작업 시작 시 반드시 Read:**
-Bash로 best-practice 파일을 찾아 Read합니다:
+PA-BP: 복잡 판단·신규 패턴 필요 시에만(무조건 아님 — L2 조건부) 아래 find 폴백으로 `best-practices/product-analytics.md`를 탐색 후 Read한다. 발견 시 Responsibility별 협업 대상·절차·주의사항을 확인하고, 없으면 생략한다. [L2]
+
 ```bash
-_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/product-analytics.md" 2>/dev/null | head -1)
-[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/product-analytics.md" 2>/dev/null | head -1)
-[ -n "$_BP" ] && echo "참조: $_BP"
+_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/product-analytics.md" 2>/dev/null | head -1); [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/product-analytics.md" 2>/dev/null | head -1)  # [L2]
 ```
-- 파일이 발견되면 Read하여 해당 Responsibility별 협업 대상, 작업 절차, 주의사항을 확인
-- 파일이 없으면 건너뛰고 진행
