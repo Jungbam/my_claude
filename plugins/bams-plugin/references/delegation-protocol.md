@@ -121,7 +121,13 @@ pipeline-orchestrator는 Task 호출자가 아닌 **조언자(advisor)** 로서 
 
 ### 2-2-a. load_profile 스키마
 
-`load_profile`은 이 위임에서 부서장이 spawn 즉시 사전 로드할 L1 문서/구간을 커맨드가 명시하는 필드입니다. **스키마 원문(SSOT)은 이 소절 한 곳에만 둡니다** — 커맨드·spec은 이 스키마를 재기술하지 않고 참조합니다(NFR-7). 필드-doc 유효 조합과 검증 규칙(V1~V5)은 `design-agentcfg §1.3`을 따릅니다.
+`load_profile`은 이 위임에서 부서장이 spawn 즉시 사전 로드할 L1 문서/구간을 커맨드가 명시하는 필드입니다. **스키마 원문(SSOT)은 이 소절 한 곳에만 둡니다** — 커맨드·spec은 이 스키마를 재기술하지 않고 참조합니다(NFR-7). 검증 규칙(V1~V5):
+
+- **V1** doc는 enum 8종(아래 YAML 주석) 외 자유 경로 금지(NFR-7 위배).
+- **V2** 필드-doc 유효 조합만 허용: `ids`=gotchas 전용, `agent`=best-practices·agent-rules 전용, `block`=best-practices 전용.
+- **V3** 부서장은 수신 프로파일을 재판정 없이 상속(§2-3): specialist 전용 문서 append만 허용, remove·재정렬 금지.
+- **V4** `level` 기본 L2, `refs` 부재/공백 → 전 항목 L2(기능 손실 없는 lazy 폴백).
+- **V5** `load_profile`은 L2를 억제·허가하지 않음: `level: L2` 위임에서도 정의 파일 stub 분기 조건이 참이면 L2 Read 정상.
 
 ```yaml
 load_profile:

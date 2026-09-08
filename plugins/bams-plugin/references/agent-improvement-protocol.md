@@ -87,23 +87,68 @@ deep-review 및 hotfix finalization에서 개선점이 발견될 때 이 프로�
 
 | 조건 | 조치 |
 |------|------|
-| 본문 **400줄 초과** | `references/`로 분리 **의무** (초과 시 등록/개선 게이트 BLOCK) |
-| 본문 300줄 초과 ~ 400줄 이하 | 분리 **권고** (다음 사이클 리팩터링 대상 등록) |
-| 본문 300줄 이하 | 조치 불필요 |
+| 본문 **300줄 초과** | `references/`로 분리 **의무** (초과 시 등록/개선 게이트 BLOCK) |
+| 본문 250줄 초과 ~ 300줄 이하 | 분리 **권고** (다음 사이클 리팩터링 대상 등록) |
+| 본문 250줄 이하 | 조치 불필요 |
 
 - 측정: `wc -l agents/{slug}.md` (frontmatter 포함 본문 전체)
-- 구조 계약상 이관 불가한 잔류 항목(spec의 "잔류" 컬럼 명시분)으로 인해 400줄 초과가 불가피한 경우 **CONDITIONAL**로 처리하고, 초과 사유·잔류 근거·2차 사이클 재분할 검토 여부를 `.crew/board.md` 백로그에 기록한다.
+- 구조 계약상 이관 불가한 잔류 항목(spec의 "잔류" 컬럼 명시분)으로 인해 300줄 초과가 불가피한 경우 **CONDITIONAL**로 처리하고, 초과 사유·잔류 근거·2차 사이클 재분할 검토 여부를 `.crew/board.md` 백로그에 기록한다.
 
 ### 7.2 행동 규칙 항목 수
 
 | 조건 | 조치 |
 |------|------|
-| `## 행동 규칙` 내 `-` 항목 **25건 초과** | 규칙 **ID화**(예: `R-01`, `P-A1`) + `references/agent-rules/{slug}-rules.md`로 **이관 의무** |
+| `## 행동 규칙` 내 `-` 항목 **25건 초과** | 규칙 **ID화**(예: `R-01`, `P-A1`) + `references/agent-rules/{slug}-rules.md`로 **이관 의무** — **이관 없이는 등록/Evolution Hook 게이트 BLOCK**(§7.1 라인 게이트와 동급) |
 | 25건 이하 | 조치 불필요 |
 
 - 이관 시 본문에는 규칙 ID + 1줄 요약 + rules 파일 참조 링크만 stub으로 남긴다.
 - 이관 후 `references/agent-rules/{slug}-rules.md`가 규칙 원문의 SSOT가 되며, 본문 stub과 rules 파일 간 규칙 ID 정합을 검증한다(NFR-3 diff MISSING 0건).
+- **BLOCK 승격 근거**: 규칙 ID화 대상 파일이 라인 상한(§7.1)에는 미달하더라도(전부 300줄 미만) 행동 규칙 과밀은 로드 비용·유지보수를 저해하므로, 항목 수 게이트를 라인 게이트와 동급 BLOCK 조건으로 강제한다.
 
 ### 7.3 근거
 
 - 출처: `plan_모델재분배프롬프트세분화` FR-S4 — 교차 6파일 리팩터링 선례(pipeline-orchestrator/product-strategy/backend-engineering/platform-devops/design-director/guide-decomposer)에서 본문 300줄 이하 수렴 + 규칙 ID화 이관을 실증. `references/agent-rules/*-rules.md` 6종 신설.
+
+## 8. 정의 파일 작성 규약 (로드 다이어트 — spawn-load 최소화)
+
+에이전트 정의 파일(`agents/*.md`)은 spawn 시 harness가 컨텍스트로 무조건 주입하므로, 무조건 로드(L1) 분량을 최소화한다. 신규 에이전트 등록 및 Evolution Hook(§5) 적용 시 다음 규약을 강제한다. 로드 3계층(L0 상시 / L1 커맨드 사전 로드 / L2 온디맨드)의 트리거 소유권은 **커맨드**에 있으며, 정의 파일은 무조건 로드 술어를 소유하지 않는다.
+
+### 8.1 조건부 참조 `[L2]` 토큰
+
+- 온디맨드(분기 진입 시점에만 필요한) 참조 줄은 `[L2]` 토큰을 포함한다. `scripts/spawn-load.sh`는 `[L2]` 줄을 로드 마커 계수에서 제외한다(`grep -v '[L2]'`).
+- 부착 대상: `agent-rules/{slug}-rules.md` 폴백·안내, layout/templates §지목 Read, Best Practice 조건부 로드, codex-delegation 폴백 줄.
+- 부착 금지(L1/L0 유지): `.crew/config.md` §지목, `## 메모리` 2줄, 위임 상속 술어.
+- 게이트: `grep -v '[L2]' agents/{slug}.md | grep -c "agent-rules/\|design-artifact-layout\|design-artifact-templates\|Best Practice 참조"` = 0.
+
+### 8.2 무조건 Read 술어 금지
+
+- "★ 작업 시작 시 반드시 Read" 같은 **무조건 로드 술어를 정의 파일에 두지 않는다.** 사전 로드가 필요한 L1 문서·구간은 커맨드가 위임 메시지의 `load_profile.refs`로 지목한다(트리거 소유권 = 커맨드).
+
+### 8.3 `## 메모리` 2줄 고정
+
+- `## 메모리` 절은 `references/agent-memory.md` 참조 2줄로 고정한다(항목 원문·형식을 정의 파일에 재기술 금지).
+
+### 8.4 codex 위임 6줄 stub
+
+- codex 추론 위임은 **6줄 stub**만 정의 파일에 남긴다. 헤딩 `## codex 추론 위임 (gpt-5.6-luna via MCP)`(마크다운 레벨은 파일 문맥 따라 `##`/`###` 허용, 문자열 "codex 추론 위임" 불변)과 `codex sandbox:` 값 줄은 **반드시 보존한다**(각각 게이트 판정의 유일 소스이므로 감축·재작성 시에도 삭제 금지).
+- run_codex() 정본·이중구조 설명·viz 태그·fallback 3단 체인 본문은 `references/codex-delegation.md`(SSOT)에 1회만 두고, stub은 `find ~/.claude/plugins/cache … || find .` 폴백으로 참조한다(bare 경로 금지).
+
+### 8.5 gotchas·config 로드 규약
+
+- `.crew/gotchas.md`를 **정의 파일에서 직접 로드하지 않는다.** 필요한 gotcha는 커맨드 위임 메시지의 `gotchas` 필드(ID 발췌)로 전달한다.
+- `.crew/config.md`는 전문 로드 대신 필요한 **§만 지목**하여 참조한다.
+
+### 8.6 런타임 스냅샷 stale (NFR-6)
+
+- harness는 **세션 시작 시 에이전트 정의를 스냅샷**한다. 따라서 정의 파일(`agents/*.md`)·레퍼런스 변경은 **동일 세션 내에서는 반영되지 않고, 새 세션에서만 유효**하다.
+- 검증은 정의 변경 커밋 후 **신규 세션에서 대표 에이전트 1회 spawn**하여 주입된 정의가 변경본(다이어트본)인지 트랜스크립트로 확인한다. **정의 파일을 다시 Read하는 것으로는 세션 스냅샷의 stale 여부를 판별할 수 없다.**
+
+### 8.7 검증 명령
+
+정의 파일 변경 후 다음을 실행하여 게이트를 판정한다(각 exit 0 / 목표치 충족):
+
+- `scripts/spawn-load.sh` — 정의별 무조건 로드(L1/L0) 줄 수 계측(`[L2]` 제외)
+- `scripts/check-load-profile.sh` — 커맨드 spawn 블록의 `load_profile`/exempt 마커 발행 검증
+- `scripts/check-exempt-guards.sh` — exempt 마커 유효성(inherits §명 실재·허용 목록) 검증
+- `scripts/check-heavy-exempt.sh` — 과다 로드 정의의 예외 등록 여부 점검
+- `scripts/validate-agent-sync.sh` — repo↔cache 정의 동기화 diff 0(exit 0)

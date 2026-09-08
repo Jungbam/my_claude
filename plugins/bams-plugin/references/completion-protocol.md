@@ -79,6 +79,16 @@
 - `.crew/board-archive.md`는 **진행 중 Read 대상이 아니다** — 감사·조회 시에만 참조한다. 커맨드/에이전트는 board.md의 활성 섹션만 Read한다.
 - board.md·board-archive.md는 gitignored 로컬 상태 파일이므로 커밋 대상이 아니다.
 
+## Step 4.7: 정의/레퍼런스 변경 재검증 (NFR-6 — 신규 세션 스냅샷)
+
+이번 파이프라인이 `agents/*.md`(에이전트 정의) 또는 `references/*.md`(프로토콜/규칙)를 변경한 경우에만 수행한다(코드·문서 외 변경만 있으면 스킵).
+
+- **근거(NFR-6)**: harness는 **세션 시작 시 에이전트 정의를 스냅샷**하므로, 정의/레퍼런스 변경은 **동일 세션에서 반영되지 않고 새 세션에서만 유효**하다(`references/agent-improvement-protocol.md` §8.6 참조).
+- **DoD**:
+  1. **캐시 동기화**: `sync-cache.sh`(plugin 루트, `scripts/resolve-cache.sh` SSOT 경유) 실행 → `scripts/validate-agent-sync.sh` **exit 0**(repo↔cache 정의 diff 0).
+  2. **신규 세션 재검증**: 세션 재시작 후 대표 에이전트 1회 spawn → 주입된 정의가 변경본(다이어트본)인지 **트랜스크립트로 확인**한다. 정의 파일을 다시 Read하는 것으로는 세션 스냅샷의 stale 여부를 판별할 수 없다.
+- 재검증 결과(대표 에이전트명·확인 문장)를 `.crew/history.md` 완료 기록 요약에 1줄로 병기한다. **다중 세션 파이프라인은 트랙(α/β/γ) 세션 경계마다 이 재검증을 반복**한다(경계마다 stale 재발).
+
 ## Step 4.9: Context Health 평가 및 /compact 제안
 
 파이프라인 완료 시점의 context 상태를 평가하고, 필요 시 `/compact`를 제안합니다.
