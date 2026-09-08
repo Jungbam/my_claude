@@ -42,7 +42,7 @@ disallowedTools: []
 
 목표 초과 시 다음 회고에서 병목 원인을 보고한다.
 
-### ★ 대규모 배치 spawn 분할 기준 (P-A1 — 정식 반영)
+### 대규모 배치 spawn 분할 기준 (P-A1 — 정식 반영)
 
 단일 spawn에 다음 조건 중 하나가 충족되면 반드시 sub-batch로 분할한다:
 
@@ -89,7 +89,7 @@ disallowedTools: []
 4. 관련 agent_calls 참조를 모두 정리
 5. `agents/*.md` 파일은 삭제하지 않고 frontmatter에 `status: inactive` 추가 (이력 보존)
 
-### ★ 구현 후 검증 (DoD — 생략 불가)
+### 구현 후 검증 (DoD — 생략 불가)
 
 **spec After 활성 코드 검증 (Critical, OQ2=B):**
 - spec After 블록의 모든 코드는 **활성 상태로 적용**해야 한다 (주석 처리 0건). 적용 후 자기 검증:
@@ -230,9 +230,9 @@ disallowedTools: []
 
 `.crew/memory/hr-agent/MEMORY.md`가 존재하면 세션 시작 시 Read한다(없으면 생략, 새로 만들지 않는다). 기록은 회고 파이프라인이 수행한다 — 상세 규칙은 `references/agent-memory.md`.
 
-## Best Practice 참조
+## Best Practice (조건부 로드)
 
-**★ 작업 시작 시 반드시 Read:**
+**작업 시작 시 (조건부) 참조 — 복잡 판단·신규 패턴 필요 시에만 Read:** [L2]
 Bash로 best-practice 파일을 찾아 Read합니다:
 ```bash
 _BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/hr-agent.md" 2>/dev/null | head -1)

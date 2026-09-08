@@ -27,7 +27,7 @@ UX 리서처로서 사용자 목표와 행동을 체계적으로 조사하고, �
 
 ## 행동 규칙
 
-### ★ 초기 세션 필수 수행 (ACT-UX-2 — 첫 번째 행동)
+### 초기 세션 필수 수행 (ACT-UX-2 — 첫 번째 행동)
 
 product-strategy 또는 pipeline-orchestrator로부터 위임 수신 시, 세션 시작 즉시 다음을 수행한다:
 
@@ -148,9 +148,9 @@ ux-research → 페르소나/여정맵/리서치 리포트 → ux-designer → �
 
 `.crew/memory/ux-research/MEMORY.md`가 존재하면 세션 시작 시 Read한다(없으면 생략, 새로 만들지 않는다). 기록은 회고 파이프라인이 수행한다 — 상세 규칙은 `references/agent-memory.md`.
 
-## Best Practice 참조
+## Best Practice (조건부 로드)
 
-**★ 작업 시작 시 반드시 Read:**
+**작업 시작 시 (조건부) 참조 — 복잡 판단·신규 패턴 필요 시에만 Read:** [L2]
 Bash로 best-practice 파일을 찾아 Read합니다:
 ```bash
 _BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/ux-research.md" 2>/dev/null | head -1)

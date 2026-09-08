@@ -1,7 +1,14 @@
 # pipeline-orchestrator 상세 규칙 (agent-rules)
 
 > 본문: `plugins/bams-plugin/agents/pipeline-orchestrator.md` — 차단 게이트/Step 0/라우팅 표는 본문에만 존재 (SSOT)
-> 이관 근거: plan_모델재분배프롬프트세분화 FR-S1 (verbatim 이동 — NFR-3)
+> 이관 근거: plan_모델재분배프롬프트세분화 FR-S1 (verbatim 이동 — NFR-3) · plan_spawn로드다이어트 P5-1 (PRD 게이트·부서장 결정 로직·권한 정책 PR 체크 추가 이관)
+
+**경로 폴백** (본 파일 참조 시 — 캐시 우선, repo 폴백):
+
+```bash
+_AR=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/agent-rules/pipeline-orchestrator-rules.md" 2>/dev/null | head -1)  # [L2]
+[ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/pipeline-orchestrator-rules.md" 2>/dev/null | head -1)  # [L2]
+```
 
 ### orchestrator 호출 수 자가 모니터링
 
@@ -216,13 +223,63 @@ gotchas:
 - Learnings 갱신: {건수}
 ```
 
+### PRD 실행 가능성 게이트 (파이프라인 시작 전 필수 — NO-GO 반환 조건)
+
+PRD 또는 task_description 수신 시 다음 4항목을 확인한다.
+**체크 1~3 중 2개 이상 미충족 시 → 즉시 NO-GO 반환, product-strategy에 PRD 보강 요청. 체크 4는 미충족 시 NO-GO가 아니라 정정 후 진행한다.**
+
+- **체크 1 — Phase 분할 명시 여부**: PRD 또는 task_description에 Phase 수 또는 단계별 산출물이 명시되어 있는가. 미명시: product-strategy에 "Phase 분할 계획 추가" 요청 후 NO-GO 반환
+- **체크 2 — 의존성 정의 여부**: 선행 조건(선행 Phase, 의존 아티팩트, 외부 시스템 요건)이 식별되어 있는가. 미식별: AskUserQuestion으로 주요 의존성 3개 확인 후 진행
+- **체크 3 — 리스크 Top3 존재 여부**: 예상 실패 지점(토큰 한도, 도구 권한, 복잡도 초과) 중 최소 1건 이상 사전 식별되어 있는가. 미식별: 에러 대응 계획 섹션에 기본 리스크 3개(토큰/권한/복잡도)를 직접 기재 후 진행
+- **체크 4 — 브리핑 수치 실측 재검증 (A9)**: 메인(커맨드) 브리핑에 포함된 **수치·상태 주장을 그대로 계획 전제로 옮기지 않는다.** 다음 3종은 계획 수립 전 실측으로 재검증한다.
+  ① 호출·소요·비용 수치 → `history.md` 기록·산출물 파일 대조(Bash read-only)
+  ② 외부 시스템 접속 가능 여부(DB·API·인증) → 담당 부서장 위임 메시지에 "전제로 서술하지 말고 실접속으로 판정" 지시를 명시
+  ③ 파일 수·건수 등 수량 주장 → `grep`/`ls` hit 수 대조
+  실측이 브리핑과 다르면 Advisor Response 상단에 `### 브리핑 정정` 절을 두고 `{항목}: 브리핑 {값} → 실측 {값} (근거)` 형식으로 명시한 뒤, 정정값으로 계획을 수립한다. 실측이 불가하면 `[미검증-추정]`으로 태깅하고 게이트 판정 근거에서 배제한다.
+
+목표: 파이프라인당 orchestrator 호출 2.0회 이하
+
+### 부서장 결정 로직 (메인 라우팅 조언용 데이터)
+
+Phase의 작업 성격에 따라 다음 부서장을 메인에 권고한다 (메인이 Task tool로 spawn):
+
+| Phase/작업 성격 | 부서장 에이전트 | 소속 에이전트 풀 |
+|-----------------|----------------|-----------------|
+| 기획 (PRD, 설계, 리서치) | **product-strategy** | business-analysis, ux-research, project-governance |
+| 프론트엔드 개발 — UI 구현 (`frontend` 태그 또는 `*.tsx`, `src/app/**`, `src/components/**`, `*.css`) | **frontend-engineering** | frontend-engineering (리드) |
+| 백엔드 개발 (`backend` 태그 또는 `src/app/api/**`, `prisma/**`, `*.server.ts`) | **backend-engineering** | backend-engineering (리드) |
+| 인프라/DevOps (`infra`/`devops`/`security` 태그 또는 `Dockerfile`, `.github/**`) | **platform-devops** | platform-devops (리드) |
+| 데이터 (`data` 태그 또는 `*.sql`, `scripts/etl/**`) | **platform-devops** | data-integration (platform-devops가 하위 위임) |
+| QA/검증 | **qa-strategy** | automation-qa, defect-triage, release-quality-gate |
+| 평가/분석 | **product-analytics** | experimentation, performance-evaluation, business-kpi |
+| UI/UX 디자인 (`design` 태그 또는 `*.figma`, `design/**`, `assets/icons/**`, `src/assets/**`) | **design-director** | ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent |
+| 에이전트 관리 (`agent-management` 태그 또는 `agents/*.md`, `jojikdo.json`) | **hr-agent** | hr-agent (리드) |
+
+**결정 우선순위:**
+1. 태스크 또는 PRD에 명시적 태그가 있으면 태그로 결정 (delegation-protocol.md §3-1) — 예: `security` → platform-devops, `agent-management` → hr-agent
+2. 태그 없으면 변경 대상 파일 패턴으로 판단 (delegation-protocol.md §3-2)
+3. 복수 부서에 걸치면 파일 수 기준 주요 부서장 1명 선정, 나머지는 협력 부서장으로 병렬 spawn하도록 메인에 권고 (delegation-protocol.md §3-3). 이 경우 cross-department-coordinator 조율 spawn도 함께 권고
+
+### 권한 정책 변경 PR Advisor 체크 (Critical — 보안 게이트)
+
+`settings.json` 또는 권한 정책 PR diff를 deep-review 직전 Advisor가 자동 검사:
+
+1. `permissions.allow`/`deny` 와일드카드 패턴(`Bash(... *)`) 추가 여부 확인
+2. 와일드카드 추가 시 파괴 옵션 흡수 가능성 검사:
+   - `-D` (force delete branch / drop database)
+   - `--force` / `-f`
+   - `DELETE`, `TRUNCATE`, `DROP TABLE` (SQL)
+   - `rm -rf`, `rm -r`
+3. 흡수 위험 발견 시 `gate_decision_advice: NO-GO` + 사유 반환
+4. 메인은 NO-GO 수신 시 사용자 에스컬레이션 후에만 머지 진행
+
 ## 메모리
 
 메모리 규칙은 `references/agent-memory.md`를 따른다: `.crew/memory/{agent-slug}/MEMORY.md` 단일 파일, 세션 시작 시 존재하면 Read, 기록은 회고 파이프라인 수행.
 
-## Best Practice 참조
+## 참조 문서 (best-practice 온디맨드)
 
-**★ 작업 시작 시 반드시 Read:**
+**작업 시작 시 조건부 Read:**
 Bash로 best-practice 파일을 찾아 Read합니다:
 ```bash
 _BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/pipeline-orchestrator.md" 2>/dev/null | head -1)

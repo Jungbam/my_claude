@@ -1,9 +1,15 @@
 # product-strategy 상세 규칙 (agent-rules)
 
 > 본문: `plugins/bams-plugin/agents/product-strategy.md` — 차단 게이트/Step 0/라우팅 표는 본문에만 존재 (SSOT)
-> 이관 근거: plan_모델재분배프롬프트세분화 FR-S1 (verbatim 이동 — NFR-3)
+> 이관 근거: plan_모델재분배프롬프트세분화 FR-S1 (verbatim 이동 — NFR-3) / plan_spawn로드다이어트 FR-9 (규칙 ID stub ↔ 헤딩 1:1)
 
-### ★ 횡단 요구사항 탐지 트리거 (ACT-PS-4)
+경로 폴백(본문 stub이 참조하는 `$_AR` — 서브에이전트 cwd 리셋/타 저장소 위임 대비):
+
+```bash
+_AR=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/agent-rules/product-strategy-rules.md" 2>/dev/null | head -1); [ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/product-strategy-rules.md" 2>/dev/null | head -1)
+```
+
+### 횡단 요구사항 탐지 트리거 (ACT-PS-4)
 
 발동 시: 횡단 PRD(`.crew/artifacts/prd/feature_{주제}통합.md`) 작성 → 기존 산발 파이프라인 목록 첨부 → 단일 feature 통합 제안 → orchestrator 에스컬레이션.
 
@@ -24,7 +30,7 @@
 - 특히 "보류" 또는 "skip" 선택지에서 조건부 부수 절차(예: gotchas.md 승격)가 발동되는지 명시
 - 위반 시 deep-review에서 `code-quality:edge-case-flow-ambiguity` 패턴으로 분류된다
 
-### ★ Spec 작성 전 파일 구조 검증 (P-S2 — 정식 반영)
+### Spec 작성 전 파일 구조 검증 (P-S2 — 정식 반영)
 
 1. 언급하는 모든 파일 경로에 대해 `ls` 또는 `find`로 실존 확인:
    ```bash
@@ -129,9 +135,9 @@ spec 작성 후 다음 §을 spec 본문에 의무 포함한다.
 
 메모리 규칙은 `references/agent-memory.md`를 따른다: `.crew/memory/{agent-slug}/MEMORY.md` 단일 파일, 세션 시작 시 존재하면 Read, 기록은 회고 파이프라인 수행.
 
-## Best Practice 참조
+## Best Practice (조건부 로드)
 
-**★ 작업 시작 시 반드시 Read:**
+**작업 시작 시 (조건부) 참조 — 복잡 판단·신규 패턴 필요 시에만 Read:**
 Bash로 best-practice 파일을 찾아 Read합니다:
 ```bash
 _BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/product-strategy.md" 2>/dev/null | head -1)
@@ -140,3 +146,10 @@ _BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practi
 ```
 - 파일이 발견되면 Read하여 해당 Responsibility별 협업 대상, 작업 절차, 주의사항을 확인
 - 파일이 없으면 건너뛰고 진행
+
+## 정의 파일에서 제거된 원문 보존 (AC-10 지문 유지)
+
+FR-5(gotchas 로드 폐지)·FR-7a(viz 사문 삭제)로 `agents/product-strategy.md`에서 제거된 아래 술어를 규칙 지문 손실 0(NFR-1) 보장 목적으로 원문 그대로 보존한다. **활성 규칙 아님 — 참조/추적용.**
+
+- [ ] `.crew/gotchas.md` 로드 (필수)
+- SR-1 cross-reference 의무 / SR-2 Glossary 섹션 의무 / SR-3 분기 합류점 명시 의무 — 각 상세·출처 문단 및 viz emit JSON SSOT 가드 이관됨. 상세: `references/agent-rules/product-strategy-rules.md` §"Spec/PRD 작성 시 (SR-1+SR-2+SR-3 통합)"

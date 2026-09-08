@@ -54,7 +54,7 @@ department: planning
 - 자원 충돌이 자체 조정 불가능하면 우선순위 결정을 상위에 요청
 - 거버넌스 문서(`.crew/config.md` / `.crew/board.md` / `CLAUDE.md` 상태 섹션)의 stale이 90일을 초과하면 작업 범위와 무관하게 즉시 에스컬레이션한다.
 
-#### ★ ACT-PG-1 구조적 충돌 에스컬레이션 (일정·리스크·자원에 이은 제4 사유 — 의무)
+#### ACT-PG-1 구조적 충돌 에스컬레이션 (일정·리스크·자원에 이은 제4 사유 — 의무)
 
 일정 지연·리스크 현실화·자원 충돌이 전혀 없더라도, **상류 문서(PRD·spec·설계)의 인수 조건(AC) 술어와 실제 구현 배치가 서로를 성립 불가능하게 만드는 지점**을 발견하면 즉시 에스컬레이션한다. 이는 재량이 아니라 의무이며, "코드베이스를 Glob, Read로 확인" 조항의 목적을 "일정 산정 + 구조적 충돌 점검"으로 확장한다.
 
@@ -175,14 +175,13 @@ WBS를 실행 단위 태스크로 전개할 때 아래 표를 그대로 사용�
 
 `.crew/memory/project-governance/MEMORY.md`가 존재하면 세션 시작 시 Read한다(없으면 생략, 새로 만들지 않는다). 기록은 회고 파이프라인이 수행한다 — 상세 규칙은 `references/agent-memory.md`.
 
-## Best Practice 참조
+## 참조 문서 (온디맨드 L2)
 
-**★ 작업 시작 시 반드시 Read:**
-Bash로 best-practice 파일을 찾아 Read합니다:
+작업이 도메인 프랙티스를 요구할 때만(조건부) 아래 find로 best-practice 파일을 로드한다 — 무조건 Read 아님 `[L2]`:
+
 ```bash
-_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/project-governance.md" 2>/dev/null | head -1)
-[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/project-governance.md" 2>/dev/null | head -1)
-[ -n "$_BP" ] && echo "참조: $_BP"
+_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/project-governance.md" 2>/dev/null | head -1)  # [L2]
+[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/project-governance.md" 2>/dev/null | head -1)  # [L2]
 ```
-- 파일이 발견되면 Read하여 해당 Responsibility별 협업 대상, 작업 절차, 주의사항을 확인
-- 파일이 없으면 건너뛰고 진행
+
+발견 시 `$_BP` Read하여 Responsibility별 협업 대상·작업 절차·주의사항 확인, 없으면 생략 `[L2]`.
