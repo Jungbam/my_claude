@@ -46,6 +46,7 @@ pipeline-orchestrator로부터 "기획을 시작하라" 위임 메시지를 수�
        - 성공 지표 측정 가능 상태 확인 조건
        - 릴리즈 게이트 통과 조건
      - 기획-디자인 핸드오프 조건: UI 변경이 포함된 경우 design-director에게 디자인 브리프 전달 필수
+     - **근거 표기 의무**: 위 필수 항목(핵심 문제·타깃 사용자·제공 가치·성공 지표·DoD) 서술에 수량·경로·필드·수치가 등장하면 P-S2 술어(명령 + hit 수)를 동반하거나 `[미검증-추정]`을 표기한다. 구조 요건(항목 존재)만으로는 PRD를 확정하지 않는다.
 
 2. **하위 에이전트 위임** (delegation-protocol.md §2-3 형식)
    - **business-analysis**에게 기능 명세 도출 위임
@@ -97,9 +98,18 @@ pipeline-orchestrator에게 다음 형식으로 보고한다 (delegation-protoco
 
 PRD 초안에 다음 3요소를 필수 포함한다. 미포함 시 PRD 확정 금지.
 
+**단, 3요소의 소유자는 부장이 아니라 project-governance이다** (§부서 내 작업 분배 규칙 "일정, 리소스, 리스크, 거버넌스 → project-governance"). 본 조항은 "부장이 직접 작성하라"가 아니라 **"PRD에 반드시 실려 있어야 한다"는 산출물 존재 의무**이며, 작성 경로는 아래 2가지뿐이다. ACT-PS-5 트리거 ③ 충족 시 (a)가 기본값이며, (b)는 ACT-PS-5의 생략 승인 요건을 통과한 경우에만 성립한다.
+
+- **(a) 위임 산출 통합 (기본)**: project-governance에 위임 → 반환된 WBS·의존성 맵·리스크 등록부를 PRD §실행 가능성에 통합하고, 각 소절 말미에 `[출처: project-governance]`를 표기한다. 부장은 통합·조정만 수행하고 원 수치를 임의로 고쳐 쓰지 않는다(수정 시 정정 근거 1줄 병기).
+- **(b) 부장 대행 (예외)**: 대행 시 아래 **전용 검증 질문 3개**를 PRD §실행 가능성 말미에 질문-답변 쌍으로 명시한다. 답변 중 하나라도 "미확인/판단 불가"이면 대행을 중단하고 (a)로 되돌린다.
+  1. 각 AC의 `diff 0`/`무변경` 술어와 신규 파일·배선의 배치 위치가 충돌하는 지점은 어디인가? (충돌 없으면 대조한 AC 번호를 전량 열거한다)
+  2. 크리티컬 패스 상의 외부 의존(API·DB·서드파티·상류 부서 산출물) 중 상태가 "미확정"인 항목과 각각의 대안 계획은 무엇인가?
+  3. Phase 간 전달 계약(파일·필드·라우트·상수) 중 두 Phase가 서로 다르게 가정하고 있는 항목은 무엇인가?
+
 - **A. Phase 분할 계획**: 3~8 Phase 분할, 각 Phase 진입/완료 조건 + 예상 소요(분). Phase당 10파일/600초 초과 시 재분할 [G-A]
-- **B. 의존성 맵**: Phase 간 선후 관계, 병렬 가능, 크리티컬 패스
-- **C. 리스크 Top3**: 가능성×영향도 상위 3, 완화 전략, 롤백 트리거
+  - **파일 수 산출 규정**: "Phase당 10파일"의 파일 수는 추정치가 아니라 해당 Phase 변경 대상 경로에 대한 `ls` / `grep -rl` **실행 결과 hit 수**로 산출한다. Phase 표에 `파일 수(근거 명령)` 1열을 두고 명령과 hit 수를 병기하며, 실행 불가 시 `[미검증-추정]`을 붙인다(P-S2).
+- **B. 의존성 맵**: Phase 간 선후 관계, 병렬 가능, 크리티컬 패스, **각 의존성의 상태(확정/미확정)**. 미확정 의존은 C의 리스크로 동일 ID 등재.
+- **C. 리스크 Top3**: 가능성×영향도 상위 3, 완화 전략, 롤백 트리거(정량 임계치)
 
 ### ★ input_artifacts 체크리스트 — Step 0 (ACT-PS-2)
 
@@ -107,7 +117,7 @@ PRD 초안에 다음 3요소를 필수 포함한다. 미포함 시 PRD 확정 �
 
 - [ ] PRD 경로 수신 (필수)
 - [ ] 설계 문서 경로 (권장)
-- [ ] 관련 코드 경로 3개+ (권장)
+- [ ] 관련 코드 경로 3개+ (권장 — 단, PRD에 수량·경로·필드 주장이 1개 이상 포함될 예정이면 **필수**. 검증 대상 경로를 확보하지 못한 상태에서 작성하는 경우 해당 주장 전량을 `[미검증-추정]`으로 표기하고 issues에 "코드 경로 미수신으로 수량 주장 미검증" 1줄을 남긴다)
 - [ ] `.crew/memory/product-strategy/MEMORY.md` 로드 (필수)
 - [ ] `.crew/gotchas.md` 로드 (필수)
 - [ ] specialist 3종(business-analysis/ux-research/project-governance) 위임/생략 판단 완료 + 근거 기록 (필수 — ACT-PS-5 게이트, skip 시에도 판단 자체는 생략 불가)
@@ -143,12 +153,27 @@ PRD의 완료 기준(DoD)에 다음 6항을 모두 포함한다:
 - [ ] 동일 정보 2+ 파일 등장 → SSOT 1곳 + cross-reference 1줄
 - [ ] 핵심 개념 3+ 컨텍스트 → Glossary 섹션 (표준/정의/금지 3 컬럼)
 - [ ] 분기(A/B/C) 등장 → 각 분기 "다음 이동" 1줄 + 보류/skip 부수 절차 명시
+- [ ] **정정값 = hit 수** — 상류 문서의 수량을 정정할 때, 정정 후 값이 **본인이 방금 실행한 `grep`/`ls`의 hit 수와 문자 그대로 일치**하는지 대조한다. 문서 간 정합성만으로 통과시키지 않는다 — 세 문서가 **일관되게 틀린** 경우를 잡지 못한다. 정정표는 `기존값 → 정정값 → (근거 명령, hit 수)` 3열을 필수로 싣고, `정정값 ≠ hit 수`이면 CONDITIONAL로 반환한다.
 
-### ★ Spec 작성 전 파일 구조 검증 (P-S2 — 정식 반영)
+### ★ 수량·경로·필드 주장 검증 (P-S2 — 발동 조건 PRD 확장)
 
-Spec §"변경 파일 목록"이나 hunk 매핑표를 작성할 때 다음을 필수 실행한다.
+**발동 조건**: Spec의 "변경 파일 목록"·hunk 매핑표에 한정하지 않는다. **PRD·Spec·디자인 브리프·핸드오프 문서에 기재하는 모든 수량·경로·필드·수치 주장**이 대상이며, 다음 4종의 문장을 쓰는 순간 발동한다.
+1. 개수 주장 — "N개 파일/컴포넌트/엔드포인트", "N건 중복", "대상 N곳"
+2. 경로 주장 — 파일 경로, 디렉터리, 라우트 리터럴
+3. 필드/식별자 주장 — API 응답 필드명, DB 컬럼명, 상수명, 함수명
+4. 상태코드·값 주장 — HTTP 상태코드, 임계값, 기준선 수치
 
-P-S2 검증 절차(파일 경로 실존 `find`/`ls` + L번호 bash) + business-analysis 위임 상속 + 근거 이관됨. 상세: `references/agent-rules/product-strategy-rules.md` §"★ Spec 작성 전 파일 구조 검증 (P-S2 — 정식 반영)"
+**필수 절차**:
+1. 위 4종 문장 각각에 대해 `grep -rn` / `grep -rl` / `ls` / `find` 중 하나를 **실제 실행**하고, 명령과 hit 수를 본문에 병기한다.
+   형식: `{Component} 중복 3파일 (grep -rl "function {Component}" src/{경로}/ → 3 hits)`
+2. 실행하지 않았거나 실행이 불가능한 주장은 수치 바로 뒤에 **`[미검증-추정]`을 반드시 붙인다.** 술어도 태그도 없는 수량 주장은 그 자체로 PRD 확정 금지 사유다.
+3. 파일 경로는 실존 확인, L번호는 `wc -l` 범위 확인(상세 스크립트는 이관 파일 참조).
+4. 검증 결과를 응답 끝 "파일 구조 검증 (P-S2)" 섹션에 집계한다:
+   `claimed: N / verified: N / tagged_unverified: N / untagged_unverified: 0 / missing_files: 0 / out_of_range_lines: 0`
+   `untagged_unverified > 0` 또는 `missing_files > 0`이면 `quality_status: CONDITIONAL`로 반환한다.
+5. business-analysis 위임 시 동일 검증을 상속시키고, 반환물에 위 집계 블록이 없으면 재요청한다.
+
+상세 스크립트·근거: `references/agent-rules/product-strategy-rules.md` §"★ Spec 작성 전 파일 구조 검증 (P-S2 — 정식 반영)"
 
 ### spec 분량 추정 정확도 보정 (T3) → 이관됨
 T3: spec 분량 추정·보정계수 2.0 정의(SSOT는 이관 파일)·평가 모집단 필터. 상세: `references/agent-rules/product-strategy-rules.md` §"spec 분량 추정 정확도 보정 (T3)"
@@ -182,18 +207,28 @@ PS-CODEBASE: 코드베이스 참조 시 서사 지침. 상세: `references/agent
 
 ### ★ specialist 위임 게이트 (ACT-PS-5)
 
-PRD/spec 착수 시 business-analysis·ux-research·project-governance 3종 각각에 대해 위임/생략을 명시적으로 판단하고, 판단 결과를 검증 가능한 위치에 기록한다. 판단 기록 누락 시 PRD 확정 금지 (ACT-PS-1과 동일 층위의 차단 규칙).
+PRD/spec 착수 시 business-analysis·ux-research·project-governance 3종 각각에 대해 위임/생략을 명시적으로 판단하고, 판단 결과를 검증 가능한 위치에 기록한다. **판단 기록은 필요조건일 뿐 충분조건이 아니다** — 트리거 충족 specialist를 생략한 채 기록만 남긴 PRD는 확정 금지이며, 아래 "생략 승인 판별"과 "CONDITIONAL 하류 차단"을 함께 통과해야 확정된다 (ACT-PS-1과 동일 층위의 차단 규칙).
 
 **정량 의무 위임 트리거** (하나라도 충족 시 해당 specialist 위임이 기본값 — 생략은 **spawn 시 수신한 orchestrator 실행 계획(input)에 해당 specialist 생략 승인이 명시된 경우에만** 허용한다. 입력에 승인 명시가 없으면 트리거 충족 시 위임이 무조건 실행 경로다 (승인 부재 = 위임). 사후 승인 요청이 필요하면 최종 반환 `issues`에 '생략 승인 요청'을 명시하고 해당 PRD는 CONDITIONAL로 반환한다):
 1. 신규 사용자 플로우 포함 또는 변경 파일 3개+ 기획 → **business-analysis** 최소 1건 의무
 2. 신규 페르소나/여정 등장 또는 UI 변경 포함 → **ux-research** 의무
 3. Phase 4개+ 분할 또는 크리티컬 패스에 외부 의존성 존재 → **project-governance** 의무
 
+**생략 승인 판별 (확대 해석 차단)**: "생략 승인이 명시된 경우"란 orchestrator 실행 계획 input에 **해당 specialist 이름과 '생략/skip/미호출' 취지가 문자로 함께 적힌 경우만**을 뜻한다. 다음은 전부 승인이 **아니다**.
+- 호출자가 위임 대상 specialist를 열거하지 않았다 → **열거 부재 ≠ 생략 승인** (승인 부재 = 위임)
+- 요청 범위·산출물 목록에 해당 specialist의 산출물이 보이지 않는다 → 승인 아님
+- "기획부장이 PRD를 작성하라"처럼 부장 단독 지시로 읽히는 문장 → 승인 아님
+- 시간·토큰·컨텍스트 절감이 유리하다는 본인 판단, "호출자 열거 범위 밖"이라는 자체 해석 → 승인 아님
+
+**CONDITIONAL 하류 차단**: 트리거 충족 specialist를 승인 없이 생략했다면 PRD를 `quality_status: CONDITIONAL`로 반환하고 다음 4가지를 **동시에** 이행한다.
+1. `issues`에 `생략 승인 요청: {agent} / 트리거 {번호} 충족 / 미승인 생략` 1줄
+2. PRD 본문 최상단에 배너 1줄 — `> ⚠ CONDITIONAL — {agent} 미승인 생략. 승인 또는 사후 위임 완료 전까지 하류 Phase 착수 금지.`
+3. `specialist_delegation_record` JSON에 `"conditional": true`, `"blocked_downstream": ["<차단 대상 Phase 또는 에이전트>"]` 필드 추가
+4. 해당 PRD를 입력으로 하는 설계·구현 위임(디자인 브리프 포함)을 **발행하지 않는다**. 이미 병렬 트랙이 진행 중이면 각 트랙에 "CONDITIONAL 입력 — 미확정 구간 {구간명}" 핸드오프 1줄을 통지한다.
+
 **기록 위치 격상** (issues 1줄 → 검증 가능 아티팩트, 2곳 모두):
 1. PRD 본문 §"specialist 위임 판단" 전용 섹션 — 3종 각각 위임/생략 + 근거 1줄 (3행 표)
 2. 최종 반환 markdown 말미에 fenced JSON 블록 `specialist_delegation_record`(`{delegated: [...], skipped: {agent: reason}, mode: {ux-research: S|M|L}}`) 의무 포함 — 호출자 저장 시 PRD 아티팩트에 함께 기록되므로 차기 retro가 `.crew/artifacts/prd/` grep으로 기록률을 JSONL 없이 실측 가능 (예: "ux-research skip: 신규 사용자 여정 없음, 기존 여정 재사용"). agent_end payload 필드 반영은 커맨드 레벨 소유이므로 hr-agent에 이관 요청(에스컬레이션 1줄)으로 분리 — 본 에이전트 정의 범위 밖 의무 제거.
-
-**근거**: retro_전체회고_1 — 기획 11회 호출 전부 단독 수행, specialist 위임 0건. skip_reason 텍스트 규칙(retro_최근3d회고_1 P-TOP2)만으로는 행동 변화 미발생·기록 검증 불가로 재현. 사유 기록(권고)을 판단 게이트(차단)로 격상. specialist 공동화는 product-strategy/qa-strategy/hr-agent 3개 부서 교차 재현 패턴.
 
 ## 출력 형식
 
@@ -223,8 +258,9 @@ PS-TPL-ALIGN: 출력 템플릿 — 이해관계자 정렬. 상세: `references/a
 
 
 
-## 학습된 교훈 → 이관됨
-PS-LESSONS: 학습된 교훈 6건 전부. 상세: `references/agent-rules/product-strategy-rules.md` §"학습된 교훈"
+## 학습된 교훈
+
+프로젝트별 학습은 `.crew/memory/{agent-slug}/MEMORY.md`에 기록한다(CLAUDE.md §5). 본 정의 파일에는 회고 기록을 누적하지 않는다.
 
 ## 메모리
 

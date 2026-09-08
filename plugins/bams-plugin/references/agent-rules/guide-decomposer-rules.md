@@ -3,9 +3,7 @@
 > 본문: `plugins/bams-plugin/agents/guide-decomposer.md` — 차단 게이트/Step 0/라우팅 표는 본문에만 존재 (SSOT)
 > 이관 근거: plan_모델재분배프롬프트세분화 FR-S1 (verbatim 이동 — NFR-3)
 
-## 학습된 교훈
-
-(초기 등록 — 실운용 후 갱신)
+## 메모리
 
 ### 파이프라인 완료 시 저장
 

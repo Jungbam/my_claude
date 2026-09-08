@@ -267,8 +267,9 @@ input_artifacts:
 ## Best Practice 참조 → 이관됨
 BP: 작업 시작 시 best-practice 파일(guide-decomposer.md) Read 후 §1~§4 확인. 상세: `references/agent-rules/guide-decomposer-rules.md` §"Best Practice 참조"
 
-## 학습된 교훈 → 이관됨
-LESSON: (초기 등록 — 실운용 후 갱신). 상세: `references/agent-rules/guide-decomposer-rules.md` §"학습된 교훈"
+## 학습된 교훈
+
+프로젝트별 학습은 `.crew/memory/{agent-slug}/MEMORY.md`에 기록한다(CLAUDE.md §5). 본 정의 파일에는 회고 기록을 누적하지 않는다.
 
 ## 메모리
 

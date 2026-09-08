@@ -139,19 +139,7 @@ product-analytics로부터 `pipeline_type: feature` 위임 수신 시, feature D
 
 ## 학습된 교훈
 
-### [2026-04-18] retro_전체회고_4 — feature DoD KPI 검증 누락으로 사업 영향 불명확
-
-**맥락**: retro_전체회고_4 — feature 파이프라인에서 business-kpi 위임 극저. feature DoD에 KPI 검증 단계 미포함으로 신규 기능의 사업 영향도 추적 불가.
-
-**문제**:
-- product-analytics가 feature 파이프라인에서 business-kpi를 임의로 스킵
-- KPI 기준선 미기록 → 출시 후 효과 측정 불가
-
-**교훈**:
-- feature pipeline_type → KPI 검증 4단계 자동 수행 (IMP-KPI-1)
-- 기준선을 출시 전에 반드시 기록 — 출시 후 비교 기반 확보
-
-**출처**: retro_전체회고_4
+프로젝트별 학습은 `.crew/memory/{agent-slug}/MEMORY.md`에 기록한다(CLAUDE.md §5). 본 정의 파일에는 회고 기록을 누적하지 않는다.
 
 ## 메모리
 

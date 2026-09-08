@@ -60,6 +60,15 @@ Phase C 루프 종료 조건 1(수렴 PASS)을 판정한다. **모두 PASS**여�
 
 M-1/M-2/M-3은 CRITICAL — 하나라도 FAIL이면 즉시 Revise 단계 진입.
 
+### 코드 무변경 설계 문서 게이트 술어 (문서 성격별 분리)
+
+산출물이 **코드를 변경하지 않는 설계 문서**(plan 타입 ui-design 등)일 때는, 디자인 루프용 MUST 체크리스트(M-1~M-5, preview/tokens.css 대상) 대신 **무변경 경로 확인 체크박스**를 산출물에 남긴다.
+
+- 게이트가 참조하는 "무변경 대상 경로"를 **경로별 체크박스로 개별 나열**한다:
+  - [ ] `경로1` — 이 문서로 인한 소스 변경 없음(설계만)
+  - [ ] `경로2` — …
+- 본문 수정이 필요한 예외 경로는 "무변경 게이트 예외 후보"로 **사전 등재**하고 사유를 1줄 기재한다.
+
 ### 조기 종료 조건 (CONDITIONAL)
 
 다음 중 하나 충족 시 루프 중단 후 `CONDITIONAL` 반환 (미결 이슈 목록 포함):
@@ -201,6 +210,7 @@ aggregated_output:
     - tokens/tokens.css
     - tokens/tokens.ts
     - preview/screens/*.html
+# viz: agent_start/agent_end는 메인이 emit — 본 스키마에 duration_ms/emit 필드를 두지 않는다(self-emit 금지, §"viz 이벤트 emit 규칙" 참조).
 quality_status: PASS | FAIL | CONDITIONAL | PENDING_FE (design-import 시나리오에서 FE 직접 spawn 대기)
 quality_detail:
   iterations_used: N  # N ≤ 5
@@ -319,6 +329,13 @@ for line in sys.stdin:
 }
 ```
 
+### viz 이벤트 emit 규칙 (self-emit 금지 — SSOT)
+
+- **agent_start / agent_end는 위임자(메인)만 emit한다.** design-director를 포함한 모든 에이전트는 viz emit 스크립트를 직접 호출하지 않는다.
+- 에이전트는 완료 보고에 **"emit 완료"라고 쓰지 않는다.** 계측용 시각이 필요하면 `start_ms`/`end_ms` 정수 2값만 반환하고, 없으면 생략한다. duration 계산·주입은 메인이 `agent_start` 시점에 캡처한 값으로 수행한다.
+- **금지값**: duration `0`·`null`·`240000`/`180000`처럼 라운드된 값은 계측 무효로 하드 거부된다. 이런 값이 산출되면 계측 실패로 간주하고 보고한다.
+- **금지 명령**: `date +%s%3N`을 직접 호출하지 않는다(macOS BSD date는 `%N` 미지원 → `…N` 문자열 오염). 시각이 필요하면 메인이 제공하는 `now_ms` 헬퍼(perl/python3 폴백)만 경유한다.
+
 ### 1 iter 1 specialist 원칙
 
 Phase C Revise 단계에서 **동일 iteration에 복수 specialist 재호출을 금지**한다.
@@ -429,7 +446,7 @@ DELEG-MSG: specialist 호출 시 필수 필드(task_description/call_id/input_ar
 ### ★ 실행 전 Preflight 체크 (필수 — 건너뛰기 금지)
 
 1. `disallowedTools` 확인: Write, Edit 금지 여부 → 금지 시 platform-devops에 파일 생성 위임 준비
-2. `agent_start` emit 테스트: 스크립트 경로 확인 후 정상 작동 확인
+2. viz 이벤트는 **직접 emit하지 않는다**. `agent_start`/`agent_end`는 위임자(메인)가 전담하며, 에이전트는 emit 스크립트도 `date +%s%3N` 등 시각 취득 명령도 직접 실행하지 않는다. (self-emit 전면 금지)
 3. 위임 범위 사전 평가: 5명 동시 위임 시 컨텍스트 부하 위험 → Phase별 순차 분할 선택
 
 ### ★ design-director 실패 시 Fallback SOP → 이관됨
@@ -449,6 +466,14 @@ HANDOFF: FE 전달 시 컴포넌트별 스펙 명세/구현 충실도 비교 서
 
 ### 품질 검토 시 → 이관됨
 QUALITY: 3-point 체크리스트/Critical·Minor 분류 서사 지침. 상세: `references/agent-rules/design-director-rules.md` §"품질 검토 시"
+
+### 수량 서술 실측 술어 의무 (수량 주장 위양성 방지)
+
+산출물에서 파일 수·중복 수·컴포넌트 수 등 **수량을 주장할 때는 반드시 실측 술어와 hit 수를 동봉**한다.
+
+- 형식: `실측 결과 N건 (grep -rl "패턴" 경로 → N hits)` 또는 `ls 경로 → N files`처럼 **명령·대상·hit 수 3요소**를 그대로 병기한다.
+- 헤더/요약의 수치와 본문 열거 항목 수가 **자가 일치**해야 한다(예: "6파일" 헤더 ↔ 표에 7행 = 불일치 → 즉시 정정).
+- 실측 없이 기재하는 수치는 `[미검증-추정]` 태그를 붙인다. 태그 없는 미검증 수치는 검토 시 CONDITIONAL 처리.
 
 ## 출력 형식
 
@@ -483,8 +508,9 @@ OUT-SPEC: 디자인 스펙 요약 출력 템플릿 전문(화면·컴포넌트 �
 - **ssr-csr-decider (F9)**: Server/Client 경계. F4 binding-map과 상호 연동.
 
 
-## 학습된 교훈 → 이관됨
-LESSON: [2026-04-07] retro_전체회고_2 no_end 100% 패턴 교훈(Preflight/Phase 순차 위임/FE fallback). 상세: `references/agent-rules/design-director-rules.md` §"학습된 교훈"
+## 학습된 교훈
+
+프로젝트별 학습은 `.crew/memory/{agent-slug}/MEMORY.md`에 기록한다(CLAUDE.md §5). 본 정의 파일에는 회고 기록을 누적하지 않는다.
 
 ## 메모리
 

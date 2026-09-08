@@ -217,6 +217,10 @@ fi
 
 **태스크 등록 시 (DB가 존재하면):** Bash로 bun 스크립트를 실행하여 TaskDB에 태스크를 등록합니다.
 
+> ⚠ **알려진 결함(아래 스니펫은 실제 API와 불일치)**: `createTask`는 `pipeline_slug`가 아니라
+> `pipeline_id`를 받고 `status` 인자가 없다. slug는 먼저 `getPipelineBySlug(slug).id`로 해석해야 한다.
+> 정상 동작하는 board → DB upsert 절차는 `references/taskdb-board-sync.md` §2~3 참조.
+
 ```bash
 if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
   bun -e "
@@ -229,6 +233,9 @@ fi
 ```
 
 **파이프라인 완료 시 (DB가 존재하면):** board.md를 DB 스냅샷으로 갱신합니다.
+
+> ⚠ `sync-board.ts`는 **DB → board.md**(반대 방향)이며 현재 `getTasksByPipeline` 미존재로 실행 시
+> 예외가 난다. board → DB 등록 용도가 아니다. 등록은 `references/taskdb-board-sync.md` §3 절차로 수행.
 
 ```bash
 if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then

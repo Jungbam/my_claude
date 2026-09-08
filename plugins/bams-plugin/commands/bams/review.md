@@ -47,6 +47,15 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 **$ARGUMENTS가 "pr" 또는 PR 번호인 경우:**
 - Bash로 `git diff main...HEAD`를 실행하여 PR diff 획득
 
+**정리/제거 모드 (대상이 diff가 아닌 제거 후보 인벤토리인 경우):**
+- dead-code/자산 정리처럼 리뷰 대상이 변경 diff가 아니라 "제거 후보 목록(심볼/파일/자산)"이면, 5관점을 **'제거 안전성 판정'**으로 매핑하여 실행한다:
+  - 정확성 = 제거 시 파손(참조 잔존/런타임 파손) 여부
+  - 보안 = 무변경 게이트 파일 침범(엔트리포인트·컨벤션 파일·시크릿 경로 제거) 여부
+  - 성능 = 제거의 자산/번들 효과
+  - 품질 = 제거 후 작업성(가독성·유지보수) 영향
+  - 테스트 = 제거 대상에 대한 게이트/스모크 커버리지 존재 여부
+- 이 모드에서는 qa-strategy의 `### ★ 정리/제거 모드 분기`(역참조 grep·문자열 리터럴 우선 검증·KEEP 리스트)를 함께 적용한다.
+
 ## 사전 조건
 
 `.crew/config.md`가 있으면 읽습니다. `CLAUDE.md`가 있으면 읽습니다.
@@ -271,7 +280,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 Critical 또는 Major 이슈가 있으면, **AskUserQuestion** (multiSelect: true)으로 수정할 이슈를 선택받습니다.
 
 선택된 이슈들에 대해:
-1. 각 이슈의 수정사항을 Edit 도구로 적용
+1. **CLAUDE.md §4 라우팅 표에 따라 담당 부서장에게 배치 위임하여 수정한다(메인은 Edit/Write로 소스를 직접 수정하지 않는다).**
 2. 수정된 이슈를 리포트에서 `[수정됨]` 태그 추가
 3. 수정 완료 후 요약 표시
 

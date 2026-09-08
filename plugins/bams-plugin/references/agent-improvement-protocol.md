@@ -89,6 +89,8 @@ severity: minor | major | critical
 | 스킬 프로세스 | `commands/bams/{skill}.md` 의 해당 Step | Step 체크리스트에 검증 항목 추가 |
 | gotchas 승격 | `.crew/gotchas.md` | gotchas-spec.md 승격 규칙에 따라 처리 |
 
+**정의 파일 기록 제약 (retro-protocol.md §5-4 정합)**: `agents/*.md`·`references/*.md`에 반영하는 개선은 **항구적 일반 규칙**에 한하며, 회고 슬러그·날짜·프로젝트 특정 경로·점수·KPT 인용을 정의 파일에 넣지 않는다(일반 규칙 문장만). 회고 유래 교훈 기록은 `.crew/memory/{agent-slug}/MEMORY.md`에 둔다(플러그인 `agents/*.md`에 날짜 항목·회고 기록 금지).
+
 ## 6. 이력 관리
 
 - improvement 파일은 **삭제하지 않음** (감사 추적용)

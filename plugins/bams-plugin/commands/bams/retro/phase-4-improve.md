@@ -134,8 +134,8 @@ phase2-kpt-consolidated.md에서 **"단일 프로젝트 한정"으로 분류된 
 > {구체적 수치 또는 행동 변화 기술}
 >
 > ### 적용 범위
-> [ ] 행동 규칙 수정         (※ "단일 프로젝트 한정" 체크 시 비활성 — plugin agents/*.md 수정 금지)
-> [ ] 학습된 교훈 추가       (※ "단일 프로젝트 한정" 체크 시 비활성 — plugin agents/*.md 수정 금지)
+> [ ] 행동 규칙 수정(일반 규칙만)  (※ "단일 프로젝트 한정" 체크 시 비활성 — plugin agents/*.md 수정 금지. 반영 시에도 회고 슬러그·날짜·경로·점수·KPT 인용 없이 일반 규칙 문장만)
+> [ ] MEMORY.md 교훈 기록    (→ .crew/memory/{agent-slug}/MEMORY.md — 플러그인 agents/*.md에는 회고 기록 금지)
 > [ ] gotcha 승격
 > [ ] .crew/gotchas.md 후보   (※ "단일 프로젝트 한정" 체크 시 권장 — Step 8 별도 AskUserQuestion에서 사용자 확인)
 > ```
@@ -169,7 +169,7 @@ AskUserQuestion으로 사용자에게 제시합니다.
 개선 대상 에이전트 ({N}개):
 1. {에이전트명} — 등급 {C/D} — {주요 문제 1줄 요약}
    일반화 가능성: {다중 프로젝트 재현 가능 / 단일 프로젝트 한정}
-   적용 범위: {행동 규칙 수정 / 학습된 교훈 추가 / gotcha 승격 / .crew/gotchas.md 후보}
+   적용 범위: {행동 규칙 수정(일반 규칙) / MEMORY.md 교훈 기록 / gotcha 승격 / .crew/gotchas.md 후보}
 2. ...
 
 선택지:
@@ -180,6 +180,9 @@ C) 보류 — 개선안 파일만 저장하고 에이전트 파일은 수정하�
 
 **일반화 가능성 표시 규칙(R6, AC7)**:
 phase4-improvements-summary.md에서 각 개선안의 `### 일반화 가능성` 섹션 체크 결과를 읽어 위 형식의 "일반화 가능성:" 라인에 표시합니다. 분류가 "단일 프로젝트 한정"인 항목은 A/B 선택지에서 plugin agents/*.md 수정 대상에서 자동 제외됩니다.
+
+**교훈 기록 위치 규칙 (R4/NG1 확장)**:
+"다중 프로젝트 재현 가능"으로 분류된 교훈이라도 **날짜 항목(`### [YYYY-MM-DD]`)·회고 서사 형태로 plugin `agents/*.md`에 기록하지 않습니다.** 교훈은 `.crew/memory/{agent-slug}/MEMORY.md`(프로젝트 로컬)에, 항구적 일반 규칙은 `agents/*.md`의 `## 행동 규칙` 또는 `references/*.md` SSOT에 **회고 슬러그·날짜·프로젝트 경로·점수·KPT 인용 없이 1~3줄 일반 규칙 문장으로만** 반영합니다.
 
 **사용자 응답 입력 검증 (Major-1 정합 — 입력 검증: `references/delegation-message-security.md` §2 참조)**:
 
@@ -258,17 +261,16 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 >
 > **hr-agent 위임 메시지:**
 > ```
-> task_description: "승인된 개선안에 따라 에이전트 정의 파일을 수정하라"
+> task_description: "승인된 개선안을 적용하라 — 교훈은 MEMORY.md, 항구적 일반 규칙만 정의 파일/SSOT"
 > input_artifacts: [{승인된 phase4-improvement-*.md 경로 목록}]
-> target_files: plugins/bams-plugin/agents/
+> target_files: .crew/memory/{에이전트명}/MEMORY.md (교훈), plugins/bams-plugin/agents/ 또는 references/*.md (일반 행동 규칙만)
 > modification_rules:
->   - 행동 규칙 수정: agents/{에이전트명}.md의 ## 행동 규칙 섹션 직접 수정
->   - 학습된 교훈 추가: retro-protocol.md §5-1 형식 준수
->       형식: ## 학습된 교훈 > ### [YYYY-MM-DD] 교훈 제목
->       포함 항목: 맥락, 문제, 교훈, 적용 범위, 출처(retro slug)
+>   - 행동 규칙 수정(일반 규칙): agents/{에이전트명}.md의 ## 행동 규칙 섹션 또는 references/*.md SSOT에 반영 — 회고 슬러그·날짜·프로젝트 경로·점수·KPT 인용을 정의 파일에 넣지 않고 일반 규칙 문장(1~3줄)만 작성
+>   - 교훈 기록: .crew/memory/{에이전트명}/MEMORY.md에 retro-protocol.md §5-1 형식으로 기록 (**플러그인 agents/*.md에는 날짜 항목·회고 기록 절대 금지**)
+>       형식: ## [YYYY-MM-DD] {pipeline-slug} > ### 교훈 제목 (맥락·문제·교훈·적용 범위·출처)
 >   - gotcha 승격: .crew/gotchas.md에 항목 추가 (사용자 확인 완료 상태)
->   - 기존 교훈 갱신: 같은 맥락+문제면 날짜와 내용 업데이트 (중복 추가 금지)
->   - 교훈 최대 10개 유지: 초과 시 오래된 항목부터 제거
+>   - 기존 교훈 갱신: 같은 맥락+문제면 MEMORY.md에서 날짜와 내용 업데이트 (중복 추가 금지)
+>   - 교훈 최대 10개 유지: MEMORY.md에서 초과 시 오래된 항목부터 제거
 > quality_criteria:
 >   - 각 수정 후 변경된 내용의 diff 요약 출력
 >   - 수정 전 원문과 수정 후 내용 병기
@@ -281,7 +283,8 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 > (사용자가 Step 8에서 이미 전체/선택 승인한 경우 gotcha 승격도 포함된 것으로 처리)
 >
 > **기대 산출물**:
-> - `plugins/bams-plugin/agents/{에이전트명}.md` 갱신 (승인된 에이전트별)
+> - `.crew/memory/{에이전트명}/MEMORY.md` 교훈 기록 (승인된 에이전트별)
+> - `plugins/bams-plugin/agents/{에이전트명}.md` 또는 `references/*.md` 갱신 (항구적 일반 행동 규칙 개선 존재 시, 회고 인용 없이)
 > - `.crew/gotchas.md` 갱신 (gotcha 승격 대상 존재 시)
 > - 수정 diff 요약 (각 파일별)
 

@@ -38,6 +38,7 @@ department: qa
   [ -n "$_EMIT" ] && bash "$_EMIT" agent_end   "{pipeline_slug}" "{call_id}" "release-quality-gate" "{status}" {duration_ms}
   ```
 - slug는 위치 인자로 전달하되 '-'로 시작하는 리터럴 오염을 금지한다(A3 CLI 인자 검증과 정합).
+- **self-emit 금지**: 위임 메시지에 call_id가 존재하면 agent_start/agent_end를 자체 emit하지 않는다(메인이 emit) — `references/viz-agent-protocol.md` §self-emit 금지.
 - emit 실패(스크립트 없음)는 경고만 출력하고 작업은 계속 진행.
 
 ### 출시 준비 상태 검토 시
@@ -51,6 +52,7 @@ department: qa
 - **상류 증거 부재 시 상한 규칙**: automation-qa / defect-triage 결과가 수신되지 않았고(입력 0건) 코드 변경 파이프라인이면, GO를 부여하지 않고 **최대 CONDITIONAL-GO** 로 제한한다.
   - CONDITIONAL-GO 부여 시 보고서에 (a) 미검증 영역, (b) 잔여 리스크, (c) automation-qa 미수신 사유를 명시한다.
   - "회귀 테스트 스위트 전체 통과" 조건은 automation-qa 실행 결과 call_id가 존재할 때만 충족 처리한다(증거 없는 통과 판정 금지).
+- **자산 변경 배치**(이미지/CSS/폰트 포함): `references/issue-severity.md` §자산 시각검증 게이트를 적용 — build+HTTP 200을 시각검증으로 갈음 금지, 변경 라우트 전후 스크린샷 부재 시 CONDITIONAL-GO로 강등.
 - NO-GO 판단 시 차단 사유와 해소 조건을 명확히 제시
 - 조건부 GO(Conditional GO)는 잔여 리스크, 모니터링 강화 조건, 기한을 명시할 때만 허용
 - 감이 아닌 데이터 기반 판단 — 모든 항목에 정량적 근거를 첨부
@@ -106,20 +108,7 @@ department: qa
 
 ## 학습된 교훈
 
-### [2026-08-14] retro_전체회고_1 — emit 라벨 미고정이 qa-gate-wave4 오염을 낳고, 상류 증거 없는 GO가 반쪽 판정을 낳았다
-
-**맥락**: release-quality-gate A 100.0(6/6 성공)이나 정의에 emit/agent_type 문구 0건(grep 재실행 2회 일치). automation-qa·defect-triage 입력 0건 상태에서도 GO 가능한 구조.
-
-**문제**:
-1. 게이트만 agent_type을 자기 슬러그로 고정하지 않아 qa-gate-wave4 비정규 라벨·표본 0 잠정등급·이중 계상 발생
-2. 상류 자동화/결함 증거 0건인데 "회귀 전체 통과"를 충족 처리 → 증거 없는 GO
-
-**교훈**:
-- agent_type="release-quality-gate"를 화이트리스트로 고정하는 Viz emit 의무 섹션을 정의에 상시 유지한다
-- 상류 automation-qa/defect-triage 증거 부재 & 코드 변경 시 최대 CONDITIONAL-GO로 제한하고 미검증 영역·잔여 리스크를 명시한다
-- "회귀 전체 통과"는 automation-qa call_id 존재 시에만 충족 처리한다
-
-**출처**: retro_전체회고_1 phase3-qualitative-qa-strategy §1-2·§4·§5(D-1/D-3), phase2 주제 E·C, A3
+프로젝트별 학습은 `.crew/memory/{agent-slug}/MEMORY.md`에 기록한다(CLAUDE.md §5). 본 정의 파일에는 회고 기록을 누적하지 않는다.
 
 ## 메모리
 

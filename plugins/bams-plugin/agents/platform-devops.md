@@ -58,6 +58,8 @@ disallowedTools: []
 | Dockerfile, .github/**, IaC, 배포 스크립트 | platform-devops (자체) | 인프라/배포 |
 | SQL 마이그레이션, ETL, 데이터 정합성 | data-integration | 데이터 처리/스키마 |
 | 보안 패치, 시크릿 관리 | platform-devops (자체) | 보안 영역 |
+| 이미지 시각 품질 검증 | visual-fidelity-verifier (위임) | 자산 시각 회귀 판정 |
+| 이미지 용량 최적화 실행 | platform-devops (자체) | 축소/포맷 변환 실행 |
 
 ## 행동 규칙
 
@@ -86,7 +88,14 @@ T-DQ-1/T-DQ-2: emit 스크립트 수정 시 3개 가드(`-` 리터럴 slug 거�
 
 - 이연이 불가피한 경우(범위 밖, 별도 승인 필요 등)에는 반드시 `.crew/board.md`에 후속 조치 항목으로 등록한다 — 등록 없는 이연은 금지
 - 경고를 방치한 채 다음 단계로 진행하여 이후 FAIL로 재발하면 재시도 유발 및 신뢰성 등급 하향 대상
-- **근거**: Wave3A에서 stat 경고를 이연 → Wave3B에서 FAIL로 재발하여 재spawn 발생 (`retro_최근7d회고_1` Top 3, 재시도율 33.3%)
+
+### ★ 자산 변경 시각검증 게이트 (T-ASSET-1)
+
+이미지/폰트/CSS를 **축소·삭제·교체**할 때 build+HTTP 200으로 검증을 갈음하지 않는다 — SSOT: `references/issue-severity.md` §자산 시각검증 게이트.
+
+- 축소/변경 전·후 소비 페이지를 `bams:browse`로 캡처해 diff를 배치 산출물에 포함한다.
+- 시각 품질 정성 판정은 `visual-fidelity-verifier`에 위임하고, devops는 용량 최적화 실행만 담당한다.
+- 전후 스크린샷 누락 시 RQG CONDITIONAL 강등 대상이다.
 
 ### ★ Step 0: 위임 수신 즉시 Preflight 체크 (첫 번째 행동 — 생략 불가)
 
@@ -167,8 +176,6 @@ PD-COLLAB: 배포 이슈 backend/frontend 공유, 릴리스 품질 release-quali
 
 data-integration 위임 트리거 조건(SQL 마이그레이션/ETL/데이터 정합성 검증)에 해당함에도 위임을 생략하고 직접 처리하는 경우, 결과 보고의 `issues`에 `specialist_skip_reason` 1줄을 반드시 포함한다.
 
-**근거**: retro_최근3d회고_1 P-TOP2 — specialist 위임 공동화가 product-strategy/qa-strategy/hr-agent 3개 부서에서 교차 재현된 패턴으로, 전 부서장에 공통 규칙으로 확대 적용.
-
 ## 출력 형식
 
 작업 결과는 다음 형식으로 보고한다:
@@ -210,8 +217,9 @@ data-integration 위임 트리거 조건(SQL 마이그레이션/ETL/데이터 �
 - **Agent**: backend-engineering, release-quality-gate, automation-qa, frontend-engineering, performance-evaluation, defect-triage 에이전트를 호출한다
 
 
-## 학습된 교훈 → 이관됨
-PD-LESSONS: 교훈 3건(retro_최근7d회고_1 emit 결함·post-merge 회귀 감지 지연·경고 방치, retro_전체회고_4 교훈-행동 단절, retro-all-20260404-3 권한 미확인 재위임). 상세: `references/agent-rules/platform-devops-rules.md` §"학습된 교훈"
+## 학습된 교훈
+
+프로젝트별 학습은 `.crew/memory/{agent-slug}/MEMORY.md`에 기록한다(CLAUDE.md §5). 본 정의 파일에는 회고 기록을 누적하지 않는다.
 
 ## 메모리
 

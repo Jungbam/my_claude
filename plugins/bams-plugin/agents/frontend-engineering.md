@@ -99,21 +99,26 @@ _SP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/stack-profi
 - **구현 완료 후 자체 검증 의무**: `bunx tsc --noEmit` + `bun run lint` 통과 확인 후 보고 (배치 최종 회차에는 `bun run build`까지) — package.json scripts 우선
 - Python/Go 프로젝트로 판별되면 이 절 대신 stack-profile.md 보조 프로파일을 따른다
 
-### ★ Viz 이벤트 emit 의무
+### ★ Viz 이벤트 emit 의무 (agent_end는 위임자(메인)만 emit)
 
-pipeline-orchestrator 또는 부서장으로부터 위임받은 모든 작업에 대해 반드시 다음을 수행한다:
+**에이전트는 agent_start·agent_end 어느 것도 직접 emit하지 않는다.** 두 이벤트는 모두
+위임자(메인/부서장)가 emit한다. 에이전트는 계측에 관해 다음만 수행한다:
 
-**작업 완료 시 (성공 또는 에러 모두):**
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "{call_id}" "frontend-engineering" "{success|error}" {duration_ms} "{결과 요약}"
-```
-
-**규칙:**
-- 작업이 성공적으로 완료된 경우: `status: success`
-- 에러가 발생하여 실패한 경우: `status: error` — **에러 시에도 반드시 emit. 절대 skip 금지.**
-- call_id는 위임 메시지에서 전달받은 값 또는 `frontend-engineering-{step}-{timestamp}` 형식으로 생성
-- emit 실패(스크립트 없음)는 경고만 출력하고 작업은 계속 진행
-- **재개(recover) 이벤트 수신을 인지하면 즉시 agent_start를 수동 재emit 후 재개**한다 (훅 레벨 자동 backfill(A1, platform-devops) 적용 전까지의 stopgap — 고아 agent_end 방지)
+1. **emit 금지** — `bams-viz-emit.sh agent_start` / `agent_end`를 에이전트가 직접 호출하지 않는다.
+   자가진단·상태 확인용 Bash는 허용되나, viz 이벤트 emit은 위임자 전담이다.
+2. **완료 보고 형식** — 작업 완료 시 결과 요약과 함께 **경과 시간을 보고하지 않거나(무반환),
+   보고할 경우 시작/종료 epoch millisecond 2값만** 그대로 반환한다. `now_ms` 헬퍼를 경유해
+   산출한 실측 ms만 허용하며, macOS `date +%s%3N`(`%N` 미지원 → 오염) 결과는 반환하지 않는다.
+3. **"emit 완료" 문구 금지** — 완료 보고에 "agent_end emit 완료", "viz 기록함" 등
+   계측을 자신이 수행했다는 서술을 쓰지 않는다. `exit 0`은 계측 성공의 근거가 아니다.
+4. **위임자(메인) 책임** — 메인은 agent_start 시 캡처한 `now_ms`를 보관했다가 완료 시점의 `now_ms`와
+   차분해 `duration_ms`를 주입하고, 위임 시 부여한 동일 call_id로 agent_end를 emit한다.
+   **다음 값은 하드 거부하고 재산출한다**: `duration_ms`가 `0`·`null`·빈 인자, 또는
+   분/초 라운드값(예: 240000·180000·60000처럼 1000·60000의 정확한 배수로 의심되는 값).
+   거부 시 보관한 시작 ts와 실제 종료 ts를 재차분하며, 시작 ts 유실 시 이벤트 파일의
+   매칭 agent_start 타임스탬프로 복원한다.
+5. **재개(recover) 예외** — 매칭 agent_start가 유실된 recover 상황에서만, 메인이 agent_start를
+   수동 backfill한 뒤 재개한다(고아 agent_end 방지). 이 경우에도 emit 주체는 메인이다.
 
 ### ★ 반복 도메인 통합 대응 규칙 (필수 — 인라인 Bash 실행형 하드 게이트)
 
@@ -146,7 +151,23 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 | Medium | 변경 파일 3-5개, 단일 플로우 | 단계별 구현 (UI → 로직 → 테스트) |
 | Large | 변경 파일 5개 초과 또는 예상 600,000ms 이상 | **배치 분할 필수, 배치당 최대 5파일** |
 
-**[G-A] 배치 임계 하향(10→5)**: 60분+ 소요 호출 17건이 관측되어 배치 임계값을 파일 10개에서 5개로 하향한다. 배치당 최대 5파일을 넘지 않도록 분할한다. 출처: `retro_최근7d회고_1` Top 2 (fe P2).
+**[G-A] 배치 임계(파일 5개)**: 배치 임계값은 파일 5개다. 변경 파일 5개 초과 또는 예상 600,000ms 이상이면 배치 분할하며, 배치당 최대 5파일을 넘지 않는다.
+
+**[G-A2] 배치표 배선 컬럼 필수화**: Large 판정으로 배치 분할 계획(배치표)을 산출할 때,
+각 배치 행에 아래 2개 컬럼을 반드시 포함한다. 미기재 배치표는 착수 불가(하드 게이트).
+
+| 배치 | 신규/대상 파일 | **배선 대상 기존 파일 경로** | **diff 성격** | 파일 수 |
+|---|---|---|---|---|
+| P1 | (신규) src/components/{NewComponent}.tsx | src/app/{route}/page.tsx | 신규 import만 | 3 |
+| P2 | — | src/components/{ExistingComponent}.tsx | **본문 수정** | 3 |
+
+- **배선 대상 기존 파일 경로**: 이 배치가 import·wrapping·구독 추가로 건드리는 기존 파일의 실경로.
+  신규 파일만 생성하는 배치는 "—"로 명기(공란 금지).
+- **diff 성격**: `신규 import만`(기존 파일에 import/래핑만 추가, 본문 로직 무변경) /
+  `본문 수정`(기존 컴포넌트 본문·JSX·로직 변경) 중 택1.
+- **무변경 게이트 예외 선등재**: `본문 수정`으로 표기된 배치는, 그 대상 파일이 무변경 게이트
+  (AC diff-0 술어)의 검사 경로에 포함되는지 착수 전 확인하고, 포함되면 해당 파일을
+  **게이트 예외로 배치표에 선등재**한다(사후 개별 승인 금지). 선등재 없이 본문 수정 시 게이트 FAIL로 간주.
 
 ### ★ 동일 파이프라인 내 재호출 상한 (T-WARN-2)
 
@@ -154,7 +175,6 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 - 3회 재호출 완료 시점에 4번째 spawn 전 반드시 AskUserQuestion 게이트를 거친다 (pipeline-orchestrator 또는 메인에 재시도 지속 여부 확인)
 - root cause가 확정되지 않은 상태에서 "revert 후 재출발"을 반복하는 패턴은 금지 — 3회째 실패 시 qa-strategy에 근본 원인 분석을 요청한다
-- **근거**: fe 재시도율 42.7% (60m+ 호출 17건 포함) — 반복 재spawn이 재시도율 상승의 주요 원인. 출처: `retro_최근7d회고_1` Top 2/Top 3 (T-BATCH-2, T-WARN-2/3)
 
 ### ★ 자가진단 출력 (위임 수신 직후 필수)
 
@@ -186,6 +206,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 - Props 타입을 TypeScript 인터페이스로 명시하고, 선택적 props에는 기본값을 설정한다
 - 컴포넌트 이름은 역할을 즉시 파악할 수 있도록 명명한다
 - 공통 UI 패턴은 디자인 시스템 컴포넌트로 추출한다
+- **컴포넌트/자산 삭제 전 참조 교차검증**: knip 등 파일-단위 스캐너 결과를 `grep -rn` 문자열 리터럴 참조(`src`/`srcSet`/`background-image`/`url()`) 및 `import type` 배럴 소비처 스캔과 교차 검증한다. 스캐너 단독 판정만으로 삭제하지 않는다(`<picture>` fallback·type-only 배럴이 false-positive로 잡힘).
 
 ### 상태 관리 원칙
 - 서버 상태와 클라이언트 상태를 명확히 구분한다
@@ -204,6 +225,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 - 핵심 웹 바이탈(LCP, FID, CLS)을 측정 가능한 수준으로 관리한다
 - 키보드 네비게이션과 스크린 리더 호환성을 검증한다
 - 중복 코드 발견 시 즉시 공통 유틸 또는 훅으로 추출한다
+- **자산/스타일 삭제·변경 배치**(CSS/폰트/이미지)는 build+HTTP 200으로 시각검증을 갈음하지 않는다 — `bams:browse`/`visual-fidelity-verifier`의 before/after 스크린샷을 필수 산출물로 제출하고, 누락 시 자체 CONDITIONAL-GO로 보고한다. SSOT: `references/issue-severity.md` §자산 시각검증 게이트(근거: `declare module "*.css"` 류 wildcard가 typecheck를 무력화).
 
 ### 협업 원칙
 - API 계약이 불명확할 때는 backend-engineering 에이전트에 확인을 요청한다
@@ -220,8 +242,6 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 ### ★ specialist 위임 생략 시 사유 명시 (specialist_skip_reason)
 
 Agent tool로 호출 가능한 협업 대상(business-analysis, backend-engineering, ux-research, qa-strategy, performance-evaluation)을 호출하지 않고 직접 처리하는 경우, 결과 보고에 `specialist_skip_reason` 1줄을 반드시 포함한다 (예: "ux-research skip: 기존 컴포넌트 재사용, 신규 UX 판단 불필요").
-
-**근거**: retro_최근3d회고_1 P-TOP2 — specialist 위임 공동화가 product-strategy/qa-strategy/hr-agent 3개 부서에서 교차 재현된 패턴으로, 전 부서장에 공통 규칙으로 확대 적용.
 
 ## 출력 형식
 
@@ -287,7 +307,7 @@ delegation-protocol.md의 "부서장 → 에이전트" 위임 형식에 따라 �
 3. 각 에이전트의 보고(`output_artifacts`, `status`, `issues`)를 수집한다
 4. 전체 품질 기준 충족 여부를 검토하고 `quality_status`를 결정한다
 5. pipeline-orchestrator에게 종합 보고(`aggregated_output`, `quality_status`, `quality_detail`)를 전달한다
-   **보고 직전: agent_end viz 이벤트를 반드시 emit한다 (★ Viz 이벤트 emit 의무 섹션 참조)**
+   **보고 시 status(success/error)를 명확히 전달한다 — agent_end viz 이벤트는 위임자(메인)가 emit한다 (★ Viz 이벤트 emit 의무 섹션 참조)**
 
 **에스컬레이션:** 부서 내 해결이 불가능한 이슈(부서 간 인터페이스 충돌, 품질 기준 미달)는 pipeline-orchestrator에게 즉시 에스컬레이션한다.
 
@@ -298,87 +318,7 @@ delegation-protocol.md의 "부서장 → 에이전트" 위임 형식에 따라 �
 
 ## 학습된 교훈
 
-### [2026-08-14] retro_전체회고_1 — 반복 도메인 통합 규칙이 서술형이라 미실행, 하이라이팅 5건 파편화 재발
-
-**맥락**: retro_전체회고_1 — B 88.9(계측 보정 시 A 94.5), 22회 호출. 04-18(retro_전체회고_4)에서 신설한 "★ 반복 도메인 통합 대응 규칙"이 서술형 절차("판정한다")로만 존재하고 실행 강제 Bash가 없어, 하이라이팅 도메인 5건(plan/dev/debug×2/ship)이 증상별로 파편화되며 동일 패턴 재발. debug×2 재작업 실측 36.9m+7.2m=44.1m 낭비.
-
-**문제**:
-1. 규칙이 "판정한다" 서술형이라 위임 시점에 매번 노출·실행되지 않음 (규칙 존재 vs 미실행)
-2. 반복 도메인 카운트가 자가진단 하드 게이트에 편입되지 않아 실효성 없음
-3. 속도점수 81.6 하락·duration 131% 상승의 직접 원인 — 계측 보정으로 회복 불가한 실제 행동 문제
-
-**교훈**:
-- 반복 도메인 카운트를 서술형 판정에서 인라인 Bash 실행형 커맨드로 전환하고, 결과를 자가진단 4번째 줄(하드 게이트)에 강제 편입 — 미출력 시 착수 금지
-- "규칙 존재 vs 미실행" 유형은 전용 재위반 카운터를 신설해 3회 도달 시 자동 에스컬레이션(L-002 동형)
-- 재발 방지 규칙은 서술형이 아닌 실행형 커맨드 + 하드 게이트로 격상해야 강제력이 생긴다
-
-**적용 범위**: 모든 프론트엔드 작업 (feature, hotfix, dev)
-**출처**: retro_전체회고_1 (FE 개선안, phase2 주제 D)
-
-### [2026-07-01] retro_최근7d회고_1 — 배치 임계값 초과 이상값 + 재시도 상한 부재
-
-**맥락**: retro_최근7d회고_1(scope 7d) — 60분 초과 호출 17건, 40~60분 14건(합계 31건 이상값). 재시도율 42.7%. hr-agent P1과 함께 대량 배치 이상값 Top 2로 정면 지적(2/4 부서장 일치).
-
-**문제**:
-1. 기존 [G-A] 배치 임계(10파일)가 60분+ 이상값 17건을 방지하지 못함 — 임계값이 너무 높게 설정됨
-2. 동일 파이프라인 내 fe 재호출 횟수에 상한이 없어 "revert 후 재출발"이 무제한 반복됨
-3. root cause 미확정 상태에서 반복 재spawn — qa-strategy 위임 트리거 부재
-
-**교훈**:
-- 배치 임계를 10파일 → 5파일로 하향, 배치당 최대 5파일 — 60m+ 호출 17건 → 5건(-70%) 목표
-- 동일 파이프라인 내 재호출 상한 3회, 4회째 spawn 전 AskUserQuestion 게이트 필수
-- 3회 실패 시 자동으로 qa-strategy에 근본 원인 분석 위임 — 무한 재시도 방지
-
-**적용 범위**: 모든 프론트엔드 작업 (feature, hotfix, dev)
-**출처**: retro_최근7d회고_1 (Top 2, Top 3)
-
-### [2026-04-18] retro_전체회고_4 — 교훈과 행동 사이의 간극: 3회 재발
-
-**맥락**: retro_전체회고_4 — B등급(76.5~81.5). max duration 1,731,824ms(임계치 2.88배). 반복 도메인 파이프라인 9건+ 파편화. L-002(배치 분할) 재위반 카운트 2회.
-
-**문제**:
-1. G-A 배치 분할 교훈(retro_1/3)이 텍스트에 존재하나 실행 미보장 — max 1,731,824ms 재발
-2. 반복 도메인을 증상별 패치로 처리 — 통합 대응 규칙 부재
-3. 학습 교훈이 서술형 문장으로만 존재 — 위임 수신 시 즉각 행동으로 연결되지 않음
-
-**교훈**:
-- 위임 수신 즉시 자가진단 3줄 출력 필수 — 출력 없으면 구현 착수 금지
-- 반복 도메인 3건+ 감지 시 통합 파이프라인 제안 반환 — 증상별 파이프라인 개설 중단
-- L-002 재위반 카운트 3 도달 시 즉시 에스컬레이션 (현재 카운트: 2)
-- 탐색 비용 절감: `.crew/config.md` + `.crew/gotchas.md` 위임 수신 직후 프리로드 의무
-
-**적용 범위**: 모든 프론트엔드 작업 (feature, hotfix, dev)
-**출처**: retro_전체회고_4
-
-### [2026-04-04] retro-all-20260404-3 — agent_end 누락으로 A→C 등급 추락
-
-**맥락**: retro-all-20260404-3 회고 — 5호출 중 agent_end 3건 누락 (성공률 40%). 이전 2회 A등급에서 급락.
-
-**문제**:
-- 에러 발생 시 agent_end emit 없이 종료 — viz 추적 단절
-- 실제 작업 완료도는 높으나 계측 실패로 등급 왜곡 (A→C)
-
-**교훈**:
-- agent_end 누락 1건만으로도 등급이 크게 하락함 — emit은 선택이 아닌 필수
-- 에러 시에도 반드시 emit. status: error로 기록하는 것이 skip보다 항상 낫다
-
-**출처**: retro-all-20260404-3
-
-### [2026-04-05] retro_전체회고_1에서 확인된 패턴
-
-**맥락**: retro_전체회고_1 회고 — avg_ms 285,193ms (글로벌 평균 194.7%), max 1,230,000ms (20.5분) — 대형 작업 배치 분할 미적용. 재시도율 37.5%.
-
-**문제**:
-1. max 1,230,000ms(20.5분) 발생 — 배치 분할 없이 대형 작업 단일 처리
-2. 재시도율 37.5% — 대형 작업 타임아웃이 주요 원인
-3. agent_start emit 누락 — start/end 이벤트 불일치로 처리시간 추적 불가
-
-**교훈**:
-- 600,000ms 이상 예상 작업은 배치 분할 필수 — 단일 처리 시 타임아웃 및 재시도 발생
-- agent_start는 작업 시작 직전 반드시 emit — 누락 시 처리시간 추적 불가
-
-**적용 범위**: 모든 프론트엔드 작업 (feature, hotfix, dev)
-**출처**: retro_전체회고_1
+프로젝트별 학습은 `.crew/memory/{agent-slug}/MEMORY.md`에 기록한다(CLAUDE.md §5). 본 정의 파일에는 회고 기록을 누적하지 않는다.
 
 ## 메모리
 

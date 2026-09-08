@@ -424,6 +424,13 @@ Bash로 pipeline_end를 리터럴 값으로 emit합니다(셸 변수 아님 — 
 ```
 
 **DB 연동** (DB가 존재하면):
+
+> **board → DB upsert 필수**: Phase 4에서 board.md `## Backlog`에 기록한 정식 태스크(`TASK-NNN`)를
+> TaskDB에 등록해야 드리프트가 발생하지 않는다. 절차·스니펫은 `references/taskdb-board-sync.md` §3 참조.
+> ⚠ 아래 `sync-board.ts --write`는 **DB → board.md**(반대 방향)이며 현재 `getTasksByPipeline` 미존재로
+> 실행 시 예외가 난다 — board → DB 등록 용도가 아니다. 실제 등록은 `getPipelineBySlug(slug).id` + 멱등
+> `createTask`(taskdb-board-sync.md §3)로 수행할 것.
+
 ```bash
 if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
   bun run plugins/bams-plugin/tools/bams-db/sync-board.ts {slug} --write

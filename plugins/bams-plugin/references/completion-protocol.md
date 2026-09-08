@@ -45,6 +45,26 @@
 - 모든 Step 상태 최종 확인
 - Execution Log 하단에 산출물 경로 정리
 - `~/.bams/artifacts/pipeline/[slug].lock` 파일 제거
+- 커밋 생성 시 ship SKILL §Step 6-6 Staging hygiene를 준수한다(index 초기화 → 경로 지정 add → `git diff --cached --name-only` 검증) — `git add -A` 단독 사용으로 기존 스테이징이 커밋에 혼입되지 않도록 한다.
+
+## Step 4.2: 거버넌스 문서 갱신 (project-governance 1회 호출)
+
+`pipeline_end` 전, 거버넌스 문서 신선도를 점검하고 갱신을 산출합니다. Step 4.4(TaskDB 동기화) **이전에** 실행합니다.
+
+- (a) 이번 파이프라인의 변경분을 `.crew/board.md`에 `TASK-NNN`으로 등재한다 — project-governance는 쓰기 권한이 없으므로 전문을 반환하고 메인이 저장한다(등재 대상 없으면 '등재 불요' 명시).
+- (b) 아키텍처/스택/배포환경 변경이 감지되면 `.crew/config.md`의 해당 섹션만 갱신한다 — **Pipeline Learnings 섹션은 보존**한다(덮어쓰기 금지).
+- (c) `CLAUDE.md`는 편집하지 않는다 — '갱신 필요 항목'만 리스트업하여 보고한다.
+
+## Step 4.4: TaskDB board 동기화 (board → DB upsert)
+
+`pipeline_end` emit **직전에**, board.md에 기록한 정식 태스크(`TASK-NNN`)를 TaskDB(`bams.db`)에도
+반영하여 board.md ↔ DB 드리프트를 방지합니다. DB가 존재할 때만 실행하는 조건부 훅입니다.
+
+- 절차·스니펫 정본: `references/taskdb-board-sync.md` §3 (board → DB upsert).
+- **중요**: `sync-board.ts --write`는 **DB → board.md**(반대 방향)이며 현재 코드가 깨져 있으므로
+  board → DB 등록 용도로 호출하지 말 것. 실제 등록은 `getPipelineBySlug(slug).id` + 멱등 `createTask`로 수행.
+- 이 파이프라인이 이번 실행에서 board.md에 신규 등록/상태변경한 `TASK-NNN` 목록을
+  대화 컨텍스트에서 확보해 스니펫의 리터럴 자리에 채워 실행합니다(멱등성 가드로 중복 삽입 방지).
 
 ## Step 4.5: Viz 이벤트 마무리
 

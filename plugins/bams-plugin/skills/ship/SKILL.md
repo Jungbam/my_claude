@@ -1509,6 +1509,11 @@ EOF
 )"
 ```
 
+6. **Staging hygiene (required before every commit):**
+   - Reset the index first so a prior partial staging cannot contaminate this commit: `git reset` (unstage everything).
+   - Stage **only this commit's intended paths by name**: `git add <path> <path> …`. Do **not** use `git add -A` / `git add .` — leftover staging from earlier steps pollutes the first commit.
+   - Verify the staged set matches intent before committing: `git diff --cached --name-only` and confirm it equals the intended path set for this commit. If it differs, unstage the strays and re-add.
+
 ---
 
 ## Step 6.5: Verification Gate
@@ -1610,9 +1615,12 @@ execute its full workflow:
 2. Follow its instructions — it reads all .md files in the project, cross-references
    the diff, and updates anything that drifted (README, ARCHITECTURE, CONTRIBUTING,
    CLAUDE.md, TODOS, etc.)
-3. If any docs were updated, commit the changes and push to the same branch:
+3. If any docs were updated, commit the changes and push to the same branch. Apply Step 6-6 staging hygiene — stage the changed doc paths by name, never `git add -A`:
    ```bash
-   git add -A && git commit -m "docs: sync documentation with shipped changes" && git push
+   git reset
+   git add <changed doc paths>   # e.g. README.md ARCHITECTURE.md CLAUDE.md — never git add -A
+   git diff --cached --name-only  # confirm only the intended docs are staged
+   git commit -m "docs: sync documentation with shipped changes" && git push
    ```
 4. If no docs needed updating, say "Documentation is current — no updates needed."
 

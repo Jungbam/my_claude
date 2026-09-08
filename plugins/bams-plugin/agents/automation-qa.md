@@ -95,12 +95,13 @@ agent_end emit 시 result_summary는 반드시 다음 4항을 포함한다:
 - feature 파이프라인 Phase 3: **필수 참여** (qa-strategy Phase Gate 조건)
 - hotfix 파이프라인: Fast Path 적용, 핵심 회귀 테스트만 실행
 - debug 파이프라인: qa-strategy 판단에 따라 선택적 참여
+- **review/제거정리 파이프라인**: 테스트 작성 대상이 없더라도 qa-strategy 요청 시 build + start 200 + 삭제 대상 라우트 스모크(+ 자산 변경 시 전후 스크린샷)를 회귀 근거로 제출하고, call_id를 발급받아 RQG의 "회귀 전체 통과" 판정 근거를 공급한다.
 
 qa-strategy로부터 feature Phase 3 위임을 받지 않은 경우, pipeline-orchestrator에게 "QA 참여 누락" 알림 전송.
 
-### ★ E2E 실행 구조 최적화 (IMP-AQA-3 — C-P3 대응)
+### ★ E2E 실행 구조 최적화 (IMP-AQA-3)
 
-D등급(speed clamp) 재발 방지를 위해 E2E 스위트 구성 시 아래 3개 레버를 **기본값으로 적용**한다:
+E2E 스위트 구성 시 아래 3개 레버를 **기본값으로 적용**한다(speed clamp/저성능 방지):
 
 **(a) 병렬 워커**
 - `playwright.config.ts`에 `workers: process.env.CI ? 4 : '50%'` 명시 — 기본 순차(workers=1) 금지.
@@ -195,48 +196,7 @@ D등급(speed clamp) 재발 방지를 위해 E2E 스위트 구성 시 아래 3�
 
 ## 학습된 교훈
 
-### [2026-08-20] retro_전체회고_2 — speed clamp는 품질이 아닌 E2E 실행 구조 문제
-
-**맥락**: retro_전체회고_2 — D등급(57.50). success 5/6(품질 정상)이나 avg 738,002ms(12.3분)로 specialist median의 4.02배, speed clamp 하한 적중.
-
-**문제**:
-- D 귀인이 "품질 미달"로 왜곡 — 실제 원인은 순차 실행·고정 sleep·장기 폴링의 E2E 실행 구조 비효율
-- 정의에 병렬 워커/이벤트 기반 wait 지침이 원칙 문구로만 존재하고 구체 설정값·백오프 계수 부재
-
-**교훈**:
-- speed D는 모델 다운/업시프트가 아니라 실행 구조 최적화 레버(병렬 워커/이벤트 wait/지수 백오프)로 대응 — IMP-AQA-3
-- E2E 착수 시 workers/sleep잔존/백오프 체크리스트 출력을 습관화, 보수적 목표 ≤6분(360,000ms)
-
-**출처**: retro_전체회고_2 (consolidated #6 / C-P3)
-
-### [2026-04-18] retro_전체회고_4 — 고성능 저활용 패턴 지속
-
-**맥락**: retro_전체회고_4 — A등급(97.8점)이지만 참여율 낮음. Full Path vs Fast Path 위임 기준 미명문화로 자동화 역량 저활용.
-
-**문제**:
-- 위임 트리거 기준(파일 수)이 암묵적 — 매번 qa-strategy 판단에 의존
-- agent_end result_summary 구조 비일관 — 회귀 데이터 집계 어려움
-
-**교훈**:
-- 변경 파일 수 ≥ 3 기준은 rule-based로 체크리스트화 → 30초 내 자동 판정
-- result_summary는 4항(테스트수/커버리지/비주얼회귀/주요실패) 고정 포맷 적용
-
-**출처**: retro_전체회고_4
-
-### [2026-04-05] retro_전체회고_1에서 확인된 패턴
-
-**맥락**: retro_전체회고_1 회고 — A등급(97.0점). agent_start 누락(agent_end만 기록), 참여 파이프라인 1개(11%)로 통계적 대표성 제한.
-
-**문제**:
-1. agent_start emit 누락 — 실제 처리시간 추적 불가
-2. 참여율 11% — feature 파이프라인 필수 참여 규칙 미정립
-
-**교훈**:
-- agent_start는 테스트 코드 작성 전 반드시 emit — 누락 시 처리시간 추적 불가
-- feature 파이프라인 Phase 3에는 반드시 참여 — qa-strategy 위임을 기다리지 말고 확인
-
-**적용 범위**: 모든 파이프라인 (feature, hotfix, dev)
-**출처**: retro_전체회고_1
+프로젝트별 학습은 `.crew/memory/{agent-slug}/MEMORY.md`에 기록한다(CLAUDE.md §5). 본 정의 파일에는 회고 기록을 누적하지 않는다.
 
 ## 메모리
 

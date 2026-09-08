@@ -106,6 +106,8 @@ pipeline-orchestrator에게 다음 형식으로 보고한다 (delegation-protoco
 
 - 테스트 스택 기본값: 단위 `vitest`/`bun test` + Testing Library, E2E `Playwright` — 프로젝트에 이미 설정된 프레임워크가 항상 우선
 - 회귀 게이트 최소셋(Next.js/TS): `bunx tsc --noEmit` + `bun run lint` + `bun run build` + 단위 테스트 — 이 4개가 모두 PASS여야 GO 판정
+- **리소스 경합 방지 — 직렬 실행 필수**: 빌드/테스트 등 리소스를 많이 쓰는 명령은 동시(병렬) 실행하지 않고 반드시 직렬로 실행한다 — `bunx tsc --noEmit` → `bun run lint` → `bun run build` **완료 대기** → 단위 테스트 순. `bun run test`와 `next build`를 동시에 돌리면 리소스 경합으로 명령이 hung될 수 있다
+- **test timeout 가드**: 테스트 실행에는 적정 timeout(예: 60초)을 부여하고, 초과 시 프로세스를 kill한 뒤 **최대 1회 재실행**한다. 재실행도 timeout을 초과하면 hung으로 기록하고 에스컬레이션한다
 - **RSC 제약**: async Server Component는 단위 렌더 테스트 불가 — 통합(Route Handler/Server Action 직접 호출) 또는 E2E로 검증 계획 수립
 - 테스트 범위 설계 시 서버/클라이언트 경계별로 구분: 서버 로직(단위/통합) vs 클라이언트 상호작용(Testing Library) vs 전체 플로우(Playwright)
 - Python/Go 프로젝트는 stack-profile.md 보조 프로파일(pytest / go test) 기준으로 동일 원칙 적용
@@ -118,8 +120,6 @@ dev/hotfix 파이프라인 Wave 계획 수립 시 다음을 테스트 전략 범
 2. 검증 항목: (a) call_id 중복 emit 여부, (b) agent_type 필드가 부서명 매핑 리스트에 속하는지, (c) slug 위치 인자가 `-`로 시작하는 리터럴로 오염되지 않았는지, (d) agent_start/agent_end 쌍 누락 여부
 3. automation-qa 위임 시 위 항목을 회귀 테스트 케이스에 포함하도록 `quality_criteria`에 명시
 
-**근거**: DQ-1~4(emit 로직 결함 4건)가 platform-devops/qa-strategy/frontend-engineering 3개 부서장에게 정면 지적되었음에도 계측 파이프라인이 QA 스코프에 상시 편입되어 있지 않아 반복 발견됨. 출처: `retro_최근7d회고_1` Top 6 (qa P4).
-
 ### ★ 정량 보고 자기검증 (Major/Critical 등급 — OQ5=A)
 
 Major/Critical 결함의 정량 근거(grep count 등) 보고 시, 동일 명령을 **1회 자기 재실행**하여 결과 일치 확인:
@@ -130,8 +130,6 @@ Major/Critical 결함의 정량 근거(grep count 등) 보고 시, 동일 명령
 4. X ≠ Y이면 사유 명시 (예: "이스케이프 차이 — 재실행 결과 Y를 신뢰값으로 채택")
 
 **적용 범위 (OQ5=A)**: Major / Critical 등급 정량 보고에만 적용. Minor/Info는 일회성 grep 허용.
-
-cf. `.crew/memory/qa-strategy/improvements/2026-05-03-grep-false-positive.md` — deep-review_init조직도구현전체 R3 false positive Major 2건 사례.
 
 ### ★ QA Phase 완료 조건 (Phase 게이트 — 생략 불가)
 
@@ -185,8 +183,6 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 - review.md 또는 spec.md의 AC 섹션에서 동일 검증 패턴(grep, bash 명령 등)이 3건 이상 발견되면 `scripts/verify-{slug}.sh` 형태의 셸 스크립트를 신규 생성하여 자동화한다
 - 스크립트 표준: `set -e` + `set -u` + `set -o pipefail` 필수, 실패 시 stderr에 실패 항목 출력 + 종료 코드 1
 - 위반 시 deep-review에서 `test-coverage:grep-script-missing` 패턴으로 분류된다
-- 참조 예시: `scripts/verify-retro-guards.sh` (hotfix_AC스크립트에서 신규 작성)
-- 출처: `retro_deep-review_retro범위가드` (2026-04-27) — Major-T (12개 grep AC 셸 스크립트 미존재)
 
 #### 적용 체크리스트 (자가 검증)
 - [ ] AC 섹션 grep/bash 명령 ≥3건 → `scripts/verify-{slug}.sh` 동시 생성
@@ -236,7 +232,16 @@ design-director 에러 감지 또는 agent_end 없을 시:
 
 **강제의 근본은 파이프라인 레벨 기계 게이트(A5/D-2, platform-devops 훅의 `automation_qa_call_id` 필드 검사)에 있으며, 본 정의는 그 게이트가 파싱할 구조화된 출력을 보장하는 상류 계약이다. 위임 규칙 문구를 추가로 늘리지 않는다(과적재 방지).**
 
-**근거**: retro_전체회고_1 — 위임 규칙 30건 과포화에도 automation-qa 실호출 0건. retro_최근3d회고_1 P-TOP2(automation-qa 8.3%, defect-triage 0건) 재확인.
+### ★ 정리/제거 모드 분기
+
+diff가 부재한 파이프라인(dead-code/자산 정리, 제거 후보 인벤토리)을 수신하면 5관점 리뷰를 '제거 안전성 판정'으로 매핑하고 다음을 P0 체크리스트로 고정한다.
+
+- 각 삭제 후보에 대해 `grep -rn <symbol|파일명>` 역참조 확인 + `import type` 배럴 소비처 확인을 필수 수행한다.
+- 문자열 리터럴 자산 참조(`src`/`srcSet`/`<picture>`/`url()`)는 정적 스캐너 결과보다 **우선** 검증한다(스캐너 false-positive: 배럴 `import type`, `<picture>` fallback).
+- 무변경 게이트 파일·엔트리포인트(Next 컨벤션 파일 `page`/`layout`/`loading`/`error`/`not-found`, scripts, test stubs)는 KEEP 리스트로 선제 확정한다.
+- 자산 변경이 포함되면 `references/issue-severity.md` §자산 시각검증 게이트에 따라 전후 스크린샷을 회귀 근거로 요구한다.
+
+**근거**: `/bams:review`가 diff 전제라 제거 안전성 판정을 런타임에 재해석(P6)했고, 정적 스캐너 false-positive 2건을 절차로 고정하지 못했다.
 
 ## 출력 형식
 
@@ -289,79 +294,7 @@ design-director 에러 감지 또는 agent_end 없을 시:
 
 ## 학습된 교훈
 
-### [2026-08-14] retro_전체회고_1 — 위임 규칙 과포화(30건)에도 automation-qa 0건: 강제는 문구가 아닌 기계 게이트에서 나온다
-
-**맥락**: qa-strategy A 95.4(실행 우수)이나 automation-qa·defect-triage 실호출 0건으로 협업 점수 2. 정의 grep 결과 automation-qa/Full Path/skip 문구 30건 과포화.
-
-**문제**: 규칙이 30건 있어도 LLM이 자발적으로 따라야만 발동하는 연성 규칙이라 12개 코드 변경 파이프라인에서 위임 0건. 문구를 더 넣으면 과적재만 악화.
-
-**교훈**:
-- 동일 취지 위임 규칙은 단일 하드 게이트 블록으로 통합하고 명칭을 `specialist_skip_reason` 하나로 통일한다
-- 위임 강제의 근본은 프롬프트가 아니라 파이프라인 레벨 기계 게이트(pipeline_end `automation_qa_call_id` 검사)다 — 정의 수정은 그 게이트가 파싱할 구조화된 출력 보장에 한정한다
-- IMP-QS-3 체크리스트는 QA Phase 필수 산출물로 격상, 미출력 시 Phase 미완료
-
-**출처**: retro_전체회고_1 phase3-qualitative-qa-strategy §3·§5, phase2 주제 C, A5
-
-### [2026-07-01] retro_최근7d회고_1 — 계측 파이프라인 QA 스코프 미편입으로 DQ 결함 반복 발견
-
-**맥락**: retro_최근7d회고_1(scope 7d) — B등급(79.4). 재시도율 33.3%, DQ-2(agent_type 오염) 사례로 오염 영향 받음.
-
-**문제**:
-1. emit 로직 결함(DQ-1~4)이 4개 부서장 중 3개(platform-devops/qa-strategy/frontend-engineering)에게 정면 지적되었으나 계측 파이프라인이 QA 테스트 전략 범위에 상시 편입되어 있지 않았음
-2. dev/hotfix Wave 계획 수립 시 산출물 회귀 테스트만 계획하고 emit 스키마 검증은 별도 계획 없이 누락되는 경우가 있었음
-
-**교훈**:
-- emit 관련 코드 변경 시 계측 검증(call_id 유일성/agent_type 매핑/slug 오염/start-end 쌍)을 P0로 테스트 전략에 명시 편입
-- automation-qa 위임 quality_criteria에 위 항목을 포함시켜 회귀 테스트로 상시화
-
-**출처**: retro_최근7d회고_1 (Top 6)
-
-### [2026-04-18] retro_전체회고_4 — QA 투입 가시성 부재와 자동화 저활용
-
-**맥락**: retro_전체회고_4 — B(84.0), 호출 -19.2% 감소. automation-qa 활용률 19%(4/21). release-quality-gate 0회.
-
-**문제**:
-1. pipeline_end에 qa_invoked 필드 없어 QA 누락 vs 효율화 판별 불가
-2. automation-qa 위임 트리거가 LLM 재량에 맡겨져 Full Path에서도 생략됨
-3. QA Phase step 이벤트 미발행으로 병목 구간 측정 불가
-
-**교훈**:
-- automation-qa 위임 체크리스트를 LLM 판단이 아닌 규칙 기반으로 강제화해야 한다 (변경 파일 수 ≥ 3 → 자동 Full Path)
-- QA Phase 진입/종료 시 step_start/step_end emit을 의무화해야 병목을 측정할 수 있다
-- platform-devops에 `qa_invoked: bool` 필드를 pipeline_end 이벤트에 추가 요청해야 한다
-
-**출처**: retro_전체회고_4
-
-### [2026-04-04] retro-all-20260404-3 — Fast Path 미도입으로 QA Phase 병목
-
-**맥락**: retro-all-20260404-3 회고 — qa-strategy 평균 소요시간 122초(글로벌 평균 1.41배). defect-triage 호출 이력 0건.
-
-**문제**:
-- hotfix와 full feature에 동일한 전체 QA 절차 적용 → 불필요한 오버헤드
-- defect-triage 호출 트리거 기준 불명확으로 피드백 루프 미완성
-
-**교훈**:
-- hotfix/단일 파일 수정 시 Fast Path(automation-qa만) 적용 → 소요시간 70% 단축 가능
-- defect-triage는 Critical/Major 결함 발견 시 즉시 호출해야 결함 피드백 루프가 완성됨
-
-**출처**: retro-all-20260404-3
-
-### [2026-04-07] retro_전체회고_2에서 확인된 38점 급락 패턴
-
-**맥락**: retro_전체회고_2 회고 — retro_전체회고_1 A(98.5) → retro_전체회고_2 C(60.5)로 38점 급락. no_end 1건 + 재시도율 25%가 감점 주요 원인. automation-qa 실질 활동 기록 없음.
-
-**문제**:
-1. agent_end 확인을 QA Phase 완료 조건으로 명시하지 않음 → no_end 발생
-2. automation-qa 호출 결과를 보고서에 포함하는 체계 없음 → 하위 위임 가시성 부족
-3. design-director 실패 시 시각적 회귀 테스트 대체 절차 없음
-
-**교훈**:
-- QA Phase 완료 조건에 모든 하위 에이전트 agent_end emit 확인을 명시해야 한다
-- automation-qa 호출 여부 및 결과를 보고서에 항상 포함해야 하위 위임 체계가 추적된다
-- design-director 실패 시에도 시각 검증을 수행할 수 있는 대체 SOP가 필요하다
-
-**적용 범위**: 모든 QA Phase (feature, dev)
-**출처**: retro_전체회고_2
+프로젝트별 학습은 `.crew/memory/{agent-slug}/MEMORY.md`에 기록한다(CLAUDE.md §5). 본 정의 파일에는 회고 기록을 누적하지 않는다.
 
 ## 메모리
 

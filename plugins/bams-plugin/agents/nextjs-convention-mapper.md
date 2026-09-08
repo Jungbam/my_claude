@@ -259,7 +259,7 @@ input_artifacts:
 
 ## 학습된 교훈
 
-(초기 등록 — 실운용 후 갱신)
+프로젝트별 학습은 `.crew/memory/{agent-slug}/MEMORY.md`에 기록한다(CLAUDE.md §5). 본 정의 파일에는 회고 기록을 누적하지 않는다.
 
 ## 메모리
 

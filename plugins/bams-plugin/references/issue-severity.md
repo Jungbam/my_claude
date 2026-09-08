@@ -101,6 +101,10 @@ Override는 SSOT를 인용하는 각 커맨드에서 명시적으로 override �
 - `commands/bams/dev/phase-3-5-quality-gate.md` — Phase 3.5 QG
 - `commands/bams/feature/phase-3-verification.md` — Phase 3 완료 조건 판정
 - `agents/release-quality-gate.md` — 출시 준비 상태 검토 기준
+- `agents/release-quality-gate.md` — §자산 시각검증 게이트 (출시 준비 상태 검토 시)
+- `agents/frontend-engineering.md` — §자산 시각검증 게이트 (§품질 기준)
+- `agents/platform-devops.md` — §자산 시각검증 게이트 (자산 변경 시각검증 게이트 T-ASSET-1)
+- `references/rqg-templates.md` — §자산 시각검증 게이트 (게이트 템플릿)
 
 ### 하드코딩 검색 CI 규칙
 
@@ -113,6 +117,17 @@ grep -rn 'Critical 0건.*Major 2건' plugins/bams-plugin/ \
   | grep -v '차이점: 본 파이프라인 N값'  # SP-1 통일본 예외
 # 결과 0건이어야 PASS
 ```
+
+### 자산 시각검증 게이트 (SSOT — A3)
+
+CSS/폰트/이미지 등 **자산 변경 배치**(축소·삭제·교체 포함)는 typecheck/lint/unit 통과 또는 build+HTTP 200만으로 GO 판정할 수 없다. 근거: `declare module "*.css"` 류 wildcard 타입 선언이 typecheck를 무력화하여 자산 삭제/변경의 시각 회귀를 정적 검증이 감지하지 못한다.
+
+- **필수 산출물**: build 통과 + 변경 라우트(자산 소비 페이지) 전후 스크린샷(`bams:browse` 또는 `visual-fidelity-verifier` 산출). HTTP 200 응답을 시각검증으로 갈음 금지.
+- **판정**: 전후 스크린샷이 배치 산출물에 포함되어야 GO. 스크린샷 부재 시 **CONDITIONAL-GO**(사용자/RQG 확인 필요)로 강등.
+- **역할 분담**: 시각 품질 정성 판정은 `visual-fidelity-verifier`에 위임, 용량 최적화 실행은 `platform-devops` 자체.
+
+이 게이트는 릴리스 게이트 판정 주체(RQG)와 자산을 변경하는 에이전트(frontend-engineering / platform-devops)가 공통으로 참조하는 SSOT다.
+
 ## aspect별 Override (SSOT — F-R11, plan_리뷰파이프라인개편)
 
 `/bams:review --aspect ...`는 항상 Phase 4 게이트를 실행한다(OQ6=(b)). 아래는 aspect별 추가 Critical/Major 분류 기준이며, §기본 임계값(Critical 0 / Major ≤2)과 **함께** 적용한다(대체 아님).

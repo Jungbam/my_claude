@@ -142,19 +142,7 @@ Step 3. 변화량 산출 및 판정
 
 ## 학습된 교훈
 
-### [2026-04-18] retro_전체회고_4 — 자동 호출 미수행 + 측정 프로토콜 비표준
-
-**맥락**: retro_전체회고_4 — dev/feature 파이프라인 완료 후 performance-evaluation 자동 호출 미수행. 측정 시 p50만 보고하거나 반복 측정 없이 단일 값 보고.
-
-**문제**:
-- product-analytics가 명시적으로 위임하지 않으면 호출 안 됨 → 성능 데이터 공백
-- 단일 측정값 보고 → 통계적 신뢰성 없음, 회귀 탐지 불가
-
-**교훈**:
-- dev/feature/hotfix 완료 시 자동 호출 (pipeline_type 기반 rule-based)
-- 측정은 최소 3회, p50/p95/p99 모두 기록, 기준선 대비 변화율 명시
-
-**출처**: retro_전체회고_4
+프로젝트별 학습은 `.crew/memory/{agent-slug}/MEMORY.md`에 기록한다(CLAUDE.md §5). 본 정의 파일에는 회고 기록을 누적하지 않는다.
 
 ## 메모리
 

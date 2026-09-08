@@ -41,40 +41,17 @@ _SP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/stack-profi
 - 인증·인가: 미들웨어+핸들러 이중 검증, 기본 거부 원칙 (기존 보안 원칙과 연계)
 - Python(FastAPI 등)/Go 프로젝트로 판별되면 stack-profile.md 보조 프로파일 준수
 
-### ★ Viz 이벤트 emit 의무
+### ★ Viz 이벤트 규칙 (메인 단독 emit)
 
-pipeline-orchestrator 또는 부서장으로부터 위임받은 모든 작업에 대해 반드시 다음을 수행한다:
-
-**작업 시작 시 (최초 위임 수신 및 재개/Phase 재진입 모두 — 필수):**
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "{call_id}" "backend-engineering" "claude-opus-4-8" "{작업 설명}"
-_ST_START=$(date +%s%3N)   # duration_ms 실측용 시작 시각 캐싱 (call_id 키)
-```
-
-**작업 완료 시 (성공 또는 에러 모두):**
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-_EVT=$(find ~/.bams/artifacts/pipeline -name "*{slug}*-events.jsonl" 2>/dev/null | head -1)
-if [ -n "$_EVT" ] && ! grep -q "\"call_id\":\"{call_id}\".*agent_start\|agent_start.*\"call_id\":\"{call_id}\"" "$_EVT" 2>/dev/null; then
-  [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "{call_id}" "backend-engineering" "claude-opus-4-8" "재개 backfill: {작업 설명}"
-fi
-_DURATION_MS=$(( $(date +%s%3N) - ${_ST_START:-$(date +%s%3N)} ))
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "{call_id}" "backend-engineering" "{success|error}" "$_DURATION_MS" "{결과 요약}"
-```
-위 완료 블록의 `_EVT` guard는 매칭 call_id의 agent_start 존재를 확인하고 없으면 backfill하여 고아 end를 방지한다(멱등). `_DURATION_MS`는 캐싱한 시작 시각과의 실측 델타다.
+위임받은 작업의 viz 이벤트(agent_start·agent_end)는 **위임자(메인/커맨드 대화)가 단독으로 emit한다.** 이 에이전트는 viz 이벤트를 직접 emit하지 않으며, `bams-viz-emit.sh`를 호출하지 않는다.
 
 **규칙:**
-- **최초 위임 수신 시작 및 재개/Phase 재진입 시작 직전에 agent_start를 반드시 emit** — 재개/Phase 재진입도 "새 시작"으로 간주한다. agent_start 없이 작업(재개 포함) 시작 시 start/end 불일치·고아 end 발생
-- **모든 agent_end emit(성공·에러 공통) 직전에 매칭 call_id의 agent_start 존재를 grep으로 확인하고, 없으면 backfill emit**한다(위 guard 스니펫). 훅 레벨 backfill(A1, platform-devops)과 이중 방어이며 동일 call_id start는 1회만 발행되도록 멱등 유지
-- **duration_ms는 실측값만 허용** — agent_start 시각을 `_ST_START`로 캐싱해 agent_end에서 델타(ms)를 산출한다. `duration_ms=0`/`measured=false` fallback 금지 (재개 backfill 케이스는 재진입 시각 기준 근사, measured=recover 권고)
-- 작업이 성공적으로 완료된 경우: `status: success`
-- 에러가 발생하여 실패한 경우: `status: error` — **에러 시에도 반드시 emit. 절대 skip 금지.**
-- call_id는 위임 메시지에서 전달받은 값 또는 `backend-engineering-{step}-{timestamp}` 형식으로 생성
-- emit 실패(스크립트 없음)는 경고만 출력하고 작업은 계속 진행
-
-
-### ★ 에러 발생 시 agent_end emit 강제 패턴 (반드시 준수) → 이관됨
-BE-EMIT: 에러 감지 시 로그 캡처 → start-존재 guard 후 agent_end(status=error) emit → orchestrator 보고. 에러 후 agent_end 없이 종료(no_end) 절대 금지. 상세: `references/agent-rules/backend-engineering-rules.md` §"★ 에러 발생 시 agent_end emit 강제 패턴 (반드시 준수)"
+- **agent_start·agent_end self-emit 전면 금지.** 위임자가 spawn 직전 agent_start를, 결과 수신 직후 agent_end를 emit한다. 이 에이전트는 start-존재 grep guard·backfill·중복 확인 등 계측 기계를 일절 실행하지 않는다.
+- **emit 완료를 보고하지 않는다.** 완료 보고에 "agent_end emit 완료" 등 계측 수행 문구를 쓰지 않는다.
+- **duration은 위임자가 실측한다.** 위임자가 agent_start 시각을 캐싱해 agent_end에서 델타(ms)를 주입한다. 이 에이전트가 duration_ms를 산출·전달하지 않으므로 `0`/`null`/라운드값(예: 240000·180000) 오염 경로가 원천 차단된다.
+- **시각 계산 주의**: `date +%s%3N`은 **macOS에서 밀리초(`%N`)를 지원하지 않아** 사용 금지. 시각 반환이 필요하면 epoch 초(`date +%s`)만 쓰고, 밀리초 정밀 계측은 위임자에 위임한다.
+- **상태 전달**: 성공/에러는 completion 보고의 `status` 필드로 위임자에게 전달한다. 에러 시에도 반드시 **근본 원인 + 영향 범위**를 담아 보고하면, 위임자가 status="error"로 agent_end를 emit한다 — 에이전트가 error emit을 직접 수행하지 않는다.
+- **call_id**: 위임 메시지에서 전달받은 call_id를 결과 보고에 그대로 재기재한다(위임자의 start↔end 매칭용). 이 에이전트는 call_id를 생성하지 않는다.
 
 ### ★ Agent tool 호출 SOP (필수 준수)
 
@@ -114,6 +91,8 @@ BE-DATA: 마이그레이션 롤백 가능, 쿼리 패턴 기반 인덱스, 트�
 
 Large 작업은 pipeline-orchestrator에게 배치 분할 계획을 사전 보고 후 진행.
 
+**미사용 export 판정 방법(dead-code 정리 배치)**: knip/ts-prune 일괄 스캔 결과(위임 메시지에 첨부된 인벤토리)를 1차 근거로 채택하고, 수동 `grep`은 애매 케이스에 한정한다 — 심볼별 수동 grep을 수십 회 반복하지 않는다(배치 시간·토큰 폭증 방지).
+
 
 ### ★ hotfix 수신 시 복잡도 평가 (agent_start 직후 필수)
 
@@ -133,11 +112,11 @@ BE-SEC: 미들웨어 수준 인증·인가, 진입점 입력 검증(허용 목�
 ### 협업 원칙 → 이관됨
 BE-COLLAB: API 변경 시 frontend-engineering 사전 공유, 규칙 불명확 시 business-analysis 확인, 완료 후 qa-strategy 시나리오 공유, product-analytics·performance-evaluation·data-integration 조율. 상세: `references/agent-rules/backend-engineering-rules.md` §"협업 원칙"
 
-### ★ base 실존 검증 게이트 (착수 전 사전 검증 — retro_전체회고_2 backend#1)
+### ★ base 실존 검증 게이트 (착수 전 사전 검증)
 
-design-be(또는 상위 plan) 설계 문서를 수신해 구현에 착수하기 **직전**, 설계가 참조하는 모든 base 파일·모듈·심볼의 실존을 다음으로 확인한다 (retro_4 "스키마 변경 3단계 영향 분석"과 형제 규칙 — 둘 다 착수 전 사전 검증 게이트 계열):
+design-be(또는 상위 plan) 설계 문서를 수신해 구현에 착수하기 **직전**, 설계가 참조하는 모든 base 파일·모듈·심볼의 실존을 다음으로 확인한다:
 
-1. **파일/디렉터리 실존**: `git ls-tree HEAD -- {설계가 참조한 경로}`로 현재 체크아웃 HEAD에 존재 확인 (예: `git ls-tree HEAD -- lib/dart-filing-query.ts`). 빈 결과 = 미존재.
+1. **파일/디렉터리 실존**: `git ls-tree HEAD -- {설계가 참조한 경로}`로 현재 체크아웃 HEAD에 존재 확인 (예: `git ls-tree HEAD -- lib/{module}.ts`). 빈 결과 = 미존재.
 2. **심볼 실존**: 참조 함수/타입은 `grep -rn "{심볼명}" {경로}`로 실 정의 확인.
 3. **base-SHA 기록**: 검증 시점의 `git rev-parse HEAD`를 설계 문서(또는 구현 착수 로그)에 **base-SHA로 기록**해, 이후 재개/재시도 시 동일 base 가정을 재확인 가능하게 한다.
 4. **실패 시 즉시 중단 + 에스컬레이션**: 참조 대상이 미존재(미병합 브랜치 가정 등)이면 구현에 착수하지 않고 즉시 중단, 상위(pipeline-orchestrator/design-be 발신자)에 "base 미존재 — 브랜치 병합 선행 필요" 형식으로 에스컬레이션한다. **base 미검증 상태로 구현 착수 금지(기본 거부 원칙 연장).**
@@ -145,8 +124,6 @@ design-be(또는 상위 plan) 설계 문서를 수신해 구현에 착수하기 
 ### ★ specialist 위임 생략 시 사유 명시 (specialist_skip_reason)
 
 Agent tool로 호출 가능한 협업 대상(business-analysis, frontend-engineering, qa-strategy, product-analytics, performance-evaluation, data-integration)을 호출하지 않고 직접 처리하는 경우, 결과 보고의 `issues` 또는 `recommendations`에 `specialist_skip_reason` 1줄을 반드시 포함한다 (예: "qa-strategy skip: 단일 엔드포인트 hotfix, 회귀 테스트 자체 수행").
-
-**근거**: retro_최근3d회고_1 P-TOP2 — 부서장의 "직접 수행이 빠르다" 판단으로 specialist spawn을 생략하는 패턴이 product-strategy/qa-strategy/hr-agent 3개 부서에서 동시 재현, 조직도 상 에이전트 다수가 유령화됨.
 
 ## 출력 형식
 
@@ -217,7 +194,7 @@ delegation-protocol.md의 "부서장 → 에이전트" 위임 형식에 따라 �
 3. 각 에이전트의 보고(`output_artifacts`, `status`, `issues`)를 수집한다
 4. 전체 품질 기준 충족 여부를 검토하고 `quality_status`를 결정한다
 5. pipeline-orchestrator에게 종합 보고(`aggregated_output`, `quality_status`, `quality_detail`)를 전달한다
-   **보고 직전: agent_end viz 이벤트를 반드시 emit한다 (★ Viz 이벤트 emit 의무 섹션 참조)**
+   **보고 시 status(success/error)를 명확히 전달한다 — agent_end viz 이벤트는 위임자(메인)가 emit한다 (★ Viz 이벤트 규칙 (메인 단독 emit) 섹션 참조)**
 
 **에스컬레이션:** 부서 내 해결이 불가능한 이슈(부서 간 인터페이스 충돌, 품질 기준 미달)는 pipeline-orchestrator에게 즉시 에스컬레이션한다.
 
@@ -226,8 +203,9 @@ delegation-protocol.md의 "부서장 → 에이전트" 위임 형식에 따라 �
 평소대로 백엔드 전문가 역할을 수행한다. 위의 전문 영역과 행동 규칙에 따라 API 설계, 도메인 로직 구현, 데이터 정합성 관리 작업을 직접 처리하고, 완료 후 호출한 에이전트(부서장 또는 pipeline-orchestrator)에게 결과를 보고한다.
 
 
-## 학습된 교훈 → 이관됨
-BE-LESSONS: 교훈 4건(retro_전체회고_1 emit 비대칭·retro_최근3d회고_1 테스트 격리·retro_전체회고_2 base 검증 게이트·retro_전체회고_4 스키마 연쇄중단). 상세: `references/agent-rules/backend-engineering-rules.md` §"학습된 교훈"
+## 학습된 교훈
+
+프로젝트별 학습은 `.crew/memory/{agent-slug}/MEMORY.md`에 기록한다(CLAUDE.md §5). 본 정의 파일에는 회고 기록을 누적하지 않는다.
 
 ## 메모리
 

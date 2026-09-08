@@ -53,6 +53,14 @@ agent_end(backend-engineering-step5)
 agent_end(platform-devops-step5)
 ```
 
+### §self-emit 금지 + 병렬 call_id 개별 차분 (SSOT — A4'/A5)
+
+**(a) self-emit 금지**: 위임 메시지에 `call_id`가 명시된 서브에이전트는 자신의 `agent_start`/`agent_end`를 **자체 emit하지 않는다** — 시작/종료 이벤트는 그 에이전트를 spawn한 메인(호출자)이 emit한다. 서브에이전트가 self-emit하면 동일 call_id 이벤트가 중복 기록되어 viz 지표(호출 수·duration)가 오염된다. emit 스크립트(`bams-viz-emit.sh`)는 동일 call_id의 중복 `agent_start`를 WARN 처리한다(agent_end 중복은 기존 DQ-1 WARN으로 이미 감지).
+
+각 에이전트 정의는 이 절을 참조 1줄로만 인용한다("위임 메시지에 call_id가 있으면 agent_start/agent_end를 self-emit하지 않는다 — `references/viz-agent-protocol.md` §self-emit 금지").
+
+**(b) 병렬 call_id 개별 차분**: 병렬로 호출한 형제 에이전트들의 `agent_end` duration_ms는 **call_id별로 개별 `now_ms` 차분**하여 emit한다. 여러 형제 call_id에 하나의 공동 차분값(공동 시작·공동 종료)을 재사용하는 것은 금지한다 — 각 에이전트의 실제 소요시간이 왜곡되어 회고 duration KPI가 실측과 어긋난다. 각 call_id는 자신의 `now_ms` 시작 캡처값을 기준으로 §4 duration_ms 실측 표준을 개별 적용한다.
+
 ## 적용 범위
 
 - 파이프라인 커맨드(dev.md, hotfix.md, debug.md, feature.md 등)에서 orchestrator 호출 시

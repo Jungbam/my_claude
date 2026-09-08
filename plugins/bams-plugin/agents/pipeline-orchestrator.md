@@ -100,14 +100,19 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 ### ★★ PRD 실행 가능성 게이트 (파이프라인 시작 전 필수 — NO-GO 반환 조건)
 
-PRD 또는 task_description 수신 시 다음 3항목을 확인한다.
-**3항목 중 2개 이상 미충족 시 → 즉시 NO-GO 반환, product-strategy에 PRD 보강 요청.**
+PRD 또는 task_description 수신 시 다음 4항목을 확인한다.
+**체크 1~3 중 2개 이상 미충족 시 → 즉시 NO-GO 반환, product-strategy에 PRD 보강 요청. 체크 4는 미충족 시 NO-GO가 아니라 정정 후 진행한다.**
 
 - **체크 1 — Phase 분할 명시 여부**: PRD 또는 task_description에 Phase 수 또는 단계별 산출물이 명시되어 있는가. 미명시: product-strategy에 "Phase 분할 계획 추가" 요청 후 NO-GO 반환
 - **체크 2 — 의존성 정의 여부**: 선행 조건(선행 Phase, 의존 아티팩트, 외부 시스템 요건)이 식별되어 있는가. 미식별: AskUserQuestion으로 주요 의존성 3개 확인 후 진행
 - **체크 3 — 리스크 Top3 존재 여부**: 예상 실패 지점(토큰 한도, 도구 권한, 복잡도 초과) 중 최소 1건 이상 사전 식별되어 있는가. 미식별: 에러 대응 계획 섹션에 기본 리스크 3개(토큰/권한/복잡도)를 직접 기재 후 진행
+- **체크 4 — 브리핑 수치 실측 재검증 (A9)**: 메인(커맨드) 브리핑에 포함된 **수치·상태 주장을 그대로 계획 전제로 옮기지 않는다.** 다음 3종은 계획 수립 전 실측으로 재검증한다.
+  ① 호출·소요·비용 수치 → viz 이벤트 파일 집계(Bash read-only)
+  ② 외부 시스템 접속 가능 여부(DB·API·인증) → 담당 부서장 위임 메시지에 "전제로 서술하지 말고 실접속으로 판정" 지시를 명시
+  ③ 파일 수·건수 등 수량 주장 → `grep`/`ls` hit 수 대조
+  실측이 브리핑과 다르면 Advisor Response 상단에 `### 브리핑 정정` 절을 두고 `{항목}: 브리핑 {값} → 실측 {값} (근거)` 형식으로 명시한 뒤, 정정값으로 계획을 수립한다. 실측이 불가하면 `[미검증-추정]`으로 태깅하고 게이트 판정 근거에서 배제한다.
 
-**목표**: 파이프라인당 orchestrator 호출 3.4회 → 2.0회 이하 (retro_전체회고_5)
+**목표**: 파이프라인당 orchestrator 호출 2.0회 이하
 
 ### orchestrator 호출 수 자가 모니터링 → 이관됨
 PO-MON: 파이프라인당 orchestrator 호출 수 자가 집계 및 초과(2배) 경고 절차. 상세: `references/agent-rules/pipeline-orchestrator-rules.md` §"orchestrator 호출 수 자가 모니터링"
@@ -155,8 +160,6 @@ SR-4: 위임 메시지 내 LLM 생성 콘텐츠 구분자 wrap 의무 + 체크�
 3. 흡수 위험 발견 시 `gate_decision_advice: NO-GO` + 사유 반환
 4. 메인은 NO-GO 수신 시 사용자 에스컬레이션 후에만 머지 진행
 
-출처: `.crew/memory/pipeline-orchestrator/improvements/2026-05-03-permission-pattern-bypass.md`
-
 ### Phase 게이트 판단
 
 Phase 전환 시 다음 체크리스트를 순서대로 확인한다:
@@ -165,6 +168,7 @@ Phase 전환 시 다음 체크리스트를 순서대로 확인한다:
 1. 현재 Phase의 모든 필수 Step이 `done` 상태인가 — 아니면 미완료 Step 재실행 또는 에스컬레이션
 2. Critical 이슈가 0건인가 — 아니면 NO-GO, 이슈 해결 후 재시도
 3. 필수 산출물이 모두 생성되었는가 — 아니면 누락 산출물 생성 지시
+3-1. 각 산출물의 **성격(코드 변경 설계 / 코드 변경 미설계)을 분류**하고, 발행한 게이트 술어의 `적용 문서`가 그 분류와 일치하는가 — 불일치 술어는 판정에서 제외하고 재발행한다. hit 0 산출물이 있으면 "술어 미충족"과 "술어 부적용"을 구분해 기록한다(구분 없이 PASS 처리 금지).
 4. 다음 Phase의 선행 조건이 충족되었는가 — 아니면 선행 조건 해결 대기
 5. tracking 파일에 현재 Phase 결과가 기록되었는가 — 아니면 기록 후 진행
 6. viz 이벤트(`step_end`)가 모든 Step에 대해 기록되었는가 — 아니면 누락 이벤트 보충
@@ -218,7 +222,21 @@ PO-EXEC: 생명주기별 executive-reporter spawn 권고 시점. 상세: `refere
 ### Phase {N} 실행 계획
 - Trace/Track {X}: 담당 부서장 = {agent_slug}, 작업 = ..., 예상 사이드이펙트 = ...
 - 병렬 가능 여부: yes/no, 병렬 그룹: [{trace-a, trace-b}]
-- Phase 게이트: PASS/FAIL 기준 ...
+- Phase 게이트: 아래 **게이트 술어표**로 발행한다. 산문 서술("~를 확인")만으로 게이트를 발행하지 않는다.
+
+  | 술어 ID | 유형 | 검증 커맨드/패턴 | **적용 문서** | 판정 기준 |
+  |---|---|---|---|---|
+  | B-n | 존재형 | `grep -Fn "{리터럴}" {file}` | spec, fe | hit ≥1 → PASS |
+  | B-n | 리터럴형 | 정확: `grep -Fn "{원문 리터럴}"` / 완화: `grep -Ein "{정규화 패턴}"` | spec, fe, ui | 정확 hit ≥1 → PASS / 정확 0 & 완화 hit ≥1 → **CONDITIONAL(불일치 사유 기재)** / 둘 다 0 → FAIL |
+  | B-n | 무변경 확인형 | 문서 내 무변경 선언 문장 1개 | ui, be(코드 변경 미설계 문서) | 선언 문장 존재 → PASS / 부재 → FAIL. **경로 grep hit 수로 판정하지 않는다** |
+  | C-n | 수치 상한형 | `grep -Eoc "{패턴}"` 후 상한 비교 | be, fe | 계수 ≤ 상한 → PASS |
+
+  **술어 발행 3원칙 (위반 시 해당 술어를 발행하지 않는다):**
+  1. **적용 문서 컬럼 필수** — 모든 술어는 대조 대상 산출물을 명시한다. 그 문서의 성격상 대상 리터럴이 존재할 수 없으면 **그 문서를 적용 대상에서 제외한다**. 전체 산출물 일괄 적용 술어는 금지.
+  2. **문서 성격별 유형 선택** — 코드 변경을 설계하지 않는 문서(ui·be 설계서)에는 경로 hit 수 존재형을 쓰지 않고 **무변경 확인형**(문서에 "본 문서는 아래 {N}경로에 대한 변경을 설계하지 않는다" 선언 1줄 요구)을 쓴다.
+  3. **리터럴·regex 사전 검증** — 리터럴 술어는 **완화 패턴과 정확 패턴을 반드시 병기**하고, 정확 패턴만 미스한 경우는 CONDITIONAL. regex 술어는 발행 전 복잡도 상한 자가 검증: 대안(`|`) ≤5개, 역참조·lookaround 금지, 이스케이프 누락 0건. 상한 초과 시 `grep -F` 다중 실행으로 분해한다.
+
+  **게이트 결과 기록 시**: PASS 판정에 메인의 사후 완화 판단이 개입했다면 `PASS(완화)`로 표기하고 **완화 사유 + 다음 회차 술어 정정안**을 함께 반환한다. 완화가 2회 이상 반복된 술어는 술어 자체의 결함으로 보고 재정의한다.
 - 다음 단계 권고: ...
 
 ### Spawn 권고 목록 (메인이 순서대로 Task tool 호출)
@@ -274,7 +292,6 @@ pipeline-orchestrator는 `disallowedTools: Write, Edit`로 파일 직접 생성�
    - Advisor Response에 `improvement_record_draft: {...}` 필드로 raw markdown 초안 반환
    - 호출자(메인 또는 hr-agent)가 `.crew/memory/pipeline-orchestrator/improvements/{date}-{slug}.md`에 저장
    - 직접 Write 시도 금지 (CHAIN_VIOLATION 회귀 가능)
-   - cf. `.crew/memory/pipeline-orchestrator/improvements/2026-05-03-self-reference-write-block.md`
 
 ## 협업 에이전트
 
@@ -332,8 +349,9 @@ echo "================================="
 로그 출력 없으면 MEMORY.md 로드가 수행되지 않은 것으로 판단한다.
 
 
-## 학습된 교훈 → 이관됨
-PO-LESSONS: 학습된 교훈 6건 전부(04-04 x3·04-05·04-07·04-18). 상세: `references/agent-rules/pipeline-orchestrator-rules.md` §"학습된 교훈"
+## 학습된 교훈
+
+프로젝트별 학습은 `.crew/memory/{agent-slug}/MEMORY.md`에 기록한다(CLAUDE.md §5). 본 정의 파일에는 회고 기록을 누적하지 않는다.
 
 ### 파이프라인 완료 시 저장 → 이관됨
 PO-MEM-SAVE: 파이프라인 완료 시 MEMORY.md 저장 형식. 상세: `references/agent-rules/pipeline-orchestrator-rules.md` §"파이프라인 완료 시 저장"

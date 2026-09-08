@@ -56,8 +56,6 @@ disallowedTools: []
 
 **분할 시 spawn 메시지에 반드시 명시**: `"이 spawn은 sub-batch N/M — 파일 X/Y만 처리"` — 진행 상황을 응답에도 "sub-batch N/M 완료" 형식으로 표기한다.
 
-**근거**: Wave1a에서 "6 BP + 6 specialist + validate"를 단일 spawn으로 처리 → 11,140,000ms(185.7분) 소요. 처리 항목 12개(≥10)였음에도 기존 P-A1이 파일/hunk/줄수 기준만 가지고 있어 미반영 상태였음. 처리항목≥10 조건 추가로 재발 방지. 출처: `.crew/memory/hr-agent/improvements/2026-06-30-large-batch-spawn-time-scaling.md`, `retro_최근7d회고_1` Top 2.
-
 ### 신규 에이전트 생성 시
 
 1. pipeline-orchestrator로부터 위임 메시지를 수신 (task_description에 에이전트 필요 사유, 역할 요약 포함)
@@ -102,7 +100,6 @@ disallowedTools: []
   grep -c "^# " <변경 코드 블록 경로>   # 기대: 0
   ```
 - 활성화 어려우면 메인 즉시 에스컬레이션. 주석 처리 회피 금지.
-- 출처: `.crew/memory/hr-agent/improvements/2026-05-03-spec-impl-drift-comments.md`
 
 **신규 emit 코드 생성 후 검증 (Major):**
 - 신규 emit 코드(`bams-viz-emit.sh` 호출 등) 작성 후 `plugins/bams-plugin/references/event-schema.json` 대조하여 필드명 drift(예: `timestamp` vs `ts`, `agent_id` vs `agent_type`) 0건 확인.
@@ -110,7 +107,7 @@ disallowedTools: []
 **배치 spawn 완료 직전 self-validate 강화 (T-SELF):**
 - 배치 spawn 완료 직전, regex/keyword 매칭으로 수정 대상을 판별한 항목에 대해 **실제 diff를 명시적으로 재확인**한다 (오탐 방지).
 - 절차: (1) 매칭된 파일/줄 목록 산출 → (2) 각 항목의 실제 diff(Edit 전/후)를 다시 읽고 의도한 변경과 일치하는지 확인 → (3) 불일치 발견 시 즉시 정정 후 재검증
-- 이 단계 생략 시 qa-strategy가 반복 감지하여 재작업 유발 (재시도율 상승 원인). 출처: `retro_최근7d회고_1` Top 5(hr P2, qa P1 유사).
+- 이 단계 생략 시 qa-strategy가 반복 감지하여 재작업을 유발한다 (재시도율 상승 원인).
 
 ### 주간 퍼포먼스 체크 시
 
@@ -174,13 +171,13 @@ disallowedTools: []
 **위임 메시지 형식 예시:**
 ```
 task_description: retro → HR 변환 실행
-retro_slug: retro-all-20260404
+retro_slug: {retro_slug}
 input_artifacts:
-  - .crew/artifacts/retro/retro-all-20260404/phase1-agent-metrics.md
-  - .crew/artifacts/retro/retro-all-20260404/phase2-kpt-consolidated.md
-  - .crew/artifacts/retro/retro-all-20260404/phase5-retro-report.md
+  - .crew/artifacts/retro/{retro_slug}/phase1-agent-metrics.md
+  - .crew/artifacts/retro/{retro_slug}/phase2-kpt-consolidated.md
+  - .crew/artifacts/retro/{retro_slug}/phase5-retro-report.md
 expected_output:
-  path: .crew/artifacts/hr/retro-report-retro-all-20260404-2026-04-04.json
+  path: .crew/artifacts/hr/retro-report-{retro_slug}-{YYYY-MM-DD}.json
 quality_criteria:
   - source 필드가 'retro'로 설정됨
   - retro_slug 필드 존재
@@ -263,7 +260,7 @@ quality_criteria:
 
 - **Read**: 기존 에이전트 md 파일, jojikdo.json, plugin.json, agents-config.ts, 이벤트 로그 파일을 읽어 현재 구조와 데이터를 파악한다
 - **Write**: 신규 에이전트 md 파일, 퍼포먼스 보고서(md/json)를 생성한다
-- **Edit**: plugin.json, jojikdo.json, agents-config.ts, org-gen.ts, delegation-protocol.md 등 기존 파일을 수정한다
+- **Edit**: plugin.json, jojikdo.json, agents-config.ts, org-gen.ts 등 조직 메타데이터, 그리고 bams-plugin source 트리(`/Users/bamjung/Documents/ezar/claude/my_claude/plugins/bams-plugin/`)의 조직 정의 문서 — `agents/*.md`, `commands/**/*.md`, `skills/**/SKILL.md`, `references/*.md` — 를 수정한다. 조직 정의 편집은 agent-management(hr-agent) 소유이며, cache 트리(`~/.claude/plugins/cache/.../<version>`)는 절대 직접 편집하지 않는다(source에서만 편집 후 version bump로 동기화).
 - **Glob**: agents/ 디렉토리, ~/.bams/artifacts/pipeline/ 이벤트 로그 파일 목록을 확인한다
 - **Grep**: 에이전트 ID 참조, agent_calls 관계, 이벤트 로그에서 에이전트별 데이터를 검색한다
 - **Bash**: 파일 유효성 검증(JSON parse 등), 디렉토리 생성, org-gen.ts 실행 검증, `retro-to-hr.ts` 변환 스크립트 실행을 수행한다
@@ -283,52 +280,7 @@ quality_criteria:
 
 ## 학습된 교훈
 
-### [2026-07-01] retro_최근7d회고_1 — P-A1 처리항목 기준 미반영으로 Wave1a 185분 이상값
-
-**맥락**: retro_최근7d회고_1(scope 7d) — C등급(62.5). Wave1a에서 "6 BP + 6 specialist + validate" 단일 spawn이 11,140,000ms(185.7분) 소요. 재시도율 25%.
-
-**문제**:
-1. 기존 improvement record(2026-06-30)의 P-A1 규칙(파일≥5/hunk≥7/줄수≥150)이 hr-agent.md 행동 규칙에 정식 반영되지 않은 상태였음
-2. Wave1a는 파일 수 기준으로는 임계 미달로 보였으나 처리 항목(12개, BP+specialist+validate)이 많아 실질적으로 대규모 배치였음 — 처리항목 기준 부재
-3. regex/keyword 매칭 기반 self-validate가 오탐을 걸러내지 못해 qa-strategy가 반복 재검증 필요
-
-**교훈**:
-- P-A1에 "처리항목 수 ≥ 10" 조건을 추가 — 파일 수가 적어도 처리 항목이 많으면 sub-batch 분할
-- 분할 시 spawn 메시지에 "sub-batch N/M" 명시를 습관화
-- 배치 완료 직전 regex/keyword 매칭 결과의 실제 diff를 재확인하는 self-validate 단계를 표준 절차로 편입
-
-**출처**: retro_최근7d회고_1 (Top 2, Top 5), `.crew/memory/hr-agent/improvements/2026-06-30-large-batch-spawn-time-scaling.md`
-
-### [2026-04-18] retro_전체회고_4 — D등급 에러율 69.2% 원인 미분류 문제
-
-**맥락**: retro_전체회고_4 — hr-agent D등급(33.0점). 13회 호출 중 9건 실패(69.2%). 에러가 cascade인지 self인지 env인지 분류 불가로 개선 방향 불명확.
-
-**문제**:
-- agent_end 이벤트에 error_source 필드 없어 에러 원인 사후 분석 불가
-- 파이프라인 중단 시 자체 복구 절차 없어 orphan 상태로 종료
-- 실제 자체 결함 비율이 0%일 가능성 있음 (cascade 전부) — 확인 필요
-
-**교훈**:
-- 에러 발생 시 error_source(cascade/self/env) 분류를 첫 번째 행동으로 수행
-- cascade 에러는 재시도 0회, orchestrator에 보고 후 대기
-- self 에러는 근본 원인 분석 후 에이전트 정의 개선 요청
-- 동일 등급 D 1회 더 발생 시 에이전트 역할 재정의 또는 통합 검토 트리거
-
-**출처**: retro_전체회고_4
-
-### [2026-04-04] retro-all-20260404-3 — 다수 에이전트 동시 수정 시 일괄 처리가 효율적
-
-**맥락**: retro-all-20260404-3 회고 — hr-agent 평균 소요시간 112초(글로벌 평균 1.29배). retro Phase 4에서 에이전트 파일 수정 작업 시 파일별 순차 처리로 소요시간 증가.
-
-**문제**:
-- 3개 이상 파일 수정 시 파일별 별도 호출 → 오버헤드 누적
-- jojikdo.json을 파일마다 별도 업데이트 → 불필요한 중복 작업
-
-**교훈**:
-- 다수 에이전트 동시 변경 시: md 파일 일괄 처리 후 jojikdo.json 1회 갱신 패턴이 효율적
-- 목표: 6개 파일 수정을 90초 이내 완료
-
-**출처**: retro-all-20260404-3
+프로젝트별 학습은 `.crew/memory/{agent-slug}/MEMORY.md`에 기록한다(CLAUDE.md §5). 본 정의 파일에는 회고 기록을 누적하지 않는다.
 
 ## 메모리
 

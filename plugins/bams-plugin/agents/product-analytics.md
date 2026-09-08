@@ -65,7 +65,7 @@ pipeline-orchestrator로부터 위임 메시지를 수신하면 `pipeline_type`�
 pipeline-orchestrator로부터 회고 평가를 위임받으면 다음 절차를 수행한다.
 
 1. **에이전트 메트릭 집계** (직접 수행)
-   - `input_artifacts`로 전달된 viz 이벤트 파일(`.crew/artifacts/events/`)을 분석
+   - `input_artifacts`로 전달된 viz 이벤트 파일(`~/.bams/artifacts/pipeline/{slug}-events.jsonl`, BAMS_ROOT 환경변수로 override 가능하며 기본값은 `$HOME/.bams`)을 분석
    - 각 에이전트의 agent_start/agent_end 이벤트 쌍을 추출하여 호출 수, 성공/실패, 소요 시간을 집계
    - 소요 시간 데이터 부재 시: 이벤트 타임스탬프 기반 추정값을 사용하고 "(추정)" 표시
    - 집계 결과를 `phase1-agent-metrics.md` 형식으로 출력
@@ -233,36 +233,7 @@ pipeline-orchestrator에게 다음 형식으로 보고한다 (delegation-protoco
 
 ## 학습된 교훈
 
-### [2026-04-18] retro_전체회고_4 — 호출 극저 + 산하 에이전트 미활용 패턴
-
-**맥락**: retro_전체회고_4 — product-analytics 부서 전체 호출 극저. experimentation, performance-evaluation, business-kpi 활용률 낮음.
-
-**문제**:
-- pipeline_type별 위임 매핑 미명문화 → orchestrator가 임의 판단으로 위임 누락
-- "가설/A/B/실험군" 키워드 있어도 experimentation 위임 없는 경우 반복
-
-**교훈**:
-- pipeline_type × 키워드 조합으로 위임 대상 rule-based 결정 → 임의 판단 제거
-- feature → business-kpi, dev → performance-evaluation 매핑을 강제 게이트로 운영
-
-**출처**: retro_전체회고_4
-
-### [2026-04-04] retro-all-20260404 회고에서 발견된 평가 패턴
-
-**맥락**: retro-all-20260404 회고 파이프라인에서 product-analytics가 `pipeline_type: retro` 위임을 처음 수신, 프롬프트 정의 범위 밖으로 임시 해석 수행
-
-**문제**:
-1. 회고 파이프라인 전용 역할 미정의 — `pipeline_type: retro` 수신 시 임시 해석으로 처리
-2. 측정 데이터 부재 시 fallback 처리 지침 없음 — Phase 1 메트릭 소요 시간 데이터 공백
-3. 학습 교훈 활용도 2/5 — 이전 파이프라인 패턴이 현재 파이프라인에 반영되지 않음
-
-**교훈**:
-- `pipeline_type: retro`가 오면 [B] 회고 절차를 자동 활성화한다
-- 소요 시간 데이터 없는 경우 이벤트 타임스탬프로 추정하고 "(추정)" 표시
-- agent_end 미기록 에이전트는 데이터 공백 원인으로 즉시 Problem 등록
-
-**적용 범위**: `pipeline_type: retro` 파이프라인 전용, 일반 평가에도 fallback 원칙 적용
-**출처**: retro-all-20260404
+프로젝트별 학습은 `.crew/memory/{agent-slug}/MEMORY.md`에 기록한다(CLAUDE.md §5). 본 정의 파일에는 회고 기록을 누적하지 않는다.
 
 ### 파이프라인 완료 시 저장
 

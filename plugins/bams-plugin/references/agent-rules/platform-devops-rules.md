@@ -18,8 +18,6 @@ PR 머지 완료(pipeline_end status=completed) 직후 다음을 실행한다.
    - PR merge author + squash commit sha를 issue에 기록
 3. main HEAD 회귀는 다음 PR도 자동 fail시키므로 감지 지연을 수 시간 이상 방치하지 않는다 — 재검증은 머지 직후 즉시 실행(수 분 이내)한다.
 
-**근거**: PR #13 머지 시 브랜치 마지막 commit은 validate-agent-sync SUCCESS였으나 main 머지 squash commit은 FAIL(design-director.md 신규 `---` 구분자를 sed 파서가 frontmatter 끝으로 오인). 감지는 다음 파이프라인 진입 시점까지 지연됨. 출처: `.crew/memory/platform-devops/improvements/2026-06-30-post-merge-regression-auto-detect.md`, `retro_최근7d회고_1` Top 4.
-
 ### ★ emit 스크립트(bams-viz-emit.sh) 인자 파싱 회귀 방어 (T-DQ-1/T-DQ-2)
 
 `bams-viz-emit.sh` 수정 시 다음 3개 가드가 유지되는지 확인한다 (본 스크립트에 구현 완료 — 회귀 방지 목적으로 명문화):
@@ -27,6 +25,7 @@ PR 머지 완료(pipeline_end status=completed) 직후 다음을 실행한다.
 1. `-`로 시작하는 리터럴은 slug 위치 인자로 거절 (옵션 플래그가 slug로 오유입되는 DQ-3 패턴 차단)
 2. `agent_start`/`agent_end`의 agent_type 인자가 `true`/`false` 등 boolean 리터럴이면 즉시 실패 (DQ-2 패턴 차단)
 3. 동일 call_id에 대한 `agent_end` 중복 emit 시 warn 로그 출력 (DQ-1 패턴 감지 — fe agent_end 중복 emit)
+4. 병렬 배치 emit 위생: 병렬 호출의 `agent_end`는 call_id별 개별 `now_ms` 차분으로 emit하고 형제 call_id와 공동 차분을 재사용하지 않는다 (SSOT: `references/viz-agent-protocol.md` §self-emit 금지 + 병렬 call_id 개별 차분).
 
 이 가드를 우회하거나 제거하는 변경은 금지. 수정 후 `bash -n`으로 문법 검증 필수.
 
@@ -48,6 +47,7 @@ fi
 - 리소스 네이밍 규칙을 일관되게 적용한다
 - 비용 태깅을 통해 리소스 소유자와 목적을 추적 가능하게 한다
 - 최소 권한 원칙을 IAM 정책에 적용한다
+- node_modules를 재작성하는 배치(uninstall/install/build)는 동일 워킹트리의 대량 편집 배치와 **직렬화**하거나 배치별 `git worktree`로 격리한다 — 재시도 규칙은 사후 방어일 뿐 근본 격리가 아니다 (`references/delegation-protocol.md` §3-4 병렬 배치 규칙).
 
 ### CI/CD 원칙
 - 파이프라인은 멱등성을 보장하여 재실행 시 동일한 결과를 낸다
@@ -76,54 +76,7 @@ fi
 - 성능 지표 이상 시 performance-evaluation 에이전트에 분석을 의뢰한다
 - 반복적 장애 패턴 발견 시 defect-triage 에이전트에 근본 원인 분석을 요청한다
 
-## 학습된 교훈
-
-### [2026-07-01] retro_최근7d회고_1 — emit 로직 결함 4건 + post-merge 회귀 감지 지연 + 경고 방치 재발
-
-**맥락**: retro_최근7d회고_1(scope 7d) — A등급(90.0)이나 Top 1(DQ-1~4 emit 결함), Top 3(경고 즉시 fix 미수행), Top 4(post-merge CI 회귀 감지 지연) 3개 Problem 정면 지적. 4개 부서장 KPT 중 3개가 emit 결함을 정면 지적(4/4 교차 일치).
-
-**문제**:
-1. `bams-viz-emit.sh` 인자 파싱 결함 — fe agent_end 중복 emit(DQ-1), agent_type에 `"false"` 리터럴 오염(DQ-2), `--call-id-events.jsonl` 손상(DQ-3), agent_end 누락 8건(DQ-4)
-2. PR #13 머지 후 main HEAD validate-agent-sync FAIL이 다음 파이프라인 진입 시점까지 감지되지 않음 (최소 수 시간 지연)
-3. Wave3A stat 경고를 이연 → Wave3B에서 FAIL로 재발, 재시도율 33.3% 기여
-
-**교훈**:
-- emit 스크립트에 call_id 유일성 assert, agent_type boolean 거절, `-` 리터럴 slug 거절 3개 가드를 구현 완료 — 향후 수정 시 가드 유지 필수
-- PR 머지 직후 main 재검증(validate-agent-sync + bun test)을 즉시 실행 — 다음 파이프라인 진입까지 대기 금지
-- 경고 감지 시 즉시 fix, 이연 불가피 시 board.md 등록 의무 — 무기록 이연 금지
-
-**출처**: retro_최근7d회고_1 (Top 1/3/4), `.crew/memory/platform-devops/improvements/2026-06-30-post-merge-regression-auto-detect.md`
-
-### [2026-04-18] retro_전체회고_4 — 교훈-행동 단절 패턴 확인
-
-**맥락**: retro_전체회고_4 — B등급(85.0). Preflight 체크 생략(L-2) 2회 연속 반복. pipeline_start 없는 케이스 13건(19.2%). Sidecar 자동화 조치 미완료.
-
-**문제**:
-- Preflight 체크가 "원칙 섹션"으로 분리되어 위임 직후 강제 실행되지 않음
-- Sidecar 자동화 조치(check-sidecar.sh)가 "Try 제안" 수준에 머물러 실제 구현 미완료
-- pipeline_start 없는 케이스 19.2% — 사전 방지 게이트 부재
-
-**교훈**:
-- Preflight 체크는 "Step 0"으로 명명하고 첫 번째 행동으로 구조적 전진 배치
-- Sidecar 헬스체크는 행동 규칙에 Bash 스크립트로 직접 삽입 (문서화가 아닌 코드)
-- pipeline_start 확인을 agent_start emit 전 의무 절차로 규정
-- 같은 문제가 세 번째 등장하면 신뢰성 등급 C 이하 조정 대상
-
-**출처**: retro_전체회고_4
-
-### [2026-04-04] retro-all-20260404-3 — 권한 확인 없이 실행으로 재위임 발생
-
-**맥락**: retro-all-20260404-3 회고 — platform-devops 평균 소요시간 111초(글로벌 평균 1.28배). 권한 요구사항 미명시로 재위임 발생 → 추가 10분 소요.
-
-**문제**:
-- 위임 수신 즉시 실행 패턴 — 권한 요구사항 사전 확인 절차 부재
-- 권한 에러 발생 후 재위임으로 파이프라인 전체 지연
-
-**교훈**:
-- 위임 수신 즉시 Preflight 체크 수행이 필수. 10초 체크로 10분 지연을 방지
-- 권한 에러 감지 즉시 재시도 없이 pipeline-orchestrator에 에스컬레이션
-
-**출처**: retro-all-20260404-3
+## 메모리
 
 ### 파이프라인 완료 시 저장
 

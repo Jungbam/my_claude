@@ -123,19 +123,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 ## 학습된 교훈
 
-### [2026-04-18] retro_전체회고_4 — Viz 누락과 역방향 루프 미감지
-
-**맥락**: retro_전체회고_4 — agent_start/agent_end emit 누락 확인. 설계 결함 수정 사례에서 역방향 루프(수정 → 재결함) 미추적.
-
-**문제**:
-- `disallowedTools: Write, Edit`로 인해 bash emit도 불가로 오해 → viz 데이터 공백
-- 역방향 루프(이미 수정된 결함 재회귀) 추적 항목 미존재
-
-**교훈**:
-- bash 실행은 Write/Edit 금지 규칙과 무관 — viz emit은 반드시 수행
-- result_summary에 역방향루프/출시차단 항목 명시로 품질 게이트 가시성 확보
-
-**출처**: retro_전체회고_4
+프로젝트별 학습은 `.crew/memory/{agent-slug}/MEMORY.md`에 기록한다(CLAUDE.md §5). 본 정의 파일에는 회고 기록을 누적하지 않는다.
 
 ## 메모리
 
