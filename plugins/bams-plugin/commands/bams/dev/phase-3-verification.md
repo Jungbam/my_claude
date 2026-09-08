@@ -17,21 +17,11 @@
 
 > **UI 변경 감지 시**: FE 파일(*.tsx, *.css) 변경이 있으면 `/design-qa <dev-url>` 실행 권장 (자동 트리거 아님). 정성 semantic 판정 — 10항 하이브리드 체크리스트(자동 7 + 사용자 3). visual-fidelity-verifier(정량)와 병존.
 
-Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 8 "검증 (QA + 평가 병렬)" "Phase 3: 검증"
-```
-
 ### Step 8. 3관점 리뷰 + 성과 평가 (루프 B — Advisor + QA/평가 부서장 병렬 직접 spawn)
 
 **루프 B — orchestrator는 조언자, 메인이 QA부장/평가부장을 단일 메시지 병렬 spawn.**
 
 ### Step 8-a. pipeline-orchestrator 조언 요청 (Advisor)
-
-Bash로 agent_start emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-8-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-opus-5" "Step 8: 검증 Phase 조언 요청"
-```
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
 
@@ -51,14 +41,9 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 >
 > **요청:** 병렬 spawn할 부서장 목록(qa-strategy, product-analytics 권고), 각 부서장별 위임 메시지 템플릿, Phase 3 검증 게이트 기준을 Advisor Response로 반환하세요. 직접 spawn 금지(harness 깊이 2 제약).
 
-반환 후 agent_end emit + Advisor Response 파싱 + CHAIN_VIOLATION 체크:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-8-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Step 8 Advisor 응답 수신"
-```
+반환 후 Advisor Response 파싱 + CHAIN_VIOLATION 체크.
 
 ### Step 8-b. 메인이 QA부장 + 평가부장 병렬 직접 spawn (단일 메시지 복수 Task)
-
-병렬 호출 전 2개의 agent_start를 일괄 emit (qa-strategy / product-analytics).
 
 **단일 메시지에 2개 Task tool 호출을 묶어** 병렬 spawn합니다:
 
@@ -96,13 +81,6 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 > ```
 > 평가부장은 performance-evaluation / business-kpi specialist를 최대 1회 추가 spawn 가능.
 
-병렬 완료 후 2개의 agent_end를 일괄 emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "qa-strategy-8-$(date -u +%Y%m%d)" "qa-strategy" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "3관점 리뷰 완료"
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "product-analytics-8-$(date -u +%Y%m%d)" "product-analytics" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "성과 평가 완료"
-```
-
 ### 리뷰 결과 처리
 
 1. 모든 발견 사항 수집, 중복 제거, 심각도 순 정렬
@@ -111,8 +89,3 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 **Critical 이슈 발견 시:** 사용자에게 제시 후 Edit 도구로 수정 적용.
 **Major 이슈 발견 시:** 사용자에게 제시 후 수정 여부 확인.
-
-Phase 3 검증 완료 시, Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 8 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-```

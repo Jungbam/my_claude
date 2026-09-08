@@ -44,7 +44,6 @@
 ## 4. 체크리스트 (5건 필수)
 - [ ] Preflight: components.json 페이지 수 >= 2 확인 (미달 시 Phase E 생략 보고)
 - [ ] 현행 `src/app/` Glob 스캔 완료 + 충돌 목록 conflict-routes.md 생성
-- [ ] viz `agent_start` (작업 시작 전) / `agent_end` (완료 후) emit 누락 0
 - [ ] 동적 세그먼트마다 `generate_static_params` + `dynamic` 전략 명시
 - [ ] route-tree.json `"via": "gpt-5.3-codex (codex CLI)"` 필드 포함
 

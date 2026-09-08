@@ -11,7 +11,7 @@
 | `{PIPELINE_TYPE}` | feature |
 | `{STEP_1}` / `{STEP_2}` | 1 / 2 |
 | `{STEP_2_LABEL}` | 기술 설계 + 태스크 분해 + 스프린트 |
-| `{STEP_2_EXTRA}` | Step `{STEP_2}`-c: 3개 부서장 완료 후 project-governance 직접 spawn(스프린트 설정+board.md+TaskDB 등록). 완료 후 "저장 절차" 생략(겸함), 곧장 핸드오프로 진행 |
+| `{STEP_2_EXTRA}` | Step `{STEP_2}`-c: 3개 부서장 완료 후 project-governance 직접 spawn(스프린트 설정+board.md 등록). 완료 후 "저장 절차" 생략(겸함), 곧장 핸드오프로 진행 |
 | `{STEP_SAVE}` | (없음) — Step 2 흐름에 포함 |
 | `{STEP_HANDOFF}` / `{HANDOFF_ID_SUFFIX}` | (없음, Step 2에 통합) / `handoff1` |
 | `{HANDOFF_EXTRA_QUESTION}` | "기획까지만" 옵션 → `status: paused_at_step_2` 기록 후 종료 |

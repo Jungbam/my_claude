@@ -44,63 +44,31 @@
 - `status: completed`, `completed_at: [ISO timestamp]` 기록
 - 모든 Step 상태 최종 확인
 - Execution Log 하단에 산출물 경로 정리
-- `~/.bams/artifacts/pipeline/[slug].lock` 파일 제거
 - 커밋 생성 시 ship SKILL §Step 6-6 Staging hygiene를 준수한다(index 초기화 → 경로 지정 add → `git diff --cached --name-only` 검증) — `git add -A` 단독 사용으로 기존 스테이징이 커밋에 혼입되지 않도록 한다.
 
 ## Step 4.2: 거버넌스 문서 갱신 (project-governance 1회 호출)
 
-`pipeline_end` 전, 거버넌스 문서 신선도를 점검하고 갱신을 산출합니다. Step 4.4(TaskDB 동기화) **이전에** 실행합니다.
+파이프라인 완료 기록(Step 4.5) 전, 거버넌스 문서 신선도를 점검하고 갱신을 산출합니다.
 
 - (a) 이번 파이프라인의 변경분을 `.crew/board.md`에 `TASK-NNN`으로 등재한다 — project-governance는 쓰기 권한이 없으므로 전문을 반환하고 메인이 저장한다(등재 대상 없으면 '등재 불요' 명시).
 - (b) 아키텍처/스택/배포환경 변경이 감지되면 `.crew/config.md`의 해당 섹션만 갱신한다 — **Pipeline Learnings 섹션은 보존**한다(덮어쓰기 금지).
 - (c) `CLAUDE.md`는 편집하지 않는다 — '갱신 필요 항목'만 리스트업하여 보고한다.
 
-## Step 4.4: TaskDB board 동기화 (board → DB upsert)
+## Step 4.5: 파이프라인 완료 기록 (history.md — 상태 판별의 SSOT)
 
-`pipeline_end` emit **직전에**, board.md에 기록한 정식 태스크(`TASK-NNN`)를 TaskDB(`bams.db`)에도
-반영하여 board.md ↔ DB 드리프트를 방지합니다. DB가 존재할 때만 실행하는 조건부 훅입니다.
+파이프라인 마무리 시 `.crew/history.md`에 완료 1줄 블록을 append합니다. **파이프라인 상태(진행 중/완료/실패)의 SSOT는 `.crew/history.md`입니다** — 별도 이벤트 기록 없이 이 파일만으로 상태를 판별합니다.
 
-- 절차·스니펫 정본: `references/taskdb-board-sync.md` §3 (board → DB upsert).
-- **중요**: `sync-board.ts --write`는 **DB → board.md**(반대 방향)이며 현재 코드가 깨져 있으므로
-  board → DB 등록 용도로 호출하지 말 것. 실제 등록은 `getPipelineBySlug(slug).id` + 멱등 `createTask`로 수행.
-- 이 파이프라인이 이번 실행에서 board.md에 신규 등록/상태변경한 `TASK-NNN` 목록을
-  대화 컨텍스트에서 확보해 스니펫의 리터럴 자리에 채워 실행합니다(멱등성 가드로 중복 삽입 방지).
-
-## Step 4.5: Viz 이벤트 마무리
-
-lock 파일 제거 직전에 `pipeline_end` 이벤트를 기록합니다:
-
-```bash
-bash hooks/bams-viz-emit.sh pipeline_end "{slug}" "{status}" {total_steps} {completed_steps} {failed_steps} {skipped_steps}
+기록 형식(기존 history.md 형식 유지):
+```
+## YYYY-MM-DD | {slug} | {STATUS}
+- type: {command}
+- status: {완료|실패|중단}
+- 산출물: {산출물 경로 목록 또는 없음}
+- 요약: {한 줄 요약}
 ```
 
-**duration_ms 계산**: `pipeline_end`의 duration_ms는 `pipeline_start`부터 `pipeline_end`까지의 경과 시간(밀리초)이다. 커맨드 레벨에서 `$SECONDS` bash 변수를 활용하여 계산한다:
-```bash
-DURATION_MS=$((SECONDS * 1000))
-```
-`$SECONDS`는 bash 스크립트 시작 시점부터 자동 증가하므로, 파이프라인 시작 시점에 `SECONDS=0`으로 초기화하면 정확한 경과 시간을 얻을 수 있다.
-
-`{slug}-events.jsonl` 파일은 삭제하지 않습니다 (tracking 파일과 동일 생명주기).
-
-## Step 4.7: 비용 요약 조회
-
-Control Plane 서버가 실행 중이면 파이프라인의 비용 사용량을 조회하여 완료 요약에 포함합니다:
-
-```bash
-# Control Plane 서버 실행 중 확인
-if curl -s http://localhost:3099/health > /dev/null 2>&1; then
-  COST_JSON=$(curl -s "http://localhost:3099/api/costs?pipeline={slug}" 2>/dev/null || echo "{}")
-  echo "[비용] $COST_JSON"
-fi
-```
-
-조회 결과가 있으면 완료 요약 출력 시 다음 항목을 추가합니다:
-```
-비용: {total_cents}¢  ({total_tokens} tokens)
-  에이전트별: {agent} {cents}¢  ...
-```
-
-서버가 미실행 중이거나 조회 실패 시 이 단계를 스킵합니다.
+- `{STATUS}`: `완료` / `실패` / `중단`.
+- 태스크 단위 상태는 `.crew/board.md`, 파이프라인 이력은 `.crew/history.md`로 이원화합니다.
 
 ## Step 4.9: Context Health 평가 및 /compact 제안
 
@@ -133,43 +101,39 @@ echo "[Context Health] 세션 도구 호출: ${TOOL_COUNT}회"
 - Step 5(완료 요약) 출력 **직후** 제안합니다 (완료 요약을 compact으로 손실시키지 않기 위해)
 
 **안전한 compact 시점 (금지 구간 주의):**
-- 금지: Step 실행 중, retro KPT 작성 중, pipeline_end emit 전
-- 권장: completion-protocol 저장 완료 직후 또는 pipeline_end + retro 완료 후
+- 금지: Step 실행 중, retro KPT 작성 중, 파이프라인 완료 기록(Step 4.5) 전
+- 권장: completion-protocol 저장 완료 직후 또는 history.md 기록 + retro 완료 후
 
-## Step 4.95: 회고 실행 의무 발화 (CLAUDE.md §5 가드)
+## Step 4.95: 회고 실행 트리거 (CLAUDE.md §5 가드)
 
-`pipeline_end` emit 직후, `pipeline_type ∈ {feature, dev, hotfix, deploy, debug, review, deep-review, verify, sprint}`이고 `status = "completed"`인 경우 메인은 다음 AskUserQuestion을 의무 발화한다 (스킵 금지). 단, §스팸 방지 조건에 해당하면 AskUserQuestion 대신 조건부 생략 처리한다:
+파이프라인 완료 기록(Step 4.5) 직후, `pipeline_type ∈ {feature, dev, hotfix, deploy, debug, review, deep-review, verify, sprint}`이고 `status = "완료"`인 경우 메인은 다음 AskUserQuestion을 의무 발화한다 (스킵 금지). 단, §스팸 방지 조건에 해당하면 AskUserQuestion 대신 조건부 생략 처리한다:
 
 ```
 Question: "{slug} 파이프라인 회고를 실행할까요?"
 Header: "회고 실행"
 Options:
 - (A) 회고 실행 — `/bams:retro {slug}` 자동 트리거 (Recommended)
-- (B) 스킵 — 사유 명시 (`retro_skip` 이벤트 emit으로 추적)
+- (B) 스킵 — 사유 명시 (history.md 완료 기록의 요약에 스킵 사유 병기)
 - (C) 다음 사이클로 이연 (weekly retro에서 일괄 처리)
 ```
 
 사용자 응답 처리:
 - A 선택: 메인이 즉시 `/bams:retro {slug}` 호출
-- B/C 선택: events.jsonl에 `{"type":"retro_skip","pipeline_slug":"{slug}","reason":"...","mode":"B|C","ts":"..."}` emit
+- B/C 선택: `.crew/history.md`의 해당 파이프라인 완료 기록 요약에 스킵/이연 사유를 병기한다.
 
-본 가드 우회 시 CLAUDE.md §5 위반. retro_dev_init조직도셋업완결회고_1에서 회고 자동 실행율 0/4(0%) 위반 사례.
+본 가드 우회 시 CLAUDE.md §5 위반.
 
-cf. `.crew/memory/pipeline-orchestrator/improvements/2026-05-03-retro-skip-tracking.md`
+### 스팸 방지 조건 (정성 기준)
 
-### 스팸 방지 조건 (F-R8, 마이그레이션 리스크 §5.2 대응)
-
-`pipeline_type ∈ {debug, review, deep-review, verify, sprint}`에 한해, 다음 **모두** 충족 시 AskUserQuestion을 생략하고 로그만 출력한다:
-- `duration_ms < 600000` (10분 미만, F-R6 실측값 기준)
-- **AND** (`git diff --stat` 결과 변경 0줄 **OR** `pipeline_type ∈ {review, deep-review, verify}`) — 읽기 전용 성격의 파이프라인은 코드 변경이 없어도 조건부 생략 대상.
+`pipeline_type ∈ {debug, review, deep-review, verify, sprint}`에 한해, 다음 중 하나에 해당하면 AskUserQuestion을 생략하고 "회고 생략 제안"만 출력한다:
+- **변경 0줄이고 산출물이 없는 경우** (`git diff --stat` 결과 변경 없음 + 신규 산출물 파일 없음)
+- **또는** `pipeline_type ∈ {review, deep-review, verify}`의 읽기 전용 성격 파이프라인으로 코드 변경이 없는 경우
 
 **`feature/dev/hotfix/deploy`는 예외 없이 위 스팸 방지 조건이 적용되지 않는다**(코드 변경 파이프라인은 회고 가치가 항상 있음 — CLAUDE.md §5 "스킵 불가 원칙" 위반 방지).
 
 생략 시 처리:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-[ -n "$_EMIT" ] && bash "$_EMIT" retro_skip "{slug}" "조건부 생략(소요 10분 미만 + 변경 없음/경량 파이프라인)" "C"
-echo "[회고 스킵] {slug} — 소요 {N}분, 스팸 방지 조건 충족으로 자동 생략 (사유: retro_skip 이벤트 기록됨)"
+```
+[회고 스킵] {slug} — 변경 없음/읽기 전용 파이프라인으로 회고 생략 제안 (사유: history.md 완료 기록에 병기).
 ```
 
 ## Step 5: 완료 요약 출력
@@ -180,9 +144,8 @@ echo "[회고 스킵] {slug} — 소요 {N}분, 스팸 방지 조건 충족으�
 ══════════════════
   [각 Step 상태 — ✓/⊘/✗]
 
-기록: ~/.bams/artifacts/pipeline/[파일명]
-이벤트: ~/.bams/artifacts/pipeline/[slug]-events.jsonl
+기록: .crew/history.md
+산출물: .crew/artifacts/{prd,design,review,report}/...
 
 다음: [추천 명령어]
-시각화: /bams:viz [slug]
 ```

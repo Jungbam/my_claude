@@ -11,27 +11,9 @@
 
 ---
 
-## Viz 이벤트: pipeline_start
-
-Step 0 시작 전, Bash로 다음을 실행합니다:
-
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "feature" "/bams:feature" "{arguments}"
-```
-
 ## Step 0. resource-optimizer 전략 수립
 
-Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 0 "파이프라인 초기화" "Phase 0: 초기화"
-```
-
 **루프 A (Simple) — 메인이 resource-optimizer를 직접 spawn합니다.** (orchestrator 조언 생략, `_shared_common.md` 부록 참조)
-
-Bash로 agent_start emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "resource-optimizer-0-$(date -u +%Y%m%d)" "resource-optimizer" "claude-opus-4-8" "Step 0: feature 파이프라인 전략 수립"
-```
 
 Task tool, subagent_type: **"bams-plugin:resource-optimizer"** — 메인이 직접 호출:
 
@@ -55,24 +37,13 @@ Task tool, subagent_type: **"bams-plugin:resource-optimizer"** — 메인이 직
 >
 > **기대 산출물**: 파이프라인 실행 계획 (모델 전략, 병렬화 가능 구간, 예상 Phase 수, 게이트 조건)
 
-반환 후 agent_end emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "resource-optimizer-0-$(date -u +%Y%m%d)" "resource-optimizer" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Step 0 완료: 파이프라인 실행 계획 수립"
-```
-
-resource-optimizer의 실행 계획을 수신하고, 이후 Phase에서 이 계획(모델 전략, 병렬화 전략)을 참조합니다. `pipeline_start` 이벤트는 엔트리포인트에서 이미 emit되었습니다.
-
-Step 0 완료 시, Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 0 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-```
+resource-optimizer의 실행 계획을 수신하고, 이후 Phase에서 이 계획(모델 전략, 병렬화 전략)을 참조합니다.
 
 ---
 
 ## Phase 0 게이트 조건
 
 - [ ] resource-optimizer 실행 계획 수신 완료
-- [ ] pipeline_start 이벤트 기록 완료
 - [ ] Pre-flight 체크리스트 통과
 - [ ] 파이프라인 실행 계획 수립 완료
 

@@ -22,14 +22,14 @@ $ARGUMENTS가 비어있으면 AskUserQuestion으로 버그 설명 받기.
 
 모든 단계 실행 전 반드시 공통 규칙을 Read합니다:
 
-`commands/bams/hotfix/_common.md`를 Read하여 스킬 로딩, Viz 이벤트 규칙, 위임 원칙, TaskDB 연동 규칙을 로드합니다.
+`commands/bams/hotfix/_common.md`를 Read하여 스킬 로딩, 위임 원칙을 로드합니다.
 
 ## 현재 상태 판단
 
 Bash로 진행 추적 파일을 확인합니다:
 
 ```bash
-_TRACKING=$(ls ~/.bams/artifacts/pipeline/*hotfix*-tracking.md 2>/dev/null | head -1)
+_TRACKING=$(ls .crew/artifacts/hotfix/*hotfix*-tracking.md 2>/dev/null | head -1)
 if [ -n "$_TRACKING" ]; then
   echo "=== 기존 진행 상태 ==="
   grep -E "current_step:|status:" "$_TRACKING" | head -5

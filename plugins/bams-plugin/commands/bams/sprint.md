@@ -11,16 +11,6 @@ Bams 오케스트레이터로서 스프린트 운영을 관리합니다.
 
 $ARGUMENTS가 비어있으면, 아래 도움말 섹션을 표시하고 중단합니다.
 
-## Pre-flight
-
-### Viz 이벤트: pipeline_start
-
-사전 조건 확인 후, Bash로 다음을 실행합니다:
-
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "sprint" "/bams:sprint" "{arguments}"
-```
-
 ## 코드 최신화
 
 **`references/preflight-protocol.md` §배치 0(코드 최신화) 참조.** 표준 프로토콜을 따릅니다.
@@ -85,7 +75,30 @@ board.md의 `## Backlog`에 있는 태스크 수를 셉니다. 0이면:
 
 ### 액션: "status"
 
-**1. 활성 스프린트 찾기.** 없으면 안내 후 중단.
+> 프로젝트 대시보드/보드 요약 기능을 이 서브커맨드가 흡수한다 (별도 대시보드 커맨드 없음).
+
+**0. board.md 요약 (항상 실행 — 대시보드 대체):**
+
+`.crew/board.md`를 파싱하여 섹션별 태스크 수를 집계해 표시한다. 활성 스프린트가 없어도 이 요약은 제공한다.
+
+```bash
+_BOARD=".crew/board.md"
+if [ -f "$_BOARD" ]; then
+  echo "=== Board 요약 ==="
+  for _S in Backlog "In Progress" "In Review" Done; do
+    _CNT=$(awk -v sec="## $_S" '
+      $0 ~ /^## / { inb = ($0 == sec) }
+      inb && /^### TASK-/ { c++ }
+      END { print c+0 }' "$_BOARD")
+    printf "  %-12s %s\n" "$_S" "$_CNT"
+  done
+  echo "  최신 업데이트: $(grep -m1 '^> Last updated:' "$_BOARD" | sed 's/^> Last updated: *//')"
+else
+  echo "board.md 없음 — /bams:plan 으로 태스크를 먼저 생성하세요."
+fi
+```
+
+**1. 활성 스프린트 찾기.** 없으면 위 board.md 요약만 표시하고 종료.
 
 **2. project-governance 에이전트로 상태 분석:**
 
@@ -150,14 +163,6 @@ Bams 스프린트 커맨드
   /bams:sprint close    회고와 함께 스프린트 종료
 ```
 
-### Viz 이벤트: pipeline_end
-
-모든 액션(plan, status, close) 완료 후, Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_end "{slug}" "{status}" {total} {completed} {failed} {skipped}
-```
-(`{status}`는 `completed` / `paused` / `failed` 중 하나, `{total}`은 해당 액션의 총 step 수)
-
 ## 회고 연결
 
-pipeline_end emit 후 `references/completion-protocol.md` Step 4.95에 따라 `/bams:retro {slug}` 실행 여부를 확인한다 (CLAUDE.md §5 회고 의무). 스팸 방지 조건(소요 10분 미만 + 변경 없음/경량 파이프라인) 충족 시 자동 생략.
+완료 후 `references/completion-protocol.md`에 따라 `/bams:retro {slug}` 실행 여부를 확인한다 (CLAUDE.md §5 회고 의무). 스팸 방지 조건(소요 10분 미만 + 변경 없음/경량 파이프라인) 충족 시 자동 생략.

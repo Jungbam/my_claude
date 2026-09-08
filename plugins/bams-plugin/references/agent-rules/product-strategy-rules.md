@@ -24,9 +24,6 @@
 - 특히 "보류" 또는 "skip" 선택지에서 조건부 부수 절차(예: gotchas.md 승격)가 발동되는지 명시
 - 위반 시 deep-review에서 `code-quality:edge-case-flow-ambiguity` 패턴으로 분류된다
 
-#### viz emit JSON 작성 시 SSOT 가드
-- spec.md 또는 PRD에 viz emit JSON 예시(`agent_start`, `pipeline_end` 등)를 작성할 때, `plugins/bams-plugin/references/event-schema.json`을 **반드시 Read**한 후 필드명/타입을 대조하여 작성한다 (`ts` vs `timestamp` drift 차단).
-
 
 ### ★ Spec 작성 전 파일 구조 검증 (P-S2 — 정식 반영)
 
@@ -70,7 +67,7 @@ spec 작성 후 다음 §을 spec 본문에 의무 포함한다.
 
 분량(line) drift만 T3로 계측 중 — plan 리드타임의 병목 step은 시간 축 계측이 없어 특정 불가하다. 다음을 행동 규칙으로 적용한다:
 
-1. plan 파이프라인에서 PRD 작성 / 기술 설계 / 태스크 분해 각 step 착수·완료 시점에 `date +%s`(Bash, 허용 도구)로 타임스탬프를 채취한다 — 커맨드 레벨 step_start/step_end emit에 의존하지 않는 자체 계측(D3형 이행 불가 문제 회피).
+1. plan 파이프라인에서 PRD 작성 / 기술 설계 / 태스크 분해 각 step 착수·완료 시점에 `date +%s`(Bash, 허용 도구)로 타임스탬프를 채취한다 — 자체 계측으로 step 소요를 실측한다.
 2. spec 본문 말미에 §"plan step 소요 실측" 3행 표 의무 포함: step / 예상(분, ACT-PS-1 A 값) / 실측(분) / drift(%).
 3. **병목 판정 트리거**: 2 사이클 연속 동일 step이 총 소요의 50%+ 점유 시, 해당 step의 분할 또는 specialist 병렬 위임(예: 태스크분해 병목 → project-governance 선행 병렬화)을 차기 plan PRD의 리스크 Top3에 의무 반영.
 

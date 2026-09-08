@@ -11,23 +11,20 @@
 **협업 대상:**
 - resource-optimizer: 파이프라인 시작 시 모델 선택과 병렬화 전략 조회
 - cross-department-coordinator: 복수 부서 참여 시 인터페이스 정합성 조율
-- executive-reporter: 위임 전 pipeline_start 이벤트 기록 요청
 
 **작업 절차:**
 1. 커맨드 위임 메시지에서 phase, slug, pipeline_type, context, constraints를 파싱한다
-2. `~/.bams/artifacts/pipeline/` 에서 기존 진행 상태를 확인하여 중단 파이프라인 재개 여부를 판단한다
+2. `.crew/history.md` 에서 기존 완료 이력을 확인하여 중단 파이프라인 재개 여부를 판단한다
 3. `pipeline_type`과 context 내용의 정합성을 검증한다 (hotfix인데 신규 기능 요청이면 재분류 제안)
 4. resource-optimizer에게 모델 선택과 병렬화 전략을 조회한다
 5. Phase의 작업 성격(태그, 파일 패턴)으로 부서장을 결정한다
-6. viz `agent_start` 이벤트를 emit한 후 Agent tool로 부서장을 호출한다
-7. 호출 완료 후 viz `agent_end` 이벤트를 emit한다
+6. Agent tool로 부서장을 호출하고 결과를 수신한다
 
 **산출물:** 부서장에게 전달된 위임 메시지(task_description, input_artifacts, expected_output, quality_criteria, constraints, gotchas 포함)
 
 **주의사항:**
 - 텍스트로 "위임한다"고 쓰는 것은 위임이 아니다 — 반드시 Agent tool 호출이 위임이다
 - slug는 커맨드에서 받은 값을 그대로 사용한다. 자체 slug 생성 절대 금지
-- 모든 Agent tool 호출 전후에 viz 이벤트를 빠짐없이 emit해야 한다
 
 ---
 
@@ -37,7 +34,6 @@
 
 **협업 대상:**
 - cross-department-coordinator: Phase 전환 핸드오프 조율 요청
-- executive-reporter: GO/NO-GO 판단 결과와 다음 Phase 시작을 기록 요청
 
 **작업 절차:**
 1. 현재 Phase의 모든 필수 Step이 `done` 상태인지 확인한다
@@ -69,7 +65,7 @@
 2. 독립적인 부서장 작업(의존성 없는 Phase)을 병렬 실행 그룹으로 분류한다
 3. Phase별 최대 위임 횟수를 8회로 제한하여 컨텍스트 폭발을 방지한다
 4. 중간 산출물을 Check Point로 설정하여 실패 시 전체 재시작을 방지한다
-5. 병렬 호출 시 각 agent_start를 먼저 모두 emit한 후 Agent tool을 병렬 호출한다
+5. 병렬 호출 시 독립적인 부서장들을 단일 메시지에 복수 Agent tool 호출로 병렬 실행한다
 
 **산출물:** Pipeline Plan 문서 (Phase/Step 테이블, 병렬화 구간, 모델 전략 포함)
 
@@ -84,7 +80,6 @@
 **언제 참조:** 부서장이 FAIL을 보고하거나 이상 징후(테스트 실패, 성능 저하, 보안 취약점)가 감지될 때
 
 **협업 대상:**
-- executive-reporter: 롤백 이벤트 기록 및 영향 분석 요청
 - cross-department-coordinator: 다중 부서에 걸친 롤백 시 영향 범위 조율
 
 **작업 절차:**
@@ -92,7 +87,7 @@
 2. recoverable이면 동일 부서장에게 피드백과 함께 재위임한다 (최대 2회)
 3. unrecoverable이면 영향 범위를 분석한다: 현재 Phase만 vs. 이전 Phase까지
 4. 롤백 시 보존해야 할 아티팩트를 식별한다
-5. 롤백 후 재시작 지점을 명시하고 executive-reporter에게 롤백 이벤트를 기록 요청한다
+5. 롤백 후 재시작 지점을 명시한다
 
 **산출물:** 롤백 결정 문서 (실패 유형, 영향 범위, 보존 아티팩트, 재시작 지점 포함)
 
@@ -107,18 +102,18 @@
 **언제 참조:** 파이프라인이 완료(정상 또는 실패)될 때 — 스킵 불가
 
 **협업 대상:**
-- executive-reporter: 정량 데이터 수집 (소요 시간, 성공률, 재시도 횟수, 트렌드)
+- product-analytics: 정성 근거 수집 (history.md 완료 기록, 산출물, 사용자 관찰)
 - 참여한 모든 부서장: KPT(Keep/Problem/Try) 항목 제출 요청
 
 **작업 절차:**
-1. executive-reporter에게 정량 데이터 수집을 요청한다
+1. product-analytics에게 정성 근거 수집을 요청한다
 2. 해당 파이프라인에 참여한 부서장들에게 KPT 항목 제출을 요청한다
 3. 수집된 KPT를 종합하여 Problem을 우선순위로 정렬하고 액션 아이템을 확정한다
 4. 에이전트 교훈을 각 에이전트의 MEMORY.md에 저장하도록 지시한다
 5. 글로벌 gotcha 승격이 필요한 항목을 `.crew/gotchas.md`에 추가한다
 6. tracking 파일의 retro 섹션에 결과를 기록한다
 
-**산출물:** 회고 결과 요약 (정량 지표, KPT 요약, 액션 아이템, 피드백 반영 목록)
+**산출물:** 회고 결과 요약 (정성 근거, KPT 요약, 액션 아이템, 피드백 반영 목록)
 
 **주의사항:**
 - 사용자가 명시적으로 "회고 건너뛰기"를 요청한 경우에만 스킵 가능

@@ -2,13 +2,6 @@
 
 > dry-run 산출물 검토 + 실 적용 동의 + AC5 검증
 
-## step_start emit
-
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-[ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 2 "결과 검증" "Phase 2: 검증"
-```
-
 ## 2-A. AC5 — dry-run 검증 (DRY_RUN=true인 경우)
 
 ```bash
@@ -18,7 +11,7 @@ if [ -n "$_CHANGED" ]; then
   echo "$_CHANGED"
   # 롤백
   git checkout -- src/app/ 2>/dev/null
-  # step_end status="fail" + pipeline_end status="failed" emit 후 종료
+  # .crew/history.md에 실패로 기록 후 종료
 fi
 echo "[PASS] AC5: dry-run 모드 — src/app/ 변경 0건 확인"
 ```
@@ -57,8 +50,8 @@ AskUserQuestion(
 ```
 
 - "적용" 선택 시: DRY_RUN=false 로 `commands/bams/design-import/phase-1-delegate.md` 재실행
-- "종료" 선택 시: step_end status="done" + pipeline_end status="completed" emit 후 종료 (변경 없이)
-- "수정 필요" 선택 시: step_end status="done" + pipeline_end status="paused" emit + 재시작 안내 출력
+- "종료" 선택 시: `.crew/history.md`에 완료로 기록 후 종료 (변경 없이)
+- "수정 필요" 선택 시: `.crew/history.md`에 보류로 기록 + 재시작 안내 출력
 
 ## 2-D. 실 적용 완료 검증 (DRY_RUN=false 또는 재실행 후)
 
@@ -105,10 +98,6 @@ if [ "$DRY_RUN" = "false" ]; then
   echo "  recompose: $_BASELINE_RECOMPOSE"
   echo "  target URL: $_IMPL_TARGET_URL"
 
-  # agent_start emit
-  _F5_CALL_ID="visual-fidelity-verifier-2d-bis-$(date -u +%Y%m%d%H%M%S)"
-  [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "$_F5_CALL_ID" "visual-fidelity-verifier" "gpt-5.3-codex" "Phase 2-D-bis 실 적용 후 F5 자동 검증"
-
   # Task tool 호출 (메인이 직접 spawn — Phase F의 일부로 처리)
   # subagent_type: "bams-plugin:visual-fidelity-verifier"
   # model: "gpt-5.3-codex"
@@ -122,8 +111,7 @@ if [ "$DRY_RUN" = "false" ]; then
   #     - guide_vs_impl_diff (≤5% PASS, ≤20% CONDITIONAL)
   #     - recompose_vs_impl_diff (참고용)
 
-  # F5 완료 후 agent_end emit + verdict 파싱
-  [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "$_F5_CALL_ID" "visual-fidelity-verifier" "{success|error}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "verdict={PASS|CONDITIONAL|FAIL|ENV_FAIL}"
+  # F5 완료 후 verdict 파싱
 
   # H-D3: verdict.json 저장 전 디렉터리 보장 (cat redirect 실패 방지)
   mkdir -p ".crew/artifacts/design/${slug}/fidelity"
@@ -131,8 +119,7 @@ if [ "$DRY_RUN" = "false" ]; then
   # ENV_FAIL 분기 (F5 H-E1 적용 — 환경 미충족 시 자동 PASS 차단)
   _F5_VERDICT=$(jq -r '.verdict // "MISSING"' ".crew/artifacts/design/${slug}/fidelity/verdict.json" 2>/dev/null)
   if [ "$_F5_VERDICT" = "ENV_FAIL" ]; then
-    echo "[FAIL] F5 환경 미충족 — pipeline_end status=failed"
-    [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_end "{slug}" "failed" {total} {done} 1 {skipped}
+    echo "[FAIL] F5 환경 미충족 — .crew/history.md에 실패로 기록 후 종료"
     exit 1
   fi
 fi
@@ -159,21 +146,13 @@ AskUserQuestion(
 ```
 
 - "회귀 테스트 실행 (Recommended)" 선택 시: qa-strategy 에 회귀 테스트 위임
-  - agent_start emit (call_id: `qa-strategy-2e-{timestamp}`)
   - qa-strategy 에 S2 conflict-report.md + 변경 파일 목록 전달
-  - agent_end emit
 - "스킵 — 위험 인지 확인 (regression_test_skipped: true 기록)" 선택 시:
   - `.crew/artifacts/design/${slug}/skip-log.jsonl`에 기록:
     ```json
     {"timestamp": "{ISO8601}", "step": "2-E", "reason": "user_skip", "regression_test_skipped": true}
     ```
   - 수동 확인 권고 후 계속 진행
-
-## step_end emit
-
-```bash
-[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 2 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-```
 
 Phase 4 (마무리 + 회고) 진행:
 `commands/bams/dev/phase-4-finalization.md` 를 Read하여 지시를 따른다. (OQ2=(a))

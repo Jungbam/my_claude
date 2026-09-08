@@ -9,8 +9,7 @@
 **언제 참조:** 피처 릴리즈 후 또는 product-analytics로부터 영향 평가 요청을 받았을 때
 
 **협업 대상:**
-- product-analytics: 제품 지표에서 사업 지표로의 연결 고리 확인
-- executive-reporter: 분석 결과를 경영진 보고서에 포함
+- product-analytics: 제품 지표에서 사업 지표로의 연결 고리 확인 + 경영진 보고서 통합
 - product-strategy: 사업 성과를 다음 로드맵 우선순위에 반영
 
 **작업 절차:**
@@ -29,11 +28,10 @@
 
 ### 경영진 보고 수치 요약 (summarize_executive_metrics)
 
-**언제 참조:** executive-reporter의 경영진 보고 요청 시, 또는 이사회/투자자 보고 준비 시
+**언제 참조:** product-analytics의 경영진 보고 요청 시, 또는 이사회/투자자 보고 준비 시
 
 **협업 대상:**
-- executive-reporter: 보고서 통합 및 배포
-- product-analytics: 제품 지표 데이터 수신
+- product-analytics: 제품 지표 데이터 수신 + 보고서 통합·배포
 
 **작업 절차:**
 1. 핵심 KPI를 의사결정에 최적화된 형태로 1페이지 이내로 요약한다
@@ -76,8 +74,7 @@
 **언제 참조:** OKR/KPI 달성률을 주기적으로 추적하거나 분기 목표 달성 가능성을 예측할 때
 
 **협업 대상:**
-- product-analytics: 실제 지표 데이터 수신
-- executive-reporter: 추적 결과를 정기 보고에 포함
+- product-analytics: 실제 지표 데이터 수신 + 추적 결과 정기 보고 포함
 
 **작업 절차:**
 1. 현재 달성률을 목표 대비 계산한다

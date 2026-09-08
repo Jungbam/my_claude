@@ -12,17 +12,7 @@
 
 ## Step 5: 배포 (bams deploy 스킬, 선택)
 
-Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 5 "배포" "Phase 4: 배포"
-```
-
 **루프 A — 단일 부서장 직접 spawn (배포 환경 점검은 platform-devops 단일 책임).**
-
-Bash로 agent_start emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "platform-devops-5-$(date -u +%Y%m%d)" "platform-devops" "claude-opus-4-8" "Step 5: 배포 환경 점검"
-```
 
 Task tool, subagent_type: **"bams-plugin:platform-devops"** — 메인이 직접 호출:
 
@@ -42,19 +32,9 @@ Task tool, subagent_type: **"bams-plugin:platform-devops"** — 메인이 직접
 >   urgency: critical
 > ```
 
-반환 후 agent_end emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "platform-devops-5-$(date -u +%Y%m%d)" "platform-devops" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Step 5 배포 환경 점검 완료"
-```
-
 AskUserQuestion — "즉시 배포할까요?"
 - **나중에 (Recommended)**
 - **배포** — `_DEPLOY_SKILL` 실행
-
-Step 5 완료 시, Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 5 "{status}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-```
 
 ---
 

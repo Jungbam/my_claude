@@ -2,13 +2,6 @@
 
 > 인자 검증 + codex 인증 확인 + 가이드 격리 + 시나리오 유효성 검사
 
-## step_start emit
-
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-[ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 0 "Preflight" "Phase 0: 검증"
-```
-
 ## §Interactive — Phase 0-I (인자 전체 미지정 진입점)
 
 $ARGUMENTS 가 완전히 비어 있으면 이 섹션을 따른다 (OQ10=(a)).
@@ -68,13 +61,13 @@ $ARGUMENTS 가 완전히 비어 있으면 이 섹션을 따른다 (OQ10=(a)).
 ```bash
 if [ ! -e "${GUIDE_PATH}" ]; then
   echo "[ERROR] 경로를 찾을 수 없습니다: ${GUIDE_PATH}"
-  # step_end status="fail" + pipeline_end status="failed" emit 후 종료
+  # .crew/history.md에 실패로 기록 후 종료
 fi
 # 절대 경로 정규화
 GUIDE_PATH_ABS=$(realpath "${GUIDE_PATH}")
 ```
 
-실패 시 즉시 step_end status="fail" + pipeline_end status="failed" emit.
+실패 시 즉시 `.crew/history.md`에 실패로 기록 후 종료.
 
 ### P2. 시나리오 유효성 검사 (AC3.b — OQ6=(a))
 
@@ -86,7 +79,7 @@ case "${SCENARIO}" in
     ;;
   *)
     echo "[ERROR] 유효하지 않은 시나리오: ${SCENARIO}. s1, s2, s3 중 하나를 지정하세요."
-    # pipeline_end status="failed" emit 후 종료
+    # .crew/history.md에 실패로 기록 후 종료
     ;;
 esac
 ```
@@ -108,7 +101,7 @@ AskUserQuestion(
 ### P3. codex 사전 체크 (AC8 — OQ7=(b))
 
 S3는 skip. S1/S2는 _common.md §3 의 codex_available 함수로 확인.
-실패 시 OQ7=(b) 처리 (안내 + 30초 대기 × 3회, 3회 실패 시 pipeline_end status="failed" emit 후 종료).
+실패 시 OQ7=(b) 처리 (안내 + 30초 대기 × 3회, 3회 실패 시 `.crew/history.md`에 실패로 기록 후 종료).
 
 ### P4. 가이드 파일 격리 (F2 — OQ4=(a)) (AC9)
 
@@ -139,7 +132,7 @@ if [ -f "$_QUARANTINE_MANIFEST_GLOBAL" ] && [ -s "$_QUARANTINE_MANIFEST_GLOBAL" 
 fi
 ```
 
-재진입 차단 발동 시: step_end status="fail" + pipeline_end status="failed" emit 후 종료.
+재진입 차단 발동 시: `.crew/history.md`에 실패로 기록 후 종료.
 
 ### P5. SR-1 시크릿 스캔 + eval 패턴 검사 (AC9)
 
@@ -227,12 +220,6 @@ AskUserQuestion(
 ```
 
 선택 결과를 DRY_RUN 변수에 저장 (true/false).
-
-## step_end emit
-
-```bash
-[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 0 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-```
 
 Phase 1.5 (Git 체크포인트)로 진행.
 `commands/bams/dev/phase-1-5-git.md` 를 Read하여 지시를 따른다.

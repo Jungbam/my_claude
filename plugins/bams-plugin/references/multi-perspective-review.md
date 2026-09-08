@@ -68,10 +68,10 @@ review.md·deep-review.md 모두 아래 알고리즘을 Pre-flight 직후, 파�
 1. `$ARGUMENTS`에 `--aspect`가 없으면 `ASPECT_LIST = ["code"]`로 고정하고 **이하 전 단계를 스킵**, 기존 흐름 그대로 진행 (커맨드 stub 쪽 "기본 동작" 분기).
 2. `--aspect ` 뒤 값(다음 공백 또는 문자열 끝까지)을 추출해 콤마로 분리 → `raw_list`.
 3. `raw_list == ["list"]`이면 위 §aspect 정의 표를 출력하고 **즉시 종료**(스캔·spawn 없음, 4~7번 스킵). 허용 집합 검사(5번) 대상이 아니다.
-4. `raw_list`에 `all`이 포함되어 있으면: `raw_list` 길이가 2 이상이면(다른 값과 혼용) 5번 진입 전에 즉시 `error` 이벤트 emit: `message="'all'은 다른 aspect와 혼용할 수 없습니다. --aspect all 단독으로 사용하세요"` 후 **즉시 HALT**(파일 수집·spawn 없음). `all` 단독이면 `ASPECT_LIST = [spec, functional, performance, code, uiux]`로 확정.
+4. `raw_list`에 `all`이 포함되어 있으면: `raw_list` 길이가 2 이상이면(다른 값과 혼용) 5번 진입 전에 즉시 에러 메시지 출력: `"'all'은 다른 aspect와 혼용할 수 없습니다. --aspect all 단독으로 사용하세요"` 후 **즉시 HALT**(파일 수집·spawn 없음). `all` 단독이면 `ASPECT_LIST = [spec, functional, performance, code, uiux]`로 확정.
 5. 각 토큰을 허용 집합 `{spec, functional, performance, code, uiux, all}`과 대조. 미포함 토큰 발견 시:
-   - `error` 이벤트 emit: `message="잘못된 aspect 이름: {token}. 허용값: spec,functional,performance,code,uiux,all"`
-   - 사용자에게 동일 메시지 출력 후 **즉시 HALT** (파일 수집·spawn 없음, `pipeline_end status=failed` 또는 파이프라인 미시작 상태로 종료)
+   - 에러 메시지 출력: `"잘못된 aspect 이름: {token}. 허용값: spec,functional,performance,code,uiux,all"`
+   - 사용자에게 동일 메시지 출력 후 **즉시 HALT** (파일 수집·spawn 없음, 파이프라인 미시작 상태로 종료)
 6. `ASPECT_LIST` 중복 제거(예: `code,code` → `[code]`).
 7. `--aspect` 토큰과 그 값을 `$ARGUMENTS`에서 제거한 나머지 문자열을 `REVIEW_TARGET`(파일/디렉토리/`pr`)으로 사용 — 기존 "리뷰 범위 결정" 로직 입력으로 그대로 전달.
 
@@ -146,18 +146,6 @@ Context Package 블록의 문자 수가 80,000자를 초과하면 fallback 모�
 
 - **review.md**: aspect 최대 5개 병렬(§aspect 정의 표) — 5 ≤ 8이므로 배치 분할 불필요.
 - **deep-review.md**: 5 aspect + 구조적 리뷰 + Codex = 최대 7개 동시 실행(기존 정책) → 8 미만이므로 배치 분할 불필요. 향후 aspect 추가 시 8 초과하면 배치 분할(구조적 리뷰·Codex 우선, aspect는 2개 배치로 분리) 로직을 이 절에 추가한다.
-
-### step_number 예약 구간 (event-schema.json 준수 — 파이프라인 내 유일해야 함)
-
-| aspect | review.md에서(다중 aspect 시만 emit) | deep-review.md에서(code 제외 4개, 기존 Step1~4와 겹치지 않게 이어붙임) |
-|---|---|---|
-| spec | 20 | 5 (기존 Step 4를 Advisor call_id `pipeline-orchestrator-4-{date}`가 점유 — +1 이동, TASK-112 실측 정정) |
-| functional | 21 | 6 |
-| performance | 22 | 7 |
-| code | 23(다중 aspect 조합 시만. 단독 code면 기존 흐름 그대로라 step 이벤트 없음) | (기존 Step1이 이미 code 담당 — 신규 번호 없음) |
-| uiux | 24 | 8 |
-
-step_name 형식: `aspect-{name} 리뷰`. deep-review.md의 `pipeline_end`의 `{total}`은 기존 하드코딩 `3` 대신 `3 + (code를 제외한 선택 aspect 수)`로 동적 계산한다.
 
 ## 종합/중복 제거 규칙
 

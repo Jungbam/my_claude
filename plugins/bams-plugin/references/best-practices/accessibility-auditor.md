@@ -17,8 +17,8 @@
 
 ### 실수 1: Preflight 없이 axe-core 실행 → 빈 결과
 - **증상**: `axe-results.json`이 `{"violations":[]}`로 생성되어 PASS 오판. 실제로는 dev 서버 미기동 상태.
-- **원인**: `curl localhost:3099/api/agents/data` 및 `curl {target_url}` Preflight 없이 바로 axe 실행.
-- **회피**: 반드시 2단계 Preflight: (1) sidecar 상태 `curl localhost:3099/api/agents/data` — 404면 `build-sidecar.sh` 재빌드 요청, (2) target_url `curl -s -o /dev/null -w "%{http_code}" {target_url}` — 200 아니면 platform-devops 에스컬레이션.
+- **원인**: `curl {target_url}` Preflight 없이 바로 axe 실행.
+- **회피**: 반드시 target_url Preflight: `curl -s -o /dev/null -w "%{http_code}" {target_url}` — 200 아니면 dev 서버 미기동으로 판단하고 platform-devops 에스컬레이션.
 
 ### 실수 2: SR-3 위반 — 외부 URL 감사 시도
 - **증상**: `target_url`이 `https://staging.example.com/...` 형태로 설정된 채 axe 실행. 보안 정책 위반 + 결과 신뢰성 없음.
@@ -43,10 +43,9 @@
 - **패턴 B — 색상 대비 검사 분리**: `contrast_check`는 axe-core가 놓치는 케이스(배경 이미지, opacity 중첩)가 있으므로 별도 CSS 분석. `grep -E 'color|background' src/app/**/*.css` 후 명도 대비비 수동 계산 보완.
 - **패턴 C — frontend-engineering 핸드오프 포맷**: accessibility-report.md P0/P1 섹션에 "수정 코드 예시" 포함 필수. 디자이너용 권고(색상 변경)와 개발자용 권고(ARIA 추가, role 수정)를 명확히 분리.
 
-## 4. 체크리스트 (5건 필수)
-- [ ] Preflight: sidecar 상태 + target_url 응답 200 확인 후 axe 실행
+## 4. 체크리스트 (필수)
+- [ ] Preflight: target_url 응답 200 확인 후 axe 실행
 - [ ] SR-3: target_url이 localhost 패턴인지 grep 검사 완료
-- [ ] viz `agent_start` (작업 시작 전) / `agent_end` (완료 후) emit 누락 0
 - [ ] 판정 로직 준수: critical > 0 또는 serious > 0이면 FAIL (CONDITIONAL 오판 금지)
 - [ ] a11y-verdict.json `"via": "gpt-5.3-codex (codex CLI)"` 필드 포함
 
@@ -55,4 +54,3 @@
 - 후속 hotfix: PR #14 (Critical) + PR #15 (Major)
 - 본 plan: plan_designimport정밀화 (F-R-A1)
 - 협업: F5 visual-fidelity-verifier (병렬), frontend-engineering (P0/P1 위반 수정), ux-designer (ARIA/키보드 개선안)
-- G-SIDECAR gotcha: `curl localhost:3099/api/agents/data` 404이면 `build-sidecar.sh` 재빌드 필수

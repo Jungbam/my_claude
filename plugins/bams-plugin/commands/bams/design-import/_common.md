@@ -6,7 +6,7 @@
 ## 0. 상위 공통 규칙 로드
 
 `commands/bams/_shared_common.md` 를 Read하여
-위임 원칙, viz emit 규칙, TaskDB 연동, WU 선택 규칙을 로드한다.
+위임 원칙을 로드한다.
 
 ## 1. 인자 파싱 (POSIX 스타일 — OQ1=(a))
 
@@ -52,7 +52,7 @@ codex_available() {
 S1/S2 시나리오 시: codex_available 실패 → OQ7=(b) 처리:
   1. 에러 메시지: "codex 미인증 — `codex login` 을 실행한 뒤 엔터를 눌러 재시도하거나 Ctrl+C 로 중단하세요"
   2. 30초 대기 후 재시도 (최대 3회)
-  3. 3회 모두 실패 → pipeline_end status="failed" emit 후 종료
+  3. 3회 모두 실패 → `.crew/history.md`에 실패로 기록 후 종료
 
 S3 시나리오는 codex 미사용 → 이 체크 skip.
 

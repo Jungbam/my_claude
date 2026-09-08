@@ -20,11 +20,6 @@
 
 ## Step 0.8: 이슈 파싱 및 태스크 분해
 
-Bash로 step_start를 emit합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 0.8 "이슈 파싱 및 태스크 분해" "Phase 0: dev-hotfix 초기화"
-```
-
 $ARGUMENTS에서 이슈 목록을 파싱합니다.
 
 **파싱 규칙:**
@@ -49,35 +44,11 @@ $ARGUMENTS에서 이슈 목록을 파싱합니다.
 ```
 
 **태스크 등록:**
-- **DB 존재 시 (권장)**: Bash로 bun 스크립트 실행 (커맨드 레벨 허용)
-- **DB 미사용 시**: project-governance 부서장에게 board.md 수정 위임
-
-**DB 등록 (DB 존재 시):**
-```bash
-if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
-  bun -e "
-    import { TaskDB } from './plugins/bams-plugin/tools/bams-db/index.ts';
-    const db = new TaskDB();
-    // 각 이슈에 대해:
-    // db.createTask({ pipeline_slug: '{slug}', title: '{이슈 제목}', status: 'pending', assignee_agent: '{에이전트}', phase: 2 });
-    db.close();
-  "
-fi
-```
+- 각 이슈를 board.md 태스크로 등록합니다. project-governance 부서장에게 board.md 수정을 위임합니다.
 
 ---
 
 ## Step 0.9: 배치 분할 (의존성 DAG 기반)
-
-Step 0.8 완료 후 step_end emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 0.8 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-```
-
-Bash로 step_start를 emit합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 0.9 "배치 분할" "Phase 0: dev-hotfix 초기화"
-```
 
 태스크 목록을 배치로 분할합니다.
 
@@ -111,18 +82,8 @@ Options:
 
 ## Step 0.95: 배치 실행 계획 확정
 
-Step 0.9 완료 후 step_end emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 0.9 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-```
-
-Bash로 step_start를 emit합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 0.95 "배치 실행 계획 확정" "Phase 0: dev-hotfix 초기화"
-```
-
 **배치 계획 기록:**
-확정된 배치 목록을 `~/.bams/artifacts/pipeline/{slug}-batch-plan.md`에 기록합니다.
+확정된 배치 목록을 `.crew/artifacts/hotfix/{slug}-batch-plan.md`에 기록합니다.
 이 파일은 파이프라인 아티팩트(소스 코드 아님)이므로 커맨드 레벨에서 Bash `cat <<EOF >` 패턴으로 직접 생성합니다.
 
 ```markdown
@@ -169,17 +130,12 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 ---
 
-Step 0.95 완료 후 step_end emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 0.95 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-```
-
 ## 게이트 조건
 
 - [ ] 이슈 목록 파싱 완료 (최소 1건)
 - [ ] 각 이슈에 영향 파일 목록 추정 완료
 - [ ] 배치 분할 확정 (사용자 확인)
 - [ ] batch-plan.md 기록 완료
-- [ ] board.md 또는 DB에 태스크 등록 완료
+- [ ] board.md에 태스크 등록 완료
 
 모든 조건 충족 → Phase 2 진행

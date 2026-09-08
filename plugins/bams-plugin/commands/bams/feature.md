@@ -20,10 +20,10 @@ feature.md (메인) ─ advise ─▶ pipeline-orchestrator (Advisor)
          [Phase 3 Step 5] qa-strategy(QA부장) → automation-qa (5관점 리뷰)
          [Phase 3 Step 6-8] qa-strategy + product-analytics (병렬)
          [Phase 3 Step 9] platform-devops (CI/CD)
-         [Phase 4] executive-reporter + Ship/Deploy
+         [Phase 4] Ship/Deploy
          [Phase 5 Step 12] product-strategy → 문서 갱신
          [Phase 5 Step 13] project-governance → 스프린트 종료
-         [Phase 5 Step 14] executive-reporter + 부서장들 (자동 강제 회고)
+         [Phase 5 Step 14] 참여 부서장들 (자동 강제 회고)
 ```
 
 > harness 깊이 2 제약: orchestrator는 부서장을 직접 spawn할 수 없고 Advisor Response만 반환합니다. 메인이 그 권고를 파싱하여 직접 부서장을 호출합니다.

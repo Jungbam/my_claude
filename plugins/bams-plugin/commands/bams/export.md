@@ -194,7 +194,7 @@ platform-devops, qa-strategy)에게 위임하는 Hub-and-Spoke + Pipeline 혼합
 | 플랫폼/DevOps | platform-devops | 1 |
 | QA부 | qa-strategy | 3 |
 | 평가부 | product-analytics | 3 |
-| 경영지원 | executive-reporter | 4 |
+| 경영지원 | resource-optimizer | 3 |
 | HR | hr-agent | 1 |
 
 ---
@@ -244,11 +244,6 @@ agents:
       config:
         model: claude-opus-4-8
   product-analytics:
-    adapter:
-      type: claude_local
-      config:
-        model: claude-opus-4-8
-  executive-reporter:
     adapter:
       type: claude_local
       config:

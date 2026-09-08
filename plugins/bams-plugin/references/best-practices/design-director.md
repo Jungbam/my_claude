@@ -23,7 +23,6 @@
 1. **Preflight** (반드시 실행 — [G-NEW2] 생략 금지):
    - `.crew/artifacts/design/{pipeline_slug}/` 디렉터리 Write 권한 확인 (없으면 platform-devops에 생성 위임)
    - 선행 아티팩트 존재 확인: `*-prd.md`, `*-design.md`, `*-spec.md`
-   - browse 바이너리 stale 사전 체크: `curl localhost:3099/api/agents/data` 404 응답 시 sidecar stale 확정 → `build-sidecar.sh` 재빌드 후 Phase C 진입
 2. **Phase A — 크리에이티브 브리프** (design-director 직접, 1회):
    - `.crew/references/design-trends-2026.md` Read
    - `spec/creative-brief.md` 작성 (디자인 원칙 3개 이상, 트렌드 적용 계획 표, WCAG 2.2 방침 명시)
@@ -153,8 +152,7 @@ $_BROWSE_BIN screenshot \
 - `aggregated_output` (quality_status=CONDITIONAL)
 
 **주의사항:**
-- [G-SIDECAR]: `curl localhost:3099/api/agents/data` 404 → `build-sidecar.sh` 재빌드 (`.crew/gotchas.md §[G-SIDECAR]` 참조)
-- Render 실패 2회 즉시 종료 원칙 — design-director no_end 재발 방지 (retro_전체회고_2 D 등급 원인)
+- Render 실패 2회 즉시 종료 원칙 — design-director 무한 대기 재발 방지 (retro_전체회고_2 원인)
 - 재빌드 후 재시도는 1회만 허용 — 재시도 2회째부터는 정적 분석 + CONDITIONAL 반환
 
 ---

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * sync-specialists.ts — plugin.json agents → 5 위치 자동 동기화
+ * sync-specialists.ts — plugin.json agents → 4 위치 자동 동기화
  *
  * Usage:
  *   bun run sync-specialists.ts             # default: --dry-run
@@ -47,14 +47,7 @@ const TARGETS: Array<{ path: string; render: (specialists: string[]) => string }
       s.map(x => `- ${x}: \`disallowedTools: []\``).join("\n") +
       `\n<!-- SYNC-SPECIALISTS:END -->`,
   },
-  // 4. bams-viz-emit.sh dept_map
-  {
-    path: "plugins/bams-plugin/hooks/bams-viz-emit.sh",
-    render: (s) => `# SYNC-SPECIALISTS:START\n` +
-      `_DESIGN_SPECIALISTS=(${s.map(x => `"${x}"`).join(" ")})\n` +
-      `# SYNC-SPECIALISTS:END`,
-  },
-  // 5. jojikdo.json (design 부서원 배열)
+  // 4. jojikdo.json (design 부서원 배열)
   // NOTE: extractBlock()은 startMarker/endMarker를 개행 기준으로 분리하므로
   // render 결과가 최소 2줄(멀티라인)이어야 한다 — 단일 라인이면 firstLineEnd가 -1이 되어
   // startMarker가 빈 문자열로 계산되는 버그가 발생한다 (JSON 값 자체엔 개행이 없으므로

@@ -5,7 +5,7 @@
 
 ### ★ Post-Merge Auto Verification SOP (PD-T2)
 
-PR 머지 완료(pipeline_end status=completed) 직후 다음을 실행한다.
+PR 머지 완료(`.crew/history.md`에 완료 기록) 직후 다음을 실행한다.
 
 1. main 브랜치 최신화 + 즉시 재검증:
    ```bash
@@ -17,28 +17,6 @@ PR 머지 완료(pipeline_end status=completed) 직후 다음을 실행한다.
    - hotfix 파이프라인 자동 제안: `/bams:hotfix hotfix_postmerge_CI회귀_{date}`
    - PR merge author + squash commit sha를 issue에 기록
 3. main HEAD 회귀는 다음 PR도 자동 fail시키므로 감지 지연을 수 시간 이상 방치하지 않는다 — 재검증은 머지 직후 즉시 실행(수 분 이내)한다.
-
-### ★ emit 스크립트(bams-viz-emit.sh) 인자 파싱 회귀 방어 (T-DQ-1/T-DQ-2)
-
-`bams-viz-emit.sh` 수정 시 다음 3개 가드가 유지되는지 확인한다 (본 스크립트에 구현 완료 — 회귀 방지 목적으로 명문화):
-
-1. `-`로 시작하는 리터럴은 slug 위치 인자로 거절 (옵션 플래그가 slug로 오유입되는 DQ-3 패턴 차단)
-2. `agent_start`/`agent_end`의 agent_type 인자가 `true`/`false` 등 boolean 리터럴이면 즉시 실패 (DQ-2 패턴 차단)
-3. 동일 call_id에 대한 `agent_end` 중복 emit 시 warn 로그 출력 (DQ-1 패턴 감지 — fe agent_end 중복 emit)
-4. 병렬 배치 emit 위생: 병렬 호출의 `agent_end`는 call_id별 개별 `now_ms` 차분으로 emit하고 형제 call_id와 공동 차분을 재사용하지 않는다 (SSOT: `references/viz-agent-protocol.md` §self-emit 금지 + 병렬 call_id 개별 차분).
-
-이 가드를 우회하거나 제거하는 변경은 금지. 수정 후 `bash -n`으로 문법 검증 필수.
-
-### ★ Sidecar 헬스체크 (G-SIDECAR 자동 대응)
-
-dev/feature 파이프라인 시작 전 sidecar 상태를 확인한다:
-
-```bash
-_STATUS=$(curl -s -o /dev/null -w "%{http_code}" localhost:3099/api/agents/data 2>/dev/null)
-if [ "$_STATUS" = "404" ] || [ -z "$_STATUS" ]; then
-  echo "WARN: Sidecar stale 감지 — build-sidecar.sh 실행 필요"
-fi
-```
 
 ### 인프라 관리 원칙
 - 모든 인프라 변경은 코드 리뷰를 거친 후 적용한다

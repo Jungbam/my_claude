@@ -11,14 +11,14 @@
 
 ## 2. 불변성 원칙
 
-slug는 파이프라인 생성 시 확정되며 이후 변경 불가합니다. 파이프라인 상태는 slug가 아닌 이벤트로 판별합니다.
+slug는 파이프라인 생성 시 확정되며 이후 변경 불가합니다. 파이프라인 상태는 slug가 아닌 `.crew/history.md` 완료 기록으로 판별합니다.
 
-- `pipeline_end` 이벤트 없음 → 진행 중
-- `pipeline_end` 이벤트 있음 → 상태 필드(`completed` | `failed` | `paused` | `rolled_back`)로 판단
+- `.crew/history.md`에 완료 기록 없음 → 진행 중
+- `.crew/history.md`에 완료 기록 있음 → STATUS 필드(`완료` | `실패` | `중단`)로 판단
 
 ## 3. 허용 command 목록
 
-**SSOT는 `references/event-schema.json`의 `pipeline_type` enum** — 본 목록은 참조용 사본이며 불일치 시 schema가 우선한다.
+본 목록은 파이프라인 `command`(type) 표준 목록이다.
 
 - `feature`
 - `hotfix`

@@ -27,24 +27,7 @@ _CSO_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/cso/SKIL
 
 진행 추적 파일: `templates/security-audit.md` 기반으로 생성.
 
-### Viz 이벤트: pipeline_start
-
-진행 추적 파일 및 lock 파일 생성 직후, Bash로 다음을 실행합니다:
-
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "security" "/bams:security" "{arguments}"
-```
-
-### ★ Viz Agent 이벤트 규칙
-
-**`references/viz-agent-protocol.md` 참조.** 모든 서브에이전트 호출 전후에 반드시 agent_start/agent_end 이벤트를 emit한다. orchestrator 내부에서 부서장/에이전트를 호출할 때도 동일하게 적용한다.
-
 ## Step 1: 빠른 보안 체크
-
-Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 1 "빠른 보안 체크" "Phase 1: 보안 감사"
-```
 
 `bams-plugin:release-quality-gate` 에이전트로 보안 체크를 수행합니다.
 체크 항목: 하드코딩 API 키, .env 커밋, 내부 URL 노출, 보안 린트.
@@ -55,52 +38,22 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 - Route Handler(`app/api/**/route.ts`) 및 Server Action의 인증·인가 검증 누락 여부 (기본 거부 원칙 준수 확인)
 - middleware의 인증 우회 가능 경로 여부 (`matcher` 설정 누락으로 보호 대상 경로가 빠지지 않았는지 확인)
 
-Step 1 완료 시, Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 1 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-```
-
 ## Step 2: OWASP+STRIDE 감사 (bams cso 스킬)
-
-Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 2 "OWASP+STRIDE 감사" "Phase 1: 보안 감사"
-```
 
 **스킬 미설치 시**: "Step 1 결과만 제공합니다." 후 `skipped`.
 
 이전 감사 결과 있으면 "이전 대비 변화" 관점으로 분석하도록 지시.
 `_CSO_SKILL` 실행.
 
-Step 2 완료 시, Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 2 "{status}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-```
-
 ## Step 3: 심층 스캔 (--comprehensive만)
-
-Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 3 "심층 스캔" "Phase 2: 심층 감사"
-```
 
 일일 모드 또는 스킬 미설치 시 `skipped`.
 `_CSO_SKILL --comprehensive` 실행.
 
-Step 3 완료 시, Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 3 "{status}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-```
-
 ## 마무리
 
-### Viz 이벤트: pipeline_end
-
-파이프라인 종료 시, Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_end "{slug}" "{status}" {total} {completed} {failed} {skipped}
-```
-(`{status}`는 `completed` / `paused` / `failed` 중 하나, `{total}`은 3)
+완료 시 `.crew/history.md`에 1줄 기록합니다:
+`YYYY-MM-DD | {slug} | security | {완료|실패} | {한 줄 요약}`
 
 **`references/completion-protocol.md` 참조.** 표준 프로토콜을 따릅니다.
 
@@ -110,40 +63,4 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 3. `dependency:` — 취약 의존성 경고 (CVE)
 
 추가: 이전 보안 gotchas 중 해결된 것은 `.crew/gotchas.md`에서 `resolved` 처리 제안.
-
-
-### TaskDB 연동 (DB가 존재하면 board.md 대신 DB 사용)
-
-`~/.claude/plugins/marketplaces/my-claude/bams.db`가 존재하면 DB를 우선 사용합니다:
-
-```bash
-# DB 존재 확인
-if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
-  echo "[bams-db] DB 모드 활성화"
-fi
-```
-
-**태스크 등록 시 (DB가 존재하면):** Bash로 bun 스크립트를 실행하여 TaskDB에 태스크를 등록합니다.
-
-```bash
-# DB가 존재하면 TaskDB에 태스크 등록
-if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
-  bun -e "
-    import { TaskDB } from './plugins/bams-plugin/tools/bams-db/index.ts';
-    const db = new TaskDB();
-    db.createTask({ pipeline_slug: '{slug}', title: '{task_title}', status: 'in_progress', assignee_agent: '{agent}', phase: {phase} });
-    db.close();
-  "
-fi
-```
-
-**파이프라인 완료 시 (DB가 존재하면):** board.md를 DB 스냅샷으로 갱신합니다.
-
-```bash
-if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
-  bun run plugins/bams-plugin/tools/bams-db/sync-board.ts {slug} --write
-fi
-```
-
-DB가 없으면 기존 board.md 방식을 유지합니다.
 

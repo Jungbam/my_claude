@@ -7,20 +7,6 @@
 orchestrator 조언 생략. 커맨드가 design-director를 직접 spawn.
 (design-director는 내부적으로 F1~F9를 순차/병렬 위임 — harness 깊이 2)
 
-## step_start emit
-
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-[ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 1 "Design Director 위임" "Phase 1: 위임"
-```
-
-## agent_start emit (design-director) — G-D 준수
-
-```bash
-_CALL_ID="design-director-1-$(date -u +%Y%m%d%H%M%S)"
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "${_CALL_ID}" "design-director" "gpt-5.3-codex" "Phase 1: F1~F9 파이프라인 실행"
-```
-
 ## design-director 위임 메시지 (표준 형식 — PRD §F3)
 
 Task tool, subagent_type: **"bams-plugin:design-director"**:
@@ -35,7 +21,6 @@ input_artifacts:
   - .crew/artifacts/design/{slug}/guide-input/   ← detectGuideInput() TRIGGER_GUIDE_PIPELINE 트리거
 target: {TARGET}               # S1/S2: src/app/<path> | S3: URL
 pipeline_type: design-import
-work_unit_slug: {SELECTED_WU_SLUG}
 
 context:
   guide_input_dir: .crew/artifacts/design/{slug}/guide-input/
@@ -46,7 +31,6 @@ context:
 시나리오별 Phase 실행 가이드: agents/design-director.md §design-import 시나리오 위임 표 참조
 
 dry_run=true 시 Phase E(frontend-engineering 호출) 직전 중단.
-design-director는 F1~F9 sub-step을 phase-1-delegate 의 sub-step으로 viz에 기록한다.
 
 완료 시 status=PENDING_FE 반환 여부를 확인한다.
 
@@ -61,7 +45,7 @@ design-director가 `status=PENDING_FE`를 반환하면 메인 커맨드가 front
 _FE_HANDOFF=".crew/artifacts/design/${slug}/fe-handoff.md"
 if [ ! -f "$_FE_HANDOFF" ]; then
   echo "[ERROR] fe-handoff.md 미생성 — design-director 반환값 확인 필요" >&2
-  # pipeline_end status="failed" emit 후 종료
+  # .crew/history.md에 실패로 기록 후 종료
 fi
 ```
 
@@ -158,13 +142,9 @@ design-director 반환 대기 중 다음 경로를 주기적으로 확인하여 
 ls .crew/artifacts/design/{slug}/ 2>/dev/null | grep -E "guide-decomposition|guide-recomposition|ui-diff|data-binding|fidelity|accessibility"
 ```
 
-## agent_end emit + 결과 파싱
+## 결과 파싱
 
-```bash
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "${_CALL_ID}" "design-director" "{status}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Phase A~F 완료: verdict={verdict}"
-```
-
-반환값에서 다음을 추출:
+design-director 반환값에서 다음을 추출:
 
   VERDICT          ← verdict 필드 (PASS | CONDITIONAL | FAIL)
   STATUS           ← quality_status 필드 (PENDING_FE | COMPLETE | UNKNOWN)
@@ -188,27 +168,20 @@ fi
 VERDICT=FAIL 이면:
   - 에러 메시지: "design-director Phase F verdict=FAIL — F5 diff ≥20% 또는 F7 Critical 위반"
   - 사용자에게 재실행 또는 수정 방법 안내
-  - step_end status="fail" emit
-  - pipeline_end status="failed" emit 후 종료
+  - `.crew/history.md`에 실패로 기록 후 종료
 
 VERDICT=ENV_FAIL 이면:
 
 ```bash
 if [ "$VERDICT" = "ENV_FAIL" ]; then
   echo "[FAIL] F5 환경 미충족 (ENV_FAIL) — 자동 PASS 경로 차단"
-  bash "$_EMIT" pipeline_end "${slug}" "failed" ${TOTAL_STEPS} ${DONE_STEPS} 1 ${SKIPPED_STEPS} ${DURATION_MS}
+  # .crew/history.md에 실패로 기록 후 종료
   exit 1
 fi
 ```
 
   - verdict.json에 `"auto_pass": false` 기록 확인 (visual-fidelity-verifier가 생성)
   - 사용자에게 `bams-plugin:bams:browse` SKILL 설치 후 재실행 안내
-
-## step_end emit
-
-```bash
-[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 1 "{status}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-```
 
 SKIP_VERIFY=true 이거나 S3 standalone이면 Phase 4(finalization)로 바로 이동:
 `commands/bams/dev/phase-4-finalization.md` 를 Read하여 지시를 따른다.

@@ -13,20 +13,9 @@
 
 ## Step 3-4: CI/CD 프리플라이트 + 출시 준비 검토 (오버랩)
 
-Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 3 "CI/CD 프리플라이트" "Phase 3: 배포 준비"
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 4 "출시 준비 검토" "Phase 3: 배포 준비"
-```
-
 **루프 B — Advisor 조언 후 메인이 platform-devops + qa-strategy 병렬 직접 spawn.**
 
 ### Step 3-4-a. pipeline-orchestrator 조언 요청 (Advisor)
-
-Bash로 agent_start emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-34-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-opus-5" "Step 3-4: CI/CD + RQG 조언 요청"
-```
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
 
@@ -44,21 +33,11 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 >
 > **요청:** 메인이 병렬 spawn할 부서장 목록(platform-devops — `/bams:verify` CI/CD 프리플라이트, qa-strategy — release-quality-gate)과 각각의 위임 메시지 템플릿, 최적화 권고(verify PASS 전제 즉시 RQG 시작), Step 3-4 게이트 기준을 Advisor Response로 반환하세요. 직접 spawn 금지(harness 깊이 2 제약).
 
-반환 후 agent_end emit + Advisor Response 파싱 + CHAIN_VIOLATION 체크:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-34-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Step 3-4 Advisor 응답 수신"
-```
+반환 후 Advisor Response 파싱 + CHAIN_VIOLATION 체크.
 
 ### Step 3-4-b. 메인이 platform-devops + qa-strategy 병렬 직접 spawn (단일 메시지 복수 Task)
 
 **스킬 미설치 시**: Step 4는 "수동 PR 생성" 안내 후 `skipped`.
-
-병렬 호출 전 2개의 agent_start를 일괄 emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "platform-devops-3-$(date -u +%Y%m%d)" "platform-devops" "claude-opus-4-8" "Step 3: CI/CD 프리플라이트"
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "qa-strategy-4-$(date -u +%Y%m%d)" "qa-strategy" "claude-opus-4-8" "Step 4: 출시 준비 검토"
-```
 
 **단일 메시지에 2개 Task tool 호출을 묶어** 병렬 spawn합니다:
 
@@ -92,24 +71,12 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 > **최적화**: verify PASS 전제로 즉시 코드 리뷰 기반 검토를 시작합니다. verify 결과는 RQG에 후속 전달됩니다. QA부장은 release-quality-gate specialist를 최대 1회 추가 spawn 가능.
 
 병렬 완료 후 각 에이전트 결과를 확인합니다:
-- **성공 시**: agent_end status="success", 다음 단계로 진행
-- **에러 시**: agent_end status="error". 사용자에게 에러를 보고하고 AskUserQuestion으로 계속/중단 확인. 중단 선택 시 pipeline_end status="failed" emit 후 종료.
-
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "platform-devops-3-$(date -u +%Y%m%d)" "platform-devops" "{success|error}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Step 3 CI/CD 완료"
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "qa-strategy-4-$(date -u +%Y%m%d)" "qa-strategy" "{success|error}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Step 4 RQG 완료"
-```
+- **성공 시**: 다음 단계로 진행
+- **에러 시**: 사용자에게 에러를 보고하고 AskUserQuestion으로 계속/중단 확인. 중단 선택 시 파이프라인 종료.
 
 AskUserQuestion — "PR을 생성할까요?"
 - **Ship (Recommended)** — `_SHIP_SKILL` 실행
 - **나중에** — `status: paused_at_step_4` 기록 후 종료.
-
-Step 3-4 완료 시, Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 3 "{status}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 4 "{status}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-```
 
 ---
 
@@ -119,6 +86,6 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 - [ ] release-quality-gate 완료 (또는 skipped)
 - [ ] PR 생성 완료 (또는 paused_at_step_4)
 
-**이스케이프 기록 의무**: "수동 무시"/"skipped"/"paused_at_step_4" 중 하나를 선택할 경우 반드시 (a) AskUserQuestion으로 사용자 확인 + 사유를 수집하고, (b) step_end emit 결과 요약에 `[게이트 무시] 사유: {사유}`를 명시하며, (c) `.crew/board.md`에 후속 조치 항목을 등록한다 ([G-WARN] 무기록 이연 금지와 동일 원칙). 무기록 이스케이프는 금지된다.
+**이스케이프 기록 의무**: "수동 무시"/"skipped"/"paused_at_step_4" 중 하나를 선택할 경우 반드시 (a) AskUserQuestion으로 사용자 확인 + 사유를 수집하고, (b) 결과 요약에 `[게이트 무시] 사유: {사유}`를 명시하며, (c) `.crew/board.md`에 후속 조치 항목을 등록한다 ([G-WARN] 무기록 이연 금지와 동일 원칙). 무기록 이스케이프는 금지된다.
 
 Step 3-4 완료 → 엔트리포인트가 Step 5를 라우팅합니다.

@@ -17,11 +17,6 @@
 
 ## Step {STEP_N}. 멀티에이전트 구현 (개발부장 위임)
 
-Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" {STEP_N} "{STEP_N_LABEL}" "Phase 2: 구현"
-```
-
 board.md에서 태스크 목록을 의존성 순서로 정렬합니다. 배치로 그룹화:
 - **배치 1**: 의존성 없는 태스크
 - **배치 2**: 의존성이 모두 배치 1에 있는 태스크
@@ -30,11 +25,6 @@ board.md에서 태스크 목록을 의존성 순서로 정렬합니다. 배치�
 **루프 B — 각 배치마다 Advisor 조언 → 메인이 권고된 부서장들 병렬 직접 spawn.**
 
 ### Step {STEP_N}-a. pipeline-orchestrator 조언 요청 (배치 {N} 라우팅)
-
-Bash로 agent_start emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-{STEP_N}-{N}-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-opus-5" "Step {STEP_N}: 배치 {N} 라우팅 조언 요청"
-```
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
 
@@ -65,10 +55,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 >
 > 각 부서장별 위임 메시지 템플릿, 병렬/순차 실행 권고, Phase 2 게이트 기준을 Advisor Response로 반환하세요. 직접 spawn 금지(harness 깊이 2 제약).
 
-반환 후 agent_end emit + Advisor Response 파싱 + CHAIN_VIOLATION 체크:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-{STEP_N}-{N}-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Step {STEP_N} 배치 {N} Advisor 응답 수신"
-```
+반환 후 Advisor Response 파싱 + CHAIN_VIOLATION 체크.
 
 ### Step {STEP_N}-b. 메인이 권고된 부서장들 병렬 직접 spawn
 
@@ -79,7 +66,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 파일 겹침이 없는 태스크는 **단일 메시지에 복수 Task 호출**로 병렬 spawn합니다.
 
-각 부서장 호출 전 agent_start를 일괄 emit한 뒤, Task tool, subagent_type: **"bams-plugin:{dept}"** (frontend-engineering / backend-engineering / platform-devops / data-integration / design-director), model: 배치 전략 기반으로 **직접** 호출합니다. 위임 메시지는 Advisor Response 템플릿(`delegation-protocol.md` 2-2 형식)을 사용:
+Task tool, subagent_type: **"bams-plugin:{dept}"** (frontend-engineering / backend-engineering / platform-devops / data-integration / design-director), model: 배치 전략 기반으로 **직접** 호출합니다. 위임 메시지는 Advisor Response 템플릿(`delegation-protocol.md` 2-2 형식)을 사용:
 
 > ```
 > task_description: "{태스크 제목과 설명}"
@@ -117,28 +104,12 @@ Task tool, subagent_type: **"bams-plugin:design-director"**:
 디자인부장은 FE 태스크가 없으면 호출하지 않습니다 (비용 최적화). (`sequential-mandatory` 모드에서는 이 절이 아니라 위 확장점 분기의 "선행 spawn" 절차를 따릅니다.)
 
 모든 부서장 완료 후, 각 부서장에 대해 결과를 확인합니다:
-- **성공 시**: agent_end status="success", step 계속 진행
-- **에러 시**: agent_end status="error". 사용자에게 에러를 보고하고 AskUserQuestion으로 계속/중단 확인. 중단 선택 시 pipeline_end status="failed" emit 후 종료.
-
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "{dept}-{STEP_N}-{N}-$(date -u +%Y%m%d)" "{dept}" "{success|error}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Step {STEP_N} 배치 {N} 부서장 완료"
-```
+- **성공 시**: step 계속 진행
+- **에러 시**: 사용자에게 에러를 보고하고 AskUserQuestion으로 계속/중단 확인. 중단 선택 시 종료.
 
 그 후:
 - 파일을 읽어 올바르게 생성/수정되었는지 확인
 - board.md에서 해당 태스크를 `## In Review`로 이동
-- **DB 상태 업데이트 (board.md 이동과 동시에 실행)**: `~/.claude/plugins/marketplaces/my-claude/bams.db`가 존재하면 해당 태스크의 상태를 `in_review`로 업데이트한다:
-  ```bash
-  if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
-    bun -e "
-      import { TaskDB } from './plugins/bams-plugin/tools/bams-db/index.ts';
-      const db = new TaskDB();
-      // 배치의 각 태스크 ID에 대해 호출 (task_id는 createTask() 반환값 또는 board.md에서 조회):
-      // db.updateTaskStatus('{task_id}', 'in_review', 'pipeline-orchestrator');
-      db.close();
-    "
-  fi
-  ```
 - git 저장소인 경우 `git diff --stat` 표시
 
 ### [확장점: CHANGE_CONFIRM_GATE] — 값이 있으면(dev) 아래 AskUserQuestion 확인 단계를 실행합니다. 값이 없으면(feature) 위 "git diff --stat 표시"만으로 충분하며 이 단계를 건너뜁니다.
@@ -151,13 +122,9 @@ Options:
 - **되돌리기** - "모든 변경사항을 되돌리고 중단"
 - **부분 되돌리기** - "특정 파일만 되돌리기"
 
-**Step {STEP_N} 종료 시점 (중요 — stub Delta에 따라 분기)**:
-- `{STEP_N_HANDOFF}`가 비어 있는 경우(dev): 여기서 즉시 step_end를 emit합니다.
-  ```bash
-  _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" {STEP_N} "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-  ```
-  이 경우 아래 "구현 → 검증 핸드오프" 섹션은 건너뛰고, Phase 2 게이트 조건으로 바로 이동합니다.
-- `{STEP_N_HANDOFF}`가 지정된 경우(feature): 여기서 step_end를 emit하지 **않습니다**. 아래 "구현 → 검증 핸드오프" 섹션을 계속 실행한 뒤, 그 섹션 끝에서 step_end({STEP_N})를 한 번만 emit합니다.
+**Step {STEP_N} 종료 시점 (stub Delta에 따라 분기)**:
+- `{STEP_N_HANDOFF}`가 비어 있는 경우(dev): 아래 "구현 → 검증 핸드오프" 섹션은 건너뛰고, Phase 2 게이트 조건으로 바로 이동합니다.
+- `{STEP_N_HANDOFF}`가 지정된 경우(feature): 아래 "구현 → 검증 핸드오프" 섹션을 계속 실행합니다.
 
 ---
 
@@ -168,11 +135,6 @@ Options:
 **루프 B — Advisor 게이트 판정 후 메인이 cross-department-coordinator 직접 spawn.**
 
 ### 핸드오프-a. pipeline-orchestrator 조언 요청 (Phase 게이트 판정)
-
-Bash로 agent_start emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-handoff2-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-opus-5" "구현→검증 게이트 판정 조언"
-```
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
 
@@ -191,19 +153,11 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 >
 > **요청:** Phase 2 완료 조건 검증 결과(GO/NO-GO/CONDITIONAL-GO) — 빌드 성공, 타입 체크, 린트 — 와, 메인이 spawn할 cross-department-coordinator의 위임 메시지를 Advisor Response로 반환하세요. 직접 spawn 금지.
 
-반환 후 agent_end emit + 파싱 + CHAIN_VIOLATION 체크:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-handoff2-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "구현→검증 Advisor 응답 수신"
-```
+반환 후 파싱 + CHAIN_VIOLATION 체크.
 
 ### 핸드오프-b. 메인이 cross-department-coordinator 직접 spawn
 
 Advisor 판정이 GO 또는 CONDITIONAL-GO인 경우에 진행. NO-GO이면 미충족 항목을 사용자에게 보고하고 해결 후 재시도.
-
-Bash로 agent_start emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "cross-department-coordinator-handoff2-$(date -u +%Y%m%d)" "cross-department-coordinator" "claude-opus-4-8" "구현→검증 핸드오프 조율"
-```
 
 Task tool, subagent_type: **"bams-plugin:cross-department-coordinator"** — 메인이 직접 호출:
 
@@ -214,21 +168,11 @@ Task tool, subagent_type: **"bams-plugin:cross-department-coordinator"** — 메
 >
 > **기대 산출물**: 핸드오프 체크리스트 결과
 
-반환 후 agent_end emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "cross-department-coordinator-handoff2-$(date -u +%Y%m%d)" "cross-department-coordinator" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "구현→검증 핸드오프 완료"
-```
-
 **Phase 게이트 결과가 NO-GO이면**: 미충족 항목을 사용자에게 보고하고, 해결 후 재시도합니다.
 
 AskUserQuestion — "구현 완료. 검증 단계로 진행?"
 - **검증 진행 (Recommended)**
 - **구현까지만** — `status: paused_at_step_{STEP_N}` 기록 후 종료.
-
-Step {STEP_N} 완료 시, Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" {STEP_N} "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-```
 
 ---
 

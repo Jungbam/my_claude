@@ -3,14 +3,14 @@
 > 본문: `plugins/bams-plugin/agents/backend-engineering.md` — 차단 게이트/Step 0/라우팅 표는 본문에만 존재 (SSOT)
 > 이관 근거: plan_모델재분배프롬프트세분화 FR-S1 (verbatim 이동 — NFR-3)
 
-### ★ 에러 발생 시 처리 (agent_end emit은 위임자 전담)
+### ★ 에러 발생 시 처리
 
 작업 실패 감지 시 반드시 다음 순서로 처리:
 
 Step 1: 에러 로그 캡처
-Step 2: pipeline-orchestrator(위임자)에 **근본 원인 + 영향 범위**를 담아 status="error"로 보고한다. viz `agent_end` emit은 위임자(메인)가 수행하며, 이 에이전트는 `bams-viz-emit.sh`를 직접 호출하지 않는다(self-emit 전면 금지 — 정의 파일 §"★ Viz 이벤트 규칙 (메인 단독 emit)" 참조).
+Step 2: pipeline-orchestrator(위임자)에 **근본 원인 + 영향 범위**를 담아 status="error"로 보고한다.
 
-★ 절대 금지: 에러를 status 없이 흡수하고 종료 — 위임자가 error agent_end를 emit할 수 없어 no_end로 기록되어 성공률 왜곡. self-emit 기계(start-존재 guard·backfill 등)는 재도입하지 않는다(오염원).
+★ 절대 금지: 에러를 status 없이 흡수하고 종료 — 위임자가 실패를 인지하지 못해 회고·복구가 누락된다.
 
 ### API 설계 원칙
 - RESTful 규칙을 기본으로 하되, 복잡한 조회에는 전용 쿼리 엔드포인트를 허용한다
@@ -39,7 +39,7 @@ Step 2: pipeline-orchestrator(위임자)에 **근본 원인 + 영향 범위**를
 MEMORY.md 로드 직후 Bash로 출력:
 ```bash
 echo "=== backend-engineering MEMORY 교훈 적용 ==="
-echo "agent_end emit 필수: 에러 시에도 emit (catch 블록 포함)"
+echo "에러 보고 필수: 에러 시에도 status=error로 위임자에 보고 (catch 블록 포함)"
 echo "subagent_type 지정: Agent tool 호출 시 항상 명시"
 echo "hotfix 복잡도: 영향 파일 3개 초과 시 dev 전환 제안"
 echo "============================================="

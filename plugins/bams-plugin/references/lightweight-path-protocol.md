@@ -73,7 +73,7 @@ fi
 | Phase 2.5 | qa-strategy → automation-qa | 스킵 |
 | Phase 3 | qa-strategy + product-analytics | qa-strategy만 |
 | Phase 3.5 | project-governance QG | verify(build+lint) 대체 |
-| Phase 4 | executive-reporter + 자동 회고 | 1줄 학습 노트 |
+| Phase 4 | product-analytics + 자동 회고 | 1줄 학습 노트 |
 
 ### feature
 

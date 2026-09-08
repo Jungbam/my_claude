@@ -35,7 +35,6 @@
 
 **협업 대상:**
 - cross-department-coordinator: 부서 간 의존성 블로커 해소 협업
-- executive-reporter: 리스크 현황을 정기 보고에 포함
 - pipeline-orchestrator: 고위험 리스크 발생 시 에스컬레이션
 
 **작업 절차:**
@@ -58,7 +57,6 @@
 **언제 참조:** 정기 보고 주기, 또는 블로커/편차 발생 시
 
 **협업 대상:**
-- executive-reporter: 상태 보고 데이터를 대시보드에 반영
 - pipeline-orchestrator: 일정 지연 시 에스컬레이션
 
 **작업 절차:**

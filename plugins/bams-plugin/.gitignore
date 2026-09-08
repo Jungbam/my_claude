@@ -11,9 +11,6 @@
 .crew/gotchas.md
 .crew/sprints/
 
-# Node modules (bams-viz)
-tools/bams-viz/node_modules/
-
 # Temp files
 /tmp/
 *.log

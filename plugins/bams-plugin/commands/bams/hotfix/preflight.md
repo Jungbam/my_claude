@@ -21,15 +21,6 @@
 
 진행 추적 파일: `templates/hotfix-tracking.md` 기반으로 생성.
 
-### Viz 이벤트: pipeline_start
-
-진행 추적 파일 및 lock 파일 생성 직후, Bash로 다음을 실행합니다.
-**주의:** Step 0.6에서 parent_pipeline_slug가 결정된 후 아래 수정 라인으로 대체하여 emit한다:
-
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "hotfix" "/bams:hotfix" "{arguments}" "{parent_pipeline_slug}"
-```
-
 ---
 
 ## Step 0.5: 파이프라인 타입 검증
@@ -82,7 +73,7 @@ Options:
 
 1. **순차 hotfix 선택**: 이슈 목록을 파싱하여 첫 번째 이슈로 Step 0.6 진행. 나머지 이슈는 `{slug}-remaining-issues.md`에 기록하고, 파이프라인 완료 시 다음 이슈 안내.
 
-2. **배치 dev 선택**: 현재 hotfix 파이프라인을 `pipeline_end(status="paused", reason="dev-hotfix 모드 전환")`으로 종료하고, 사용자에게 다음 안내:
+2. **배치 dev 선택**: 현재 hotfix 파이프라인을 중단(paused, 사유="dev-hotfix 모드 전환")하고, 사용자에게 다음 안내:
    ```
    [모드 전환] dev-hotfix 파이프라인으로 전환합니다.
    → /bams:dev {이슈 목록 요약}
@@ -94,19 +85,15 @@ Options:
 
 ---
 
-## Step 0.6: Parent Pipeline 연결
+## Step 0.6: Parent Pipeline 식별
 
-이 핫픽스가 수정하는 원본 파이프라인을 연결합니다.
+이 핫픽스가 수정하는 원본 파이프라인을 식별합니다 (마무리 단계의 개선점 기록에 사용).
 
-Bash로 최근 파이프라인 목록을 조회합니다:
+Bash로 최근 파이프라인 목록을 `.crew/history.md`에서 조회합니다:
 
 ```bash
 echo "=== 최근 파이프라인 목록 ==="
-ls -t ~/.bams/artifacts/pipeline/*-events.jsonl 2>/dev/null | head -10 | while read f; do
-  slug=$(basename "$f" -events.jsonl)
-  type=$(grep '"pipeline_start"' "$f" 2>/dev/null | head -1 | jq -r '.pipeline_type // "unknown"' 2>/dev/null)
-  echo "  $slug ($type)"
-done
+grep -E "^## " .crew/history.md 2>/dev/null | head -10
 ```
 
 AskUserQuestion — "이 핫픽스가 수정하는 파이프라인을 선택하세요"
@@ -115,25 +102,13 @@ Options:
 - 조회된 파이프라인 목록에서 최근 5개를 옵션으로 제시
 - **없음** — "새로운 독립 핫픽스 (특정 파이프라인과 무관)"
 
-선택된 parent_pipeline_slug를 이후 pipeline_start emit 시 6번째 인자로 전달합니다.
-
-기존 pipeline_start emit 라인을 수정:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "hotfix" "/bams:hotfix" "{arguments}" "{parent_pipeline_slug}"
-```
-
-### Parent Pipeline의 WU 자동 상속
-
-**`references/parent-wu-inheritance.md`를 Read하여 지시를 따른다.** 해당 파일의 bash 스크립트를 실행하여 WU를 상속한다.
-
-AskUserQuestion에서 "없음" 선택 시: `PARENT_PIPELINE_SLUG=""`로 설정하여 상속 로직을 스킵한다.
+선택된 parent_pipeline_slug(또는 null)를 마무리 단계의 개선점 기록에서 사용합니다.
 
 ---
 
 ## Pre-flight 완료 게이트 조건
 
 - [ ] 추적 파일 생성 완료
-- [ ] pipeline_start emit 완료
 - [ ] 타입 검증 완료 (hotfix 적합 또는 사용자 확인)
 - [ ] parent_pipeline_slug 결정 완료 (없음 포함)
 

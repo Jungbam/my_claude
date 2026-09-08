@@ -58,7 +58,6 @@
 
 **협업 대상:**
 - performance-evaluation: 에이전트 성능 데이터 수집 협업
-- executive-reporter: 퍼포먼스 리포트를 경영진 보고서에 포함
 - pipeline-orchestrator: 저성능 에이전트 재설계 또는 교체 논의
 
 **작업 절차:**

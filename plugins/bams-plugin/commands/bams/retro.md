@@ -1,24 +1,29 @@
 ---
-description: 파이프라인 회고 + 에이전트 평가 + 개선 — 평가부서/총괄팀 주도
+description: 파이프라인 회고 + 개선 — 평가부서/총괄팀 주도
 argument-hint: "[all | {slug} | 빈값=최근5개]"
 ---
 
 # Bams: Retro
 
-파이프라인 이력 기반 에이전트 회고·평가·개선을 독립 실행합니다. 5개 Phase, 평가부서(product-analytics) + 조언자(pipeline-orchestrator) 주도. **2단 위임 체계**: orchestrator는 조언자로만 호출되고, 메인이 각 Phase 파일의 지시에 따라 대상 에이전트를 직접 spawn합니다 (`_shared_common.md` §위임 원칙 + 부록 루프 A/B 준수).
+파이프라인 이력 기반 정성 회고·개선을 독립 실행합니다. 3개 Phase, 평가부서(product-analytics) + 조언자(pipeline-orchestrator) 주도. **2단 위임 체계**: orchestrator는 조언자로만 호출되고, 메인이 각 Phase 파일의 지시에 따라 대상 에이전트를 직접 spawn합니다 (`_shared_common.md` §위임 원칙 + 부록 루프 A/B 준수).
 
 ```
 retro.md (main) → [Phase N] pipeline-orchestrator (advisor)
                          ↓ Advisor Response
                   main → 대상 에이전트(들) 직접 spawn
-                    - Phase 1: executive-reporter, product-analytics
-                    - Phase 2: 참여 부서장(동적, 루프 B) 병렬
-                    - Phase 3: product-analytics/performance-evaluation/business-kpi 병렬 + 부서장(동적) 병렬
-                    - Phase 4: 부서장(동적) 개선안 → hr-agent 적용
-                    - Phase 5: executive-reporter 종합 보고서
+                    - Phase 1: 참여 부서장(동적, 루프 B) 병렬 → KPT 회고
+                    - Phase 2: 부서장(동적) 개선안 → hr-agent 적용
+                    - Phase 3: product-analytics 종합 보고서
 ```
 
 입력: $ARGUMENTS
+
+## 회고 입력 소스 (정성)
+
+회고는 다음 정성 소스만 입력으로 사용합니다 (별도 정량 이벤트 로그 없음):
+- **대상 파이프라인 산출물**: `.crew/artifacts/{prd,design,review,report}/` — PRD·설계·리뷰·보고서
+- **파이프라인 이력**: `.crew/history.md` — 파이프라인 완료 기록(slug, type, status, 산출물, 요약)
+- **사용자 관찰**: 회고 실행 시 사용자가 제공하는 관찰·피드백
 
 ## 인수 파싱
 
@@ -35,18 +40,19 @@ $ARGUMENTS 값에 따라 TARGET_SCOPE를 결정합니다:
 - 출력: "프로젝트가 초기화되지 않았습니다. `/bams:init`을 실행하세요."
 - 중단.
 
-**Step 2**: Bash로 `~/.bams/artifacts/pipeline/` JSONL 파일 수 확인.
+**Step 2**: `.crew/history.md` 존재 및 파이프라인 완료 기록 확인.
 
 ```bash
-ls ~/.bams/artifacts/pipeline/*.jsonl 2>/dev/null | wc -l
+if [ ! -s .crew/history.md ] || ! grep -qE '^## [0-9]{4}-[0-9]{2}-[0-9]{2}' .crew/history.md 2>/dev/null; then
+  echo "파이프라인 완료 기록이 없습니다. /bams:dev 또는 /bams:feature를 먼저 실행하세요."
+  exit 0
+fi
 ```
 
-0개이면 출력: "파이프라인 이벤트 기록이 없습니다. `/bams:dev` 또는 `/bams:feature`를 먼저 실행하세요." 후 중단.
-
-**Step 3**: TARGET_SCOPE가 특정 slug인 경우, 해당 slug JSONL 파일 존재 확인. 없으면 사용 가능한 slug 목록 출력 후 재입력 요청:
+**Step 3**: TARGET_SCOPE가 특정 slug인 경우, `.crew/history.md`에 해당 slug 완료 기록이 있는지 확인. 없으면 history.md의 slug 목록을 출력 후 재입력 요청:
 
 ```bash
-ls ~/.bams/artifacts/pipeline/*.jsonl 2>/dev/null | xargs -n1 basename | sed 's/\.jsonl$//'
+grep -oE '## [0-9]{4}-[0-9]{2}-[0-9]{2} \| [^ ]+' .crew/history.md 2>/dev/null | awk '{print $4}' | sort -u
 ```
 
 ## 공통 규칙 로드
@@ -73,16 +79,6 @@ echo "[retro] slug: $SLUG"
 ```
 
 예: `retro_전체회고_1`, `retro_전체회고_2` (같은 scope 두 번째 실행)
-## bams-server 기동
-
-공통 규칙(_common.md)의 bams-server 기동 절차를 따릅니다.
-
-## Pipeline Start 이벤트
-
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-[ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "retro" "/bams:retro" "{TARGET_SCOPE}"
-```
 
 ## Phase 라우팅
 
@@ -90,10 +86,12 @@ pipeline-orchestrator에게 Phase 순서대로 위임합니다. 각 Phase 파일
 
 | Phase | 파일 | 설명 |
 |-------|------|------|
-| Phase 1 | `plugins/bams-plugin/commands/bams/retro/phase-1-data.md` | 데이터 수집 |
-| Phase 2 | `plugins/bams-plugin/commands/bams/retro/phase-2-retro.md` | KPT 회고 |
-| Phase 3 | `plugins/bams-plugin/commands/bams/retro/phase-3-eval.md` | 에이전트 평가 |
-| Phase 4 | `plugins/bams-plugin/commands/bams/retro/phase-4-improve.md` | 개선 실행 |
-| Phase 5 | `plugins/bams-plugin/commands/bams/retro/phase-5-report.md` | 보고 |
+| Phase 1 | `plugins/bams-plugin/commands/bams/retro/phase-2-retro.md` | KPT 회고 |
+| Phase 2 | `plugins/bams-plugin/commands/bams/retro/phase-4-improve.md` | 개선 실행 |
+| Phase 3 | `plugins/bams-plugin/commands/bams/retro/phase-5-report.md` | 보고 |
 
 Phase 1부터 순서대로 진행합니다. 각 Phase 완료 시 게이트 조건을 확인한 후 다음 Phase로 전환합니다.
+
+## 마무리
+
+회고 완료 시 `.crew/history.md`에 완료 1줄을 기록합니다(`_shared_common.md` §파이프라인 완료 기록). 회고는 읽기·분석·개선 성격이므로 스팸 방지 조건(변경 없음/읽기 전용)에 해당하면 별도 하위 회고를 트리거하지 않습니다.

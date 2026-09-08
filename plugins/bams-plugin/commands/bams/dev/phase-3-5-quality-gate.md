@@ -16,11 +16,6 @@
 
 ## Phase 3.5: Quality Gate (최대 3회 반복, 델타 기반)
 
-Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 9 "Quality Gate" "Phase 3.5: QG"
-```
-
 ### Step 9. Quality Gate (project-governance 위임)
 
 현재 반복 횟수를 `iteration = 1`로 초기화합니다.
@@ -32,11 +27,6 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 **iteration 2-3 (반복)**: `git diff --name-only {qg_baseline_commit}..HEAD`로 **변경된 파일만** 검증 대상으로 전달. 이전 QG에서 PASS된 파일은 재검증하지 않습니다.
 
 **루프 A (Simple) — 단일 부서장(project-governance)이므로 메인이 직접 spawn합니다.** (orchestrator 조언 생략, `_shared_common.md` 부록 참조)
-
-Bash로 agent_start emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "project-governance-9-$(date -u +%Y%m%d)" "project-governance" "claude-opus-5" "Step 9: Quality Gate iteration {iteration}"
-```
 
 Task tool, subagent_type: **"bams-plugin:project-governance"** — 메인이 직접 호출:
 
@@ -82,11 +72,6 @@ Task tool, subagent_type: **"bams-plugin:project-governance"** — 메인이 직
 >
 > **기대 산출물**: Quality Gate 판단 (PASS/FAIL), 파일별 상세 결과, 실행 로그 요약(명령·종료코드). QG 산출물(`.crew/artifacts/qg/{slug}-qg-{iteration}.md`)에는 FAIL 이슈별로 **재작업 대상 부서장**(frontend-engineering / backend-engineering / platform-devops 중 지정) 필드를 명시한다.
 
-반환 후 agent_end emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "project-governance-9-$(date -u +%Y%m%d)" "project-governance" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Step 9 완료: Quality Gate iteration {iteration}"
-```
-
 **PASS인 경우:** board.md에서 태스크를 `## Done`으로 이동. Phase 4로 진행.
 
 **FAIL인 경우 (iteration <= 3):**
@@ -95,8 +80,3 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 - 완료 후 Quality Gate 루프 재시작 (변경된 파일만 재검증)
 
 **iteration > 3:** 사용자에게 수동 확인 안내. Phase 4로 진행.
-
-Quality Gate 완료 시, Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 9 "{status}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-```

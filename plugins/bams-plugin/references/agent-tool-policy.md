@@ -20,7 +20,7 @@
 - **planning 부서**: product-strategy, business-analysis, ux-research, project-governance
 - **evaluation 부서**: product-analytics, experimentation, performance-evaluation, business-kpi
 - **qa 부서 (전략)**: qa-strategy, defect-triage, release-quality-gate
-- **executive 부서**: pipeline-orchestrator, cross-department-coordinator, executive-reporter, resource-optimizer
+- **executive 부서**: pipeline-orchestrator, cross-department-coordinator, resource-optimizer
 
 ## 산출물 저장 규칙
 
@@ -52,7 +52,7 @@
 | 에이전트 | 예외 사항 |
 |----------|----------|
 | pipeline-orchestrator | Write/Edit 금지. tracking 파일 갱신은 Bash(`echo`, `tee`, `jq`)로만 수행 |
-| executive-reporter | Write/Edit 금지. 보고서는 output으로 반환하고, 호출자가 저장 |
+| product-analytics | Write/Edit 금지. 보고서는 output으로 반환하고, 호출자가 저장 |
 | automation-qa | Write/Edit 허용 — 테스트 코드 작성이 핵심 역할 |
 | visual-fidelity-verifier | Write/Edit 차단 (`disallowedTools: ["Edit", "Write"]`). 산출물(verdict.json, screenshots)은 Bash heredoc/tee로 저장 — H-D3 보안 정밀화 적용 |
 
@@ -112,7 +112,7 @@ disallowedTools: []
   - 예 → 이 문서 "구현 전담 에이전트" 목록에 사유 1줄과 함께 등록하고, frontmatter에 `disallowedTools: []` 선언
 - [ ] 역할이 **분석/전략/조율 전담**인가?
   - 예 → frontmatter에 `disallowedTools: Write, Edit` 선언 (산출물은 호출자가 저장)
-- [ ] `pipeline-orchestrator` / `executive-reporter` 류의 **예외 사례**에 해당하는가?
+- [ ] `pipeline-orchestrator` / `product-analytics` 류의 **예외 사례**에 해당하는가?
   - 예 → "예외" 섹션에 사유와 함께 추가
 - [ ] 본 문서의 구현/분석 에이전트 목록 및 조직도(`jojikdo.json`)와 일치하는지 재확인
 

@@ -11,16 +11,6 @@ Bams 오케스트레이터로서 5개 전문 병렬 qa-strategy 에이전트를 
 
 리뷰 대상: $ARGUMENTS
 
-## Pre-flight
-
-### Viz 이벤트: pipeline_start
-
-사전 조건 확인 후, Bash로 다음을 실행합니다:
-
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "review" "/bams:review" "{arguments}"
-```
-
 ## 코드 최신화
 
 **`references/preflight-protocol.md` §배치 0(코드 최신화) 참조.** 표준 프로토콜을 따릅니다.
@@ -74,11 +64,6 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 ### Phase 2-a. pipeline-orchestrator 조언 요청 (Advisor)
 
-Bash로 agent_start emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-2-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-opus-5" "Phase 2: 5관점 리뷰 조언 요청"
-```
-
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
 
 > **Review Phase 2 Advisor 호출 — 5관점 리뷰 라우팅 권고**
@@ -95,27 +80,11 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 >
 > **요청:** 메인이 spawn할 QA부장(qa-strategy) 위임 메시지 템플릿, 5관점(정확성/보안/성능/품질/테스트) specialist 라우팅 권고, 게이트 조건을 Advisor Response로 반환하세요. 직접 spawn 금지(harness 깊이 2 제약).
 
-반환 후 agent_end emit + Advisor Response 파싱 + CHAIN_VIOLATION 체크:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-2-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Phase 2 Advisor 응답 수신"
-```
+반환 후 Advisor Response 파싱 + CHAIN_VIOLATION 체크.
 
 ### Phase 2-b. 메인이 qa-strategy 직접 spawn (5관점 병렬 리뷰)
 
-`ASPECT_LIST`에 `code`가 포함된 경우에만 실행한다(기본값 `["code"]`이면 항상 포함되어 기존과 동일). `ASPECT_LIST`에 `code`가 없으면 본 Phase를 건너뛴다(step/agent emit 없이 Phase 2-c로 진행).
-
-`ASPECT_LIST`에 code 외 항목이 1개 이상 있으면(다중 aspect 조합) step 23도 emit한다(단독 code 실행이면 emit 없음 — 기존 흐름 무변경):
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-if [ "${#ASPECT_LIST[@]}" -gt 1 ]; then
-  [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 23 "aspect-code 리뷰" "Phase 2-b"
-fi
-```
-
-Bash로 agent_start emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "qa-strategy-2-$(date -u +%Y%m%d)" "qa-strategy" "claude-opus-4-8" "Phase 2: 5관점 병렬 리뷰"
-```
+`ASPECT_LIST`에 `code`가 포함된 경우에만 실행한다(기본값 `["code"]`이면 항상 포함되어 기존과 동일). `ASPECT_LIST`에 `code`가 없으면 본 Phase를 건너뛰고 Phase 2-c로 진행한다.
 
 Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호출:
 
@@ -135,19 +104,6 @@ Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호
 >
 > QA부장은 도메인 내 관점별 specialist(automation-qa, defect-triage 등)를 **최대 1회** 추가 spawn 가능(harness 깊이 2 한도).
 
-반환 후 agent_end emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "qa-strategy-2-$(date -u +%Y%m%d)" "qa-strategy" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "5관점 리뷰 완료"
-```
-
-`ASPECT_LIST`에 code 외 항목이 1개 이상 있으면 step 23도 종료한다(단독 code 실행이면 emit 없음):
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-if [ "${#ASPECT_LIST[@]}" -gt 1 ]; then
-  [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 23 "done" "{duration_ms}"
-fi
-```
-
 **기대 산출물**: 5관점 리뷰 결과 (관점별 발견 사항 목록)
 
 ### Phase 2-c. aspect 확장 라우팅 (ASPECT_LIST에 code 외 항목이 있을 때만)
@@ -155,47 +111,7 @@ fi
 `ASPECT_LIST`가 `["code"]`이면 본 절을 건너뛴다(§Aspect 파싱과 동일 조건).
 
 그 외의 경우, `ASPECT_LIST`의 각 항목(이미 spawn된 `code`는 제외)에 대해 `references/multi-perspective-review.md` §aspect별 위임 메시지 템플릿을 사용하여 해당 부서장을 **병렬** 직접 spawn한다(§aspect 정의 표의 부서장 컬럼).  
-`uiux` aspect는 **항상 `design-director` + `gpt-5.3-codex`**로 실행한다.
-
-각 aspect마다 Bash로 step_start/step_end emit(step_number는 §step_number 매핑 참조, step_name=`aspect-{name} 리뷰`) + agent_start/agent_end emit(부서장 spawn 전후).
-
-각 aspect의 step_start/agent_start는 해당 부서장 spawn 직전에 개별 실행합니다(ASPECT_LIST에 포함된 aspect만, code 제외):
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-for asp in spec functional performance uiux; do
-  case " ${ASPECT_LIST[*]} " in
-    *" $asp "*)
-      case "$asp" in
-        spec) n=20; dept=product-strategy; model=claude-opus-5 ;;
-        functional) n=21; dept=qa-strategy; model=claude-opus-4-8 ;;
-        performance) n=22; dept=product-analytics; model=claude-opus-4-8 ;;
-        uiux) n=24; dept=design-director; model=gpt-5.3-codex ;;
-      esac
-      [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" "$n" "aspect-${asp} 리뷰" "Phase 2-c"
-      [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "${dept}-${n}-$(date -u +%Y%m%d)" "$dept" "$model" "Phase 2-c: aspect-${asp} 리뷰"
-      ;;
-  esac
-done
-```
-
-각 부서장이 반환한 후, agent_end/step_end를 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-for asp in spec functional performance uiux; do
-  case " ${ASPECT_LIST[*]} " in
-    *" $asp "*)
-      case "$asp" in
-        spec) n=20; dept=product-strategy ;;
-        functional) n=21; dept=qa-strategy ;;
-        performance) n=22; dept=product-analytics ;;
-        uiux) n=24; dept=design-director ;;
-      esac
-      [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "${dept}-${n}-$(date -u +%Y%m%d)" "$dept" "success" "{duration_ms}" "aspect-${asp} 리뷰 완료"
-      [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" "$n" "{status}" "{duration_ms}"
-      ;;
-  esac
-done
-```
+`uiux` aspect는 **항상 `design-director` + `gpt-5.3-codex`**로 실행한다. 각 aspect별 부서장 매핑: spec=product-strategy, functional=qa-strategy, performance=product-analytics, uiux=design-director.
 
 **기대 산출물**: aspect별 리뷰 결과(관점별 발견 사항 목록) — Phase 3에서 code aspect 결과와 함께 종합.
 
@@ -212,11 +128,6 @@ pipeline-orchestrator(QA부장)가 반환한 후, 5관점 리뷰 결과를 종�
 ## Phase 4: 릴리스 품질 게이트 — 루프 A (Simple, QA부장 직접 spawn)
 
 Phase 4는 단일 도메인(QA)의 판정 작업이므로 **루프 A**를 따른다. orchestrator 조언을 생략하고 메인이 qa-strategy를 직접 호출한다.
-
-Bash로 agent_start emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "qa-strategy-4-$(date -u +%Y%m%d)" "qa-strategy" "claude-opus-4-8" "Phase 4: 릴리스 품질 게이트"
-```
 
 Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호출:
 
@@ -237,11 +148,6 @@ Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호
 > ```
 >
 > QA부장은 도메인 내 release-quality-gate specialist를 **최대 1회** 추가 spawn 가능(harness 깊이 2 한도).
-
-반환 후 agent_end emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "qa-strategy-4-$(date -u +%Y%m%d)" "qa-strategy" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "릴리스 게이트 판정 완료"
-```
 
 **기대 산출물**: 판정 결과, 근거, 필수 수정 사항, 권장 수정 사항
 
@@ -290,14 +196,9 @@ git 저장소인 경우, 수정 후 `git diff --stat` 표시하고 적용/되돌
 
 > **CLAUDE.md 자동 편집 금지** — 상태 기록은 `.crew/board.md`(태스크) / `.crew/history.md`(파이프라인 히스토리) / `.crew/artifacts/`(산출물)에 위임. 본 파이프라인은 CLAUDE.md를 수정하지 않는다.
 
-### Viz 이벤트: pipeline_end
-
-파이프라인 종료 시, Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_end "{slug}" "{status}" {total} {completed} {failed} {skipped}
-```
-(`{status}`는 `completed` / `paused` / `failed` 중 하나, `{total}`은 8)
+완료 시 `.crew/history.md`에 1줄 기록합니다:
+`YYYY-MM-DD | {slug} | review | {완료|실패} | {한 줄 요약}`
 
 ## 회고 연결
 
-pipeline_end emit 후 `references/completion-protocol.md` Step 4.95에 따라 `/bams:retro {slug}` 실행 여부를 확인한다 (CLAUDE.md §5 회고 의무). 스팸 방지 조건(소요 10분 미만 + 변경 없음/경량 파이프라인) 충족 시 자동 생략.
+완료 후 `references/completion-protocol.md`에 따라 `/bams:retro {slug}` 실행 여부를 확인한다 (CLAUDE.md §5 회고 의무). 스팸 방지 조건(소요 10분 미만 + 변경 없음/경량 파이프라인) 충족 시 자동 생략.

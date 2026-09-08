@@ -29,48 +29,9 @@ Glob으로 `.crew/config.md`가 존재하는지 확인합니다. 없으면:
 
 **공통 규칙 로드**: 반드시 `plugins/bams-plugin/commands/bams/_shared_common.md`를 Read합니다.
 
-## Work Unit 선택
-
-`_shared_common.md` §Work Unit 선택 규칙을 따릅니다. 활성 WU를 확인하고, 0개면 WU 없이 진행, 1개면 자동 선택, 2개 이상이면 AskUserQuestion으로 사용자에게 선택을 요청합니다.
-
-## Viz 이벤트: pipeline_start
-
-WU 선택 완료 후, Bash로 다음을 실행합니다:
-
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-[ -n "$_EMIT" ] && bash "$_EMIT" recover "{slug}"
-[ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "plan" "/bams:plan" "{arguments}" "" "${SELECTED_WU_SLUG:-}"
-```
-
-DB 연결 기록 (DB가 존재하면):
-```bash
-if [ -n "${SELECTED_WU_SLUG:-}" ] && [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
-  BAMS_WU_SLUG="${SELECTED_WU_SLUG}" BAMS_PIPELINE_SLUG="{slug}" bun -e "
-    import { TaskDB } from './plugins/bams-plugin/tools/bams-db/index.ts';
-    const db = new TaskDB();
-    const wu = process.env.BAMS_WU_SLUG;
-    const pl = process.env.BAMS_PIPELINE_SLUG;
-    db.upsertWorkUnit(wu);
-    db.linkPipelineToWorkUnit(pl, wu);
-    db.close();
-  " 2>/dev/null || true
-fi
-```
-
-> **참고**: `_EMIT` 변수는 위 pipeline_start 블록에서 한 번 설정됩니다. 이후 모든 emit 호출에서는 동일한 변수를 재사용합니다.
-
-파이프라인 상태(완료/실패 step 수, 최종 status)는 셸 변수가 아니라 **대화 컨텍스트에서 추적**한다 (harness의 각 Bash 호출은 새 셸이라 변수가 유지되지 않는다). 각 emit 시점에 리터럴 값을 직접 기입한다. 총 step 수는 5(Phase 1~5).
-
 ## Phase 1: PRD 작성 — 루프 A (Simple, 단일 부서장 직접 spawn)
 
 Phase 1은 단일 도메인(기획)이므로 **루프 A**를 따른다. orchestrator 조언을 생략하고 메인이 product-strategy(기획부장)를 직접 호출한다.
-
-Bash로 step_start + agent_start emit:
-```bash
-[ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 1 "PRD 작성" "Phase 1: 기획"
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "product-strategy-1-$(date -u +%Y%m%d)" "product-strategy" "claude-opus-5" "Phase 1: PRD 작성"
-```
 
 Task tool, subagent_type: **"bams-plugin:product-strategy"** — 메인이 직접 호출:
 
@@ -98,19 +59,8 @@ Task tool, subagent_type: **"bams-plugin:product-strategy"** — 메인이 직�
 > **미결 질문이 있으면** 반드시 보고하세요.
 
 반환 후 결과를 확인합니다:
-- **성공 시**: agent_end status="success" + step_end status="done" emit → 완료 step으로 카운트
-- **에러 시**: agent_end status="error" + step_end status="fail" emit → 실패 step으로 카운트. 사용자에게 에러를 보고하고, 계속 진행할지 중단할지 AskUserQuestion으로 확인.
-
-```bash
-# 성공 시:
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "product-strategy-1-$(date -u +%Y%m%d)" "product-strategy" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "PRD 작성 완료"
-[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 1 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-# 에러 시:
-# [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "product-strategy-1-$(date -u +%Y%m%d)" "product-strategy" "error" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "PRD 작성 실패: {에러 메시지}"
-# [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 1 "fail" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-# → AskUserQuestion: "Phase 1 PRD 작성이 실패했습니다. 계속 진행할까요, 중단할까요?"
-# → 중단 선택 시: 파이프라인 상태를 failed로 기록 후 Phase 7(pipeline_end)으로 이동
-```
+- **성공 시**: 완료로 기록하고 Phase 2로 진행.
+- **에러 시**: 사용자에게 에러를 보고하고, 계속 진행할지 중단할지 AskUserQuestion으로 확인. 중단 선택 시 파이프라인 상태를 failed로 기록 후 Phase 7로 이동.
 
 **미결 질문이 있으면**: 불릿 포인트로 사용자에게 제시합니다. Phase 2로 진행하기 전에 사용자의 답변을 기다립니다. 이 단계를 절대 건너뛰지 마세요. 답변을 받은 후 PRD에 반영합니다.
 
@@ -119,12 +69,6 @@ Task tool, subagent_type: **"bams-plugin:product-strategy"** — 메인이 직�
 Phase 2는 기획/개발 **다부서** 병렬 트랙이므로 **루프 B**를 따른다. orchestrator를 Advisor로 1회 호출하여 라우팅/게이트 권고를 받은 뒤, 메인이 권고된 부서장들을 단일 메시지 내 복수 Task 호출로 **직접 병렬 spawn**한다.
 
 ### Phase 2-a. pipeline-orchestrator 조언 요청 (Advisor)
-
-Bash로 step_start + agent_start emit:
-```bash
-[ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 2 "명세+설계 계획" "Phase 2: Advisor"
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-2-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-opus-5" "Phase 2: 기능명세+기술설계 조언 요청"
-```
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
 
@@ -141,37 +85,16 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 >
 > **요청:** 메인이 병렬 spawn할 부서장 목록과 위임 메시지 템플릿(기능 명세는 product-strategy, 디자인 기술 설계는 design-director, FE/BE 기술 설계는 frontend-engineering / backend-engineering), 산출물 경로, 게이트 조건을 Advisor Response로 반환하세요. 직접 spawn 금지(harness 깊이 2 제약).
 
-반환 후 agent_end emit + Advisor Response 파싱 + CHAIN_VIOLATION 체크:
+반환 후 Advisor Response 파싱 + CHAIN_VIOLATION 체크:
 
 **CHAIN_VIOLATION 체크**: orchestrator 반환 내용의 첫 줄에 "CHAIN_VIOLATION"이 포함되어 있으면:
-- agent_end status="error" emit
-- step_end status="fail" emit → 실패 step으로 카운트
 - 사용자에게 위반 사항을 보고
 - 파이프라인 상태를 failed로 기록
-- pipeline_end emit 후 즉시 중단
+- Phase 7로 즉시 이동하여 종료
 
-```bash
-# CHAIN_VIOLATION이 감지된 경우:
-# [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-2-$(date -u +%Y%m%d)" "pipeline-orchestrator" "error" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "CHAIN_VIOLATION 감지"
-# [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 2 "fail" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-# → 사용자에게 위반 사항 보고 후 Phase 7(pipeline_end)으로 즉시 이동하여 파이프라인 종료 (상태: failed)
-
-# 정상인 경우:
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-2-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Phase 2 Advisor 응답 수신"
-[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 2 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-# → 완료 step으로 카운트
-```
+정상인 경우 Phase 2-b로 진행.
 
 ### Phase 2-b. 메인이 부서장 4트랙 병렬 직접 spawn + 5.3-codex 게이트
-
-Bash로 step_start + 4개 agent_start 일괄 emit:
-```bash
-[ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 3 "명세+설계 병렬 실행" "Phase 2: 실행"
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "product-strategy-2-$(date -u +%Y%m%d)" "product-strategy" "claude-opus-5" "Phase 2: 기능 명세"
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "design-director-2-$(date -u +%Y%m%d)" "design-director" "gpt-5.3-codex" "Phase 2: 디자인(UI/UX) 기술 설계"
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "frontend-engineering-2-$(date -u +%Y%m%d)" "frontend-engineering" "gpt-5.3-codex" "Phase 2: FE 기술 설계"
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "backend-engineering-2-$(date -u +%Y%m%d)" "backend-engineering" "claude-opus-4-8" "Phase 2: BE 기술 설계"
-```
 
 **단일 메시지에 4개 Task tool 호출을 동시에 발행하여 메인이 직접 병렬 spawn:**
 
@@ -228,36 +151,9 @@ Bash로 step_start + 4개 agent_start 일괄 emit:
    >   - 파일 목록
    > ```
 
-4개 반환 후 각 에이전트 결과를 확인합니다:
-- **성공 시**: agent_end status="success" emit
-- **에러 시**: agent_end status="error" emit. 사용자에게 어떤 트랙이 실패했는지 보고하고, 계속 진행할지 중단할지 AskUserQuestion으로 확인.
+4개 반환 후 각 에이전트 결과를 확인합니다. 에러가 있으면 사용자에게 어떤 트랙이 실패했는지 보고하고 계속 진행할지 중단할지 AskUserQuestion으로 확인한다(중단 선택 시 파이프라인 상태를 failed로 기록 후 Phase 7로 이동).
 
 ```bash
-# 각 에이전트별로 성공/에러 분기 처리:
-# product-strategy — 성공 시:
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "product-strategy-2-$(date -u +%Y%m%d)" "product-strategy" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "기능 명세 완료"
-# product-strategy — 에러 시:
-# [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "product-strategy-2-$(date -u +%Y%m%d)" "product-strategy" "error" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "기능 명세 실패: {에러 메시지}"
-
-# design-director — 성공 시:
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "design-director-2-$(date -u +%Y%m%d)" "design-director" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "디자인(UI/UX) 설계 완료"
-# design-director — 에러 시:
-# [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "design-director-2-$(date -u +%Y%m%d)" "design-director" "error" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "디자인(UI/UX) 설계 실패: {에러 메시지}"
-
-# frontend-engineering — 성공 시:
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "frontend-engineering-2-$(date -u +%Y%m%d)" "frontend-engineering" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "FE 설계 완료"
-# frontend-engineering — 에러 시:
-# [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "frontend-engineering-2-$(date -u +%Y%m%d)" "frontend-engineering" "error" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "FE 설계 실패: {에러 메시지}"
-
-# backend-engineering — 성공 시:
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "backend-engineering-2-$(date -u +%Y%m%d)" "backend-engineering" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "BE 설계 완료"
-# backend-engineering — 에러 시:
-# [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "backend-engineering-2-$(date -u +%Y%m%d)" "backend-engineering" "error" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "BE 설계 실패: {에러 메시지}"
-
-# 4트랙 중 에러가 하나라도 있으면 이 step은 실패 후보로 표시
-# 에러 시 → AskUserQuestion: "Phase 2-b에서 {실패 트랙}이 실패했습니다. 계속 진행할까요, 중단할까요?"
-# 중단 선택 시: 파이프라인 상태를 failed로 기록 후 Phase 7(pipeline_end)으로 이동
-
 # 5.3-codex: 디자인/FE 리뷰 게이트
 # 목적: FE 설계 + 디자인(UI/UX) 설계를 Codex로 독립 검토 (advisory — 실패해도 Phase는 진행하되 Reviewer 태스크 강제)
 _CODEX_REVIEW_PATH=".crew/artifacts/review/{slug}-design-fe-codex-review.md"
@@ -297,21 +193,14 @@ else
   fi
 fi
 
-# step_end — Phase 2의 게이트는 4개 설계 트랙(위 성공/에러 분기)이며 codex는 advisory.
-#   codex 실패/미가용 시에도 step은 done 유지(4트랙 통과 기준)하되, fallback 산출물이
+# codex는 advisory — 실패/미가용 시에도 4트랙 통과 기준으로 진행하되, fallback 산출물이
 #   Reviewer 태스크를 강제하므로 부분·빈 출력이 거짓 GO(false pass)로 남지 않음.
-[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 3 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
 # → codex 검토 결과: $_CODEX_OK (1=독립 검토 완료 / 0=Reviewer 보강 태스크 Phase 3 필수 추가)
 ```
 
 **기대 산출물**: 기능 명세, 디자인(UI/UX) 기술 설계, FE 기술 설계, BE 기술 설계, Codex FE/디자인 리뷰 리포트 (4트랙 + 5.3-codex)
 
 ## Phase 3: 태스크 분해
-
-Bash로 step_start emit:
-```bash
-[ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 4 "태스크 분해" "Phase 3: 분해"
-```
 
 pipeline-orchestrator가 반환한 Phase 2 결과를 종합하여 구체적인 태스크로 분해합니다:
 
@@ -327,18 +216,7 @@ pipeline-orchestrator가 반환한 Phase 2 결과를 종합하여 구체적인 �
 5. 병렬 실행 가능한 태스크 식별
 6. `.crew/artifacts/review/{slug}-design-fe-codex-review.md`에서 Critical/Major를 추출해 Reviewer 태스크로 반영
 
-Bash로 step_end emit:
-```bash
-[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 4 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-# → 완료 step으로 카운트
-```
-
 ## Phase 4: 아티팩트 저장 및 보드 업데이트
-
-Bash로 step_start emit:
-```bash
-[ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 5 "아티팩트 저장" "Phase 4: 저장"
-```
 
 `.crew/board.md`가 존재하지 않으면 기본 템플릿으로 생성합니다:
 ```markdown
@@ -362,7 +240,7 @@ Bash로 step_start emit:
 3. 기술 설계를 `.crew/artifacts/design/[slug]-design.md`에 저장 (기능 명세 + 프론트엔드 설계 + 백엔드 설계 통합)
 4. 디자인(UI/UX) 설계를 `.crew/artifacts/design/[slug]-design-ui.md`에 저장
 5. Codex FE/디자인 리뷰를 `.crew/artifacts/review/[slug]-design-fe-codex-review.md`에 저장
-6. `.crew/config.md` 프론트매터에서 현재 `last_task_id` 읽기
+6. `.crew/board.md`에서 현재 최대 `TASK-NNN` 번호를 확인 (다음 태스크 번호의 기준)
 
 7. `.crew/board.md` 업데이트: 각 태스크를 `## Backlog` 섹션에 다음 형식으로 추가:
 
@@ -377,15 +255,9 @@ Bash로 step_start emit:
 - **Acceptance criteria**: [구체적이고 테스트 가능한 기준]
 ```
 
-8. `.crew/config.md` 프론트매터의 `last_task_id`를 업데이트
+8. 태스크 번호는 board.md의 최대 `TASK-NNN`에서 이어서 증가시킨다 (board.md가 SSOT)
 
 9. `board.md`의 `> Last updated:` 타임스탬프 업데이트
-
-Bash로 step_end emit:
-```bash
-[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 5 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-# → 완료 step으로 카운트
-```
 
 ## Phase 5: 사용자에게 계획 제시
 
@@ -417,22 +289,5 @@ Codex FE/디자인 리뷰: .crew/artifacts/review/[slug]-design-fe-codex-review.
 
 ## Phase 7: 파이프라인 종료
 
-Bash로 pipeline_end를 리터럴 값으로 emit합니다(셸 변수 아님 — 대화 컨텍스트에서 추적한 값을 직접 기입). `{status}`는 실패 step이 1개라도 있으면 `failed`, 아니면 `completed`. `{completed}`/`{failed}`는 실제 수를 리터럴로 기입:
-
-```bash
-[ -n "$_EMIT" ] && bash "$_EMIT" pipeline_end "{slug}" "{status}" 5 {completed} {failed} 0
-```
-
-**DB 연동** (DB가 존재하면):
-
-> **board → DB upsert 필수**: Phase 4에서 board.md `## Backlog`에 기록한 정식 태스크(`TASK-NNN`)를
-> TaskDB에 등록해야 드리프트가 발생하지 않는다. 절차·스니펫은 `references/taskdb-board-sync.md` §3 참조.
-> ⚠ 아래 `sync-board.ts --write`는 **DB → board.md**(반대 방향)이며 현재 `getTasksByPipeline` 미존재로
-> 실행 시 예외가 난다 — board → DB 등록 용도가 아니다. 실제 등록은 `getPipelineBySlug(slug).id` + 멱등
-> `createTask`(taskdb-board-sync.md §3)로 수행할 것.
-
-```bash
-if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
-  bun run plugins/bams-plugin/tools/bams-db/sync-board.ts {slug} --write
-fi
-```
+완료 시 `.crew/history.md`에 1줄 기록합니다(실패 step이 1개라도 있으면 `실패`, 아니면 `완료`):
+`YYYY-MM-DD | {slug} | plan | {완료|실패} | {한 줄 요약}`

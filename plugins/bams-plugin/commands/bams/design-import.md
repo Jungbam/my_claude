@@ -13,7 +13,7 @@ design-director(F1~F9 파이프라인)에 위임하고, 결과를 검증합니�
 ## 공통 규칙 로드
 
 `commands/bams/design-import/_common.md` 를 Read하여
-슬래시 커맨드 공통 규칙(viz emit, 위임 원칙, codex 사전 체크, TaskDB 연동)을 로드합니다.
+슬래시 커맨드 공통 규칙(위임 원칙, codex 사전 체크)을 로드합니다.
 
 `commands/bams/design-import/_common.md` 에 정의된 파싱 규칙에 따라
 $ARGUMENTS를 파싱합니다:
@@ -31,21 +31,6 @@ $ARGUMENTS가 완전히 비어 있으면 → OQ10=(a): 인터랙티브 prompt �
 Bash로 `.crew/config.md` 존재 여부 확인:
 - 없으면 "/bams:init 을 먼저 실행하세요" 출력 후 중단.
 - 있으면 `.crew/config.md` 와 `.crew/board.md` Read.
-
-## Work Unit 선택 (pipeline_start 전)
-
-`commands/bams/_shared_common.md` §Work Unit 선택 절차를 따른다.
-SELECTED_WU_SLUG 확정 후 pipeline_start emit.
-
-## Viz 이벤트: pipeline_start
-
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-[ -n "$_EMIT" ] && bash "$_EMIT" recover "{slug}"
-[ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "design-import" "/bams:design-import" "{arguments}" "" "${SELECTED_WU_SLUG:-}"
-```
-
-pipeline_type = **"design-import"** (OQ8=(b): 텍스트 라벨로만 구분, 색상 매핑은 별도 plan)
 
 ## Phase 라우팅 표
 
@@ -105,9 +90,4 @@ Phase 0-I 또는 인자 파싱 완료 후:
 4. --skip-verify 미지정 시 phase-2-verify.md 를 Read → dry-run 결과 또는 실적용 확인
 5. `commands/bams/dev/phase-4-finalization.md` 를 Read → 커밋 + 집계 + 회고
 
-pipeline_end 는 Phase 4(finalization) 실행 마지막에 emit (G-C 준수):
-
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-[ -n "$_EMIT" ] && bash "$_EMIT" pipeline_end "{slug}" "completed" 4 4 0 0 "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {pipeline_start_ms} ))"
-```
+파이프라인 완료 기록(history.md 1줄)은 Phase 4(finalization)에서 수행한다.

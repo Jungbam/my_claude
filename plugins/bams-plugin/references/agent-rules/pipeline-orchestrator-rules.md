@@ -7,27 +7,16 @@
 
 **파이프라인당 목표 호출 수: 2.0회 이하 (Phase 계획 1회 + 게이트 판단 1회)**
 
-각 파이프라인 완료 시 자체 호출 수를 집계하여 결과 응답에 포함한다:
-
-```bash
-_SLUG="{slug}"
-_COUNT=$(grep -c '"agent_type":"pipeline-orchestrator"' ~/.bams/artifacts/pipeline/${_SLUG}-events.jsonl 2>/dev/null || echo 0)
-echo "orchestrator 호출 수: ${_COUNT}회 (목표: 2.0회 이하)"
-[ "$_COUNT" -gt 4 ] && echo "WARN: 목표 2배 초과 — 다음 파이프라인에서 PRD 실행 가능성 게이트 적용"
-```
+각 파이프라인 진행 중 자체 조언 호출 횟수를 대화 컨텍스트에서 추적하여 결과 응답에 포함한다.
 
 **호출 수 초과 원인 분류:** 2~3회: 정상 / 4~6회: 경고(PRD 부실 가능성) / **7회+: 즉시 AskUserQuestion으로 파이프라인 분할 또는 중단 여부 확인**
 
 
 ### 파이프라인 시작 시
 - 커맨드로부터 수신한 위임 메시지(phase, slug, pipeline_type, context, constraints)를 파싱
-- 기존 진행 상태(`~/.bams/artifacts/pipeline/`)를 확인하여 중단된 파이프라인 재개 지원
+- 기존 진행 상태(`.crew/history.md`)를 확인하여 중단된 파이프라인 재개 지원
 - **★ 미완료 파이프라인 자동 감지 (Step 0 — 신규 파이프라인 시작 전 필수)**:
-  ```bash
-  _INCOMPLETE=$(grep -l '"pipeline_start"' ~/.bams/artifacts/pipeline/*-events.jsonl 2>/dev/null | \
-    while read f; do slug=$(basename "$f" -events.jsonl); \
-    grep -q '"pipeline_end"' "$f" || echo "$slug"; done)
-  ```
+  - `.crew/history.md`에서 완료 기록(`## YYYY-MM-DD | {slug} | 완료/실패/중단`)이 없는데 산출물(`.crew/artifacts/`)만 존재하는 slug를 미완료로 간주한다.
   - 미완료 파이프라인이 1건 이상이면 AskUserQuestion으로 처리 방향 확인:
     - 선택지 A: 현재 파이프라인 계속 진행 (미완료 방치)
     - 선택지 B: 미완료 파이프라인 복구 후 진행
@@ -35,13 +24,8 @@ echo "orchestrator 호출 수: ${_COUNT}회 (목표: 2.0회 이하)"
   - 미완료 0건이면 바로 진행
 
 - **세션 재시작 멱등성 체크 (세션 재시작 감지 시 필수):**
-  - 이벤트 로그에서 `agent_end`가 이미 기록된 call_id를 확인한다
-  - 해당 call_id를 가진 부서장 spawn은 skip하도록 메인에 권고하고, 다음 미완료 Step부터 재개할 실행 계획을 반환한다
-  - skip 처리 시 메인이 executive-reporter에게 "재시작-skip" 이벤트 기록을 요청하도록 응답에 포함
-  ```bash
-  _EVENTS=$(find ~/.bams/artifacts/pipeline/ -name "*.jsonl" 2>/dev/null | xargs grep -h '"call_id"' 2>/dev/null | grep '"agent_end"')
-  # agent_end가 기록된 call_id는 재위임 skip
-  ```
+  - 대상 slug의 산출물(`.crew/artifacts/{prd,design,review,report}/`)이 이미 존재하는 Step은 완료된 것으로 간주한다
+  - 해당 산출물이 이미 존재하는 부서장 spawn은 skip하도록 메인에 권고하고, 다음 미완료 Step부터 재개할 실행 계획을 반환한다
 - Pre-flight 체크리스트(config.md, gotchas, 기존 아티팩트) 확인 후 시작
 - **컨텍스트 규모 사전 평가**: input_artifacts 파일 수가 5개 초과 또는 예상 컨텍스트가 큰 Phase는 다음 조치를 실행 계획에 사전 반영:
   - 각 부서장 위임 메시지 초안에 필수 아티팩트만 포함 (전체 파일 목록 전달 금지)
@@ -50,7 +34,6 @@ echo "orchestrator 호출 수: ${_COUNT}회 (목표: 2.0회 이하)"
 - **파이프라인 타입 검증**: `pipeline_type`과 입력 내용(context의 bug_description, feature_description 등)의 정합성 확인:
   - hotfix로 왔으나 실제 내용이 신규 기능 요청 → `pipeline_type: feature` 또는 `dev`로 재분류 제안
   - 타입 불일치 감지 시 AskUserQuestion으로 사용자에게 올바른 파이프라인 제안 (계속 진행 vs. 재시작)
-  - 타입 검증 결과를 executive-reporter에 기록
 - **resource-optimizer 조회 권고**: 파이프라인 유형과 규모를 전달하여 모델 선택(각 에이전트별 sonnet/haiku 결정)과 병렬화 전략을 조회하도록 메인에 권고. 메인이 resource-optimizer를 spawn한 결과를 본 에이전트의 후속 계획 요청에 context로 포함시킨다.
 - **★ 규모 임계값 사전 감지**: 예상 위임 횟수가 20회 이상으로 추정되면 resource-optimizer에게 **자동 분할 전략**을 조회하도록 메인에 권고. 20회 미만이면 기존 전략 유지.
   - 20회 이상: 위임 단위를 Micro-Step으로 분할하여 1개 Phase당 최대 8회 이내로 제한
@@ -65,12 +48,10 @@ echo "orchestrator 호출 수: ${_COUNT}회 (목표: 2.0회 이하)"
     - 예상 Step 3: dev 타입 전환 고려 (권장)
     - 예상 Step 4 이상: AskUserQuestion으로 dev 타입 재분류 제안 (강력 권고)
   - 진행 중 Step 수가 초기 평가의 2배 초과 시: 즉시 에스컬레이션 (중단 또는 dev 전환)
-- **★ no_end 실시간 감지 watchdog (Phase 게이트 조건 포함)**:
-  - 각 agent_start emit 직후 call_id를 진행 중 목록에 추가
-  - agent_end 수신 후 진행 중 목록에서 제거
-  - 다음 Phase 시작 전 진행 중 목록이 0건인지 확인 (0건 아니면 recover 이벤트 emit)
-  - Phase 게이트 조건 추가: "진행 중 call_id 목록 0건"
-- **executive-reporter 호출 권고**: 파이프라인 시작 이벤트(`pipeline_start`)는 메인(커맨드)이 직접 emit하거나 executive-reporter에게 spawn하여 기록하도록 응답에 명시한다.
+- **★ 미완료 부서장 추적 (Phase 게이트 조건 포함)**:
+  - 각 부서장 spawn 요청을 대화 컨텍스트의 진행 중 목록에 추가하고, 결과 수신 후 제거한다
+  - 다음 Phase 시작 전 진행 중 목록이 0건인지 확인 (0건 아니면 미완료 Step 재개 권고)
+  - Phase 게이트 조건 추가: "진행 중 부서장 목록 0건"
 
 
 ### 위임 메시지 형식 (메인에 반환하는 초안)
@@ -102,7 +83,7 @@ echo "orchestrator 호출 수: ${_COUNT}회 (목표: 2.0회 이하)"
 
 Phase 전환이 결정되면 다음을 메인에 권고한다 (메인이 spawn):
 1. **cross-department-coordinator spawn 권고**: 이전 Phase 부서장의 산출물을 다음 Phase 부서장에게 전달하는 핸드오프 조율 요청. 부서 간 인터페이스(API 계약, 데이터 스키마 등)의 정합성 확인 포함
-2. **executive-reporter spawn 권고**: Phase 완료 상태 요약 및 tracking 파일 기록
+2. **Phase 완료 상태 요약**: 메인이 Phase 완료 상태를 요약하고 산출물 경로를 정리한다 (파이프라인 완료 시 `.crew/history.md`에 1줄 기록)
 
 
 ### 롤백 판단 시
@@ -127,7 +108,6 @@ Phase 전환이 결정되면 다음을 메인에 권고한다 (메인이 spawn):
 - 영향 범위를 분석: 현재 Phase만 vs. 이전 Phase까지
 - 롤백 시 보존해야 할 아티팩트를 식별
 - 롤백 후 재시작 지점을 응답에 명시
-- executive-reporter에게 롤백 이벤트 기록을 요청하도록 메인에 권고
 
 
 ### 부서장 실패 시 에스컬레이션 (메인에 반환하는 권고)
@@ -154,25 +134,13 @@ delegation-protocol.md §5의 에스컬레이션 경로에 따라 메인에 다�
 파이프라인이 완료(정상 완료 또는 실패 완료)되면 retro-protocol.md에 따라 회고 트리거를 **반드시** 메인에 권고한다. 스킵 불가.
 
 **회고 절차 (메인에 권고하는 spawn 순서):**
-1. **executive-reporter 정량 데이터 수집 spawn 권고**: 총 소요 시간, Phase별 소요 시간, Step 성공률, 재시도 횟수, 에이전트별 호출 통계, 품질 지표, 이전 3회 대비 트렌드
+1. **product-analytics 정성 근거 수집 spawn 권고**: `.crew/history.md`(대상 파이프라인 완료 기록)·`.crew/artifacts/`(산출물)·사용자 관찰에서 회고 근거를 정성적으로 수집
 2. **각 부서장 KPT 제출 spawn 권고**: Keep/Problem/Try 형식. 해당 파이프라인에 참여한 부서장만 대상
 3. **합의 도출**: 수집된 KPT를 종합하여 Problem 우선순위 정렬, 액션 아이템 확정, 교차 검증 (본 에이전트가 후속 라운드에서 수행 가능)
 4. **피드백 반영 권고**: 에이전트 교훈 저장, gotchas 승격 검사, Pipeline Learnings 갱신, 프로세스 개선 제안
-5. **회고 결과 기록 권고**: tracking 파일에 retro 섹션 기록 (conducted_at, keep/problem/try 카운트, action_items, lessons_saved 등) — 메인이 executive-reporter spawn으로 수행
+5. **회고 결과 기록 권고**: tracking 파일에 retro 섹션 기록 (conducted_at, keep/problem/try 카운트, action_items, lessons_saved 등) — 메인이 product-analytics spawn으로 수행
 
 사용자가 명시적으로 "회고 건너뛰기"를 요청한 경우에만 `skipped (사용자 선택)` 처리한다.
-
-
-### executive-reporter 활용 요약 (메인에 권고하는 spawn 지점)
-
-파이프라인 생명주기 전체에 걸쳐 메인이 executive-reporter를 spawn하도록 다음 시점에서 권고한다:
-
-| 시점 | 권고 요청 내용 |
-|------|----------|
-| 파이프라인 시작 | `pipeline_start` 이벤트 기록 |
-| 각 Phase 완료 | Phase 완료 상태 요약 및 tracking 기록 |
-| 롤백 발생 | 롤백 이벤트 기록 및 영향 분석 |
-| 파이프라인 완료 | 회고용 정량 데이터 수집, 최종 성과 집계 |
 
 
 ### 파이프라인 실행 계획
@@ -240,9 +208,9 @@ gotchas:
 ```
 ## Retrospective: {slug}
 
-### 정량 지표
-| 지표 | 값 | 이전 평균 | 변화 |
-|------|----|-----------|----|
+### 정성 근거 요약
+- 분석 대상 파이프라인: {history.md 기준 목록}
+- 반복 Problem / 우선 개선 영역: {요약}
 
 ### KPT 요약
 - Keep: {N}건

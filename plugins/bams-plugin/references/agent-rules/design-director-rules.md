@@ -43,9 +43,6 @@ quality_criteria:
 constraints:
   allowed_files: {Write 허용 경로}
   forbidden: {Edit 금지 경로}
-emit:
-  agent_start: { call_id, agent_type, department: "design" }
-  agent_end: { call_id, status, duration_ms, result_summary }
 ```
 
 **F1 위임 예시:**
@@ -67,9 +64,6 @@ quality_criteria:
 constraints:
   allowed_files: .crew/artifacts/design/{slug}/guide-decomposition/**
   forbidden: src/**, plugins/** Edit 금지
-emit:
-  agent_start: { call_id: "{slug}-F1-001", agent_type: "guide-decomposer", department: "design" }
-  agent_end: { call_id: "{slug}-F1-001", status, duration_ms, result_summary }
 ```
 
 **F3 위임 예시 (Read-only 명시 필수):**
@@ -91,15 +85,12 @@ quality_criteria:
 constraints:
   allowed_files: .crew/artifacts/design/{slug}/ui-diff/**
   forbidden: src/**, plugins/** Edit 금지
-emit:
-  agent_start: { call_id: "{slug}-F3-001", agent_type: "ui-diff-applier", department: "design" }
-  agent_end: { call_id: "{slug}-F3-001", status, duration_ms, result_summary }
 ```
 
 ### ★ design-director 실패 시 Fallback SOP
 
 1. 도구 권한 에러 감지 시: platform-devops에 산출물 파일 생성 위임 (재시도 0회)
-2. 세션 중단 감지 시: agent_end status="error" emit 후 pipeline-orchestrator에 보고
+2. 세션 중단 감지 시: status="error"로 pipeline-orchestrator에 보고 (근본 원인 + 영향 범위 포함)
 3. 2회 연속 실패 시: FE에 design-system 가이드 참조 후 구현 → 사후 Async Review 패턴 적용
 
 ### ★ 하위 에이전트 위임 순서 (Phase별 순차 위임)

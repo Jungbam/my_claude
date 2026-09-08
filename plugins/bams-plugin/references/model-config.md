@@ -19,7 +19,7 @@
 
 - 부서장급 조율 역할과 더불어, 코드/문서를 직접 구현·변경하는 역할 포함
 - 판단 깊이가 깊거나 여러 하위 에이전트/문서를 종합하는 역할
-- 대상: frontend-engineering, design-director, backend-engineering, platform-devops, qa-strategy, product-analytics, hr-agent, executive-reporter, resource-optimizer, cross-department-coordinator (모든 부서장 포함 — 예외 없음)
+- 대상: frontend-engineering, design-director, backend-engineering, platform-devops, qa-strategy, product-analytics, hr-agent, resource-optimizer, cross-department-coordinator (모든 부서장 포함 — 예외 없음)
 
 ### Tier 3 — Sonnet 5 (claude-sonnet-5)
 **specialist**: 정형 구조 출력, 빠른 응답, 단일 도메인 세부 작업
@@ -100,7 +100,7 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
 
 ### 검증 방법
 
-설정 적용 후 Claude Code 재시작 → 샘플 파이프라인 1회 실행 → `~/.bams/artifacts/agents/YYYY-MM-DD.jsonl`에서 `model` 필드가 `"claude-opus-4-8"`로 기록되는지 확인.
+설정 적용 후 Claude Code 재시작 → 샘플 파이프라인 1회 실행 → 부서장 spawn 트랜스크립트에서 모델명(`claude-opus-4-8`)이 사용되는지 육안으로 확인한다(spawn ping 사전검증 절차 참조).
 
 ## 에이전트별 모델 매핑 (36개)
 
@@ -173,12 +173,11 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
 
 | 에이전트 | 역할 | 모델 | 비고 |
 |---------|------|------|------|
-| executive-reporter | 경영지원 | claude-opus-4-8 | 파이프라인 상태 집계, 경영진 리포트 |
 | resource-optimizer | 경영지원 | claude-opus-4-8 | 모델 선택 전략 (메타 역할) |
 | hr-agent | 경영지원 | claude-opus-4-8 | 에이전트 생명주기, 조직도 관리 |
 | cross-department-coordinator | 경영지원 | claude-opus-4-8 | 부서간 협업 조율 |
 
-**총계**: Opus 5 = 4개 (핵심 의사결정, Tier 1) / Opus 4.8 = 10개 (부서장급 + 구현, Tier 2) / Sonnet 5 = 21개 (specialist) / Haiku 4.5 = 2개 (저비용/결정론) — 합계 37개
+**총계**: Opus 5 = 4개 (핵심 의사결정, Tier 1) / Opus 4.8 = 9개 (부서장급 + 구현, Tier 2) / Sonnet 5 = 21개 (specialist) / Haiku 4.5 = 2개 (저비용/결정론) — 합계 36개
 
 ## 업그레이드 절차
 
@@ -186,7 +185,7 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
 
 0. **Spawn ping 사전검증 (필수 — SSOT 갱신 전)**:
    - 신규/변경 모델로 전환하기 전, 대상 그룹 중 **저위험 에이전트 1개**를 canary로 선정해 실제 spawn 테스트를 먼저 수행한다(trivial task, 예: "역할 1문장 요약").
-   - `agent_end status=success`로 정상 응답하면 접근 가능으로 판정 → 나머지 SSOT 갱신(1~5단계) 진행.
+   - canary spawn이 정상 응답(status=success)하면 접근 가능으로 판정 → 나머지 SSOT 갱신(1~5단계) 진행.
    - 실패 시: 전환 자체를 보류하고 대체 모델 또는 폴백(Claude 계열)을 재검토한다. 재시도는 최대 1회(모델명 오타 등 확인용)로 제한 — 반복 재시도 금지.
    - **세션 캐싱 주의**: harness가 에이전트 정의를 세션 시작 시점에 이미 로드해, 파일을 고쳐도 같은 세션의 canary spawn이 stale 값으로 실패할 수 있다(2026-08-21 hotfix_codex모델명전환에서 실측 확인). 이 경우:
      (a) 독립 CLI(예: `codex exec ... -c 'model="{모델명}"'`)로 대체 검증하고,
@@ -252,7 +251,7 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
   - "유지 — gpt-5.6-luna" 버킷 섹션 삭제. FE/디자인 부서장 2곳을 Tier 2, specialist 14곳을 Tier 3로 재편입. Tier 2 "FE/디자인 부서장 제외" 예외 문구 삭제 (이제 모든 부서장 = Tier 2, 예외 없음).
   - 매핑표 16행 모델 컬럼 갱신, 총계 재계산(Opus 8→10, Sonnet 7→21, gpt 버킷 제거, 합계 37 불변).
   - jojikdo.json model 필드 9곳(design specialist) → claude-sonnet-5.
-  - agents/*.md 본문의 spawn/frontmatter 식별 모델 참조(viz agent_start `model` 필드 2건, "frontmatter model:" 서술)도 Claude로 동기화. codex CLI 위임 인자(`_CODEX_MODEL=` 등)는 codex 스킬과 동일한 별도 메커니즘이므로 유지 — 단, frontmatter가 Claude로 복구됨에 따라 codex 위임 아키텍처 자체의 존치 여부는 별도 검토 권고.
+  - agents/*.md 본문의 spawn/frontmatter 식별 모델 참조(spawn `model` 필드 2건, "frontmatter model:" 서술)도 Claude로 동기화. codex CLI 위임 인자(`_CODEX_MODEL=` 등)는 codex 스킬과 동일한 별도 메커니즘이므로 유지 — 단, frontmatter가 Claude로 복구됨에 따라 codex 위임 아키텍처 자체의 존치 여부는 별도 검토 권고.
 - **재발 방지 원칙**: agents/*.md frontmatter `model:`과 jojikdo.json `model` 필드에는 Claude 모델명만 기입한다. OpenAI(gpt-*) 모델은 codex CLI 호출 인자 전용이며 이 두 필드에 절대 사용 금지.
 
 ### 2026-08-21 — codex 계열 16개 에이전트 모델명 전환 (deprecated 대응)
@@ -306,9 +305,9 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
 - 파이프라인: `plan_opus47개선6종`, `dev_opus47개선6종`
 - 내용:
   - 27개 에이전트 모델 매핑 확정
-  - 이슈 1 (agents frontmatter 정합화): 9개 에이전트 sonnet → claude-opus-4-7
+  - 이슈 1 (agents frontmatter 정합화): 8개 에이전트 sonnet → claude-opus-4-7
     - pipeline-orchestrator, project-governance, qa-strategy, product-analytics
-    - platform-devops, executive-reporter, resource-optimizer, hr-agent, cross-department-coordinator
+    - platform-devops, resource-optimizer, hr-agent, cross-department-coordinator
   - 이슈 2 (`[1m]` 서픽스 제거): 기존 `[1m]` 서픽스 전체 제거
   - 이슈 5 (business-analysis 차등화): claude-opus-4-7 → claude-sonnet-4-6
 - 정책 원칙: 부서장급 = Opus 4.7, specialist = Sonnet 4.6

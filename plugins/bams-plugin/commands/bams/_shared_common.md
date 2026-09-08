@@ -26,7 +26,7 @@ Claude Code harness에서 서브에이전트는 또 다른 서브에이전트를
 3. **부서장 내부 specialist (선택)**: 부서장은 자신의 도메인 내에서 specialist를 최대 1회 추가 spawn 가능(harness 깊이 2 한도).
 
 ### 허용 / 금지
-- 허용: Bash, Glob, Grep, Read로 상태 확인 / viz 이벤트 emit / 사용자 질문(AskUserQuestion) / orchestrator 조언 호출 1회
+- 허용: Bash, Glob, Grep, Read로 상태 확인 / 사용자 질문(AskUserQuestion) / orchestrator 조언 호출 1회
 - 허용: 커맨드 메인 대화에서 Task tool로 부서장을 **직접** spawn
 - 금지: 메인 대화가 Edit/Write로 소스 코드 직접 변경
 - 금지: orchestrator(서브에이전트) 내부에서 Task tool을 중첩 호출하여 부서장을 spawn하는 시도 — harness 제약
@@ -38,212 +38,24 @@ Claude Code harness에서 서브에이전트는 또 다른 서브에이전트를
 
 ---
 
-## ★ Viz Agent 이벤트 규칙 (모든 Phase에 적용)
+## ★ 파이프라인 완료 기록 (상태 판별의 SSOT)
 
-**`references/viz-agent-protocol.md` 참조.** 모든 서브에이전트(pipeline-orchestrator 포함) 호출 전후에 반드시 agent_start/agent_end 이벤트를 emit한다. orchestrator 내부에서 부서장/에이전트를 호출할 때도 동일하게 적용한다.
+모든 파이프라인 커맨드는 마무리 단계에서 `.crew/history.md`에 완료 1줄을 기록한다. **파이프라인 상태(진행 중 / 완료 / 실패)의 단일 진실 소스(SSOT)는 `.crew/history.md`이다** — history.md에 완료 기록이 있으면 완료, 없으면 진행 중으로 판별한다.
 
-**호출 직전:**
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-[ -n "$_EMIT" ] && bash "$_EMIT" now_ms   # 출력값을 기억해 두었다가 agent_end에서 {agent_start_ms}로 대입
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "{call_id}" "{agent_type}" "{model}" "{description}"
+### 기록 형식
+파이프라인 마무리 시 `.crew/history.md`에 아래 블록을 append한다(기존 history.md 형식 유지):
+
+```
+## YYYY-MM-DD | {slug} | {STATUS}
+- type: {command}
+- status: {완료|실패|중단}
+- 산출물: {산출물 경로 목록 또는 없음}
+- 요약: {한 줄 요약}
 ```
 
-**호출 직후:**
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-_AGENT_DUR_MS=$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))
-[ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "{call_id}" "{agent_type}" "{status}" "$_AGENT_DUR_MS" "{result_summary}"
-```
-
-duration_ms는 `now_ms` 서브커맨드로 실측한다(직접 `date +%s%3N` 호출 금지 — macOS BSD date 오염 확인됨, `references/viz-agent-protocol.md` §4 참조). **셸 변수는 Bash 호출 간 비영속이므로**, `agent_start` 시점에 캡처한 `now_ms` 출력값을 대화 컨텍스트에서 추적해 `{agent_start_ms}` 자리에 리터럴 숫자로 대입한다 (`{slug}`, `{status}` 등 다른 템플릿 토큰과 동일한 방식).
-
-- `{call_id}` 형식: `{agent_type}-{step_number}-{timestamp}` (예: `pipeline-orchestrator-1-20260403`)
-- `{status}`: `success` / `error` / `timeout`
-- 병렬 호출 시: 각 `agent_start`를 먼저 모두 emit(각각의 now_ms 값을 개별 기억) → Task tool 병렬 호출 → 완료 후 각 `agent_end` emit(대응하는 시작값으로 개별 차분)
-
----
-
-## ★ Step 이벤트 필수 규칙 (DAG/Gantt 표시용)
-
-DAG와 Gantt 차트는 `step_start`/`step_end` 이벤트에 의존합니다. 에이전트 호출만으로는 표시되지 않습니다.
-
-**모든 Phase는 반드시 step_start로 시작하고 step_end로 끝나야 합니다:**
-```bash
-# Phase 시작
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-[ -n "$_EMIT" ] && bash "$_EMIT" now_ms   # 출력값을 기억해 두었다가 step_end에서 {step_start_ms}로 대입
-[ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" {step_number} "{step_name}" "{phase_name}"
-# ... 에이전트 호출 ...
-# Phase 종료
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-_STEP_DUR_MS=$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))
-[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" {step_number} "done" "$_STEP_DUR_MS"
-```
-
-`{step_start_ms}`는 셸 변수 영속에 의존하지 않는다 — step_start 시점에 캡처한 `now_ms` 값을 대화 컨텍스트에서 추적해 리터럴 숫자로 대입한다(§ Viz Agent 이벤트 규칙과 동일 원칙).
-
-step 이벤트 없이 agent 이벤트만 emit하면 DAG/Gantt에 표시되지 않습니다.
-
----
-
-## ★ Pipeline 종료 보장 규칙
-
-파이프라인이 어떤 Phase에서 완료되든, 마지막 Phase를 실행하는 pipeline-orchestrator는 반드시 `pipeline_end` 이벤트를 emit해야 합니다.
-
-- Phase 5까지 완주 시: Phase 5에서 pipeline_end emit (기존 동작)
-- 중간 Phase에서 완료 시 (사용자가 "여기까지만" 선택): 해당 Phase의 orchestrator가 pipeline_end emit
-- 에러/중단 시: pipeline_end status="failed" 또는 "paused" emit
-
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-_PIPELINE_DUR_MS=$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {pipeline_start_ms} ))
-[ -n "$_EMIT" ] && bash "$_EMIT" pipeline_end "{slug}" "{status}" {total_steps} {completed_steps} {failed_steps} {skipped_steps} "$_PIPELINE_DUR_MS"
-```
-
-`{pipeline_start_ms}`는 파이프라인 최초 진입(Pre-flight 직후, `pipeline_start` emit 시점)에 `bash "$_EMIT" now_ms`로 캡처해 둔 값을 대화 컨텍스트에서 추적해 리터럴 숫자로 대입한다 (셸 변수 비영속 원칙, 위 §Viz Agent 이벤트 규칙과 동일).
-
-**이 규칙을 위반하면 viz에서 파이프라인이 영원히 "진행 중"으로 표시됩니다.**
-
----
-
-## ★ Pre-flight Recovery (모든 Phase 실행 전)
-
-파이프라인 시작 시 이전 중단된 이벤트를 자동으로 정리합니다.
-커맨드가 파이프라인 slug를 알게 된 직후, `pipeline_start` emit 이전에 실행합니다:
-
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-[ -n "$_EMIT" ] && bash "$_EMIT" recover "{slug}"
-```
-
-이 명령은 이벤트 파일을 스캔하여:
-- 매칭 없는 `agent_start` → `agent_end(status=interrupted)` 자동 emit
-- 매칭 없는 `step_start` → `step_end(status=interrupted)` 자동 emit
-- 매칭 없는 `pipeline_start` → `pipeline_end(status=interrupted)` 자동 emit
-
-이전 파이프라인 이벤트 파일이 없으면 no-op으로 종료합니다.
-
----
-
-
----
-
-## ★ Work Unit 선택 (파이프라인 시작 전 필수)
-
-**`_WU_SOURCE`가 `"inherited"`로 설정되어 있으면 이 섹션 전체를 스킵한다.** 이는 `references/parent-wu-inheritance.md`에서 Parent Pipeline의 WU를 자동 상속했음을 의미한다. 상속된 WU(`SELECTED_WU_SLUG`)로 `pipeline_start` emit 및 DB 연결 기록만 수행한다. `_WU_SOURCE`가 미설정이거나 다른 값이면 정상적으로 WU 선택 단계를 실행한다.
-
-파이프라인 시작 전 활성 work unit 선택을 확인한다. `pipeline_start` emit 이전에 실행.
-
-### `--wu <slug>` 오버라이드 (최우선)
-
-`$ARGUMENTS`에 `--wu <slug>` 플래그가 포함되어 있으면, 아래 자동 선택 로직 전체를 건너뛰고 `SELECTED_WU_SLUG="<slug>"`로 즉시 확정한다.
-
-```bash
-_WU_OVERRIDE=$(printf '%s' "$ARGUMENTS" | grep -oE '\-\-wu[= ][^ ]+' | sed -E 's/--wu[= ]//' | head -1)
-```
-
-`--wu` 미지정 시 아래 자동 선택 로직으로 진행한다.
-
-### 자동 선택 로직 (선택 프롬프트 없음 — 최근 사용 WU 자동 연결)
-
-```bash
-if [ -n "$_WU_OVERRIDE" ]; then
-  SELECTED_WU_SLUG="$_WU_OVERRIDE"
-  echo "[WU 오버라이드] '--wu' 플래그로 '${SELECTED_WU_SLUG}'에 명시적 연결"
-else
-  # 활성 WU 목록 확인 (bams-server API 우선, fallback: /tmp 파일)
-  _WU_JSON=$(curl -sf http://localhost:3099/api/workunits/active 2>/dev/null)
-  if [ -n "$_WU_JSON" ]; then
-    WU_COUNT=$(echo "$_WU_JSON" | jq '.workunits | length' 2>/dev/null || echo 0)
-    WU_LIST=$(echo "$_WU_JSON" | jq -r '.workunits[] | "  - \(.slug): \(.name // .slug)"' 2>/dev/null)
-  elif [ -f /tmp/bams-active-workunits.json ]; then
-    WU_COUNT=$(jq 'length' /tmp/bams-active-workunits.json 2>/dev/null || echo 0)
-    WU_LIST=$(jq -r '.[] | "  - \(.slug): \(.name // .slug)"' /tmp/bams-active-workunits.json 2>/dev/null)
-  else
-    WU_COUNT=0
-    WU_LIST=""
-  fi
-  echo "활성 WU 수: $WU_COUNT"
-  [ -n "$WU_LIST" ] && echo "$WU_LIST"
-
-  if [ "$WU_COUNT" -eq 0 ] 2>/dev/null; then
-    SELECTED_WU_SLUG=""
-    echo "경고: 활성 작업 없음. /bams:start로 시작하세요"
-  elif [ "$WU_COUNT" -eq 1 ] 2>/dev/null; then
-    SELECTED_WU_SLUG=$(echo "$_WU_JSON" | jq -r '.workunits[0].slug' 2>/dev/null || jq -r '.[0].slug' /tmp/bams-active-workunits.json 2>/dev/null)
-  else
-    # 2개 이상 — lastLinkedAt(서버 응답 필드) 우선, 없으면 startedAt 폴백(서버 미가동 시 자동 강등) 정렬 후 최상위 1개 자동 연결
-    if [ -n "$_WU_JSON" ]; then
-      SELECTED_WU_SLUG=$(echo "$_WU_JSON" | jq -r '.workunits | sort_by(.lastLinkedAt // .startedAt // "") | reverse | .[0].slug')
-    else
-      SELECTED_WU_SLUG=$(jq -r 'sort_by(.startedAt // "") | reverse | .[0].slug' /tmp/bams-active-workunits.json)
-    fi
-    echo "[WU 자동 연결] '${SELECTED_WU_SLUG}'에 연결됨 (활성 WU ${WU_COUNT}개 중 최근 사용 기준 자동 선택). 다른 작업에 연결하려면 --wu <slug>를 지정하세요."
-  fi
-fi
-```
-
-`pipeline_start` emit 시 `SELECTED_WU_SLUG`를 6번째 인자로 전달. 이 시점에 `now_ms` 값을 1회 캡처해 두고(출력값을 대화 컨텍스트에서 기억) `pipeline_end` 시 `{pipeline_start_ms}`로 리터럴 대입한다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-[ -n "$_EMIT" ] && bash "$_EMIT" now_ms   # 출력값을 기억해 두었다가 pipeline_end에서 {pipeline_start_ms}로 대입
-[ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "{type}" "{command}" "{arguments}" "" "${SELECTED_WU_SLUG:-}"
-```
-
-DB 연결 기록 (DB가 존재하면):
-```bash
-if [ -n "${SELECTED_WU_SLUG:-}" ] && [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
-  bun -e "
-    import { TaskDB } from './plugins/bams-plugin/tools/bams-db/index.ts';
-    const db = new TaskDB();
-    db.upsertWorkUnit('${SELECTED_WU_SLUG}');
-    db.linkPipelineToWorkUnit('{slug}', '${SELECTED_WU_SLUG}');
-    db.close();
-  " 2>/dev/null || true
-fi
-```
-
-## TaskDB 연동 (DB가 존재하면 board.md 대신 DB 사용)
-
-`~/.claude/plugins/marketplaces/my-claude/bams.db`가 존재하면 DB를 우선 사용합니다:
-
-```bash
-# DB 존재 확인
-if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
-  echo "[bams-db] DB 모드 활성화"
-fi
-```
-
-**태스크 등록 시 (DB가 존재하면):** Bash로 bun 스크립트를 실행하여 TaskDB에 태스크를 등록합니다.
-
-> ⚠ **알려진 결함(아래 스니펫은 실제 API와 불일치)**: `createTask`는 `pipeline_slug`가 아니라
-> `pipeline_id`를 받고 `status` 인자가 없다. slug는 먼저 `getPipelineBySlug(slug).id`로 해석해야 한다.
-> 정상 동작하는 board → DB upsert 절차는 `references/taskdb-board-sync.md` §2~3 참조.
-
-```bash
-if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
-  bun -e "
-    import { TaskDB } from './plugins/bams-plugin/tools/bams-db/index.ts';
-    const db = new TaskDB();
-    db.createTask({ pipeline_slug: '{slug}', title: '{task_title}', status: 'in_progress', assignee_agent: '{agent}', phase: {phase} });
-    db.close();
-  "
-fi
-```
-
-**파이프라인 완료 시 (DB가 존재하면):** board.md를 DB 스냅샷으로 갱신합니다.
-
-> ⚠ `sync-board.ts`는 **DB → board.md**(반대 방향)이며 현재 `getTasksByPipeline` 미존재로 실행 시
-> 예외가 난다. board → DB 등록 용도가 아니다. 등록은 `references/taskdb-board-sync.md` §3 절차로 수행.
-
-```bash
-if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
-  bun run plugins/bams-plugin/tools/bams-db/sync-board.ts {slug} --write
-fi
-```
-
-DB가 없으면 기존 board.md 방식을 유지합니다.
+- `{STATUS}`: `완료` / `실패` / `중단` 중 하나 (헤더에 대문자/한글 상태 표기).
+- 태스크 단위 상태는 `.crew/board.md`, 파이프라인 이력은 `.crew/history.md`로 이원화한다.
+- 회고는 이 history.md + 대상 산출물 파일 + 사용자 관찰만 입력으로 사용한다(별도 정량 이벤트 없음).
 
 ---
 
@@ -261,29 +73,6 @@ _RETRO_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/retro/
 ```
 
 `_BROWSE_SKILL`이 비어있으면 bams-plugin 스킬 미설치로 판단. 해당 단계를 대체 행동으로 처리합니다.
-
----
-
-## bams-server 자동 기동 (C1 Control Plane)
-
-파이프라인 시작 전 bams-server가 실행 중인지 확인하고 필요시 백그라운드로 기동한다.
-
-```bash
-# bams-server 포트(3099) 확인
-if ! curl -sf http://localhost:3099/health > /dev/null 2>&1; then
-  echo "[bams] Control Plane 서버 기동 중..."
-  nohup bun run plugins/bams-plugin/server/src/app.ts > /tmp/bams-server.log 2>&1 &
-  echo "[bams] PID: $! — 로그: /tmp/bams-server.log"
-  sleep 1
-  if curl -sf http://localhost:3099/health > /dev/null 2>&1; then
-    echo "[bams] Control Plane 서버 기동 완료 (http://localhost:3099)"
-  else
-    echo "[bams] WARNING: 서버 기동 실패 — 파일 fallback 모드로 진행"
-  fi
-else
-  echo "[bams] Control Plane 서버 이미 실행 중 (http://localhost:3099)"
-fi
-```
 
 ---
 
@@ -309,9 +98,9 @@ fi
 - 전체 배치 완료 후: Phase 2.5 풀 테스트
 
 ### 네이밍 규칙
-- slug: `dev_{WU관련요약}` (일반 dev와 동일 형식)
-- pipeline_type: `dev-hotfix` (viz에서 구분 표시)
-- 배치 계획: `~/.bams/artifacts/pipeline/{slug}-batch-plan.md`
+- slug: `dev_{요약}` (일반 dev와 동일 형식)
+- pipeline_type: `dev-hotfix`
+- 배치 계획: `.crew/artifacts/report/{slug}-batch-plan.md`
 
 ### context rot 방지
 - 배치당 최대 4건으로 제한
@@ -328,37 +117,25 @@ fi
 orchestrator 조언을 생략하고 커맨드가 부서장을 직접 spawn한다.
 
 ```
-1. step_start emit
-2. agent_start emit (부서장)
-3. Task tool → 부서장 1회 직접 호출
-4. agent_end emit
-5. step_end emit
+1. Task tool → 부서장 1회 직접 호출
+2. 부서장 결과 수신 및 요약
 ```
 
 ### 루프 B — Advised (다부서 / 복잡도 높음 / Phase 게이트 필요)
 orchestrator를 조언자로 1회 호출하여 Advisor Response를 수신한 뒤, 커맨드가 권고된 부서장을 직접 spawn한다.
 
 ```
-1. step_start emit (Phase N 계획)
-2. agent_start emit (pipeline-orchestrator)
-3. Task tool → pipeline-orchestrator 1회 호출 (조언 요청)
-4. agent_end emit
-5. Advisor Response 파싱 → 부서장 라우팅 / 게이트 조건 추출
-6. CHAIN_VIOLATION 체크 → 발견 시 즉시 중단 + 메인 에스컬레이션
-7. step_end emit (계획 Phase)
-
-8. step_start emit (Phase N 실행)
-9. 권고된 부서장들에 대해 agent_start 일괄 emit
-10. Task tool 병렬 호출 → 부서장들 직접 spawn (단일 메시지 복수 Task)
-11. 완료 후 agent_end 일괄 emit
-12. step_end emit (실행 Phase)
+1. Task tool → pipeline-orchestrator 1회 호출 (조언 요청)
+2. Advisor Response 파싱 → 부서장 라우팅 / 게이트 조건 추출
+3. CHAIN_VIOLATION 체크 → 발견 시 즉시 중단 + 메인 에스컬레이션
+4. Task tool 병렬 호출 → 권고된 부서장들 직접 spawn (단일 메시지 복수 Task)
+5. 부서장 결과 수신 및 게이트 판정
 ```
 
 ### 공통 규칙
 - orchestrator는 Advisor 역할만 수행. 서브에이전트 내부에서 부서장을 spawn하지 않는다(harness 깊이 2 제약).
 - 부서장은 자신의 도메인 내 specialist를 최대 1회 추가 spawn 가능.
 - 병렬 트랙은 단일 메시지에 복수 Task 호출로 처리한다.
-- 모든 호출 전후 `agent_start`/`agent_end` emit 의무.
 
 ---
 
@@ -388,4 +165,3 @@ Revert-Safe: yes | partial | no
 
 ### Squash 시 보전
 squash 머지하면 4-6 commits이 1 commit으로 합쳐짐. boundary 추적 불가능 → PR description에 Commit Map 명시 의무.
-- Phase 경계는 반드시 `step_start`/`step_end`로 감싼다(DAG/Gantt 표시 조건).

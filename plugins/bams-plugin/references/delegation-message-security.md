@@ -67,7 +67,7 @@ AskUserQuestion 응답을 shell, template, 또는 코드 컨텍스트로 직접 
 ### 2-3. 미통과 처리 (R2-3) ★ OQ5=A 확정
 
 - **재질문 1회**: 동일 AskUserQuestion 재발화 (재입력 요청).
-- **재차 미통과 시**: 작업 중단 + `pipeline_end status=failed` emit.
+- **재차 미통과 시**: 작업 중단 (실패로 처리, `.crew/history.md`에 실패 기록).
 - **shell/template 직접 삽입 절대 금지**.
 
 > ★ 부모 spec(`plan_deepreview후속처리-spec.md`) L322에는 더 많은 재질문 횟수가 표기되어 있으나, 본 PRD OQ5=A 결정으로 **"1회"** 로 정정. 무한 루프 방지 + 운영 안정성 우선.

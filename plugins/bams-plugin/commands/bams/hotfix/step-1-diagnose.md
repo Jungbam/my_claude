@@ -13,19 +13,9 @@
 
 ## Step 1: 버그 진단 + 수정
 
-Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 1 "버그 진단 + 수정" "Phase 1: 진단/수정"
-```
-
 **루프 B — Advisor 조언 후 메인이 qa-strategy(defect-triage) → 개발부장 순차 직접 spawn.**
 
 ### Step 1-a. pipeline-orchestrator 조언 요청 (Advisor)
-
-Bash로 agent_start emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-1-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-opus-5" "Step 1: 긴급 진단+수정 조언 요청"
-```
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
 
@@ -48,19 +38,11 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 >
 > 버그 영역 라우팅 결정, Scope Lock 확정 기준, Step 1 게이트 조건을 Advisor Response로 반환하세요. 직접 spawn 금지(harness 깊이 2 제약).
 
-반환 후 agent_end emit + Advisor Response 파싱 + CHAIN_VIOLATION 체크:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-1-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Step 1 Advisor 응답 수신"
-```
+반환 후 Advisor Response 파싱 + CHAIN_VIOLATION 체크.
 
-**CHAIN_VIOLATION 체크**: orchestrator 반환 내용 첫 줄에 "CHAIN_VIOLATION" 포함 시 즉시 중단 — agent_end status="error" + pipeline_end status="failed".
+**CHAIN_VIOLATION 체크**: orchestrator 반환 내용 첫 줄에 "CHAIN_VIOLATION" 포함 시 즉시 중단 — 사용자에게 에러 보고 후 파이프라인 종료.
 
 ### Step 1-b. 메인이 qa-strategy 직접 spawn (결함 분류)
-
-Bash로 agent_start emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "qa-strategy-1-$(date -u +%Y%m%d)" "qa-strategy" "claude-opus-4-8" "Step 1: 결함 분류"
-```
 
 Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호출:
 
@@ -85,21 +67,12 @@ Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호
 > QA부장은 defect-triage specialist를 최대 1회 추가 spawn 가능(harness 깊이 2 한도).
 
 반환 후 결과를 확인합니다:
-- **성공 시**: agent_end status="success", Step 1-c로 진행
-- **에러 시**: agent_end status="error". 사용자에게 에러를 보고하고 AskUserQuestion으로 계속/중단 확인. 중단 선택 시 pipeline_end status="failed" emit 후 종료.
-
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "qa-strategy-1-$(date -u +%Y%m%d)" "qa-strategy" "{success|error}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Step 1 결함 분류 완료"
-```
+- **성공 시**: Step 1-c로 진행
+- **에러 시**: 사용자에게 에러를 보고하고 AskUserQuestion으로 계속/중단 확인. 중단 선택 시 파이프라인 종료.
 
 ### Step 1-c. 메인이 개발부장 직접 spawn (외과적 수정)
 
 Advisor가 권고한 개발부장(frontend-engineering / backend-engineering / platform-devops 중 하나)에 대해:
-
-Bash로 agent_start emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "{dept}-1-$(date -u +%Y%m%d)" "{dept}" "claude-opus-4-8" "Step 1: 외과적 수정"
-```
 
 Task tool, subagent_type: **"bams-plugin:{dept}"** — 메인이 직접 호출:
 
@@ -121,12 +94,8 @@ Task tool, subagent_type: **"bams-plugin:{dept}"** — 메인이 직접 호출:
 > ```
 
 반환 후 결과를 확인합니다:
-- **성공 시**: agent_end status="success", 다음 단계로 진행
-- **에러 시**: agent_end status="error". 사용자에게 에러를 보고하고 AskUserQuestion으로 계속/중단 확인. 중단 선택 시 pipeline_end status="failed" emit 후 종료.
-
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "{dept}-1-$(date -u +%Y%m%d)" "{dept}" "{success|error}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Step 1 외과적 수정 완료"
-```
+- **성공 시**: 다음 단계로 진행
+- **에러 시**: 사용자에게 에러를 보고하고 AskUserQuestion으로 계속/중단 확인. 중단 선택 시 파이프라인 종료.
 
 ### 디자인부 연동 (FE 영역 수정 시)
 
@@ -140,22 +109,7 @@ FE 영역이 아닌 경우 이 호출을 건너뜁니다 (비용 최적화).
 
 **기대 산출물**: 결함 분석 리포트, 수정된 코드, 회귀 테스트
 
-**DB에 태스크 등록 (핫픽스 진단+수정 완료 후)**: `~/.claude/plugins/marketplaces/my-claude/bams.db`가 존재하면 태스크를 등록한다. 핫픽스는 진단+수정이 한 단계로 처리되므로 바로 `in_review` 상태로 등록한다:
-```bash
-if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
-  bun -e "
-    import { TaskDB } from './plugins/bams-plugin/tools/bams-db/index.ts';
-    const db = new TaskDB();
-    db.createTask({ pipeline_slug: '{slug}', title: '버그 진단 + 수정: {$ARGUMENTS 요약}', status: 'in_review', assignee_agent: 'backend-engineering', phase: 1 });
-    db.close();
-  "
-fi
-```
-
-Step 1 완료 시, Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 1 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-```
+핫픽스 태스크는 진단+수정이 한 단계로 처리되므로 board.md에 바로 `In Review` 상태로 기록합니다.
 
 ---
 

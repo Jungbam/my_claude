@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# validate-agent-sync.sh — 에이전트 13 checks 동기화 검증
+# validate-agent-sync.sh — 에이전트 11 checks 동기화 검증
 # 사용법: bash plugins/bams-plugin/scripts/validate-agent-sync.sh
 # Exit code: 0=정합, 1=불일치
 
@@ -22,7 +22,7 @@ echo "=== BAMS Agent Sync Validation ==="
 echo ""
 
 # ─────────────────────────────────────────────
-# 1. Canonical source: agents/*.md
+# Canonical source: agents/*.md
 # ─────────────────────────────────────────────
 CANONICAL="$TMPDIR_VALIDATE/canonical.txt"
 ls "$PLUGIN_DIR"/agents/*.md 2>/dev/null \
@@ -47,25 +47,25 @@ compare_source() {
   extra=$(comm -13 "$CANONICAL" "$src")
 
   if [[ -z "$missing" && -z "$extra" ]]; then
-    echo -e "  [${num}/13] ${label} ... ${GREEN}OK${NC} (${src_count}/${CANONICAL_COUNT})"
+    echo -e "  [${num}/11] ${label} ... ${GREEN}OK${NC} (${src_count}/${CANONICAL_COUNT})"
   else
     if [[ -n "$missing" ]]; then
       local missing_list
       missing_list=$(echo "$missing" | tr '\n' ', ' | sed 's/,$//')
-      echo -e "  [${num}/13] ${label} ... ${RED}MISSING${NC}: ${missing_list}"
+      echo -e "  [${num}/11] ${label} ... ${RED}MISSING${NC}: ${missing_list}"
       ERRORS=$((ERRORS + 1))
     fi
     if [[ -n "$extra" ]]; then
       local extra_list
       extra_list=$(echo "$extra" | tr '\n' ', ' | sed 's/,$//')
-      echo -e "  [${num}/13] ${label} ... ${YELLOW}EXTRA${NC}: ${extra_list}"
+      echo -e "  [${num}/11] ${label} ... ${YELLOW}EXTRA${NC}: ${extra_list}"
       ERRORS=$((ERRORS + 1))
     fi
   fi
 }
 
 # ─────────────────────────────────────────────
-# 2. plugin.json
+# 1. plugin.json
 # ─────────────────────────────────────────────
 PLUGIN_JSON="$PLUGIN_DIR/.claude-plugin/plugin.json"
 SRC_PLUGIN="$TMPDIR_VALIDATE/plugin.txt"
@@ -75,12 +75,12 @@ if [[ -f "$PLUGIN_JSON" ]]; then
     | sort > "$SRC_PLUGIN"
   compare_source "1" "plugin.json" "$SRC_PLUGIN"
 else
-  echo -e "  [1/13] plugin.json ... ${RED}FILE NOT FOUND${NC}"
+  echo -e "  [1/11] plugin.json ... ${RED}FILE NOT FOUND${NC}"
   ERRORS=$((ERRORS + 1))
 fi
 
 # ─────────────────────────────────────────────
-# 3. jojikdo.json (agent_id normalization)
+# 2. jojikdo.json (agent_id normalization)
 #    pattern: foo_bar_agent → foo-bar
 #    special: data_integration_engineering_agent → data-integration
 # ─────────────────────────────────────────────
@@ -127,76 +127,16 @@ if [[ -f "$JOJIKDO" ]]; then
   done < "$SRC_JOJIKDO_RAW"
 
   if [[ -n "$WARNINGS" ]]; then
-    echo -e "  [2/13] jojikdo.json ... ${YELLOW}WARN${NC}: naming mismatch (${WARNINGS%, })"
+    echo -e "  [2/11] jojikdo.json ... ${YELLOW}WARN${NC}: naming mismatch (${WARNINGS%, })"
   fi
   compare_source "2" "jojikdo.json" "$SRC_JOJIKDO"
 else
-  echo -e "  [2/13] jojikdo.json ... ${RED}FILE NOT FOUND${NC}"
+  echo -e "  [2/11] jojikdo.json ... ${RED}FILE NOT FOUND${NC}"
   ERRORS=$((ERRORS + 1))
 fi
 
 # ─────────────────────────────────────────────
-# 4. dept_map in bams-viz-emit.sh
-# ─────────────────────────────────────────────
-VIZ_EMIT="$PLUGIN_DIR/hooks/bams-viz-emit.sh"
-SRC_DEPT="$TMPDIR_VALIDATE/dept_map.txt"
-if [[ -f "$VIZ_EMIT" ]]; then
-  # Extract agent names from case patterns in dept_map function
-  # Supports both single-line and multi-line (backslash continuation) patterns:
-  #   single: product-strategy|business-analysis|...) echo "planning" ;;
-  #   multi:  design-director|ui-designer|\
-  #           guide-decomposer|...) echo "design" ;;
-  python3 - "$VIZ_EMIT" <<'PYEOF'
-import re, sys
-
-with open(sys.argv[1]) as f:
-    content = f.read()
-
-# Extract dept_map function body
-m = re.search(r'dept_map\(\)\s*\{(.*?)\n\}', content, re.DOTALL)
-if not m:
-    sys.exit(0)
-body = m.group(1)
-
-# Join continuation lines (backslash at end of line)
-joined = re.sub(r'\\\n\s*', '|', body)
-
-# Find all case patterns: everything before ) echo "..." ;;
-for match in re.finditer(r'([a-z][a-z|_-]*)\)\s*echo\s*"[a-z-]+"', joined):
-    pattern = match.group(1)
-    for agent in pattern.split('|'):
-        agent = agent.strip()
-        if re.match(r'^[a-z]+(-[a-z]+)*$', agent):
-            print(agent)
-PYEOF
-  python3 - "$VIZ_EMIT" <<'PYEOF' | sort > "$SRC_DEPT"
-import re, sys
-
-with open(sys.argv[1]) as f:
-    content = f.read()
-
-m = re.search(r'dept_map\(\)\s*\{(.*?)\n\}', content, re.DOTALL)
-if not m:
-    sys.exit(0)
-body = m.group(1)
-
-joined = re.sub(r'\\\n\s*', '|', body)
-
-for match in re.finditer(r'([a-z][a-z|_-]*)\)\s*echo\s*"[a-z-]+"', joined):
-    pattern = match.group(1)
-    for agent in pattern.split('|'):
-        agent = agent.strip()
-        if re.match(r'^[a-z]+(-[a-z]+)*$', agent):
-            print(agent)
-PYEOF
-  compare_source "3" "dept_map (bams-viz-emit.sh)" "$SRC_DEPT"
-else
-  echo -e "  [3/13] dept_map ... ${RED}FILE NOT FOUND${NC}"
-  ERRORS=$((ERRORS + 1))
-fi
-
-# ─────────────────────────────────────────────
-# 5. delegation-protocol.md
+# 3. delegation-protocol.md
 # ─────────────────────────────────────────────
 DELEG="$PLUGIN_DIR/references/delegation-protocol.md"
 SRC_DELEG="$TMPDIR_VALIDATE/delegation.txt"
@@ -210,14 +150,14 @@ if [[ -f "$DELEG" ]]; then
     fi
   done < "$CANONICAL"
   sort -o "$SRC_DELEG" "$SRC_DELEG"
-  compare_source "4" "delegation-protocol.md" "$SRC_DELEG"
+  compare_source "3" "delegation-protocol.md" "$SRC_DELEG"
 else
-  echo -e "  [4/13] delegation-protocol.md ... ${RED}FILE NOT FOUND${NC}"
+  echo -e "  [3/11] delegation-protocol.md ... ${RED}FILE NOT FOUND${NC}"
   ERRORS=$((ERRORS + 1))
 fi
 
 # ─────────────────────────────────────────────
-# 6. init.md CLAUDE.md section (Step 11 agent list)
+# 4. init.md CLAUDE.md section (Step 11 agent list)
 # ─────────────────────────────────────────────
 INIT_MD="$PLUGIN_DIR/commands/bams/init.md"
 SRC_INIT="$TMPDIR_VALIDATE/init.txt"
@@ -233,14 +173,14 @@ if [[ -f "$INIT_MD" ]]; then
     fi
   done < "$CANONICAL"
   sort -o "$SRC_INIT" "$SRC_INIT"
-  compare_source "5" "init.md CLAUDE.md" "$SRC_INIT"
+  compare_source "4" "init.md CLAUDE.md" "$SRC_INIT"
 else
-  echo -e "  [5/13] init.md ... ${RED}FILE NOT FOUND${NC}"
+  echo -e "  [4/11] init.md ... ${RED}FILE NOT FOUND${NC}"
   ERRORS=$((ERRORS + 1))
 fi
 
 # ─────────────────────────────────────────────
-# 7. best-practices/*.md
+# 5. best-practices/*.md
 # ─────────────────────────────────────────────
 BP_DIR="$PLUGIN_DIR/references/best-practices"
 SRC_BP="$TMPDIR_VALIDATE/best_practices.txt"
@@ -249,14 +189,14 @@ if [[ -d "$BP_DIR" ]]; then
     | xargs -n1 basename \
     | sed 's/\.md$//' \
     | sort > "$SRC_BP"
-  compare_source "6" "best-practices/" "$SRC_BP"
+  compare_source "5" "best-practices/" "$SRC_BP"
 else
-  echo -e "  [6/13] best-practices/ ... ${RED}DIRECTORY NOT FOUND${NC}"
+  echo -e "  [5/11] best-practices/ ... ${RED}DIRECTORY NOT FOUND${NC}"
   ERRORS=$((ERRORS + 1))
 fi
 
 # ─────────────────────────────────────────────
-# [6b/13] best-practice 콘텐츠 검증 (Wave 1 6 파일 한정)
+# [5b/11] best-practice 콘텐츠 검증 (Wave 1 6 파일 한정)
 # ─────────────────────────────────────────────
 _BP_WAVE1=(guide-decomposer guide-recomposer data-binding-mapper accessibility-auditor routing-strategist ssr-csr-decider)
 _BP_WAVE1_FAIL=0
@@ -265,7 +205,7 @@ for slug in "${_BP_WAVE1[@]}"; do
   if [ -f "$bp" ]; then
     # placeholder 패턴 감지 (실제 미작성 패턴만 — 파일명/변수명 내 용어 제외)
     if grep -qE '\(추후 작성\)|^> Placeholder|TODO: |^\(TODO\)' "$bp"; then
-      echo -e "  [6b/13] best-practice 콘텐츠 ... ${RED}FAIL${NC}: ${slug} placeholder 잔존"
+      echo -e "  [5b/11] best-practice 콘텐츠 ... ${RED}FAIL${NC}: ${slug} placeholder 잔존"
       ERRORS=$((ERRORS + 1))
       _BP_WAVE1_FAIL=$((_BP_WAVE1_FAIL + 1))
       continue
@@ -273,31 +213,18 @@ for slug in "${_BP_WAVE1[@]}"; do
     # 줄수 >= 30 (50 목표지만 안전 margin)
     _LINES=$(wc -l < "$bp" | tr -d ' ')
     if [ "$_LINES" -lt 30 ]; then
-      echo -e "  [6b/13] best-practice 줄수 ... ${RED}FAIL${NC}: ${slug} ${_LINES}줄 < 30"
+      echo -e "  [5b/11] best-practice 줄수 ... ${RED}FAIL${NC}: ${slug} ${_LINES}줄 < 30"
       ERRORS=$((ERRORS + 1))
       _BP_WAVE1_FAIL=$((_BP_WAVE1_FAIL + 1))
     fi
   fi
 done
 if [ "$_BP_WAVE1_FAIL" -eq 0 ]; then
-  echo -e "  [6b/13] best-practice 콘텐츠 (Wave 1 6) ... ${GREEN}OK${NC}"
+  echo -e "  [5b/11] best-practice 콘텐츠 (Wave 1 6) ... ${GREEN}OK${NC}"
 fi
 
 # ─────────────────────────────────────────────
-# Bonus: verify all departments in dept_map are covered
-# ─────────────────────────────────────────────
-if [[ -f "$VIZ_EMIT" ]]; then
-  DEPTS=$(sed -n '/^dept_map()/,/^}/p' "$VIZ_EMIT" \
-    | grep 'echo "' \
-    | sed 's/.*echo "//; s/".*//' \
-    | sort -u \
-    | grep -v general)
-  DEPT_COUNT=$(echo "$DEPTS" | wc -l | tr -d ' ')
-  echo -e "  [7/13] dept_map departments ... ${GREEN}OK${NC} (${DEPT_COUNT} departments: $(echo "$DEPTS" | tr '\n' ', ' | sed 's/,$//'))"
-fi
-
-# ─────────────────────────────────────────────
-# 8. frontmatter `department:` field (FAIL)
+# 6. frontmatter `department:` field (FAIL)
 # ─────────────────────────────────────────────
 MISSING_DEPT=""
 for f in "$PLUGIN_DIR"/agents/*.md; do
@@ -306,14 +233,14 @@ for f in "$PLUGIN_DIR"/agents/*.md; do
   fi
 done
 if [[ -z "$MISSING_DEPT" ]]; then
-  echo -e "  [8/13] frontmatter department: ... ${GREEN}OK${NC} (${CANONICAL_COUNT}/${CANONICAL_COUNT})"
+  echo -e "  [6/11] frontmatter department: ... ${GREEN}OK${NC} (${CANONICAL_COUNT}/${CANONICAL_COUNT})"
 else
-  echo -e "  [8/13] frontmatter department: ... ${RED}MISSING${NC}: ${MISSING_DEPT%, }"
+  echo -e "  [6/11] frontmatter department: ... ${RED}MISSING${NC}: ${MISSING_DEPT%, }"
   ERRORS=$((ERRORS + 1))
 fi
 
 # ─────────────────────────────────────────────
-# 9. frontmatter `disallowedTools:` field (WARN)
+# 7. frontmatter `disallowedTools:` field (WARN)
 # ─────────────────────────────────────────────
 MISSING_DT=""
 for f in "$PLUGIN_DIR"/agents/*.md; do
@@ -322,39 +249,39 @@ for f in "$PLUGIN_DIR"/agents/*.md; do
   fi
 done
 if [[ -z "$MISSING_DT" ]]; then
-  echo -e "  [9/13] frontmatter disallowedTools: ... ${GREEN}OK${NC} (${CANONICAL_COUNT}/${CANONICAL_COUNT})"
+  echo -e "  [7/11] frontmatter disallowedTools: ... ${GREEN}OK${NC} (${CANONICAL_COUNT}/${CANONICAL_COUNT})"
 else
-  echo -e "  [9/13] frontmatter disallowedTools: ... ${YELLOW}WARN${NC}: ${MISSING_DT%, }"
+  echo -e "  [7/11] frontmatter disallowedTools: ... ${YELLOW}WARN${NC}: ${MISSING_DT%, }"
 fi
 
 # ─────────────────────────────────────────────
-# 10. pipeline-naming-convention.md 존재 (WARN)
+# 8. pipeline-naming-convention.md 존재 (WARN)
 # ─────────────────────────────────────────────
 PNC="$PLUGIN_DIR/references/pipeline-naming-convention.md"
 if [[ -f "$PNC" ]]; then
-  echo -e "  [10/13] pipeline-naming-convention.md ... ${GREEN}OK${NC}"
+  echo -e "  [8/11] pipeline-naming-convention.md ... ${GREEN}OK${NC}"
 else
-  echo -e "  [10/13] pipeline-naming-convention.md ... ${YELLOW}WARN${NC}: not found"
+  echo -e "  [8/11] pipeline-naming-convention.md ... ${YELLOW}WARN${NC}: not found"
 fi
 
 # ─────────────────────────────────────────────
-# 11. jojikdo.json data_integration in engineering-platform (INFO)
+# 9. jojikdo.json data_integration in engineering-platform (INFO)
 #     data-integration은 engineering-platform 부서 소속 (platform-devops 부서장 하위)
 # ─────────────────────────────────────────────
 if [[ -f "$JOJIKDO" ]] && grep -q "data_integration_engineering_agent" "$JOJIKDO"; then
   # Verify data_integration is under engineering-platform department
   _DI_DEPT=$(jq -r '.departments[] | select(.agents[]?.agent_id == "data_integration_engineering_agent") | .department_id' "$JOJIKDO" 2>/dev/null)
   if [[ "$_DI_DEPT" == "engineering-platform" ]]; then
-    echo -e "  [11/13] jojikdo data_integration department ... ${GREEN}OK${NC} (engineering-platform 소속, department_lead: platform_devops_agent)"
+    echo -e "  [9/11] jojikdo data_integration department ... ${GREEN}OK${NC} (engineering-platform 소속, department_lead: platform_devops_agent)"
   else
-    echo -e "  [11/13] jojikdo data_integration department ... ${YELLOW}WARN${NC}: expected engineering-platform, got ${_DI_DEPT:-unknown}"
+    echo -e "  [9/11] jojikdo data_integration department ... ${YELLOW}WARN${NC}: expected engineering-platform, got ${_DI_DEPT:-unknown}"
   fi
 else
-  echo -e "  [11/13] jojikdo data_integration special case ... ${YELLOW}INFO${NC}: special case key not found"
+  echo -e "  [9/11] jojikdo data_integration special case ... ${YELLOW}INFO${NC}: special case key not found"
 fi
 
 # ─────────────────────────────────────────────
-# 12. Policy-Code drift: agent-tool-policy.md "구현 전담 에이전트" 목록 ==
+# 10. Policy-Code drift: agent-tool-policy.md "구현 전담 에이전트" 목록 ==
 #     실제 disallowedTools: [] 보유 에이전트 집합 (FAIL)
 # ─────────────────────────────────────────────
 POLICY="$PLUGIN_DIR/references/agent-tool-policy.md"
@@ -386,37 +313,37 @@ if [[ -f "$POLICY" ]]; then
   MISSING_IN_CODE=$(comm -13 "$ACTUAL_IMPL" "$POLICY_IMPL")
 
   if [[ -z "$MISSING_IN_POLICY" && -z "$MISSING_IN_CODE" ]]; then
-    echo -e "  [12/13] policy-code drift (agent-tool-policy) ... ${GREEN}OK${NC} (${ACTUAL_COUNT}=${POLICY_COUNT})"
+    echo -e "  [10/11] policy-code drift (agent-tool-policy) ... ${GREEN}OK${NC} (${ACTUAL_COUNT}=${POLICY_COUNT})"
   else
     if [[ -n "$MISSING_IN_POLICY" ]]; then
       ml=$(echo "$MISSING_IN_POLICY" | tr '\n' ', ' | sed 's/,$//')
-      echo -e "  [12/13] policy-code drift ... ${RED}MISSING IN POLICY${NC}: ${ml}"
+      echo -e "  [10/11] policy-code drift ... ${RED}MISSING IN POLICY${NC}: ${ml}"
       ERRORS=$((ERRORS + 1))
     fi
     if [[ -n "$MISSING_IN_CODE" ]]; then
       el=$(echo "$MISSING_IN_CODE" | tr '\n' ', ' | sed 's/,$//')
-      echo -e "  [12/13] policy-code drift ... ${RED}MISSING IN CODE${NC}: ${el}"
+      echo -e "  [10/11] policy-code drift ... ${RED}MISSING IN CODE${NC}: ${el}"
       ERRORS=$((ERRORS + 1))
     fi
   fi
 else
-  echo -e "  [12/13] policy-code drift ... ${RED}FILE NOT FOUND${NC}: agent-tool-policy.md"
+  echo -e "  [10/11] policy-code drift ... ${RED}FILE NOT FOUND${NC}: agent-tool-policy.md"
   ERRORS=$((ERRORS + 1))
 fi
 
 # ─────────────────────────────────────────────
-# 13. specialist-roster SSOT consistency (WARN only)
+# 11. specialist-roster SSOT consistency (WARN only)
 #     sync-specialists.ts dry-run → 0 drifts = OK
 # ─────────────────────────────────────────────
 if command -v bun >/dev/null 2>&1; then
   SYNC_RESULT=$(bun run "$PLUGIN_DIR/scripts/sync-specialists.ts" 2>&1 | tail -1 || true)
   if echo "$SYNC_RESULT" | grep -q "Dry-run: 0 drifts"; then
-    echo -e "  [13/13] specialist-roster SSOT ... ${GREEN}OK${NC}"
+    echo -e "  [11/11] specialist-roster SSOT ... ${GREEN}OK${NC}"
   else
-    echo -e "  [13/13] specialist-roster SSOT ... ${YELLOW}WARN${NC}: drifts detected (run sync-specialists.ts --apply or insert markers)"
+    echo -e "  [11/11] specialist-roster SSOT ... ${YELLOW}WARN${NC}: drifts detected (run sync-specialists.ts --apply or insert markers)"
   fi
 else
-  echo -e "  [13/13] specialist-roster SSOT ... ${YELLOW}SKIP${NC}: bun not installed"
+  echo -e "  [11/11] specialist-roster SSOT ... ${YELLOW}SKIP${NC}: bun not installed"
 fi
 
 # ─────────────────────────────────────────────

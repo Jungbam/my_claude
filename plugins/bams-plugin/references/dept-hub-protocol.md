@@ -39,24 +39,8 @@ skill_mode: [selected-skill]
 
 에이전트 실행 결과를 정리하고, 코드 변경 또는 분석/QA 산출물을 stub이 정의한 경로(대개 `.crew/artifacts/`)에 저장한다. 사용자에게 요약을 보고한다.
 
-## Viz 이벤트 계측 (신규 — F-R4 AC-4)
+## 허브 실행 기록
 
-허브 진입 직후 `pipeline_start`(타입 `dept-hub`)를 emit하고, Step 1~5 전체를 감싸는 단일 `step_start`(step_number=1, step_name="부서 에이전트 선택 및 실행")를 emit한다. Step 5 완료 직후 `step_end` + `pipeline_end`를 emit한다.
+부서 허브는 경량 라우터이므로 별도 상태 기록을 남기지 않는다 — `board.md` 등록도 하지 않는다. 코드 변경을 동반하는 하위 파이프라인이 트리거되면 그 파이프라인이 완료 시 `.crew/history.md`에 1줄을 기록한다.
 
-부서 허브는 경량 라우터이므로 파이프라인 slug를 자체 생성한다 — Work Unit 연결이나 `board.md` 등록은 하지 않는다.
-
-slug 형식: `{dept}_hub_{YYYYMMDDHHMMSS}` (`{dept}`는 `engineering`/`planning`/`evaluation`/`qc`)
-
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-_SLUG="{dept}_hub_$(date -u +%Y%m%d%H%M%S)"
-[ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "$_SLUG" "dept-hub" "/bams:{dept}" "{arguments}"
-[ -n "$_EMIT" ] && bash "$_EMIT" step_start "$_SLUG" 1 "부서 에이전트 선택 및 실행" "Hub"
-# ... Step 1~5 실행 ...
-[ -n "$_EMIT" ] && bash "$_EMIT" step_end "$_SLUG" 1 "done" {duration_ms}
-[ -n "$_EMIT" ] && bash "$_EMIT" pipeline_end "$_SLUG" "completed" 1 1 0 0 {duration_ms}
-```
-
-`_EMIT` 스크립트를 찾지 못하면(0개 매칭) viz 계측을 조용히 스킵하고 Step 1~5는 정상 진행한다.
-
-Step 4에서 선택된 도메인 에이전트가 자체 파이프라인(`dev`/`hotfix` 등)을 트리거하면, 그 파이프라인은 **별도 slug로 독립 실행**한다 — 허브 slug와 병합하지 않는다. 허브는 순수 라우터이며 하위 파이프라인의 실행/게이트/회고에 관여하지 않는다.
+Step 4에서 선택된 도메인 에이전트가 자체 파이프라인(`dev`/`hotfix` 등)을 트리거하면, 그 파이프라인은 **독립 실행**한다 — 허브와 병합하지 않는다. 허브는 순수 라우터이며 하위 파이프라인의 실행/게이트/회고에 관여하지 않는다.

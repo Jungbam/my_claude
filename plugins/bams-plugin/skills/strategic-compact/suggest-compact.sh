@@ -53,20 +53,9 @@ if [ "$count" -gt "$THRESHOLD" ] && [ $((count % 25)) -eq 0 ]; then
   echo "[StrategicCompact] $count tool calls - good checkpoint for /compact if context is stale" >&2
 fi
 
-# Pipeline completion detection (safety-net for completion-protocol Step 4.9)
-# Check if a pipeline just ended by looking for recent pipeline_end event
-BAMS_ROOT="${BAMS_ROOT:-$HOME/.bams}"
-PIPELINE_DIR="$BAMS_ROOT/artifacts/pipeline"
-if [ -d "$PIPELINE_DIR" ]; then
-  # Find the most recent events file modified in last 60 seconds
-  RECENT_EVENT=$(find "$PIPELINE_DIR" -name "*-events.jsonl" -mmin -1 2>/dev/null | head -1)
-  if [ -n "$RECENT_EVENT" ]; then
-    # Check if last event is pipeline_end
-    LAST_TYPE=$(tail -1 "$RECENT_EVENT" 2>/dev/null | jq -r '.type // ""' 2>/dev/null)
-    if [ "$LAST_TYPE" = "pipeline_end" ]; then
-      SLUG=$(basename "$RECENT_EVENT" -events.jsonl)
-      echo "[StrategicCompact] Pipeline '$SLUG' completed. Context is likely saturated — strongly recommend /compact before next task." >&2
-      echo "[StrategicCompact] Suggest: /compact $SLUG pipeline completed" >&2
-    fi
-  fi
+# Heavy edit-session detection (safety-net for completion-protocol Step 4.9)
+# Suggest /compact after a large number of Edit/Write tool calls in one session
+HEAVY_EDIT_THRESHOLD=${COMPACT_EDIT_THRESHOLD:-30}
+if [ "$count" -gt 0 ] && [ $((count % HEAVY_EDIT_THRESHOLD)) -eq 0 ]; then
+  echo "[StrategicCompact] $count Edit/Write-level tool calls — context is likely saturated. Consider /compact before the next milestone." >&2
 fi

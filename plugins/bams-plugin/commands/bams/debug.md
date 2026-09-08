@@ -25,54 +25,6 @@ Glob으로 `.crew/config.md`가 존재하는지 확인합니다. 없으면:
 
 `.crew/config.md`와 `.crew/board.md`를 읽습니다.
 
-### TaskDB 연동 (DB가 존재하면 board.md 대신 DB 사용)
-
-`~/.claude/plugins/marketplaces/my-claude/bams.db`가 존재하면 DB를 우선 사용합니다:
-
-```bash
-# DB 존재 확인
-if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
-  echo "[bams-db] DB 모드 활성화"
-fi
-```
-
-**태스크 등록 시 (DB가 존재하면):** Bash로 bun 스크립트를 실행하여 TaskDB에 태스크를 등록합니다.
-
-```bash
-# DB가 존재하면 TaskDB에 태스크 등록
-if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
-  bun -e "
-    import { TaskDB } from './plugins/bams-plugin/tools/bams-db/index.ts';
-    const db = new TaskDB();
-    db.createTask({ pipeline_slug: '{slug}', title: '{task_title}', status: 'in_progress', assignee_agent: '{agent}', phase: {phase} });
-    db.close();
-  "
-fi
-```
-
-**파이프라인 완료 시 (DB가 존재하면):** board.md를 DB 스냅샷으로 갱신합니다.
-
-```bash
-if [ -f "$HOME/.claude/plugins/marketplaces/my-claude/bams.db" ]; then
-  bun run plugins/bams-plugin/tools/bams-db/sync-board.ts {slug} --write
-fi
-```
-
-DB가 없으면 기존 board.md 방식을 유지합니다.
-
-
-### Viz 이벤트: pipeline_start
-
-사전 조건 확인 후, Bash로 다음을 실행합니다:
-
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "debug" "/bams:debug" "{arguments}"
-```
-
-### ★ Viz Agent 이벤트 규칙
-
-**`references/viz-agent-protocol.md` 참조.** 모든 서브에이전트 호출 전후에 반드시 agent_start/agent_end 이벤트를 emit한다. orchestrator 내부에서 부서장/에이전트를 호출할 때도 동일하게 적용한다.
-
 > **위임 체계 (Canonical)**: 이 커맨드는 `_shared_common.md` §위임 원칙 + 부록 **루프 B**(Advised)를 따른다. 메인(커맨드)이 qa-strategy / frontend-engineering / backend-engineering 부서장을 **직접** Task tool로 spawn한다. pipeline-orchestrator를 경유한 중첩 spawn 금지(harness 깊이 2 제약). 부서장은 도메인 내 specialist(defect-triage, automation-qa 등)를 최대 1회 추가 spawn 가능.
 
 ## Phase 1: 버그 분류 및 재현 (defect-triage)
@@ -92,11 +44,6 @@ Options:
 - **에러 메시지 있음** - "스택 트레이스나 에러 로그를 붙여넣기"
 - **재현 방법 있음** - "재현 단계를 설명"
 - **증상만 있음** - "현재 정보로 조사 시작"
-
-Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 1 "버그 분류 및 재현" "Phase 1: 진단"
-```
 
 ### 1b. qa-strategy 부서장 (defect-triage 위임)
 
@@ -137,11 +84,6 @@ defect-triage 반환 후, 결과를 사용자에게 표시:
 수정 대상: [N]개 파일
 ```
 
-Phase 1 완료 시, Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 1 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-```
-
 ## Phase 1.5: Git 체크포인트
 
 **AskUserQuestion**으로 체크포인트 방식을 선택받습니다:
@@ -154,11 +96,6 @@ Options:
 - **스킵** - "체크포인트 없이 바로 진행"
 
 ## Phase 2: 수정 (frontend/backend-engineering)
-
-Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 2 "버그 수정" "Phase 2: 수정"
-```
 
 defect-triage 결과의 수정 대상 파일에 따라 적절한 에이전트를 선택합니다:
 - UI/컴포넌트 관련 파일 -> frontend-engineering
@@ -184,17 +121,7 @@ git 저장소인 경우, `git diff --stat` 표시.
 
 **AskUserQuestion**: 적용 / 되돌리기 / 부분 되돌리기
 
-Phase 2 완료 시, Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 2 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-```
-
 ## Phase 3: 회귀 테스트 (automation-qa) — 병렬 실행
-
-Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 3 "회귀 테스트" "Phase 3: 테스트"
-```
 
 ### 3a + 3b: 기존 테스트 실행 ∥ 회귀 테스트 생성 (동시)
 
@@ -217,17 +144,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 생성된 테스트를 실행하여 통과 여부 확인 (최대 2회 재시도).
 
-Phase 3 완료 시, Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 3 "{status}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-```
-
 ## Phase 4: 마무리
-
-Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 4 "마무리" "Phase 4: 마무리"
-```
 
 ### 4a. 아티팩트 저장
 
@@ -241,33 +158,13 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 버그 증상, 근본 원인, 영향 분석, 수정 내용, 테스트 결과, 리포트 경로, 태스크 ID 제시.
 
-Step 4 완료 시, Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 4 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-```
-
 ## Phase 5: 상태 기록 위임
-
-Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 5 "CLAUDE.md 상태 업데이트" "Phase 5: 상태 업데이트"
-```
 
 > **CLAUDE.md 자동 편집 금지** — 상태 기록은 `.crew/board.md`(태스크) / `.crew/history.md`(파이프라인 히스토리) / `.crew/artifacts/`(산출물)에 위임. 본 파이프라인은 CLAUDE.md를 수정하지 않는다.
 
-업데이트 완료 후, Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 5 "done" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-```
-
-### Viz 이벤트: pipeline_end
-
-파이프라인 종료 시, Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_end "{slug}" "{status}" {total} {completed} {failed} {skipped}
-```
-(`{status}`는 `completed` / `paused` / `failed` 중 하나, `{total}`은 5)
+완료 시 `.crew/history.md`에 1줄 기록합니다:
+`YYYY-MM-DD | {slug} | debug | {완료|실패} | {한 줄 요약}`
 
 ## 회고 연결
 
-pipeline_end emit 후 `references/completion-protocol.md` Step 4.95에 따라 `/bams:retro {slug}` 실행 여부를 확인한다 (CLAUDE.md §5 회고 의무). 스팸 방지 조건(소요 10분 미만 + 변경 없음/경량 파이프라인) 충족 시 자동 생략.
+완료 후 `references/completion-protocol.md`에 따라 `/bams:retro {slug}` 실행 여부를 확인한다 (CLAUDE.md §5 회고 의무). 스팸 방지 조건(소요 10분 미만 + 변경 없음/경량 파이프라인) 충족 시 자동 생략.

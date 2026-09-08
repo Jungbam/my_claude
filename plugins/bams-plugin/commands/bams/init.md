@@ -17,22 +17,6 @@ Bash로 `git rev-parse --is-inside-work-tree 2>/dev/null`를 실행하여 git �
 
 **git 저장소가 아닌 경우**: 이 단계를 스킵합니다.
 
-## Step 0.5: pipeline_start emit
-
-init 파이프라인 자체를 viz UI에 표시하기 위해 `pipeline_start` 이벤트를 emit합니다. slug는 `init_{타임스탬프}`.
-
-```bash
-_INIT_SLUG="init_$(date +%Y%m%d_%H%M%S)"
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-_START_MS=$([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0)
-_EVENTS_FILE="$HOME/.bams/artifacts/pipeline/${_INIT_SLUG}-events.jsonl"
-mkdir -p "$(dirname "$_EVENTS_FILE")"
-cat >> "$_EVENTS_FILE" <<EOF
-{"type":"pipeline_start","pipeline_slug":"${_INIT_SLUG}","pipeline_type":"init","command":"/bams:init","arguments":"$ARGUMENTS","ts":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
-EOF
-echo "[viz] pipeline_start emitted — ${_INIT_SLUG}"
-```
-
 ## Step 1: 기존 상태 확인
 
 Glob 도구로 `.crew/` 디렉토리가 이미 존재하는지 확인합니다.
@@ -75,11 +59,11 @@ Body (동적 — Bash로 계산):
 Options:
 - **A) 모두 삭제하고 진행** — board.md + history.md만 초기화, memory/references 보존하고 모든 Step 실행
 - **B) 부분 재초기화로 전환** — 위 부분 재초기화 분기로 fallback (board.md + history.md 보존)
-- **C) 취소** — init 종료 (`pipeline_end status=cancelled` emit)
+- **C) 취소** — init 종료
 
 **A 선택 시**: `.crew/board.md` + `.crew/history.md`만 삭제하고 모든 Step 실행. `.crew/memory/` + `.crew/references/`는 보존(PRD OQ3=B).
 **B 선택 시**: 위 부분 재초기화 분기로 즉시 분기 합류.
-**C 선택 시**: `pipeline_end status=cancelled` emit 후 종료.
+**C 선택 시**: init 종료.
 
 ## Step 2: 언어 선택
 
@@ -253,30 +237,6 @@ fi
 
 이 단계는 idempotent합니다. 이미 존재하는 파일은 덮어쓰지 않으므로 `부분 재초기화` 시에도 안전합니다. 새 reference 파일이 추가되면 위 목록에 포함하여 재실행하면 누락분만 복사됩니다.
 
-## Step 5.5: TaskDB 초기화 (SQLite)
-
-`~/.claude/plugins/marketplaces/my-claude/bams.db`를 생성하여 DB 기반 태스크 관리를 활성화합니다.
-
-```bash
-# bams-db init-db.ts 경로 탐색 (소스 → 캐시 순)
-_INIT_DB=$(find . -path "*/bams-plugin/tools/bams-db/init-db.ts" -not -path "*/node_modules/*" 2>/dev/null | head -1)
-[ -z "$_INIT_DB" ] && _INIT_DB=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/tools/bams-db/init-db.ts" 2>/dev/null | head -1)
-
-if [ -n "$_INIT_DB" ]; then
-  bun run "$_INIT_DB" --migrate 2>&1
-else
-  echo "[bams-db] init-db.ts를 찾을 수 없습니다 — DB 초기화 스킵"
-fi
-```
-
-이 단계는:
-1. `~/.claude/plugins/marketplaces/my-claude/bams.db` SQLite 파일을 생성합니다
-2. 스키마를 적용합니다 (tasks, task_events, token_usage, budget_policies, run_logs)
-3. 기존 `board.md`가 있으면 태스크를 DB로 마이그레이션합니다
-4. DB가 이미 존재하면 스키마만 idempotent하게 재확인합니다
-
-DB가 활성화되면 이후 파이프라인 커맨드(`/bams:dev`, `/bams:feature` 등)에서 자동으로 DB 모드로 전환됩니다.
-
 ## Step 5.7: Claude Code 권한 설정
 
 파이프라인 실행 시 불필요한 컨펌창을 제거하기 위해, 프로젝트 루트 하위 작업에 대한 자동 승인 규칙을 `.claude/settings.json`에 설정합니다.
@@ -286,7 +246,6 @@ DB가 활성화되면 이후 파이프라인 커맨드(`/bams:dev`, `/bams:featu
 1. `.claude/settings.json`이 존재하는지 확인합니다.
 2. 존재하면 Read하여 기존 내용을 파악합니다.
 3. `permissions.allow` 배열에 아래 와일드카드 규칙이 **이미 포함되어 있으면 스킵**, 없으면 추가합니다.
-4. `permissions.additionalDirectories`에 `~/.bams/artifacts/*` 경로들이 없으면 추가합니다.
 
 **추가할 와일드카드 권한 규칙:**
 
@@ -361,9 +320,6 @@ DB가 활성화되면 이후 파이프라인 커맨드(`/bams:dev`, `/bams:featu
       "Read(*)"
     ],
     "additionalDirectories": [
-      "~/.bams/artifacts/pipeline",
-      "~/.bams/artifacts/hr",
-      "~/.bams/artifacts/agents",
       "/tmp"
     ]
   }
@@ -417,11 +373,6 @@ fi
 
 **Step 6 — product-strategy 에이전트 (opus):**
 
-Task tool spawn 직전 `agent_start`, 응답 수신 직후 `agent_end` emit:
-```bash
-_CALL_ID="init-step6-$(date +%s)"
-echo "{\"type\":\"agent_start\",\"call_id\":\"${_CALL_ID}\",\"agent_type\":\"product-strategy\",\"department\":\"planning\",\"model\":\"claude-opus-5\",\"description\":\"프로젝트 초기 분석 모드\",\"step_number\":6,\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"pipeline_slug\":\"${_INIT_SLUG}\"}" >> "$_EVENTS_FILE"
-```
 서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:product-strategy"**):
 
 > **프로젝트 초기 분석 모드**로 이 프로젝트의 전체 구조를 분석합니다.
@@ -437,11 +388,6 @@ echo "{\"type\":\"agent_start\",\"call_id\":\"${_CALL_ID}\",\"agent_type\":\"pro
 
 **Step 7 — platform-devops 에이전트 (opus):**
 
-Task tool spawn 직전 `agent_start`, 응답 수신 직후 `agent_end` emit:
-```bash
-_CALL_ID="init-step7-$(date +%s)"
-echo "{\"type\":\"agent_start\",\"call_id\":\"${_CALL_ID}\",\"agent_type\":\"platform-devops\",\"department\":\"infra\",\"model\":\"claude-opus-4-8\",\"description\":\"배포 환경 점검 모드\",\"step_number\":7,\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"pipeline_slug\":\"${_INIT_SLUG}\"}" >> "$_EVENTS_FILE"
-```
 서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:platform-devops"**):
 
 > **배포 환경 점검 모드**로 현재 프로젝트의 인프라/배포 상태를 확인합니다.
@@ -544,7 +490,7 @@ CLAUDE.md에 Bams 조직 운영 규칙을 추가합니다. 이 규칙은 Claude�
 <!-- SYNC-SPECIALISTS:END -->
 - QA: qa-strategy, automation-qa, defect-triage, release-quality-gate
 - 평가: product-analytics, experimentation, performance-evaluation, business-kpi
-- 총괄팀(독립 운영): pipeline-orchestrator (조언자 — Task 비호출), executive-reporter, cross-department-coordinator, resource-optimizer, hr-agent
+- 총괄팀(독립 운영): pipeline-orchestrator (조언자 — Task 비호출), cross-department-coordinator, resource-optimizer, hr-agent
 
 ### 2. 파이프라인 네이밍 규칙
 
@@ -558,16 +504,16 @@ CLAUDE.md에 Bams 조직 운영 규칙을 추가합니다. 이 규칙은 Claude�
 예: `feature_결제플로우구현`, `hotfix_빌드에러수정`
 
 **slug는 파이프라인 수명 동안 불변(immutable)입니다.** 상태는 slug에 포함하지 않으며,
-이벤트 파일 내 `pipeline_start` / `pipeline_end` 이벤트로 자동 판별합니다.
-- `pipeline_end` 없음 → 진행 중
-- `pipeline_end` 있음 → 완료 (status 필드 기준)
+`.crew/history.md`의 파이프라인 완료 기록 유무로 판별합니다.
+- history.md에 완료 기록 없음 → 진행 중
+- history.md에 완료 기록 있음 → 완료 (STATUS 필드 기준)
 
-이 규칙은 이벤트 파일, PRD, 설계문서, 리뷰, board.md 태스크 ID에 모두 적용됩니다.
+이 규칙은 PRD, 설계문서, 리뷰, board.md 태스크 ID, history.md 기록에 모두 적용됩니다.
 상세: `.crew/references/pipeline-naming-convention.md` 참조
 
 ### 3. 데이터 기록 규칙
 
-- 파이프라인 시작/종료 시 반드시 viz 이벤트를 emit합니다
+- 파이프라인 완료 시 `.crew/history.md`에 완료 1줄을 기록합니다 (상태 판별의 SSOT)
 - 모든 아티팩트는 `.crew/artifacts/` 하위에 네이밍 규칙에 따라 저장합니다
 - board.md 업데이트는 project-governance 에이전트를 통해 수행합니다
 
@@ -626,9 +572,8 @@ CLAUDE.md에 Bams 조직 운영 규칙을 추가합니다. 이 규칙은 Claude�
 
 모든 에이전트는 작업 완료 시:
 1. 변경 사항 요약을 반환합니다
-2. viz 이벤트(agent_end)를 emit합니다
-3. 에러 발생 시 status="error"로 보고하고, 근본 원인과 영향 범위를 포함합니다
-4. 파이프라인의 마지막 에이전트는 pipeline_end를 emit합니다
+2. 에러 발생 시 status="error"로 보고하고, 근본 원인과 영향 범위를 포함합니다
+3. 파이프라인의 마무리 단계에서 `.crew/history.md`에 완료 1줄을 기록합니다
 
 ### 9. CHAIN_VIOLATION 처리
 
@@ -641,8 +586,6 @@ CLAUDE.md에 Bams 조직 운영 규칙을 추가합니다. 이 규칙은 Claude�
 | 커맨드 | 설명 |
 |--------|------|
 | `/bams:init` | 프로젝트 초기화 |
-| `/bams:start` | 작업 단위(WU) 시작 |
-| `/bams:end` | 작업 단위 종료 |
 | `/bams:plan` | PRD + 기술 설계 + 태스크 분해 |
 | `/bams:feature` | 풀 피처 개발 사이클 |
 | `/bams:dev` | 멀티에이전트 풀 개발 파이프라인 |
@@ -666,9 +609,7 @@ CLAUDE.md에 Bams 조직 운영 규칙을 추가합니다. 이 규칙은 Claude�
 | `/bams:export` | 조직 설정을 이식 가능한 패키지로 내보내기 |
 | `/bams:import` | 패키지를 현재 프로젝트에 가져오기 |
 | `/bams:q` | 코드베이스 질문 (자동 범위 감지 + 코드 기반 답변) |
-| `/bams:status` | 프로젝트 대시보드 현황 |
 | `/bams:sprint` | 스프린트 플래닝 및 관리 |
-| `/bams:viz` | 파이프라인 실행 시각화 |
 ````
 
 ## Step 12: 결과 보고
@@ -681,22 +622,8 @@ CLAUDE.md에 Bams 조직 운영 규칙을 추가합니다. 이 규칙은 Claude�
 Git: [초기화/기존]
 배포 환경: [준비됨/미설정]
 코드베이스 분석: [완료/스킵]
-TaskDB: [활성화됨 (~/.claude/plugins/marketplaces/my-claude/bams.db) / 스킵]
 Memory: [에이전트 {N}개 디렉토리 생성 / 이미 존재]
 권한 설정: [와일드카드 규칙 적용됨 / 이미 설정됨]
 
-다음: /bams:plan <feature> | /bams:status | /bams:sprint plan
+다음: /bams:plan <feature> | /bams:sprint plan
 ```
-
-## Step 12.5: pipeline_end emit
-
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-_END_MS=$([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo "$_START_MS")
-cat >> "$_EVENTS_FILE" <<EOF
-{"type":"pipeline_end","pipeline_slug":"${_INIT_SLUG}","status":"completed","total_steps":12,"completed_steps":12,"failed_steps":0,"skipped_steps":0,"duration_ms":$(( _END_MS - _START_MS )),"ts":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
-EOF
-echo "[viz] pipeline_end emitted — ${_INIT_SLUG} (status=completed)"
-```
-
-(취소/실패 시 `status="cancelled"` 또는 `"failed"`로 emit. R4 AskUserQuestion에서 "C) 취소" 선택 시 `cancelled` 분기.)

@@ -41,7 +41,7 @@ pipeline-orchestrator는 Task 호출자가 아닌 **조언자(advisor)** 로서 
 <!-- SYNC-SPECIALISTS:END -->
 - QA부장: **qa-strategy** — 산하 specialist: automation-qa, defect-triage, release-quality-gate
 - 평가부장: **product-analytics** — 산하 specialist: experimentation, performance-evaluation, business-kpi
-- 경영지원(독립): **executive-reporter**, **resource-optimizer**, **hr-agent**, **cross-department-coordinator**
+- 경영지원(독립): **resource-optimizer**, **hr-agent**, **cross-department-coordinator**
 - 조언자(Task 비호출): **pipeline-orchestrator**
 
 > engineering 부서는 engineering-frontend, engineering-backend, engineering-platform 3개 부서로 공식 분할 완료 (2026-04-09, dev_개발부서3분할공식화).
@@ -239,7 +239,6 @@ Phase 전환 시 메인이 pipeline-orchestrator에게 게이트 조언을 요�
 | 3 | 필수 산출물이 모두 생성되었는가 | 누락 산출물 생성 지시 |
 | 4 | 다음 Phase의 선행 조건이 충족되었는가 | 선행 조건 해결 대기 |
 | 5 | tracking 파일에 현재 Phase 결과가 기록되었는가 | 기록 후 진행 |
-| 6 | viz 이벤트(`step_end`)가 모든 Step에 대해 기록되었는가 | 누락 이벤트 보충 |
 
 ### Phase별 추가 확인
 
@@ -306,13 +305,6 @@ Phase 전환 시 메인이 pipeline-orchestrator에게 게이트 조언을 요�
 | 중첩 Task tool 호출 시도 감지 | **CHAIN_VIOLATION 경고 반환, 계획 수립 중단** — 메인이 직접 부서장 spawn |
 | Write/Edit 권한 에러 | **재시도 0회, 즉시 메인 에스컬레이션** (CLAUDE.md §6 Critical Gotchas) |
 
-## 6. viz 이벤트 emit 책임
+## 6. 파이프라인 완료 기록 책임
 
-각 레벨에서 emit해야 하는 viz 이벤트 타입을 명시합니다. 세부 규약은 CLAUDE.md §4, `commands/bams/_shared_common.md`를 따릅니다.
-
-| 레벨 | 허용 이벤트 | 비고 |
-|------|------------|------|
-| 커맨드(메인) | `pipeline_start`, `pipeline_end`, `step_start`, `step_end`, `error`, `recover` | 커맨드 레벨에서만 pipeline_*/step_* emit 가능 |
-| 부서장 | 자기 자신의 `agent_start`, `agent_end` | call_id는 spawn 시 메인이 할당 전달 |
-| 도메인 specialist | 자기 자신의 `agent_start`, `agent_end` | 부서장이 spawn한 경우에만 |
-| pipeline-orchestrator (조언자) | emit 직접 수행 없음 | 조언 응답 안에 **emit 권고 커맨드를 텍스트로 포함**하여 메인이 실행하도록 지시 |
+파이프라인 상태 기록은 완료 시 메인(커맨드)이 `.crew/history.md`에 1줄 append하는 방식으로 수행합니다(`commands/bams/_shared_common.md` §파이프라인 완료 기록). 부서장·specialist는 결과를 메인에 반환하고, 상태 기록은 메인이 전담합니다. pipeline-orchestrator(조언자)는 완료 기록을 직접 수행하지 않고 조언 응답에 완료 요약을 포함합니다.

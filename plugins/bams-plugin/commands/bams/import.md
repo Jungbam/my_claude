@@ -160,7 +160,7 @@ PARA 메모리 구조를 생성한다 (기존 메모리가 있으면 유지한�
 
 ```bash
 AGENTS=(
-  "pipeline-orchestrator" "cross-department-coordinator" "executive-reporter"
+  "pipeline-orchestrator" "cross-department-coordinator"
   "resource-optimizer" "product-strategy" "business-analysis" "ux-research"
   "project-governance" "frontend-engineering" "backend-engineering"
   "platform-devops" "data-integration" "product-analytics" "experimentation"
@@ -187,7 +187,7 @@ echo "메모리 구조 초기화 완료"
 
 ## Step 8 — 동작 검증
 
-가져오기가 완료되면 `/bams:status`를 실행하여 즉시 동작 여부를 확인한다.
+가져오기가 완료되면 `.crew/` 구조를 점검하여 즉시 동작 여부를 확인한다.
 
 ```bash
 echo "=== .crew 구조 확인 ==="
@@ -198,7 +198,7 @@ echo "스킬 수: $(find .crew/skills -name '*.md' 2>/dev/null | wc -l)"
 echo "레퍼런스 수: $(ls .crew/references/ 2>/dev/null | wc -l)"
 ```
 
-`/bams:status`를 실행하여 최종 동작을 확인한다.
+`/bams:sprint status`를 실행하여 보드 현황과 최종 동작을 확인한다.
 
 ## Step 9 — 완료 보고
 
@@ -207,7 +207,7 @@ echo "=== bams:import 완료 ==="
 echo ""
 echo "다음 단계:"
 echo "  1. .crew/config.md를 검토하여 프로젝트별 설정을 확인한다"
-echo "  2. /bams:status로 조직 현황을 확인한다"
+echo "  2. /bams:sprint status로 조직 현황을 확인한다"
 echo "  3. /bams:dev 또는 /bams:feature로 첫 파이프라인을 시작한다"
 ```
 

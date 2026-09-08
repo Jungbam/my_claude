@@ -18,21 +18,11 @@
 
 ---
 
-### Step 10. Ship (executive-reporter 보고 + bams ship 스킬)
+### Step 10. Ship (배포 전 상태 판단 + bams ship 스킬)
 
-Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 10 "Ship" "Phase 4: 배포"
-```
-
-**루프 B — Advisor 조언 후 메인이 executive-reporter + platform-devops 순차 직접 spawn.**
+**루프 B — Advisor 조언 후 메인이 배포 전 상태를 직접 판단하고 platform-devops로 Ship을 실행.**
 
 ### Step 10-a. pipeline-orchestrator 조언 요청 (Advisor)
-
-Bash로 agent_start emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "pipeline-orchestrator-10-$(date -u +%Y%m%d)" "pipeline-orchestrator" "claude-opus-5" "Step 10: Ship 조언 요청"
-```
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
 
@@ -47,49 +37,20 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 > config: .crew/config.md
 > ```
 >
-> **요청:** 메인이 spawn할 부서장(executive-reporter — 배포 전 상태 보고, platform-devops — `_SHIP_SKILL` 실행) 목록과 각각의 위임 메시지 템플릿, 순차/병렬 실행 권고, Ship 게이트 기준(잔여 리스크, Critical 이슈 유무)을 Advisor Response로 반환하세요. 직접 spawn 금지(harness 깊이 2 제약).
+> **요청:** 메인이 spawn할 부서장(platform-devops — `_SHIP_SKILL` 실행)의 위임 메시지 템플릿, Ship 게이트 기준(잔여 리스크, Critical 이슈 유무)을 Advisor Response로 반환하세요. 직접 spawn 금지(harness 깊이 2 제약).
 
-반환 후 agent_end emit + Advisor Response 파싱 + CHAIN_VIOLATION 체크:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "pipeline-orchestrator-10-$(date -u +%Y%m%d)" "pipeline-orchestrator" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Step 10 Advisor 응답 수신"
-```
+반환 후 Advisor Response 파싱 + CHAIN_VIOLATION 체크.
 
-### Step 10-b. 메인이 executive-reporter 직접 spawn (배포 전 상태 보고)
+### Step 10-b. 메인이 배포 전 상태 직접 판단
 
-Bash로 agent_start emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "executive-reporter-10-$(date -u +%Y%m%d)" "executive-reporter" "claude-opus-4-8" "Step 10: 배포 전 상태 보고"
-```
-
-Task tool, subagent_type: **"bams-plugin:executive-reporter"** — 메인이 직접 호출:
-
-> **Phase 4 Step 10 — 배포 전 상태 보고**
->
-> ```
-> task_description: "배포 전 전체 Phase 상태를 보고하라"
-> input_artifacts:
->   - .crew/artifacts/
-> expected_output:
->   type: exec_report
-> quality_criteria:
->   - 전체 Phase 진행 상황 요약
->   - 잔여 리스크 항목 정리
->   - Ship 준비 상태 판단 (GO/HOLD)
-> ```
-
-반환 후 agent_end emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "executive-reporter-10-$(date -u +%Y%m%d)" "executive-reporter" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Step 10 배포 전 보고 완료"
-```
+메인이 `.crew/artifacts/` 전체 산출물을 종합하여 배포 전 상태를 판단합니다:
+- 전체 Phase 진행 상황 요약
+- 잔여 리스크 항목 정리
+- Ship 준비 상태 판단 (GO/HOLD)
 
 ### Step 10-c. 메인이 platform-devops 직접 spawn (Ship 실행)
 
 GO 판정 시 진행. HOLD이면 사용자에게 보고 후 해결.
-
-Bash로 agent_start emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "platform-devops-10-$(date -u +%Y%m%d)" "platform-devops" "claude-opus-4-8" "Step 10: Ship 실행"
-```
 
 Task tool, subagent_type: **"bams-plugin:platform-devops"** — 메인이 직접 호출:
 
@@ -108,33 +69,13 @@ Task tool, subagent_type: **"bams-plugin:platform-devops"** — 메인이 직접
 >
 > **기대 산출물**: PR 번호, Ship 결과 보고
 
-반환 후 agent_end emit:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "platform-devops-10-$(date -u +%Y%m%d)" "platform-devops" "success" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {agent_start_ms} ))" "Step 10 Ship 완료"
-```
-
 AskUserQuestion — "PR 생성됨. 즉시 배포?"
 - **나중에 (Recommended)**
 - **배포** — Step 11 실행.
-
-Step 10 완료 시, Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 10 "{status}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-```
 
 ---
 
 ### Step 11. Land & Deploy (선택)
 
-Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_start "{slug}" 11 "Land & Deploy" "Phase 4: 배포"
-```
-
 배포 전 체크리스트 확인: (1) PR 머지 완료, (2) CI 통과, (3) Step 5-9 검증 통과.
 모두 통과 시 `_DEPLOY_SKILL` 실행.
-
-Step 11 완료 시, Bash로 다음을 실행합니다:
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" step_end "{slug}" 11 "{status}" "$(( $([ -n "$_EMIT" ] && bash "$_EMIT" now_ms || echo 0) - {step_start_ms} ))"
-```

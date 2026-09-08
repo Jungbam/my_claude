@@ -19,7 +19,7 @@ dev.md (메인) ─ advise ─▶ pipeline-orchestrator (Advisor)
          [Phase 2.5] qa-strategy(QA부장) → automation-qa
          [Phase 3] qa-strategy + product-analytics (병렬)
          [Phase 3.5] project-governance (QG)
-         [Phase 4] executive-reporter + 자동 회고
+         [Phase 4] 마무리(보드/히스토리 정리) + 자동 회고
 ```
 
 > harness 깊이 2 제약: orchestrator는 부서장을 직접 spawn할 수 없고 Advisor Response만 반환합니다. 메인이 그 권고를 파싱하여 직접 부서장을 호출합니다.
@@ -51,14 +51,6 @@ Glob으로 `.crew/config.md`가 존재하는지 확인합니다. 없으면:
 `.crew/config.md`와 `.crew/board.md`를 읽습니다.
 
 **공통 규칙 로드**: 반드시 `plugins/bams-plugin/commands/bams/dev/_common.md`를 Read합니다.
-
-### Viz 이벤트: pipeline_start
-
-사전 조건 확인 후, Bash로 다음을 실행합니다:
-
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" pipeline_start "{slug}" "dev" "/bams:dev" "{arguments}"
-```
 
 ## 작업 범위 결정
 
