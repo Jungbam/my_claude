@@ -8,6 +8,9 @@
 # 실행 위치: repo 고정. 캐시 사본(~/.claude/plugins/cache/...) 실행 금지 —
 #           scripts/는 repo-fixed 운영 도구이며 런타임 미로드(design-infra §2-3).
 # 근거: design-infra §3-3 블록경계 validator 승격 · spec §3-2 AC-16a/b · §8-보강 AC-16d.
+# same-line marker 정책(rev1 Major 1 fix): 앵커 줄(subagent_type)에 load_profile: 값 또는
+#   :exempt 마커가 같은 줄에 병기된 경우도 검사 대상에 포함(next 전 계수). 같은 줄 형식은
+#   허용하며 값/마커 1개로 계수(profile 또는 exempt 1). 앵커 이후 줄의 마커와 동일 취급.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -73,7 +76,9 @@ for f in "${FILES[@]}"; do
   read -r sp pr ex no < <(awk -v L="$LEADS" '
     function flush(){ if(inb){ sp++; if(hasP)pr++; else if(hasE)ex++; else no++ } }
     /subagent_type/ && /bams-plugin:/ {
-      if($0 ~ ("bams-plugin:(" L ")")){ flush(); inb=1; hasP=0; hasE=0; next }
+      if($0 ~ ("bams-plugin:(" L ")")){ flush(); inb=1; hasP=0; hasE=0;
+        if($0 ~ /load_profile:exempt/) hasE=1; else if($0 ~ /load_profile:/) hasP=1;  # same-line marker(앵커 줄 병기) 계수
+        next }
       else { flush(); inb=0; next } }
     { if(inb){ if($0 ~ /load_profile:exempt/) hasE=1; else if($0 ~ /load_profile:/) hasP=1 } }
     END{ flush(); printf "%d %d %d %d\n", sp+0, pr+0, ex+0, no+0 }' "$f")

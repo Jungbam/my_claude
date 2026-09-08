@@ -5,6 +5,8 @@
 #        check-heavy-exempt.sh [FILE...]
 # 예외: b2 화이트리스트(load-profile-b2-whitelist.txt, init-time 분석 spawn = init.md)
 # 판정: heavy-lead 블록 내 load_profile:exempt 발견 시 exit 1. (화이트리스트 파일 예외)
+# same-line marker 정책(rev1 Major 2 fix): heavy 앵커 줄(subagent_type)에 exempt 마커가
+#   같은 줄에 병기된 경우도 검출(next 전 검사) — check-load-profile.sh AC-16b와 동일 로직.
 # 실행 위치: repo 고정(캐시 사본 실행 금지) — scripts/는 repo-fixed 운영 도구(design-infra §2-3).
 set -u
 
@@ -30,7 +32,9 @@ for f in "${FILES[@]}"; do
   # heavy-lead 블록(앵커 ~ 다음 앵커) 내 exempt 마커 존재 검출
   viol=$(awk -v H="$HEAVY" '
     /subagent_type/ && /bams-plugin:/ {
-      inh = ($0 ~ ("bams-plugin:(" H ")")) ? 1 : 0; next }
+      inh = ($0 ~ ("bams-plugin:(" H ")")) ? 1 : 0;
+      if(inh && $0 ~ /load_profile:exempt/){ v++ }   # same-line marker(앵커 줄 병기) 검출
+      next }
     { if(inh && $0 ~ /load_profile:exempt/){ v++ } }
     END{ print v+0 }' "$f")
   if [ "${viol:-0}" -gt 0 ]; then

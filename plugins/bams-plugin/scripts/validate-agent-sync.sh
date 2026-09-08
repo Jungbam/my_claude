@@ -347,9 +347,12 @@ else
 fi
 
 # ─────────────────────────────────────────────
-# 12. repo ↔ plugin-cache diff (agents / references / commands) (FAIL)
+# 12. repo ↔ plugin-cache diff (agents / references / commands / scripts + sync-cache.sh) (FAIL)
 #     캐시 경로는 resolve-cache.sh(installed_plugins.json installPath SSOT)로 확정.
-#     scripts/ 는 repo-fixed 실행이라 diff 대상에서 제외(런타임 미로드).
+#     scripts/ 포함(M8 fix): scripts는 repo-fixed 실행이 원칙이나, 캐시 사본이 stale하면
+#       캐시 경로로 오실행 시 검증 도구가 낡은 채 통과할 위험이 있어 동기 대상에 포함한다.
+#     sync-cache.sh(plugin 루트 파일)는 디렉터리가 아니므로 개별 파일 diff로 검사.
+#     commands/bams/*.txt(allowlist류)는 commands 디렉터리 재귀 diff에 이미 포함됨.
 #     CACHE_ROOT 해석 실패 시 SKIP이 아니라 ERRORS++ (E-2b ADJ-2 — R-2 무력화 방지).
 # ─────────────────────────────────────────────
 CACHE_ROOT="$("$PLUGIN_DIR/scripts/resolve-cache.sh")" || {
@@ -358,7 +361,7 @@ CACHE_ROOT="$("$PLUGIN_DIR/scripts/resolve-cache.sh")" || {
 }
 if [[ -n "$CACHE_ROOT" ]]; then
   _DIFF_FAIL=0
-  for sub in agents references commands; do   # scripts 제외(repo-fixed)
+  for sub in agents references commands scripts; do   # scripts 포함(M8) — commands 재귀에 *.txt 포함
     if [[ -d "$PLUGIN_DIR/$sub" && -d "$CACHE_ROOT/$sub" ]]; then
       d=$(diff -rq "$PLUGIN_DIR/$sub" "$CACHE_ROOT/$sub" 2>&1) || true   # diff exit1(차이)로 set -e 중단 방지
       [[ -n "$d" ]] && { echo -e "  [12/12] repo↔cache ($sub) ... ${RED}MISMATCH${NC}"; \
@@ -367,6 +370,14 @@ if [[ -n "$CACHE_ROOT" ]]; then
       echo -e "  [12/12] repo↔cache ($sub) ... ${YELLOW}WARN${NC}: 한쪽 디렉터리 부재"
     fi
   done
+  # sync-cache.sh — plugin 루트 개별 파일 (디렉터리 아님)
+  if [[ -f "$PLUGIN_DIR/sync-cache.sh" && -f "$CACHE_ROOT/sync-cache.sh" ]]; then
+    d=$(diff -q "$PLUGIN_DIR/sync-cache.sh" "$CACHE_ROOT/sync-cache.sh" 2>&1) || true
+    [[ -n "$d" ]] && { echo -e "  [12/12] repo↔cache (sync-cache.sh) ... ${RED}MISMATCH${NC}"; \
+      echo "$d" | sed 's/^/        /' | head -5; ERRORS=$((ERRORS+1)); _DIFF_FAIL=$((_DIFF_FAIL+1)); }
+  elif [[ -f "$PLUGIN_DIR/sync-cache.sh" ]]; then
+    echo -e "  [12/12] repo↔cache (sync-cache.sh) ... ${YELLOW}WARN${NC}: 캐시에 sync-cache.sh 부재"
+  fi
   [[ "$_DIFF_FAIL" -eq 0 ]] && echo -e "  [12/12] repo↔cache diff ... ${GREEN}OK${NC} (${CACHE_ROOT##*/bams-plugin/})"
 fi
 

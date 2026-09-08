@@ -1,0 +1,11 @@
+# load-profile-dynamic-allowlist.txt
+# check-exempt-guards.sh GUARD-d (rev1 Minor fix) 전용 allowlist.
+# 형식: <상대경로>:<앵커 실명>   (CMD_DIR 기준 상대경로 : subagent_type 플레이스홀더 앵커명)
+#   - non-department-lead exempt 마커의 선행 subagent_type 앵커가 플레이스홀더('{...}')인
+#     DYNAMIC 블록은, 이 파일에 <파일>:<앵커> 로 등재된 것만 OK로 통과한다.
+#   - 미등재 dynamic 앵커는 WARN이 아니라 FAIL(exit 1)로 승격된다.
+# 주석(#)·공백 줄 무시. 앵커명은 agentname() 추출값과 정확히 일치해야 한다(예: {참여-부서장}).
+#
+# ── 등재 항목 ──
+# dev 파이프라인 마무리(회고 KPT): Advisor 권고 부서장 목록을 런타임에 병렬 spawn하는 동적 앵커.
+dev/phase-4-finalization.md:{참여-부서장}

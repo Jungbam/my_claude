@@ -8,7 +8,9 @@
 #   (c) _shared_common.md 에 기본 load_profile(L2 fallback) 정의 실재 (inherits 마커 존재 시 강제)
 #   (d) [판정 단위=블록] 각 non-department-lead 마커가 속한 spawn 블록(직전 subagent_type
 #       앵커 ~ 다음 앵커)의 subagent_type 이 부서장 7인이면 FAIL. 파일 단위 은폐 판정 폐기.
-#       (b2 화이트리스트 init.md 예외 / '{dept}' 등 플레이스홀더 앵커는 DYNAMIC WARN, FAIL 아님)
+#       (b2 화이트리스트 init.md 예외 / '{dept}' 등 플레이스홀더 앵커는 DYNAMIC 판정)
+#       DYNAMIC 앵커(rev1 Minor fix): load-profile-dynamic-allowlist.txt 에 <파일>:<앵커> 로
+#       등재된 것만 OK, 미등재 dynamic 은 FAIL(WARN-only 종료 폐기).
 # 판정: 위반 1건이라도 있으면 exit 1. (마커 미존재 시 해당 가드 N/A → PASS)
 # 실행 위치: repo 고정(캐시 사본 실행 금지) — scripts/는 repo-fixed 운영 도구(design-infra §2-3).
 set -u
@@ -19,6 +21,7 @@ CMD_DIR="$P/commands/bams"
 SHARED="$CMD_DIR/_shared_common.md"
 ALLOWLIST="$CMD_DIR/load-profile-exempt.txt"
 B2WL="$CMD_DIR/load-profile-b2-whitelist.txt"
+DYNWL="$CMD_DIR/load-profile-dynamic-allowlist.txt"   # (d) DYNAMIC 앵커 allowlist
 
 INHERIT_SEC='위임 원칙'   # inherits 마커가 상속하는 _shared_common 절명
 LEADS7='product-strategy|frontend-engineering|backend-engineering|platform-devops|design-director|qa-strategy|product-analytics'
@@ -34,6 +37,7 @@ fi
 load_list(){ [ -f "$1" ] && sed -E 's/#.*$//' "$1" | sed -E 's/[[:space:]]+$//' | grep -v '^[[:space:]]*$'; }
 ALLOW="$(load_list "$ALLOWLIST")"
 B2LIST="$(load_list "$B2WL")"
+DYNLIST="$(load_list "$DYNWL")"
 
 RC=0
 INHERIT_MARKERS=0
@@ -83,7 +87,12 @@ for f in "${FILES[@]}"; do
             RC=1
           fi ;;
         DYN)
-          echo "GUARD-d WARN: $rel — 플레이스홀더 앵커(bams-plugin:$agent) → DYNAMIC(inherits 권장)" ;;
+          if printf '%s\n' "$DYNLIST" | grep -Fxq "$rel:$agent"; then
+            echo "GUARD-d OK: $rel — DYNAMIC 앵커(bams-plugin:$agent) allowlist(load-profile-dynamic-allowlist.txt) 등재"
+          else
+            echo "GUARD-d FAIL: $rel — DYNAMIC 앵커(bams-plugin:$agent) 미등재 (load-profile-dynamic-allowlist.txt 에 '$rel:$agent' 등재 필요)"
+            RC=1
+          fi ;;
         NOANCHOR)
           echo "GUARD-d WARN: $rel — non-department-lead 마커의 선행 subagent_type 앵커 부재" ;;
         *) : ;;  # OK: 비-부서장 앵커 블록 → 정상
