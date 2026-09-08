@@ -79,6 +79,7 @@ SYNC_FILES=(
   SKILL.md.tmpl
   package.json
   setup.sh
+  sync-cache.sh
 )
 
 EXCLUDE_ARGS=(
