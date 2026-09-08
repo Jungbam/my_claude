@@ -1,5 +1,7 @@
 # 기술 스택 프로파일 (Stack Profile)
 
+> **로드 계층: L1** — 커맨드 `load_profile.refs`에 `{doc: stack-profile}`가 지목된 위임에서만 Read한다(기본 미로드). 개발/QA 계열 6에이전트 전용 SSOT.
+
 > 개발 계열 에이전트(frontend-engineering, backend-engineering, platform-devops, data-integration, qa-strategy, automation-qa)가 위임 수신 시 참조하는 기술 스택 기본값 단일 진실 소스(SSOT).
 > 목적: 개발 계열 프롬프트가 스택 무관(generic)으로 설계되어 있어 매번 컨벤션을 재발견하는 낭비를 줄인다. 사용자는 대부분 TypeScript/Next.js(App Router)로 개발하고 가끔 Python/Go를 사용한다.
 
