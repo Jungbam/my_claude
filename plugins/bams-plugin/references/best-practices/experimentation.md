@@ -2,6 +2,13 @@
 
 ## Responsibility: 실험 설계, 실험 계측 검증, 결과 해석, 표본 크기 산정, 편향 탐지
 
+| 블록 | 트리거 | 라인범위 |
+|------|--------|----------|
+| 실험 설계 (design_experiment) | A/B 테스트 설계 요청을 수신할 때 | L14-35 |
+| 실험 계측 검증 (verify_experiment_instrumentation) | 실험 전 이벤트 수집이 올바른지 검증할 때 | L38-57 |
+| 결과 해석 (interpret_results) | 실험 종료 후 결과 분석·의사결정 도출 시 | L60-81 |
+| 편향 탐지 (detect_bias) | 결과가 예상과 다르거나 설계 유효성 검토 시 | L84-102 |
+
 ---
 
 ### 실험 설계 (design_experiment)

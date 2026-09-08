@@ -2,6 +2,14 @@
 
 ## Responsibility: 디자인 토큰 시스템, Figma Variables 변환, 컴포넌트 토큰, 디자인 시스템 문서화, 에셋 관리
 
+| 블록 | 트리거 | 라인범위 |
+|------|--------|----------|
+| 디자인 토큰 시스템 관리 (manage_design_token_system) | 토큰 추가/수정 또는 초기 구축 시 | L15-37 |
+| Figma Variables 변환 (sync_figma_variables) | Figma 토큰 변경을 코드에 반영할 때 | L40-59 |
+| 컴포넌트 토큰 정의 (define_component_tokens) | 컴포넌트 추가 또는 토큰 수정 시 | L62-81 |
+| 디자인 시스템 문서화 (document_design_system) | 컴포넌트 추가·가이드라인 업데이트 시 | L84-103 |
+| 에셋 레지스트리 관리 (manage_asset_registry) | graphic-designer 에셋 등록 시 | L106-124 |
+
 ---
 
 ### 디자인 토큰 시스템 관리 (manage_design_token_system)

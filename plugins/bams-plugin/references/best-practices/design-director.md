@@ -4,6 +4,14 @@
 
 ## Responsibility: 디자인 부서장 — claude.ai/design 스타일 반복 워크플로우 오케스트레이션
 
+| 블록 | 트리거 | 라인범위 |
+|------|--------|----------|
+| 스킬 1: 루프 오케스트레이션 (orchestrate_design_loop) | 디자인 반복 루프를 실행·오케스트레이션할 때 | L17-78 |
+| 스킬 2: 수렴 판정 (evaluate_convergence) | 루프 반복분의 수렴 여부를 판정할 때 | L81-123 |
+| 스킬 3: Fallback 처리 (handle_render_failure) | 렌더 실패 발생 시 폴백 처리할 때 | L126-165 |
+| 스킬 4: 크리에이티브 디렉션 (creative_direction) | 디자인 Phase 시작·브랜드/시각 언어 방향 결정 시 | L168-189 |
+| 스킬 5: 크로스 부서 핸드오프 (cross_department_handoff) | Phase C 종료 후 frontend에 구현 스펙 전달 시 | L192-232 |
+
 ---
 
 ### 스킬 1: 루프 오케스트레이션 (orchestrate_design_loop)
