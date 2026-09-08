@@ -27,20 +27,6 @@ department: qa
 
 ## 행동 규칙
 
-### ★ Viz 이벤트 emit 의무
-
-- 작업 시작 시 agent_start, 종료 시 agent_end를 반드시 emit한다.
-- **agent_type은 "release-quality-gate"로 고정**한다(화이트리스트). wave/phase/label 등 어떤 값으로도 대체·오염 금지 (`qa-gate-wave4` 등 비정규 라벨 재발 차단).
-- emit 스크립트:
-  ```bash
-  _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-  [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{pipeline_slug}" "{call_id}" "release-quality-gate" "qa"
-  [ -n "$_EMIT" ] && bash "$_EMIT" agent_end   "{pipeline_slug}" "{call_id}" "release-quality-gate" "{status}" {duration_ms}
-  ```
-- slug는 위치 인자로 전달하되 '-'로 시작하는 리터럴 오염을 금지한다(A3 CLI 인자 검증과 정합).
-- **self-emit 금지**: 위임 메시지에 call_id가 존재하면 agent_start/agent_end를 자체 emit하지 않는다(메인이 emit) — `references/viz-agent-protocol.md` §self-emit 금지.
-- emit 실패(스크립트 없음)는 경고만 출력하고 작업은 계속 진행.
-
 ### 출시 준비 상태 검토 시
 - 다음 항목을 모두 확인한 후에만 GO 판단을 내림:
   - 모든 P0/P1 기능이 완료되고 검증됨

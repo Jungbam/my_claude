@@ -41,17 +41,9 @@ _SP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/stack-profi
 - 인증·인가: 미들웨어+핸들러 이중 검증, 기본 거부 원칙 (기존 보안 원칙과 연계)
 - Python(FastAPI 등)/Go 프로젝트로 판별되면 stack-profile.md 보조 프로파일 준수
 
-### ★ Viz 이벤트 규칙 (메인 단독 emit)
+### ★ 완료 보고 규칙
 
-위임받은 작업의 viz 이벤트(agent_start·agent_end)는 **위임자(메인/커맨드 대화)가 단독으로 emit한다.** 이 에이전트는 viz 이벤트를 직접 emit하지 않으며, `bams-viz-emit.sh`를 호출하지 않는다.
-
-**규칙:**
-- **agent_start·agent_end self-emit 전면 금지.** 위임자가 spawn 직전 agent_start를, 결과 수신 직후 agent_end를 emit한다. 이 에이전트는 start-존재 grep guard·backfill·중복 확인 등 계측 기계를 일절 실행하지 않는다.
-- **emit 완료를 보고하지 않는다.** 완료 보고에 "agent_end emit 완료" 등 계측 수행 문구를 쓰지 않는다.
-- **duration은 위임자가 실측한다.** 위임자가 agent_start 시각을 캐싱해 agent_end에서 델타(ms)를 주입한다. 이 에이전트가 duration_ms를 산출·전달하지 않으므로 `0`/`null`/라운드값(예: 240000·180000) 오염 경로가 원천 차단된다.
-- **시각 계산 주의**: `date +%s%3N`은 **macOS에서 밀리초(`%N`)를 지원하지 않아** 사용 금지. 시각 반환이 필요하면 epoch 초(`date +%s`)만 쓰고, 밀리초 정밀 계측은 위임자에 위임한다.
-- **상태 전달**: 성공/에러는 completion 보고의 `status` 필드로 위임자에게 전달한다. 에러 시에도 반드시 **근본 원인 + 영향 범위**를 담아 보고하면, 위임자가 status="error"로 agent_end를 emit한다 — 에이전트가 error emit을 직접 수행하지 않는다.
-- **call_id**: 위임 메시지에서 전달받은 call_id를 결과 보고에 그대로 재기재한다(위임자의 start↔end 매칭용). 이 에이전트는 call_id를 생성하지 않는다.
+- **상태 전달**: 성공/에러는 completion 보고의 `status` 필드로 위임자에게 전달한다. 에러 시에도 반드시 **근본 원인 + 영향 범위**를 담아 보고한다.
 
 ### ★ Agent tool 호출 SOP (필수 준수)
 
@@ -94,7 +86,7 @@ Large 작업은 pipeline-orchestrator에게 배치 분할 계획을 사전 보�
 **미사용 export 판정 방법(dead-code 정리 배치)**: knip/ts-prune 일괄 스캔 결과(위임 메시지에 첨부된 인벤토리)를 1차 근거로 채택하고, 수동 `grep`은 애매 케이스에 한정한다 — 심볼별 수동 grep을 수십 회 반복하지 않는다(배치 시간·토큰 폭증 방지).
 
 
-### ★ hotfix 수신 시 복잡도 평가 (agent_start 직후 필수)
+### ★ hotfix 수신 시 복잡도 평가 (위임 수신 직후 필수)
 
 1. 영향 파일 수 분석: `Grep + Glob`으로 수정 대상 파일 목록 확인
 2. 판단 기준:
@@ -104,7 +96,7 @@ Large 작업은 pipeline-orchestrator에게 배치 분할 계획을 사전 보�
 3. hotfix 범위가 초기 평가 초과 시: 즉시 pipeline-orchestrator에 에스컬레이션
 
 ### ★ 세션 시작 시 교훈 적용 가시화 (필수) → 이관됨
-BE-MEMLOG: MEMORY.md 로드 직후 Bash로 교훈 요약(agent_end emit/subagent_type/hotfix 복잡도) 출력. 상세: `references/agent-rules/backend-engineering-rules.md` §"★ 세션 시작 시 교훈 적용 가시화 (필수)"
+BE-MEMLOG: MEMORY.md 로드 직후 Bash로 교훈 요약(subagent_type/hotfix 복잡도) 출력. 상세: `references/agent-rules/backend-engineering-rules.md` §"★ 세션 시작 시 교훈 적용 가시화 (필수)"
 
 ### 보안 원칙 → 이관됨
 BE-SEC: 미들웨어 수준 인증·인가, 진입점 입력 검증(허용 목록), OWASP Top 10 방지 패턴, 시크릿 매니저, 기본 거부 원칙. 상세: `references/agent-rules/backend-engineering-rules.md` §"보안 원칙"
@@ -194,7 +186,7 @@ delegation-protocol.md의 "부서장 → 에이전트" 위임 형식에 따라 �
 3. 각 에이전트의 보고(`output_artifacts`, `status`, `issues`)를 수집한다
 4. 전체 품질 기준 충족 여부를 검토하고 `quality_status`를 결정한다
 5. pipeline-orchestrator에게 종합 보고(`aggregated_output`, `quality_status`, `quality_detail`)를 전달한다
-   **보고 시 status(success/error)를 명확히 전달한다 — agent_end viz 이벤트는 위임자(메인)가 emit한다 (★ Viz 이벤트 규칙 (메인 단독 emit) 섹션 참조)**
+   **보고 시 status(success/error)를 명확히 전달한다.**
 
 **에스컬레이션:** 부서 내 해결이 불가능한 이슈(부서 간 인터페이스 충돌, 품질 기준 미달)는 pipeline-orchestrator에게 즉시 에스컬레이션한다.
 

@@ -80,7 +80,6 @@ for line in sys.stdin:
 **위임 원칙:**
 1. 슬롯-API 매핑 분석, RSC fetch 스니펫 생성 → `run_codex "$prompt" read-only`
 2. codex 응답은 Claude가 검증·구조화 후 Write 도구로 저장 (`data-binding/` 하위만)
-3. viz agent_end result_summary에 "via gpt-5.6-luna (codex MCP)" 명시
 
 ## 전문 영역
 
@@ -95,11 +94,6 @@ for line in sys.stdin:
 5. **server/client 마킹 (sc_marking)**: 각 슬롯이 Server Component에서 처리되는지 Client Component에서 처리되는지 결정하고 binding-map.json에 `"component_type": "server" | "client"` 마킹.
 
 ## 행동 규칙
-
-### SR-4 (viz 이벤트 emit 의무)
-- 작업 시작 시 `agent_start` emit (call_id, agent_type: "data-binding-mapper", department: "design" 포함).
-- 작업 완료 시 `agent_end` emit (status, duration_ms, result_summary 포함).
-- emit 스크립트: `bun run ~/.bams/scripts/emit-event.ts agent_start {...}` 형식.
 
 ### 데이터 전략 선택 시
 - **OQ4=(c) RSC fetch 디폴트**: `async function Page()` + `await fetch()` 패턴. `fetch-snippets.tsx`를 RSC Server Component로 생성.

@@ -108,7 +108,7 @@ pipeline-orchestrator가 Phase 전환 시 이 에이전트를 호출하여 핸�
 |------|-----------|-----------|-------------|
 | 기획 → 개발 | product-strategy, business-analysis, ux-research | frontend-engineering, backend-engineering | PRD, 기술 설계서, 태스크 분해 목록 |
 | 개발 → QA | frontend-engineering, backend-engineering, platform-devops | qa-strategy, automation-qa | 빌드 산출물, API 스펙, 구현 요약 |
-| QA → 리뷰 | qa-strategy, defect-triage | release-quality-gate, executive-reporter | QA 리포트, 결함 목록, 테스트 커버리지 |
+| QA → 리뷰 | qa-strategy, defect-triage | release-quality-gate | QA 리포트, 결함 목록, 테스트 커버리지 |
 | 리뷰 → 배포 | release-quality-gate | platform-devops | 릴리즈 품질 게이트 결과, 배포 승인 |
 
 ### 핸드오프 보고 형식

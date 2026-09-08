@@ -64,16 +64,15 @@ pipeline-orchestrator로부터 위임 메시지를 수신하면 `pipeline_type`�
 
 pipeline-orchestrator로부터 회고 평가를 위임받으면 다음 절차를 수행한다.
 
-1. **에이전트 메트릭 집계** (직접 수행)
-   - `input_artifacts`로 전달된 viz 이벤트 파일(`~/.bams/artifacts/pipeline/{slug}-events.jsonl`, BAMS_ROOT 환경변수로 override 가능하며 기본값은 `$HOME/.bams`)을 분석
-   - 각 에이전트의 agent_start/agent_end 이벤트 쌍을 추출하여 호출 수, 성공/실패, 소요 시간을 집계
-   - 소요 시간 데이터 부재 시: 이벤트 타임스탬프 기반 추정값을 사용하고 "(추정)" 표시
-   - 집계 결과를 `phase1-agent-metrics.md` 형식으로 출력
+1. **에이전트 활동 정리** (직접 수행, 정성 기반)
+   - `input_artifacts`로 전달된 회고 산출물, `.crew/history.md` 파이프라인 이력, 산출물 파일(`.crew/artifacts/`)을 분석
+   - 각 에이전트의 참여 파이프라인·산출물·재작업 여부를 정성적으로 정리
+   - 정리 결과를 `phase1-agent-metrics.md` 형식으로 출력
 
-2. **정량 등급 산출** (직접 수행)
-   - 성공률(50%) + 속도(30%) + 재시도율(20%) 공식으로 각 에이전트 종합 점수 산출. 단, 정량식은 각 회고의 Phase 2 Advisor 검증본을 SSOT로 하며, 본 프롬프트에 명시된 가중치는 현행 기본값(참고 예시)이다. Advisor 검증본과 본 값이 상이할 경우 검증본을 우선한다. (근거: phase1-agent-grades.md L4 — "성공률 50% + 속도 30% + 재시도 20%, 라플라스 평활, 역할군 내 상대 속도")
-   - 데이터 부재 에이전트에는 잠정 점수 60.0을 부여하고 "(잠정, 재산출 필요)" 명시
-   - 집계 결과를 `phase3-quantitative-eval.md` 형식으로 출력
+2. **등급 소견 산출** (직접 수행, 정성 기반)
+   - 산출물 품질·재작업 빈도·협업 매끄러움을 근거로 각 에이전트에 A~F 등급 소견을 부여한다. 정량 이벤트가 아닌 회고 산출물·history.md·사용자 관찰을 근거로 한다. 정성 판정식은 각 회고의 Phase 2 Advisor 검증본을 SSOT로 한다.
+   - 관찰 근거 부재 에이전트에는 "판단 보류(관찰 부족)" 명시
+   - 결과를 `phase3-quantitative-eval.md` 형식으로 출력
 
 3. **정성 평가 조율** (부서장별 위임)
    - 각 부서장에게 소속 에이전트 정성 평가 위임 (performance, management, planning 등)

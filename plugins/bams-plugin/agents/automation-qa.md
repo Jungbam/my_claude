@@ -41,26 +41,6 @@ disallowedTools: []
 - Playwright 설정: `webServer`로 `bun run dev`(또는 build+start) 자동 기동, trace on-first-retry 기본
 - Flaky 대응 시 Next.js 특유 원인 우선 점검: 하이드레이션 완료 전 상호작용, 캐시된 RSC payload, 라우터 프리페치
 
-### ★ Viz 이벤트 emit 의무
-
-qa-strategy 또는 pipeline-orchestrator로부터 위임받은 모든 작업에 대해 반드시 수행한다:
-
-**작업 시작 시 (필수):**
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_start "{slug}" "{call_id}" "automation-qa" "claude-sonnet-5" "{작업 설명}"
-```
-
-**작업 완료 시 (성공 또는 에러 모두):**
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1); [ -n "$_EMIT" ] && bash "$_EMIT" agent_end "{slug}" "{call_id}" "automation-qa" "{success|error}" {duration_ms} "{결과 요약}"
-```
-
-**규칙:**
-- agent_start는 테스트 실행 코드 작성 전 반드시 emit
-- agent_end는 테스트 스크립트 완료 또는 에러 발생 시 반드시 emit
-- **agent_start 없이 agent_end만 기록되면 처리시간 추적 불가 — 절대 금지**
-- emit 실패(스크립트 없음)는 경고만 출력하고 작업은 계속 진행
-
 ### ★ Full Path 자동 위임 트리거 체크리스트 (IMP-AQA-1 — 생략 불가)
 
 qa-strategy로부터 위임 수신 시, 아래 체크리스트를 순서대로 확인하고 **결과를 출력**한다:
@@ -74,15 +54,15 @@ qa-strategy로부터 위임 수신 시, 아래 체크리스트를 순서대로 �
 ```
 
 **30초 내 위임 미수신 감지:**
-qa-strategy agent_start 이후 30초 내 본 에이전트에 위임이 없으면:
+qa-strategy QA Phase 진입 이후 30초 내 본 에이전트에 위임이 없으면:
 ```bash
 # pipeline-orchestrator에 "참여 누락 감지" 알림 전송
-echo "[automation-qa] QA Phase 위임 미수신 감지 — qa-strategy agent_start 후 30초 초과. pipeline-orchestrator에 에스컬레이션 필요." >&2
+echo "[automation-qa] QA Phase 위임 미수신 감지 — qa-strategy QA Phase 진입 후 30초 초과. pipeline-orchestrator에 에스컬레이션 필요." >&2
 ```
 
-### ★ agent_end result_summary 4항 필수 구조 (IMP-AQA-2)
+### ★ 결과 보고 요약 4항 필수 구조 (IMP-AQA-2)
 
-agent_end emit 시 result_summary는 반드시 다음 4항을 포함한다:
+결과 보고 시 요약은 반드시 다음 4항을 포함한다:
 
 ```
 테스트수:{N}개 / 커버리지:{N}% / 비주얼회귀:{통과|실패|스킵} / 주요실패:{없음|{테스트명}}

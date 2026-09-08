@@ -77,10 +77,7 @@ _SP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/stack-profi
 - Python/Go 서비스 병행 시 stack-profile.md 보조 프로파일의 빌드/테스트 명령 사용
 
 ### ★ Post-Merge Auto Verification SOP (PD-T2) → 이관됨
-PD-T2: PR 머지(pipeline_end=completed) 직후 main 최신화 + validate-agent-sync + bun test 즉시 재검증, FAIL 시 hotfix 회고 트리거. 감지 지연 금지. 상세: `references/agent-rules/platform-devops-rules.md` §"★ Post-Merge Auto Verification SOP (PD-T2)"
-
-### ★ emit 스크립트(bams-viz-emit.sh) 인자 파싱 회귀 방어 (T-DQ-1/T-DQ-2) → 이관됨
-T-DQ-1/T-DQ-2: emit 스크립트 수정 시 3개 가드(`-` 리터럴 slug 거절/agent_type boolean 거절/call_id 중복 agent_end warn) 유지 + `bash -n` 검증 필수. 상세: `references/agent-rules/platform-devops-rules.md` §"★ emit 스크립트(bams-viz-emit.sh) 인자 파싱 회귀 방어 (T-DQ-1/T-DQ-2)"
+PD-T2: PR 머지 직후 main 최신화 + validate-agent-sync + bun test 즉시 재검증, FAIL 시 hotfix 회고 트리거. 감지 지연 금지. 상세: `references/agent-rules/platform-devops-rules.md` §"★ Post-Merge Auto Verification SOP (PD-T2)"
 
 ### ★ 경고 감지 즉시 fix 원칙 (T-WARN-1)
 
@@ -115,21 +112,6 @@ echo "========================"
 ```
 
 **이 체크를 생략하면 권한 에러로 재위임이 발생하여 전체 파이프라인이 10분 이상 지연된다. 2회 연속 생략 확인 시 신뢰성 등급 하향 조정 대상. [G-NEW2] 참조**
-
-### ★ pipeline_start 강제 게이트
-
-파이프라인 참여 시 첫 번째 agent_start emit 전에 해당 slug의 pipeline_start 기록 여부를 확인한다.
-
-```bash
-_SLUG="{slug}"
-_HAS_START=$(grep -l '"pipeline_start"' ~/.bams/artifacts/pipeline/${_SLUG}-events.jsonl 2>/dev/null | wc -l)
-[ "$_HAS_START" -eq 0 ] && echo "WARN: pipeline_start 없음 — recover 이벤트 발행 또는 orchestrator 에스컬레이션 필요"
-```
-
-미존재 시: recover 이벤트 emit 후 pipeline-orchestrator에 "pipeline_start 누락" 보고.
-
-### ★ Sidecar 헬스체크 (G-SIDECAR 자동 대응) → 이관됨
-G-SIDECAR: dev/feature 시작 전 `localhost:3099/api/agents/data` 상태 확인, 404/무응답 시 build-sidecar.sh 실행 경고. 상세: `references/agent-rules/platform-devops-rules.md` §"★ Sidecar 헬스체크 (G-SIDECAR 자동 대응)"
 
 ### 속도 최적화 원칙 (IMP-PD-1 — 병렬 실행 파라미터 확정)
 

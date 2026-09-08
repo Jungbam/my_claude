@@ -99,39 +99,18 @@ _SP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/stack-profi
 - **구현 완료 후 자체 검증 의무**: `bunx tsc --noEmit` + `bun run lint` 통과 확인 후 보고 (배치 최종 회차에는 `bun run build`까지) — package.json scripts 우선
 - Python/Go 프로젝트로 판별되면 이 절 대신 stack-profile.md 보조 프로파일을 따른다
 
-### ★ Viz 이벤트 emit 의무 (agent_end는 위임자(메인)만 emit)
-
-**에이전트는 agent_start·agent_end 어느 것도 직접 emit하지 않는다.** 두 이벤트는 모두
-위임자(메인/부서장)가 emit한다. 에이전트는 계측에 관해 다음만 수행한다:
-
-1. **emit 금지** — `bams-viz-emit.sh agent_start` / `agent_end`를 에이전트가 직접 호출하지 않는다.
-   자가진단·상태 확인용 Bash는 허용되나, viz 이벤트 emit은 위임자 전담이다.
-2. **완료 보고 형식** — 작업 완료 시 결과 요약과 함께 **경과 시간을 보고하지 않거나(무반환),
-   보고할 경우 시작/종료 epoch millisecond 2값만** 그대로 반환한다. `now_ms` 헬퍼를 경유해
-   산출한 실측 ms만 허용하며, macOS `date +%s%3N`(`%N` 미지원 → 오염) 결과는 반환하지 않는다.
-3. **"emit 완료" 문구 금지** — 완료 보고에 "agent_end emit 완료", "viz 기록함" 등
-   계측을 자신이 수행했다는 서술을 쓰지 않는다. `exit 0`은 계측 성공의 근거가 아니다.
-4. **위임자(메인) 책임** — 메인은 agent_start 시 캡처한 `now_ms`를 보관했다가 완료 시점의 `now_ms`와
-   차분해 `duration_ms`를 주입하고, 위임 시 부여한 동일 call_id로 agent_end를 emit한다.
-   **다음 값은 하드 거부하고 재산출한다**: `duration_ms`가 `0`·`null`·빈 인자, 또는
-   분/초 라운드값(예: 240000·180000·60000처럼 1000·60000의 정확한 배수로 의심되는 값).
-   거부 시 보관한 시작 ts와 실제 종료 ts를 재차분하며, 시작 ts 유실 시 이벤트 파일의
-   매칭 agent_start 타임스탬프로 복원한다.
-5. **재개(recover) 예외** — 매칭 agent_start가 유실된 recover 상황에서만, 메인이 agent_start를
-   수동 backfill한 뒤 재개한다(고아 agent_end 방지). 이 경우에도 emit 주체는 메인이다.
-
 ### ★ 반복 도메인 통합 대응 규칙 (필수 — 인라인 Bash 실행형 하드 게이트)
 
 위임 메시지 수신 시 반복 도메인 여부를 **판단이 아닌 Bash 실행**으로 먼저 카운트한다:
 
 1. 파이프라인 slug/description에서 도메인 키워드 1~2개 추출 (예: `결제`, `인증`, `하이라이팅`)
-2. 최근 7일 내 동일 키워드 파이프라인을 실행형 커맨드로 카운트한다:
+2. 최근 동일 키워드 파이프라인을 실행형 커맨드로 카운트한다:
    ```bash
    _DOMAIN_KW="{위임 slug/description에서 추출한 키워드}"
-   _RECENT_COUNT=$(find ~/.bams/artifacts/pipeline -name "*-events.jsonl" -mtime -7 2>/dev/null | xargs grep -l "$_DOMAIN_KW" 2>/dev/null | wc -l)
+   _RECENT_COUNT=$(grep -c "$_DOMAIN_KW" .crew/history.md 2>/dev/null || echo 0)
    echo "반복 도메인 카운트: ${_RECENT_COUNT}건"
    ```
-   (정확한 이벤트 파일 경로/스키마는 platform-devops와 최종 조율)
+   (`.crew/history.md` 파이프라인 이력 기록 기준)
 3. **3건 이상 감지 시**: 증상별 새 파이프라인을 열지 않는다. 호출자에게 `feature_{도메인}완결` 통합 파이프라인 제안을 반환한다.
    - 제안 형식: "[반복 도메인 감지] {키워드} 관련 파이프라인 N건이 직전 7일 내 관측됨. 증상별 패치 대신 `feature_{키워드}완결` 통합 파이프라인 착수를 권고."
 4. 통합 파이프라인 착수 시 필수 선행: (a) 현상×원인 매트릭스 작성, (b) 근본 원인 분류, (c) PRD에 미완료 선행 파이프라인 목록과 종료 전략 포함
@@ -307,7 +286,7 @@ delegation-protocol.md의 "부서장 → 에이전트" 위임 형식에 따라 �
 3. 각 에이전트의 보고(`output_artifacts`, `status`, `issues`)를 수집한다
 4. 전체 품질 기준 충족 여부를 검토하고 `quality_status`를 결정한다
 5. pipeline-orchestrator에게 종합 보고(`aggregated_output`, `quality_status`, `quality_detail`)를 전달한다
-   **보고 시 status(success/error)를 명확히 전달한다 — agent_end viz 이벤트는 위임자(메인)가 emit한다 (★ Viz 이벤트 emit 의무 섹션 참조)**
+   **보고 시 status(success/error)를 명확히 전달한다.**
 
 **에스컬레이션:** 부서 내 해결이 불가능한 이슈(부서 간 인터페이스 충돌, 품질 기준 미달)는 pipeline-orchestrator에게 즉시 에스컬레이션한다.
 

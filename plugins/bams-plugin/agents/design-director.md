@@ -46,7 +46,6 @@ LOOP-PHASE: Phase A(크리에이티브 브리프)/B(초안 생성)/C(Render-Revi
 
 1. `.crew/artifacts/design/{pipeline_slug}/` 디렉터리 Write 권한 확인 — 없을 경우 platform-devops에 디렉터리 생성 위임
 2. 선행 아티팩트 존재 확인 — PRD(`*-prd.md`) 및 design 입력 문서가 존재해야 Phase A 진입 가능
-3. browse 바이너리 stale 사전 체크 — `curl localhost:3099/api/agents/data` 404 응답 시 sidecar stale 확정 ([G-SIDECAR] 참조), Phase C 전 반드시 확인
 
 ### 수렴 판정 체크리스트 (MUST 5개)
 
@@ -210,7 +209,6 @@ aggregated_output:
     - tokens/tokens.css
     - tokens/tokens.ts
     - preview/screens/*.html
-# viz: agent_start/agent_end는 메인이 emit — 본 스키마에 duration_ms/emit 필드를 두지 않는다(self-emit 금지, §"viz 이벤트 emit 규칙" 참조).
 quality_status: PASS | FAIL | CONDITIONAL | PENDING_FE (design-import 시나리오에서 FE 직접 spawn 대기)
 quality_detail:
   iterations_used: N  # N ≤ 5
@@ -329,13 +327,6 @@ for line in sys.stdin:
 }
 ```
 
-### viz 이벤트 emit 규칙 (self-emit 금지 — SSOT)
-
-- **agent_start / agent_end는 위임자(메인)만 emit한다.** design-director를 포함한 모든 에이전트는 viz emit 스크립트를 직접 호출하지 않는다.
-- 에이전트는 완료 보고에 **"emit 완료"라고 쓰지 않는다.** 계측용 시각이 필요하면 `start_ms`/`end_ms` 정수 2값만 반환하고, 없으면 생략한다. duration 계산·주입은 메인이 `agent_start` 시점에 캡처한 값으로 수행한다.
-- **금지값**: duration `0`·`null`·`240000`/`180000`처럼 라운드된 값은 계측 무효로 하드 거부된다. 이런 값이 산출되면 계측 실패로 간주하고 보고한다.
-- **금지 명령**: `date +%s%3N`을 직접 호출하지 않는다(macOS BSD date는 `%N` 미지원 → `…N` 문자열 오염). 시각이 필요하면 메인이 제공하는 `now_ms` 헬퍼(perl/python3 폴백)만 경유한다.
-
 ### 1 iter 1 specialist 원칙
 
 Phase C Revise 단계에서 **동일 iteration에 복수 specialist 재호출을 금지**한다.
@@ -446,8 +437,7 @@ DELEG-MSG: specialist 호출 시 필수 필드(task_description/call_id/input_ar
 ### ★ 실행 전 Preflight 체크 (필수 — 건너뛰기 금지)
 
 1. `disallowedTools` 확인: Write, Edit 금지 여부 → 금지 시 platform-devops에 파일 생성 위임 준비
-2. viz 이벤트는 **직접 emit하지 않는다**. `agent_start`/`agent_end`는 위임자(메인)가 전담하며, 에이전트는 emit 스크립트도 `date +%s%3N` 등 시각 취득 명령도 직접 실행하지 않는다. (self-emit 전면 금지)
-3. 위임 범위 사전 평가: 5명 동시 위임 시 컨텍스트 부하 위험 → Phase별 순차 분할 선택
+2. 위임 범위 사전 평가: 5명 동시 위임 시 컨텍스트 부하 위험 → Phase별 순차 분할 선택
 
 ### ★ design-director 실패 시 Fallback SOP → 이관됨
 FALLBACK-SOP: 도구 권한 에러/세션 중단/2회 연속 실패 시 대응 SOP. 상세: `references/agent-rules/design-director-rules.md` §"★ design-director 실패 시 Fallback SOP"

@@ -112,14 +112,6 @@ pipeline-orchestrator에게 다음 형식으로 보고한다 (delegation-protoco
 - 테스트 범위 설계 시 서버/클라이언트 경계별로 구분: 서버 로직(단위/통합) vs 클라이언트 상호작용(Testing Library) vs 전체 플로우(Playwright)
 - Python/Go 프로젝트는 stack-profile.md 보조 프로파일(pytest / go test) 기준으로 동일 원칙 적용
 
-### ★ 이벤트 emit 스키마 검증 P0 케이스 편입 (T-QASCOPE)
-
-dev/hotfix 파이프라인 Wave 계획 수립 시 다음을 테스트 전략 범위에 **P0로 명시 편입**한다:
-
-1. `bams-viz-emit.sh` 또는 emit 관련 코드가 변경 범위에 포함되면, 산출물 회귀 테스트와 함께 계측(emit) 검증을 병행 계획한다
-2. 검증 항목: (a) call_id 중복 emit 여부, (b) agent_type 필드가 부서명 매핑 리스트에 속하는지, (c) slug 위치 인자가 `-`로 시작하는 리터럴로 오염되지 않았는지, (d) agent_start/agent_end 쌍 누락 여부
-3. automation-qa 위임 시 위 항목을 회귀 테스트 케이스에 포함하도록 `quality_criteria`에 명시
-
 ### ★ 정량 보고 자기검증 (Major/Critical 등급 — OQ5=A)
 
 Major/Critical 결함의 정량 근거(grep count 등) 보고 시, 동일 명령을 **1회 자기 재실행**하여 결과 일치 확인:
@@ -134,13 +126,13 @@ Major/Critical 결함의 정량 근거(grep count 등) 보고 시, 동일 명령
 ### ★ QA Phase 완료 조건 (Phase 게이트 — 생략 불가)
 
 pipeline-orchestrator에 GO 보고 전 반드시 확인:
-- [ ] qa-strategy agent_end emit 완료 (status=success 또는 error)
-- [ ] automation-qa agent_end emit 완료 (Full Path 시)
-- [ ] defect-triage agent_end emit 완료 (Critical/Major 결함 발견 시)
-- [ ] release-quality-gate agent_end emit 완료
+- [ ] qa-strategy 결과 보고 완료 (status=success 또는 error)
+- [ ] automation-qa 결과 보고 완료 (Full Path 시)
+- [ ] defect-triage 결과 보고 완료 (Critical/Major 결함 발견 시)
+- [ ] release-quality-gate 결과 보고 완료
 - [ ] **spec After 활성 코드 검증** (Critical, OQ2=B): F7 회귀 시 `grep -c "^# " <변경 블록>` 자동 실행 → ≠0이면 즉시 FAIL. 주석 처리 발견 시 hr-agent 재spawn 요청
 
-★ 위 4항목 중 미완료 항목이 있으면 GO 보고 불가 — no_end 0건 달성 조건
+★ 위 4항목 중 미완료 항목이 있으면 GO 보고 불가
 
 ### ★ qa-strategy 보고서 필수 포함 항목 (결과 보고 시)
 
@@ -166,18 +158,6 @@ defect_triage: <call_id> | skip_reason=<사유>   # 신규 — Critical/Major �
 release_quality_gate: <위임 여부 or call_id>
 ```
 
-### ★ QA Phase step_start / step_end 이벤트 emit (IMP-QS-2)
-
-QA Phase 진입 시점에 step_start 이벤트를 emit하고, 모든 하위 에이전트 완료 후 step_end를 emit한다:
-
-```bash
-_EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plugin/*" 2>/dev/null | head -1)
-# QA Phase 진입 시
-[ -n "$_EMIT" ] && bash "$_EMIT" step_start "{pipeline_slug}" "{step_number}" "QA Phase" "qa"
-# QA Phase 완료 시 (GO/NO-GO 판단 직후)
-[ -n "$_EMIT" ] && bash "$_EMIT" step_end "{pipeline_slug}" "{step_number}" "done" {duration_ms}
-```
-
 ### review.md / AC 작성 시 (SR-5: 셸 스크립트 추출 의무)
 
 - review.md 또는 spec.md의 AC 섹션에서 동일 검증 패턴(grep, bash 명령 등)이 3건 이상 발견되면 `scripts/verify-{slug}.sh` 형태의 셸 스크립트를 신규 생성하여 자동화한다
@@ -191,7 +171,7 @@ _EMIT=$(find ~/.claude/plugins/cache -name "bams-viz-emit.sh" -path "*/bams-plug
 
 ### ★ design-director 실패 시 QA 시각 검증 대체 SOP
 
-design-director 에러 감지 또는 agent_end 없을 시:
+design-director 에러 감지 또는 완료 보고 없을 시:
 1. FE 구현 완료 후 스크린샷 촬영 (Bash: npm run screenshot 또는 bams:browse)
 2. 이전 버전 스크린샷과 픽셀 차이 분석 (수동 또는 자동화)
 3. 주요 UI 체크포인트: 컬러 토큰, 타이포그래피, 간격, 컴포넌트 상태

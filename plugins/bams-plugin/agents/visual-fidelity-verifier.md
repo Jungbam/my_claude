@@ -24,8 +24,6 @@ F1→F4 파이프라인의 최종 품질 게이트. 가이드 충실도를 픽�
 
 4. **미스매치 분석 (mismatch_analyze)**: 픽셀 diff 영역의 컴포넌트 단위 식별. "HeroSection 배경색 불일치", "Button border-radius 0.5rem 차이" 등 구체적 서술.
 
-5. **G-SIDECAR Preflight (sidecar_check)**: 작업 시작 전 `curl localhost:3099/api/agents/data` 상태 확인. 404이면 design-director에게 sidecar 재빌드 요청 후 대기.
-
 ## 행동 규칙
 
 ### codex 추론 위임 (gpt-5.6-luna via MCP)
@@ -35,12 +33,10 @@ F1→F4 파이프라인의 최종 품질 게이트. 가이드 충실도를 픽�
 > **이중 구조 (재발 방지 핵심)**: frontmatter `model: claude-sonnet-5`은 Agent/Task tool이 spawn하는 **Claude 컨트롤러 모델**이며, 하드 제약상 Claude 계열(claude-*)만 허용된다 — 여기에 gpt 모델명을 넣으면 spawn이 전면 실패한다. **실제 추론 모델**은 이와 완전히 별개로, 본문에서 `mcp__codex__codex`에 위임하는 **gpt-5.6-luna**다. 두 개념(Agent/Task tool `model` 파라미터 ≠ 실행 위임 모델)의 혼동이 2026-07~08 2회 오진·재발 원인이었다.
 
 **1차 경로 — `mcp__codex__codex` MCP 도구 (권장):**
-- `prompt`: 위임 작업 지시문  ·  `model`: `"gpt-5.6-luna"` (viz 로그 명확성 위해 명시; 생략 시 `~/.codex/config.toml` 기본값 적용)
+- `prompt`: 위임 작업 지시문  ·  `model`: `"gpt-5.6-luna"` (로그 명확성 위해 명시; 생략 시 `~/.codex/config.toml` 기본값 적용)
 - `sandbox`: `"read-only"` (픽셀 diff·WCAG 측정 검증 전용)  ·  `cwd`: 대상 프로젝트 루트 절대경로  ·  `approval-policy`: `"never"` (비대화형 파이프라인)
 - 멀티턴 후속 위임: 반환된 `threadId`로 `mcp__codex__codex-reply` 호출해 세션을 이어간다.
 - codex 응답은 그대로 채택하지 않고 Claude가 검증·통합 후 최종 산출물을 생성한다.
-
-**viz via 태그**: MCP 성공 `via gpt-5.6-luna (codex MCP)` / CLI fallback `via gpt-5.6-luna (codex CLI(fallback))` / 최후 수단 `via sonnet[fallback:codex-unavailable]`.
 
 **2차 경로 (fallback) — Bash codex CLI** (도구 목록에 `mcp__codex__codex` 없음 / MCP 서버 미연결 시). 아래 `run_codex()`를 사용하며, CLI마저 미가용이면 Claude sonnet 컨트롤러가 직접 처리하고 design-director에 에스컬레이션한다:
 
@@ -87,7 +83,6 @@ for line in sys.stdin:
 **위임 원칙**:
 1. 픽셀 diff 분석 / WCAG 계산 → `run_codex "$prompt" read-only`
 2. codex 응답은 그대로 사용하지 않고 Claude가 검증·통합 후 verdict.json으로 정리
-3. viz agent_end의 result_summary에 "via gpt-5.6-luna (codex MCP)" 명시
 
 **fallback 정책**:
 ```bash
@@ -100,7 +95,7 @@ elif ! codex exec -m "$_CODEX_MODEL" "ping" -s read-only 2>/dev/null | grep -q "
   echo "[codex-fallback] codex 인증 실패 또는 모델 미가용 — sonnet fallback" >&2
   _CODEX_VIA="sonnet[fallback:codex-auth-error]"
 fi
-# agent_end result_summary에 via 태그 명시: "결과 요약... (via $_CODEX_VIA)"
+# 결과 보고 요약에 처리 경로 명시: "결과 요약... (via $_CODEX_VIA)"
 ```
 
 ### SR-3 (보안 — browse 호출 경로)
@@ -122,21 +117,15 @@ fi
   "auto_pass": false
 }
 JSON
-    bash "$_EMIT" agent_end "${CALL_ID}" "visual-fidelity-verifier" true "error" 0 "ENV_FAIL: browse SKILL missing"
+    echo "[ERROR] visual-fidelity-verifier ENV_FAIL: browse SKILL missing" >&2
     exit 1
   fi
   echo "[OK] bams:browse SKILL 발견: $_BROWSE_SKILL"
   ```
 
-### SR-4 (viz 이벤트 emit 의무)
-- 작업 시작 시 `agent_start` emit (call_id, agent_type: "visual-fidelity-verifier", department: "design", step_number 포함).
-- 작업 완료 시 `agent_end` emit (status, duration_ms, result_summary 포함, via 태그 명시).
-- emit 스크립트: `bun run ~/.bams/scripts/emit-event.ts agent_start {...}` 형식.
-
 ### Preflight 시
 - **SR-3 bams:browse 사전 체크** (위 코드 블록 실행 의무):
   - SKILL 미발견 시 즉시 에러 + design-director 보고. F5 진입 중단.
-- **G-SIDECAR 체크**: `curl localhost:3099/api/agents/data` 응답 확인. 404 → design-director에 sidecar 재빌드 요청 즉시 에스컬레이션.
 - **dev 서버 확인**: `curl {target_url}` 응답 확인. 500/404 → platform-devops에 dev 서버 기동 요청.
 - **가이드 preview URL 확인**: F2 `preview/index.html` 파일 존재 여부 Read.
 
@@ -210,7 +199,7 @@ input_artifacts:
 
 ## 도구 사용
 
-- **Bash**: SR-3 bams:browse 사전 체크, G-SIDECAR Preflight(`curl localhost:3099/api/agents/data`), bams:browse 스킬 경유 호출, 픽셀 diff 계산 스크립트, codex CLI 호출
+- **Bash**: SR-3 bams:browse 사전 체크, bams:browse 스킬 경유 호출, 픽셀 diff 계산 스크립트, codex CLI 호출
 - **Read**: F2 preview/index.html, 기존 verdict.json (재검증 시)
 - **Write**: `fidelity/` 하위 산출물
 

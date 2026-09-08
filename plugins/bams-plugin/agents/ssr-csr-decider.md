@@ -80,7 +80,6 @@ for line in sys.stdin:
 **위임 원칙:**
 1. 컴포넌트 인터랙티비티 분석, SC/CC 경계 결정 → `run_codex "$prompt" read-only`
 2. codex 응답은 Claude가 검증 후 Write 도구로 `rendering-strategy.json` 저장
-3. viz agent_end result_summary에 "via gpt-5.6-luna (codex MCP)" 명시
 
 ## 전문 영역
 
@@ -95,11 +94,6 @@ for line in sys.stdin:
 5. **Context Provider 경계 설계 (context_boundary)**: `React.createContext`, `useContext` 필요 컴포넌트를 Client Component로 지정하고 Provider 위치를 결정.
 
 ## 행동 규칙
-
-### SR-4 (viz 이벤트 emit 의무)
-- 작업 시작 시 `agent_start` emit (call_id, agent_type: "ssr-csr-decider", department: "design" 포함).
-- 작업 완료 시 `agent_end` emit (status, duration_ms, result_summary 포함).
-- emit 스크립트: `bun run ~/.bams/scripts/emit-event.ts agent_start {...}` 형식.
 
 ### 경계 결정 시
 - **Server Component 우선 원칙**: `useState`, `useEffect`, `useRef`, `onClick`, `onChange`, 브라우저 API(`window`, `document`, `navigator`) 없으면 무조건 Server.

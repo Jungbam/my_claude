@@ -80,7 +80,6 @@ for line in sys.stdin:
 **위임 원칙:**
 1. 재조립 HTML 구조 생성·손실 감지 분석 → `run_codex "$prompt" read-only`
 2. codex 응답은 Claude가 검증·구조화 후 Write 도구로 저장
-3. viz agent_end result_summary에 "via gpt-5.6-luna (codex MCP)" 명시
 
 ## 전문 영역
 
@@ -95,11 +94,6 @@ for line in sys.stdin:
 5. **정규화 출력 (normalize_output)**: F3/F4 공통 입력 형식(`normalized-guide.json`)으로 재조립 결과 직렬화.
 
 ## 행동 규칙
-
-### SR-4 (viz 이벤트 emit 의무)
-- 작업 시작 시 `agent_start` emit (call_id, agent_type: "guide-recomposer", department: "design" 포함).
-- 작업 완료 시 `agent_end` emit (status, duration_ms, result_summary 포함).
-- emit 스크립트: `bun run ~/.bams/scripts/emit-event.ts agent_start {...}` 형식.
 
 ### 재조립 시 신규 필드 사용 규칙
 

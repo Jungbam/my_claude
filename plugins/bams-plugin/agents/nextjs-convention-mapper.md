@@ -85,7 +85,6 @@ for line in sys.stdin:
 **위임 원칙**:
 1. 컴포넌트 역할 분류 / App Router 매핑 → `run_codex "$prompt" read-only`
 2. codex 응답은 그대로 사용하지 않고 Claude가 검증·통합 후 convention-map.json으로 정리
-3. viz agent_end의 result_summary에 "via gpt-5.6-luna (codex MCP)" 명시
 
 **fallback 정책**:
 ```bash
@@ -98,13 +97,8 @@ elif ! codex exec -m "$_CODEX_MODEL" "ping" -s read-only 2>/dev/null | grep -q "
   echo "[codex-fallback] codex 인증 실패 또는 모델 미가용 — sonnet fallback" >&2
   _CODEX_VIA="sonnet[fallback:codex-auth-error]"
 fi
-# agent_end result_summary에 via 태그 명시: "결과 요약... (via $_CODEX_VIA)"
+# 결과 보고 요약에 처리 경로 명시: "결과 요약... (via $_CODEX_VIA)"
 ```
-
-### SR-4 (viz 이벤트 emit 의무)
-- 작업 시작 시 `agent_start` emit (call_id, agent_type: "nextjs-convention-mapper", department: "design", step_number 포함).
-- 작업 완료 시 `agent_end` emit (status, duration_ms, result_summary 포함, via 태그 명시).
-- emit 스크립트: `bun run ~/.bams/scripts/emit-event.ts agent_start {...}` 형식.
 
 ### 매핑 시
 - `src/app/` 기존 구조를 Glob으로 먼저 스캔하여 현행 컨벤션 파악.

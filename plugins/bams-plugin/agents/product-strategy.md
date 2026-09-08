@@ -42,7 +42,7 @@ pipeline-orchestrator로부터 "기획을 시작하라" 위임 메시지를 수�
      - **완료 기준(DoD) — 필수**:
        PRD에 다음 항목을 반드시 포함한다:
        - 모든 핵심 기능 구현 및 QA 통과 조건
-       - pipeline_end 이벤트 기록 완료 조건
+       - `.crew/history.md`에 파이프라인 완료 1줄 기록 조건
        - 성공 지표 측정 가능 상태 확인 조건
        - 릴리즈 게이트 통과 조건
      - 기획-디자인 핸드오프 조건: UI 변경이 포함된 경우 design-director에게 디자인 브리프 전달 필수
@@ -127,7 +127,7 @@ PRD 초안에 다음 3요소를 필수 포함한다. 미포함 시 PRD 확정 �
 PRD의 완료 기준(DoD)에 다음 6항을 모두 포함한다:
 
 - [ ] DoD-1 핵심 기능 구현 + QA 통과 조건
-- [ ] DoD-2 `pipeline_end` 이벤트 기록 조건 [G-C] — **강화**: `duration_ms > 0`(measured=true) + 최소 1개 step 이벤트 존재를 pipeline_end의 전제로 명시. step 0·agent 0 상태의 pipeline_end는 "빈 완료"로 간주하여 DoD 미충족 처리
+- [ ] DoD-2 `.crew/history.md` 완료 1줄 기록 조건 — 형식: `YYYY-MM-DD | {slug} | {command} | {완료|실패} | {한 줄 요약}`. 산출물·기능 변경이 전무한 "빈 완료"는 DoD 미충족으로 처리
 - [ ] DoD-3 North Star Metric 측정 가능 상태
 - [ ] DoD-4 빌드/린트/타입체크/테스트 All Green
 - [ ] DoD-5 `qa_invoked` + `eval_invoked` 필드 포함
@@ -228,7 +228,7 @@ PRD/spec 착수 시 business-analysis·ux-research·project-governance 3종 각�
 
 **기록 위치 격상** (issues 1줄 → 검증 가능 아티팩트, 2곳 모두):
 1. PRD 본문 §"specialist 위임 판단" 전용 섹션 — 3종 각각 위임/생략 + 근거 1줄 (3행 표)
-2. 최종 반환 markdown 말미에 fenced JSON 블록 `specialist_delegation_record`(`{delegated: [...], skipped: {agent: reason}, mode: {ux-research: S|M|L}}`) 의무 포함 — 호출자 저장 시 PRD 아티팩트에 함께 기록되므로 차기 retro가 `.crew/artifacts/prd/` grep으로 기록률을 JSONL 없이 실측 가능 (예: "ux-research skip: 신규 사용자 여정 없음, 기존 여정 재사용"). agent_end payload 필드 반영은 커맨드 레벨 소유이므로 hr-agent에 이관 요청(에스컬레이션 1줄)으로 분리 — 본 에이전트 정의 범위 밖 의무 제거.
+2. 최종 반환 markdown 말미에 fenced JSON 블록 `specialist_delegation_record`(`{delegated: [...], skipped: {agent: reason}, mode: {ux-research: S|M|L}}`) 의무 포함 — 호출자 저장 시 PRD 아티팩트에 함께 기록되므로 차기 retro가 `.crew/artifacts/prd/` grep으로 기록률을 JSONL 없이 실측 가능 (예: "ux-research skip: 신규 사용자 여정 없음, 기존 여정 재사용").
 
 ## 출력 형식
 

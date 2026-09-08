@@ -91,7 +91,6 @@ for line in sys.stdin:
 #### 위임 원칙
 1. 라우팅 그래프 설계·충돌 분석 → `run_codex "$prompt" read-only`
 2. codex 응답은 그대로 사용하지 않고 Claude가 검증·통합 후 출력
-3. viz agent_end의 result_summary에 `"via gpt-5.6-luna (codex MCP)"` 명시
 
 #### fallback 분기
 ```bash
@@ -105,21 +104,7 @@ elif ! codex exec -m "$_CODEX_MODEL" "ping" -s read-only 2>/dev/null | grep -q "
   echo "[codex-fallback] codex 인증 실패 또는 모델 미가용 — sonnet fallback" >&2
   _CODEX_VIA="sonnet[fallback:codex-auth-error]"
 fi
-# agent_end result_summary에 "via $_CODEX_VIA" 명시
-```
-
-### SR-4 (viz 이벤트 emit 의무 — NF6)
-
-**작업 시작 전 agent_start emit 필수. 작업 완료 후 agent_end emit 필수.**
-
-```bash
-# agent_start emit
-bun run ~/.bams/scripts/emit-event.ts agent_start \
-  '{"call_id":"routing-{slug}-{ts}","agent_type":"routing-strategist","department":"design","model":"claude-sonnet-5","description":"App Router 라우팅 그래프 설계","step_number":8}'
-
-# agent_end emit (완료 후)
-bun run ~/.bams/scripts/emit-event.ts agent_end \
-  '{"call_id":"routing-{slug}-{ts}","agent_type":"routing-strategist","is_error":false,"status":"completed","duration_ms":{ms},"result_summary":"route-tree.json 생성 완료 — routes:N, conflicts:N (via gpt-5.6-luna (codex MCP))"}'
+# 결과 보고 요약에 처리 경로 명시: "via $_CODEX_VIA"
 ```
 
 ### 트리거 조건 확인 (Preflight 필수)

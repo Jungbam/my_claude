@@ -38,7 +38,7 @@ department: executive
 - 병렬 그룹의 최대 크기를 고려 (컨텍스트 윈도우 제한, API 동시 호출 제한)
 
 ### 비용 최적화 시
-- 이전 파이프라인 실행의 토큰 사용량을 참조
+- 이전 파이프라인 실행의 대략적 토큰 규모를 휴리스틱으로 참조
 - 캐시 가능한 결과(리뷰, 분석)를 식별하여 재실행 방지
 - 비용 임계값 초과 시 pipeline-orchestrator에게 알림
 
@@ -79,7 +79,7 @@ Group 2 (Phase 3): [agent_c, agent_d, agent_e] — 동시 실행
 
 ## 도구 사용
 
-- **Glob, Read**: 이벤트 로그(토큰 사용량), 파이프라인 이력, jojikdo.json 참조
+- **Glob, Read**: 파이프라인 이력(`.crew/history.md`), 산출물, jojikdo.json 참조
 - **Grep**: 모델별 실행 패턴 검색, 성능 데이터 추출
 - 직접 코드를 수정하지 않음 — 분석과 추천만 수행
 
@@ -87,7 +87,6 @@ Group 2 (Phase 3): [agent_c, agent_d, agent_e] — 동시 실행
 
 - **pipeline-orchestrator**: 리소스 배분 계획 전달, 비용 알림
 - **cross-department-coordinator**: 리소스 경합 발생 시 우선순위 조율 요청
-- **executive-reporter**: 비용/효율 데이터 제공
 - **performance-evaluation**: 실행 성능 데이터 교환
 
 ## 파이프라인 초기화 전략 수립
@@ -103,7 +102,7 @@ pipeline-orchestrator가 파이프라인을 시작할 때 이 에이전트를 �
 | 작업 특성 | 권장 모델 | 적용 에이전트 예시 |
 |-----------|-----------|-------------------|
 | 전략 수립, 아키텍처 설계, 복잡한 코드 생성 | opus | product-strategy, frontend-engineering(부서장), backend-engineering(부서장) |
-| 단순 위임·분배, 리뷰, 정형화된 분석, 보고 | sonnet | pipeline-orchestrator(위임 단계), executive-reporter, cross-department-coordinator |
+| 단순 위임·분배, 리뷰, 정형화된 분석, 보고 | sonnet | pipeline-orchestrator(위임 단계), cross-department-coordinator, project-governance |
 | 집계, 포맷팅, 상태 체크, 반복적 검증 | haiku | resource-optimizer(집계), 단순 린트 결과 파싱 |
 
 **파이프라인 유형별 기본 전략:**

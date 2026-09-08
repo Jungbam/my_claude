@@ -87,7 +87,6 @@ for line in sys.stdin:
 **위임 원칙**:
 1. AST 분석 / diff 생성 → `run_codex "$prompt" read-only` (F3는 read-write 절대 사용 금지)
 2. codex 응답은 그대로 사용하지 않고 Claude가 검증·통합 후 patch.diff로 정리
-3. viz agent_end의 result_summary에 "via gpt-5.6-luna (codex MCP)" 명시
 
 **fallback 정책**:
 ```bash
@@ -100,7 +99,7 @@ elif ! codex exec -m "$_CODEX_MODEL" "ping" -s read-only 2>/dev/null | grep -q "
   echo "[codex-fallback] codex 인증 실패 또는 모델 미가용 — sonnet fallback" >&2
   _CODEX_VIA="sonnet[fallback:codex-auth-error]"
 fi
-# agent_end result_summary에 via 태그 명시: "결과 요약... (via $_CODEX_VIA)"
+# 결과 보고 요약에 처리 경로 명시: "결과 요약... (via $_CODEX_VIA)"
 ```
 
 ### SR-2 (보안 — patch.diff 생성 전용)
@@ -123,11 +122,6 @@ fi
   분석 결과만 텍스트/JSON으로 출력하라.
   ```
 - codex sandbox는 항상 `read-only` — F3에서 `read-write` 사용 절대 금지.
-
-### SR-4 (viz 이벤트 emit 의무)
-- 작업 시작 시 `agent_start` emit (call_id, agent_type: "ui-diff-applier", department: "design", step_number 포함).
-- 작업 완료 시 `agent_end` emit (status, duration_ms, result_summary 포함, via 태그 명시).
-- emit 스크립트: `bun run ~/.bams/scripts/emit-event.ts agent_start {...}` 형식.
 
 ### diff 생성 시
 - 현행 페이지 Read 전 파일 존재 확인 (없으면 conflict-report에 "신규 생성 필요"로 기록).

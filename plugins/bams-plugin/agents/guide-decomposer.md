@@ -83,7 +83,6 @@ for line in sys.stdin:
 **위임 원칙:**
 1. 복잡한 AST 분석/토큰 추출 → `run_codex "$prompt" read-only`
 2. codex 응답은 그대로 사용하지 않고 Claude가 검증·구조화 후 Write 도구로 저장
-3. viz agent_end의 result_summary에 "via gpt-5.6-luna (codex MCP)" 명시
 
 ## 전문 영역
 
@@ -131,11 +130,6 @@ DOM 파싱 시 다음을 의무 추출한다 (OQ4=b — 신규 6 필드는 compo
 - **입력 파일을 `.crew/artifacts/design/{slug}/guide-input/`에 격리 복사 후 처리.** 원본 경로 직접 실행 금지.
 - `eval()`, `import()`, `require()` 패턴이 가이드 코드에 포함된 경우 즉시 처리 중단 → design-director에 에스컬레이션.
 - 시크릿 패턴(API 키, 토큰, 패스워드, `.env` 변수 참조)이 감지되면 해당 파일 차단 후 conflict-report.md에 기록.
-
-### SR-4 (viz 이벤트 emit 의무)
-- 작업 시작 시 `agent_start` emit (call_id, agent_type: "guide-decomposer", department: "design", step_number 포함).
-- 작업 완료 시 `agent_end` emit (status, duration_ms, result_summary 포함).
-- emit 스크립트: `bun run ~/.bams/scripts/emit-event.ts agent_start {...}` 형식.
 
 ### CHUNK_STRATEGY 환경 변수 처리 (P2 청킹 활성화)
 

@@ -28,10 +28,6 @@
   3. 부서장 라우팅 조언 → 메인이 실제 spawn 수행
   4. 롤백 결정 및 회고 트리거 권고
 
-### Work Unit 선택 규칙 준수 필수 (불변)
-- 활성 WU 2개 이상이면 최근 사용 WU에 자동 연결 (선택 프롬프트 없음, `--wu`로 오버라이드 가능)
-- 커맨드 레벨에서 임의로 WU 결정 금지 (`_shared_common.md` §Work Unit 선택 참조)
-
 ## 2. 조직도 (8부서 36에이전트)
 
 | 부서 | 부서장 | 소속 에이전트 |
@@ -43,7 +39,7 @@
 | 디자인 | design-director | ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent, guide-decomposer, guide-recomposer, ui-diff-applier, data-binding-mapper, visual-fidelity-verifier, nextjs-convention-mapper, accessibility-auditor, routing-strategist, ssr-csr-decider |
 | QA | qa-strategy | automation-qa, defect-triage, release-quality-gate |
 | 평가 | product-analytics | experimentation, performance-evaluation, business-kpi |
-| 경영지원 | (독립 운영 — orchestrator 직접 조율) | executive-reporter, resource-optimizer, hr-agent, cross-department-coordinator |
+| 경영지원 | (독립 운영 — orchestrator 직접 조율) | resource-optimizer, hr-agent, cross-department-coordinator |
 
 **위임 라우팅 — 태그 우선, 파일 패턴 보조:**
 
@@ -63,14 +59,8 @@
 
 ### 네이밍 (immutable)
 - 형식: `{command}_{한글요약}` (예: `feature_결제플로우구현`, `hotfix_빌드에러수정`)
-- slug는 파이프라인 수명 동안 불변. 상태는 이벤트로 판별 (`pipeline_end` 없음 → 진행 중)
+- slug는 파이프라인 수명 동안 불변. 상태는 `.crew/history.md` 기록으로 판별
 - 상세: `.crew/references/pipeline-naming-convention.md`
-
-### Work Unit 선택
-- 활성 WU 0개 → 경고 후 WU 없이 진행
-- 활성 WU 1개 → 자동 선택
-- 활성 WU 2개+ → **최근 사용 WU 자동 연결** (마지막 `pipeline_linked` 기준, 없으면 `work_unit_start` 기준) — 선택 프롬프트 없음, 연결 결과를 로그로 표시
-- `--wu <slug>` 지정 시 자동 선택 로직을 건너뛰고 명시된 WU에 즉시 연결
 
 ### 진입점 매트릭스 (5초 결정표)
 
@@ -87,8 +77,6 @@
 |--------|------|
 | **파이프라인** | |
 | `/bams:init` | 프로젝트 초기화 |
-| `/bams:start` | 작업 단위(WU) 시작 |
-| `/bams:end` | 작업 단위 종료 |
 | `/bams:plan` | PRD + 기술 설계 + 태스크 분해 |
 | `/bams:feature` | 풀 피처 개발 사이클 |
 | `/bams:dev` | 멀티에이전트 풀 개발 파이프라인 |
@@ -115,54 +103,19 @@
 | `/bams:export` | 조직 설정을 이식 가능한 패키지로 내보내기 |
 | `/bams:import` | 패키지를 현재 프로젝트에 가져오기 |
 | `/bams:q` | 코드베이스 질문 (자동 범위 감지 + 코드 기반 답변) |
-| `/bams:status` | 프로젝트 대시보드 현황 |
 | `/bams:sprint` | 스프린트 플래닝 및 관리 |
-| `/bams:viz` | 파이프라인 실행 시각화 |
 
-## 4. viz 이벤트 규칙
+## 4. 상태 기록
 
-### emit 원칙
-- 커맨드 레벨(메인): `pipeline_start`/`pipeline_end`, `step_start`/`step_end`, `recover`, `error` emit 가능
-- `agent_start`/`agent_end`: 커맨드 → 부서장 → (선택적) 에이전트 2단 위임 체계 내에서만 emit
-
-### 이벤트 타입 (12종)
-
-| 타입 | 필수 필드 |
-|------|----------|
-| `pipeline_start` | pipeline_slug, pipeline_type, command, arguments, work_unit_slug?, parent_pipeline_slug? |
-| `pipeline_end` | pipeline_slug, status(`completed`\|`failed`\|`paused`\|`rolled_back`\|`cancelled`), total_steps, completed_steps, failed_steps, skipped_steps, duration_ms |
-| `step_start` | pipeline_slug, step_number, step_name, phase |
-| `step_end` | pipeline_slug, step_number, status(`done`\|`fail`\|`skipped`), duration_ms |
-| `agent_start` | call_id, agent_type, department, model, description, step_number |
-| `agent_end` | call_id, agent_type, is_error, status(`success`\|`error`\|`timeout`), duration_ms, result_summary |
-| `work_unit_start` | work_unit_slug, work_unit_name, ts |
-| `work_unit_end` | work_unit_slug, status(`completed`\|`failed`\|`cancelled`), ts |
-| `pipeline_linked` | work_unit_slug, pipeline_slug, pipeline_type (pipeline_start 시 활성 WU 존재하면 자동 emit) |
-| `retro_skip` | pipeline_slug, reason, mode(`B`\|`C`) |
-| `error` | pipeline_slug, message, step_number |
-| `recover` | pipeline_slug (중단된 이벤트 자동 정리 마커) |
-
-### 데이터 경로
-- 이벤트: `~/.bams/artifacts/pipeline/{slug}-events.jsonl`
-- WU 이벤트: `~/.bams/artifacts/pipeline/{slug}-workunit.jsonl`
-- 에이전트 로그: `.crew/artifacts/agents/YYYY-MM-DD.jsonl`
-- HR 보고서: `~/.bams/artifacts/hr/`
-- 프로젝트 아티팩트: `.crew/artifacts/` (prd/, design/, review/, report/)
-- DB: `~/.claude/plugins/marketplaces/my-claude/bams.db`
-
-### DB 스키마 (v2 — FK 기반)
-```
-work_units → pipelines (work_unit_id FK) → tasks (pipeline_id FK)
-                                          → task_events (task_id FK)  -- immutable event sourcing
-                                          → run_logs (pipeline_id FK) -- 30일 auto-cleanup
-hr_reports (독립)
-```
+- 태스크: `.crew/board.md`
+- 파이프라인 이력: `.crew/history.md` — 파이프라인 완료 시 1줄 기록 (`YYYY-MM-DD | {slug} | {command} | {완료|실패} | {한 줄 요약}`)
+- 산출물: `.crew/artifacts/{prd,design,review,report,retro}/`
+- 학습: `.crew/memory/{agent-slug}/MEMORY.md`
 
 ## 5. 회고 규칙
 
 - 파이프라인 완료(정상/실패) 시 **무조건 회고 실행** (사용자 명시적 스킵 요청만 예외)
 - KPT 프레임워크: Keep(유지) / Problem(문제) / Try(시도)
-- 정량 지표 수집: 소요 시간, 성공률, 재시도 횟수, 토큰 사용량
 - 학습 → 에이전트 `.crew/memory/{agent-slug}/MEMORY.md` 기록 (max 10개, 6개월 후 삭제)
 - gotchas 승격 → `.crew/gotchas.md` 갱신
 
@@ -176,9 +129,7 @@ hr_reports (독립)
 
 ### 작업 완료 시
 1. 변경 사항 요약 반환
-2. viz 이벤트(`agent_end`) emit
-3. 에러 시 `status="error"`로 보고 (근본 원인 + 영향 범위 포함)
-4. 마지막 에이전트는 `pipeline_end` emit
+2. 에러 시 `status="error"`로 보고 (근본 원인 + 영향 범위 포함)
 
 ### Context 관리
 - 파이프라인 완료 후: completion-protocol Step 4.9에 따라 context health를 평가하고 `/compact` 제안
@@ -189,8 +140,6 @@ hr_reports (독립)
 ### Critical Gotchas
 - **[G-A]** FE 배치 분할 필수: 변경 10파일 초과 또는 600초 이상 예상 시
 - **[G-B]** Agent tool 호출 시 `subagent_type` 필수 지정
-- **[G-C]** PRD DoD에 `pipeline_end` 기록 조건 포함 필수
-- **[G-D]** 부서장이 spawn한 모든 에이전트는 `agent_start` emit 의무화 (부서장 자신도 커맨드에 의해 spawn될 때 emit)
 - Tool 권한 에러(`Write`/`Edit` 금지) → **재시도 0회, 즉시 에스컬레이션**
 - 위임 20회 이상 예상 → **사전 분할 전략 필수** (Phase당 max 8회)
 

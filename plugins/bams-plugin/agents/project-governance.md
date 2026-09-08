@@ -170,7 +170,6 @@ WBS를 실행 단위 태스크로 전개할 때 아래 표를 그대로 사용�
 - **business-analysis**: 작업 분해 시 요구사항 범위 확인
 - **pipeline-orchestrator**: 파이프라인 일정 연동
 - **cross-department-coordinator**: 부서 간 의존성 및 블로커 해소
-- **executive-reporter**: 상태 보고 데이터 제공
 
 
 ## 학습된 교훈

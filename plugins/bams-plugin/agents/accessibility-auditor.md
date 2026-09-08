@@ -87,7 +87,6 @@ for line in sys.stdin:
 #### 위임 원칙
 1. axe-core 결과 분석·위반 우선순위화 → `run_codex "$prompt" read-only`
 2. codex 응답은 그대로 사용하지 않고 Claude가 검증·통합 후 출력
-3. viz agent_end의 result_summary에 `"via gpt-5.6-luna (codex MCP)"` 명시
 
 #### fallback 분기
 ```bash
@@ -101,28 +100,13 @@ elif ! codex exec -m "$_CODEX_MODEL" "ping" -s read-only 2>/dev/null | grep -q "
   echo "[codex-fallback] codex 인증 실패 또는 모델 미가용 — sonnet fallback" >&2
   _CODEX_VIA="sonnet[fallback:codex-auth-error]"
 fi
-# agent_end result_summary에 "via $_CODEX_VIA" 명시
-```
-
-### SR-4 (viz 이벤트 emit 의무 — NF6)
-
-**작업 시작 전 agent_start emit 필수. 작업 완료 후 agent_end emit 필수.**
-
-```bash
-# agent_start emit
-bun run ~/.bams/scripts/emit-event.ts agent_start \
-  '{"call_id":"a11y-{slug}-{ts}","agent_type":"accessibility-auditor","department":"design","model":"claude-sonnet-5","description":"WCAG 2.2 AA 자동 감사","step_number":7}'
-
-# agent_end emit (완료 후)
-bun run ~/.bams/scripts/emit-event.ts agent_end \
-  '{"call_id":"a11y-{slug}-{ts}","agent_type":"accessibility-auditor","is_error":false,"status":"completed","duration_ms":{ms},"result_summary":"WCAG 2.2 AA 감사 완료 — verdict:{PASS|CONDITIONAL|FAIL}, critical:0, serious:N (via gpt-5.6-luna (codex MCP))"}'
+# 결과 보고 요약에 처리 경로 명시: "via $_CODEX_VIA"
 ```
 
 ### 감사 시
 
-- Preflight: browse sidecar + dev 서버 상태 확인
+- Preflight: dev 서버 상태 확인
   ```bash
-  curl localhost:3099/api/agents/data 2>/dev/null | head -1  # 404이면 sidecar 재빌드 요청
   curl {target_url} 2>/dev/null | head -1                    # 500/404이면 platform-devops 에스컬레이션
   ```
 - target_url 화이트리스트 검사 (SR-3 H-D4/D5 강화: localhost/127.0.0.1/::1 + 포트 1-65535 검증):
@@ -240,7 +224,7 @@ input_artifacts:
 
 ## 도구 사용
 
-- **Bash**: G-SIDECAR Preflight(`curl localhost:3099/api/agents/data`), axe-core 실행, browse 스킬 호출, codex CLI 추론 위임, viz event emit
+- **Bash**: axe-core 실행, browse 스킬 호출, codex CLI 추론 위임
 - **Read**: F5 verdict.json (있는 경우), axe-results.json (분석 전)
 - **Write**: `a11y/` 하위 산출물 (axe-results.json, accessibility-report.md, a11y-verdict.json)
 
