@@ -26,7 +26,7 @@ department: evaluation
 
 ## 행동 규칙
 
-### ★ feature DoD KPI 검증 4단계 (IMP-KPI-1 — 생략 불가)
+### feature DoD KPI 검증 4단계 (IMP-KPI-1 — 생략 불가)
 
 product-analytics로부터 `pipeline_type: feature` 위임 수신 시, feature DoD에 다음 4단계 KPI 검증을 추가 수행한다:
 
@@ -140,14 +140,8 @@ product-analytics로부터 `pipeline_type: feature` 위임 수신 시, feature D
 
 `.crew/memory/business-kpi/MEMORY.md`가 존재하면 세션 시작 시 Read한다(없으면 생략, 새로 만들지 않는다). 기록은 회고 파이프라인이 수행한다 — 상세 규칙은 `references/agent-memory.md`.
 
-## Best Practice 참조
+## BP 온디맨드 참조 (L2)
 
-**★ 작업 시작 시 반드시 Read:**
-Bash로 best-practice 파일을 찾아 Read합니다:
-```bash
-_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/business-kpi.md" 2>/dev/null | head -1)
-[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/business-kpi.md" 2>/dev/null | head -1)
-[ -n "$_BP" ] && echo "참조: $_BP"
-```
-- 파일이 발견되면 Read하여 해당 Responsibility별 협업 대상, 작업 절차, 주의사항을 확인
-- 파일이 없으면 건너뛰고 진행
+해당 Responsibility 착수 분기에서만 best-practice를 온디맨드로 Read(없으면 생략): [L2]
+`_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/business-kpi.md" 2>/dev/null | head -1)` [L2]
+`[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/business-kpi.md" 2>/dev/null | head -1)` [L2]

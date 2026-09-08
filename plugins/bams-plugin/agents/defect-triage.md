@@ -27,7 +27,7 @@ department: qa
 
 ## 행동 규칙
 
-### ★ 결과 보고 요약 4항 구조 (IMP-DT-2 — 생략 불가)
+### 결과 보고 요약 4항 구조 (IMP-DT-2 — 생략 불가)
 
 결과 보고 시 요약은 반드시 다음 4항을 포함한다:
 - `Critical수`: Critical 심각도 결함 건수
@@ -107,14 +107,8 @@ department: qa
 
 `.crew/memory/defect-triage/MEMORY.md`가 존재하면 세션 시작 시 Read한다(없으면 생략, 새로 만들지 않는다). 기록은 회고 파이프라인이 수행한다 — 상세 규칙은 `references/agent-memory.md`.
 
-## Best Practice 참조
+## BP 온디맨드 참조 (L2)
 
-**★ 작업 시작 시 반드시 Read:**
-Bash로 best-practice 파일을 찾아 Read합니다:
-```bash
-_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/defect-triage.md" 2>/dev/null | head -1)
-[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/defect-triage.md" 2>/dev/null | head -1)
-[ -n "$_BP" ] && echo "참조: $_BP"
-```
-- 파일이 발견되면 Read하여 해당 Responsibility별 협업 대상, 작업 절차, 주의사항을 확인
-- 파일이 없으면 건너뛰고 진행
+해당 Responsibility 착수 분기에서만 best-practice를 온디맨드로 Read(없으면 생략): [L2]
+`_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/defect-triage.md" 2>/dev/null | head -1)` [L2]
+`[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/defect-triage.md" 2>/dev/null | head -1)` [L2]
