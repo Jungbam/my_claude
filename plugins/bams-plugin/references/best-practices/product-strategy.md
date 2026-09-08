@@ -2,6 +2,13 @@
 
 ## Responsibility: 제품 비전 정의, 로드맵 우선순위 결정, 이해관계자 정렬, 기획 Phase 부서장
 
+| 블록 | 트리거 | 라인범위 |
+|------|--------|----------|
+| 제품 비전 정의 (define_product_vision) | 새 피처 기획 시작·제품 방향성 재정립 시 | L14-38 |
+| 로드맵 우선순위 결정 (prioritize_roadmap) | 여러 기능 후보 구현 순서 결정 시 | L41-62 |
+| 이해관계자 정렬 (align_stakeholders) | 부서 간 해석 차이·의사결정 충돌 감지 시 | L65-84 |
+| 전략적 트레이드오프 판단 (judge_strategic_tradeoff) | 단기 수익 vs 장기 성장 등 전략 판단 시 | L87-107 |
+
 ---
 
 ### 제품 비전 정의 (define_product_vision)

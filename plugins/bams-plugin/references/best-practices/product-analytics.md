@@ -2,6 +2,13 @@
 
 ## Responsibility: KPI 정의 및 표준화, 퍼널 및 행동 분석, 릴리즈 영향 평가, 코호트 분석, 이상 탐지, 평가부서 부서장
 
+| 블록 | 트리거 | 라인범위 |
+|------|--------|----------|
+| KPI 정의 및 표준화 (define_kpi) | 피처 성공 기준 정의·평가 Phase 시작 시 | L14-34 |
+| 퍼널 및 행동 분석 (analyze_funnel_behavior) | 사용 행태 분석·전환율 저하 원인 파악 시 | L37-57 |
+| 릴리즈 영향 평가 (evaluate_release_impact) | 릴리즈 후 KPI 영향 평가 시 | L60-79 |
+| 이상 탐지 (detect_anomaly) | 지표 급변·비정상 패턴 감지 시 | L82-101 |
+
 ---
 
 ### KPI 정의 및 표준화 (define_kpi)

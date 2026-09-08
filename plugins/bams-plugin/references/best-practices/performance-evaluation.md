@@ -2,6 +2,13 @@
 
 ## Responsibility: 성능 벤치마크 정의, 부하 및 안정성 검증, 체감 성능 분석, 병목 진단, 성능 회귀 탐지
 
+| 블록 | 트리거 | 라인범위 |
+|------|--------|----------|
+| 성능 벤치마크 정의 (define_performance_benchmark) | 피처 구현 전 성능 기준·릴리즈 성능 게이트 정의 시 | L14-37 |
+| 부하 및 안정성 검증 (verify_load_stability) | 릴리즈 전 피크 트래픽·대규모 부하 안정성 검증 시 | L40-61 |
+| 병목 진단 (diagnose_bottleneck) | 성능 기준 미달 원인 파악·성능 저하 증상 보고 시 | L64-84 |
+| 성능 회귀 탐지 (detect_performance_regression) | 릴리즈 간 성능 변화 추적으로 회귀 조기 발견 시 | L87-106 |
+
 ---
 
 ### 성능 벤치마크 정의 (define_performance_benchmark)

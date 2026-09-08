@@ -2,6 +2,13 @@
 
 ## Responsibility: Rive 기반 애니메이션, 마이크로인터랙션, 스크롤 스토리텔링, 트랜지션 설계, 모션 언어 수립
 
+| 블록 | 트리거 | 라인범위 |
+|------|--------|----------|
+| Rive 기반 애니메이션 (create_rive_animation) | 상태 머신 기반 인터랙티브 애니메이션이 필요할 때 | L14-35 |
+| 마이크로인터랙션 설계 (design_microinteraction) | 버튼·폼·알림 등 행동 반응 애니메이션 설계 시 | L38-57 |
+| 스크롤 스토리텔링 (design_scroll_storytelling) | 스크롤 기반 시각 내러티브 설계 시 | L60-79 |
+| 모션 언어 수립 (establish_motion_language) | 새 제품/브랜드 모션 시스템 최초 구축 시 | L82-102 |
+
 ---
 
 ### Rive 기반 애니메이션 (create_rive_animation)

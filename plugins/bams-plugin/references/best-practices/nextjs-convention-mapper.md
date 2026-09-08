@@ -1,5 +1,9 @@
 # Best Practices: nextjs-convention-mapper
 
+| 블록 | 트리거 | 라인범위 |
+|------|--------|----------|
+| 본문 미작성 | 추후 dogfooding 결과로 작성 예정 | — |
+
 > Placeholder — to be filled with operational best practices after running design-import pipeline several times.
 > 추후 dogfooding 결과를 바탕으로 작성한다.
 

@@ -2,6 +2,14 @@
 
 ## Responsibility: 모든 파이프라인의 단일 진입점 — Phase 위임, 게이트 판단, 롤백 결정, 회고 트리거
 
+| 블록 | 트리거 | 라인범위 |
+|------|--------|----------|
+| 부서장 위임 및 조율 (delegate_to_department_head) | 커맨드로부터 Phase 실행 요청 수신·새 Phase 전환 시 | L15-36 |
+| Phase 게이트 판단 (evaluate_phase_gate) | 부서장의 Phase 완료 보고 수신 시 | L39-61 |
+| 병렬화 전략 수립 (plan_parallelization) | 대규모 파이프라인(20회+ 위임) 시작 시 | L64-83 |
+| 롤백 결정 (decide_rollback) | FAIL 보고·이상 징후(테스트·성능·보안) 감지 시 | L86-105 |
+| 회고 진행 (conduct_retrospective) | 파이프라인 완료(정상/실패) 시 — 스킵 불가 | L108-130 |
+
 ---
 
 ### 부서장 위임 및 조율 (delegate_to_department_head)
