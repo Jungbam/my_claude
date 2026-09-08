@@ -65,19 +65,20 @@ disallowedTools: []
 
 ### ★ 기술 스택 프로파일 (위임 수신 시 판별)
 
-위임 수신 시 대상 프로젝트의 스택을 판별한다: ① `.crew/config.md` 스택 정의 → ② 프로젝트 파일 감지(`next.config.*`/`pyproject.toml`/`go.mod`) → ③ 기본값 **TypeScript + Next.js App Router**. 상세 기본값은 `references/stack-profile.md`를 Read한다 (best-practice와 동일한 cache find 패턴 사용):
+위임 수신 시 대상 프로젝트의 스택을 판별한다: ① `.crew/config.md`의 스택 정의 항목 → ② 프로젝트 파일 감지(`next.config.*`/`pyproject.toml`/`go.mod`) → ③ 기본값 **TypeScript + Next.js App Router**.
+- 상세 기본값은 커맨드 `load_profile`이 `stack-profile`을 지목하면 L1로 사전 로드되고, 미지목 시 비-Next.js(Python/Go) 판별 분기 진입 시에만 온디맨드 Read한다 — 경로 폴백(캐시 우선, repo 폴백) `[L2]`:
 ```bash
-_SP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/stack-profile.md" 2>/dev/null | head -1); [ -z "$_SP" ] && _SP=$(find . -path "*/bams-plugin/references/stack-profile.md" 2>/dev/null | head -1)
+_SP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/stack-profile.md" 2>/dev/null | head -1); [ -z "$_SP" ] && _SP=$(find . -path "*/bams-plugin/references/stack-profile.md" 2>/dev/null | head -1)  # [L2]
 ```
 
 - CI 기본 파이프라인(Next.js/TS): install → `bunx tsc --noEmit` → lint → `bun run build` → test — package.json scripts와 lockfile 기반 패키지 매니저 감지(bun/pnpm/npm)
 - GitHub Actions: setup-node/oven-sh/setup-bun + 의존성·`.next/cache` 캐싱 적용
 - 환경변수: `NEXT_PUBLIC_`만 클라이언트 노출 — 시크릿에 부여 금지, 배포 환경별(.env.local/프리뷰/프로덕션) 분리 검증
 - 배포 대상 구분: Vercel(기본 zero-config) vs 자체 호스팅(`output: 'standalone'` + Docker) — 프로젝트 설정에서 판별
-- Python/Go 서비스 병행 시 stack-profile.md 보조 프로파일의 빌드/테스트 명령 사용
+- Python/Go 서비스 병행 시 stack-profile.md 보조 프로파일의 빌드/테스트 명령 사용 `[L2]`
 
 ### ★ Post-Merge Auto Verification SOP (PD-T2) → 이관됨
-PD-T2: PR 머지 직후 main 최신화 + validate-agent-sync + bun test 즉시 재검증, FAIL 시 hotfix 회고 트리거. 감지 지연 금지. 상세: `references/agent-rules/platform-devops-rules.md` §"★ Post-Merge Auto Verification SOP (PD-T2)"
+PD-T2: PR 머지 직후 main 최신화 + validate-agent-sync + bun test 즉시 재검증, FAIL 시 hotfix 회고 트리거. 감지 지연 금지. 상세: `references/agent-rules/platform-devops-rules.md` §"★ Post-Merge Auto Verification SOP (PD-T2)" `[L2]`
 
 ### ★ 경고 감지 즉시 fix 원칙 (T-WARN-1)
 
@@ -140,23 +141,29 @@ echo "========================"
 - 목표 소요시간: 글로벌 평균(87,107ms) 이내
 
 ### 인프라 관리 원칙 → 이관됨
-PD-INFRA: 코드 리뷰 후 적용, 수동 변경 사후 코드화, 환경별 변수화, 네이밍/비용 태깅, IAM 최소 권한. 상세: `references/agent-rules/platform-devops-rules.md` §"인프라 관리 원칙"
+PD-INFRA: 코드 리뷰 후 적용, 수동 변경 사후 코드화, 환경별 변수화, 네이밍/비용 태깅, IAM 최소 권한. 상세: `references/agent-rules/platform-devops-rules.md` §"인프라 관리 원칙" `[L2]`
 
 ### CI/CD 원칙 → 이관됨
-PD-CICD: 멱등 파이프라인, 불변 아티팩트 환경 간 승격, 테스트 실패 즉시 중단, 프로덕션 승인 게이트, 1분 롤백, 시크릿 매니저 주입. 상세: `references/agent-rules/platform-devops-rules.md` §"CI/CD 원칙"
+PD-CICD: 멱등 파이프라인, 불변 아티팩트 환경 간 승격, 테스트 실패 즉시 중단, 프로덕션 승인 게이트, 1분 롤백, 시크릿 매니저 주입. 상세: `references/agent-rules/platform-devops-rules.md` §"CI/CD 원칙" `[L2]`
 
 ### 관측성 원칙 → 이관됨
-PD-OBS: 메트릭 대시보드, 구조화 로그(상관 ID), 실행가능 알림, P1~P4 에스컬레이션, 포스트모템. 상세: `references/agent-rules/platform-devops-rules.md` §"관측성 원칙"
+PD-OBS: 메트릭 대시보드, 구조화 로그(상관 ID), 실행가능 알림, P1~P4 에스컬레이션, 포스트모템. 상세: `references/agent-rules/platform-devops-rules.md` §"관측성 원칙" `[L2]`
 
 ### 보안 및 컴플라이언스 → 이관됨
-PD-SEC: 정기/긴급 보안 패치, 컨테이너 취약점 스캔, 네트워크 기본 거부, 인증서·시크릿 만료 모니터링. 상세: `references/agent-rules/platform-devops-rules.md` §"보안 및 컴플라이언스"
+PD-SEC: 정기/긴급 보안 패치, 컨테이너 취약점 스캔, 네트워크 기본 거부, 인증서·시크릿 만료 모니터링. 상세: `references/agent-rules/platform-devops-rules.md` §"보안 및 컴플라이언스" `[L2]`
 
 ### 협업 원칙 → 이관됨
-PD-COLLAB: 배포 이슈 backend/frontend 공유, 릴리스 품질 release-quality-gate·automation-qa 협의, 성능 이상 performance-evaluation, 반복 장애 defect-triage RCA 요청. 상세: `references/agent-rules/platform-devops-rules.md` §"협업 원칙"
+PD-COLLAB: 배포 이슈 backend/frontend 공유, 릴리스 품질 release-quality-gate·automation-qa 협의, 성능 이상 performance-evaluation, 반복 장애 defect-triage RCA 요청. 상세: `references/agent-rules/platform-devops-rules.md` §"협업 원칙" `[L2]`
 
 ### ★ specialist 위임 생략 시 사유 명시 (specialist_skip_reason)
 
 data-integration 위임 트리거 조건(SQL 마이그레이션/ETL/데이터 정합성 검증)에 해당함에도 위임을 생략하고 직접 처리하는 경우, 결과 보고의 `issues`에 `specialist_skip_reason` 1줄을 반드시 포함한다.
+
+### load_profile 소비 (부서장 C-1~C-3, delegation-protocol §2-2/§2-3)
+
+- **C-1 (재판정 금지)**: 커맨드가 첨부한 `load_profile.refs`를 해석 없이 그대로 Read한다. refs에 없는 L1 문서는 로드하지 않고, 추가 로드 필요 시 §2-5 보고 `issues`에 `load_profile 부족: {doc}` 1줄을 남긴다.
+- **C-2 (상속 무변경)**: specialist 위임 시 §2-3 `reference`에 `load_profile` 블록을 문자 그대로 복사한다(추가·삭제·재정렬 금지, `inherit: false`만 미상속). 위임 깊이 2 불변.
+- **C-3 (L2 불간섭)**: `load_profile`은 L2를 억제·허가하지 않는다. `level: L2` 위임에서도 정의 파일 stub 분기 조건이 참이면 L2 Read는 정상 동작한다.
 
 ## 출력 형식
 
@@ -202,5 +209,5 @@ data-integration 위임 트리거 조건(SQL 마이그레이션/ETL/데이터 �
 
 `.crew/memory/platform-devops/MEMORY.md`가 존재하면 세션 시작 시 Read한다(없으면 생략, 새로 만들지 않는다). 기록은 회고 파이프라인이 수행한다 — 상세 규칙은 `references/agent-memory.md`.
 
-## Best Practice 참조 → 이관됨
-PD-BP: 작업 시작 시 cache find 패턴으로 best-practices/platform-devops.md 탐색 후 Read. 상세: `references/agent-rules/platform-devops-rules.md` §"Best Practice 참조"
+## 참조 문서 (온디맨드 L2) → 이관됨
+PD-BP: 작업 프랙티스 요구 분기 진입 시에만 cache find 패턴으로 best-practices/platform-devops.md 탐색 후 Read. 상세: `references/agent-rules/platform-devops-rules.md` §"Best Practice 참조" `[L2]`

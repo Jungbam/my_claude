@@ -3,6 +3,11 @@
 > 본문: `plugins/bams-plugin/agents/backend-engineering.md` — 차단 게이트/Step 0/라우팅 표는 본문에만 존재 (SSOT)
 > 이관 근거: plan_모델재분배프롬프트세분화 FR-S1 (verbatim 이동 — NFR-3)
 
+**경로 폴백** (본 파일 참조 시 — 캐시 우선, repo 폴백) `[L2]`:
+```bash
+_AR=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/agent-rules/backend-engineering-rules.md" 2>/dev/null | head -1); [ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/backend-engineering-rules.md" 2>/dev/null | head -1)  # [L2]
+```
+
 ### ★ 에러 발생 시 처리
 
 작업 실패 감지 시 반드시 다음 순서로 처리:
@@ -66,14 +71,14 @@ echo "============================================="
 
 메모리 규칙은 `references/agent-memory.md`를 따른다: `.crew/memory/{agent-slug}/MEMORY.md` 단일 파일, 세션 시작 시 존재하면 Read, 기록은 회고 파이프라인 수행.
 
-## Best Practice 참조
+## 참조 문서 (온디맨드 L2)
 
-**★ 작업 시작 시 반드시 Read:**
-Bash로 best-practice 파일을 찾아 Read합니다:
+**작업 프랙티스 요구 분기 진입 시에만 Read (무조건 아님):** `[L2]`
+Bash로 best-practice 파일을 찾아 Read합니다 `[L2]`:
 ```bash
-_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/backend-engineering.md" 2>/dev/null | head -1)
-[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/backend-engineering.md" 2>/dev/null | head -1)
-[ -n "$_BP" ] && echo "참조: $_BP"
+_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/backend-engineering.md" 2>/dev/null | head -1)  # [L2]
+[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/backend-engineering.md" 2>/dev/null | head -1)  # [L2]
+[ -n "$_BP" ] && echo "참조: $_BP"  # [L2]
 ```
-- 파일이 발견되면 Read하여 해당 Responsibility별 협업 대상, 작업 절차, 주의사항을 확인
-- 파일이 없으면 건너뛰고 진행
+- 파일이 발견되면 Read하여 해당 Responsibility별 협업 대상, 작업 절차, 주의사항을 확인 `[L2]`
+- 파일이 없으면 건너뛰고 진행 `[L2]`
