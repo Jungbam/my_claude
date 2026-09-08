@@ -21,62 +21,26 @@
 |----------|------|--------|------|
 | gstack core | `/` | Bun | - |
 | bams-plugin | `plugins/bams-plugin/` | Bun | - |
-| bams-viz | `plugins/bams-plugin/tools/bams-viz/` | Next.js 15 | 3333 |
-| bams-server | `plugins/bams-plugin/server/` | Bun HTTP | 3099 |
-| bams-db | `plugins/bams-plugin/tools/bams-db/` | bun:sqlite | - |
 | browse | `browse/` | Playwright + Bun | 3000 |
 
-### DB 스키마 (v2 — FK 기반)
+### 에이전트 조직 (8부서 35에이전트)
 
-```
-work_units → pipelines (work_unit_id FK) → tasks (pipeline_id FK)
-                                          → task_events (task_id FK)
-                                          → run_logs (pipeline_id FK)
-hr_reports (독립)
-```
+위임 체계 (2단 위임): `사용자 커맨드 → 부서장 → (선택적) 도메인 에이전트`
+pipeline-orchestrator는 계획/게이트 판정을 반환하는 조언자(Advisor) 모드로 동작 (Task tool 직접 호출자 아님).
 
-DB 경로: `~/.claude/plugins/marketplaces/my-claude/bams.db`
-
-### 에이전트 조직 (6부서 27에이전트)
-
-위임 체계: `사용자 커맨드 → pipeline-orchestrator → 부서장 → 에이전트`
-
-- 기획부: product-strategy, business-analysis, ux-research, project-governance
-- 개발부: frontend-engineering, backend-engineering, platform-devops, data-integration
-- 디자인부: design-director, ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent
-- QA부: qa-strategy, automation-qa, defect-triage, release-quality-gate
-- 평가부: product-analytics, experimentation, performance-evaluation, business-kpi
-- 경영지원: executive-reporter, cross-department-coordinator, resource-optimizer, hr-agent
-
-### 핵심 데이터 흐름
-
-```
-[사용자 /bams:* 커맨드]
-       │
-       ▼
-[pipeline-orchestrator]  ──emit──▶  [NDJSON 이벤트 파일]
-       │                                    │
-       ▼                                    ▼
-[부서장 에이전트]           [Control Plane API :3099]
-       │                         │          │
-       ▼                         │          ▼
-[실행 에이전트]                  │   [SSE Broker]
-       │                         ▼          │
-       ▼                  [bams.db SQLite]   ▼
-[코드 수정/산출물]                    [bams-viz :3333]
-```
-
-### 이벤트 타입
-
-`pipeline_start`, `pipeline_end`, `step_start`, `step_end`, `agent_start`, `agent_end`, `error`
+- 기획부: product-strategy(장), business-analysis, ux-research, project-governance
+- 개발(FE): frontend-engineering(장, 직접 구현)
+- 개발(BE): backend-engineering(장, 직접 구현)
+- 개발(인프라): platform-devops(장), data-integration
+- 디자인부: design-director(장), ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent, guide-decomposer, guide-recomposer, ui-diff-applier, data-binding-mapper, visual-fidelity-verifier, nextjs-convention-mapper, accessibility-auditor, routing-strategist, ssr-csr-decider
+- QA부: qa-strategy(장), automation-qa, defect-triage, release-quality-gate
+- 평가부: product-analytics(장), experimentation, performance-evaluation, business-kpi
+- 경영지원(독립 운영): resource-optimizer, hr-agent, cross-department-coordinator
 
 ### 데이터 경로
 
-- 이벤트 파일: `~/.bams/artifacts/pipeline/{slug}-events.jsonl`
-- Work Unit 이벤트: `~/.bams/artifacts/pipeline/{slug}-workunit.jsonl`
-- 에이전트 로그: `~/.bams/artifacts/agents/YYYY-MM-DD.jsonl`
-- HR 보고서: `~/.bams/artifacts/hr/`
 - 아티팩트: `.crew/artifacts/` (PRD, 설계 문서, 리뷰, 회고)
+- 태스크 상태: `.crew/board.md` / 파이프라인 히스토리: `.crew/history.md`
 
 ## 컨벤션
 
