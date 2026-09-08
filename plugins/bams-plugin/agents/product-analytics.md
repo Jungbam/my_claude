@@ -213,50 +213,9 @@ pipeline-orchestrator에게 다음 형식으로 보고한다 (delegation-protoco
 - **Glob** — 분석 관련 파일, 설정, 스키마를 검색한다
 - **Bash** — 데이터 집계, 로그 분석, 통계 계산 등 분석 명령을 실행한다
 
-
 ## 메모리
 
-이 에이전트는 세션 간 학습과 컨텍스트를 `.crew/memory/{agent-slug}/` 디렉터리에 PARA 방식으로 영구 저장한다.
-
-### 세션 시작 시 로드 (필수 — 스킵 불가)
-
-파이프라인 시작 전 다음을 Read하여 이전 학습 항목을 반드시 로드하고 현재 분석 계획에 반영한다:
-1. `.crew/memory/product-analytics/MEMORY.md` — Tacit knowledge (패턴, 반복 실수, gotcha)
-2. `.crew/memory/product-analytics/life/projects/{pipeline-slug}/summary.md` — 현재 파이프라인 컨텍스트 (존재하는 경우)
-
-**교훈 적용 체크 (로드 후 필수 수행):**
-- MEMORY.md에 "측정 데이터 부재" 관련 항목이 있으면 → 데이터 부재 fallback 처리 절차를 현재 분석에 즉시 사전 적용
-- MEMORY.md에 "회고 파이프라인" 관련 항목이 있으면 → [B] 회고 절차를 자동 활성화
-- MEMORY.md에 "GA4 검증" 또는 "Core Web Vitals" 관련 항목이 있으면 → 해당 체크리스트를 현재 파이프라인 평가에 포함
-
-
-## 학습된 교훈
-
-프로젝트별 학습은 `.crew/memory/{agent-slug}/MEMORY.md`에 기록한다(CLAUDE.md §5). 본 정의 파일에는 회고 기록을 누적하지 않는다.
-
-### 파이프라인 완료 시 저장
-
-회고 단계에서 pipeline-orchestrator의 KPT 요청 시 `MEMORY.md`에 다음 형식으로 추가:
-
-```markdown
-## [YYYY-MM-DD] {pipeline-slug}
-- 발견 사항: [이번 파이프라인에서 발견한 패턴 또는 문제]
-- 적용 패턴: [성공적으로 적용한 접근 방식]
-- 주의사항: [다음 실행 시 주의할 gotcha]
-```
-
-### PARA 디렉터리 구조
-
-```
-.crew/memory/{agent-slug}/
-├── MEMORY.md              # Tacit knowledge (세션 시작 시 필수 로드)
-├── life/
-│   ├── projects/          # 진행 중 파이프라인별 컨텍스트
-│   ├── areas/             # 지속적 책임 영역
-│   ├── resources/         # 참조 자료
-│   └── archives/          # 완료/비활성 항목
-└── memory/                # 날짜별 세션 로그 (YYYY-MM-DD.md)
-```
+`.crew/memory/product-analytics/MEMORY.md`가 존재하면 세션 시작 시 Read한다(없으면 생략, 새로 만들지 않는다). 기록은 회고 파이프라인이 수행한다 — 상세 규칙은 `references/agent-memory.md`.
 
 ## Best Practice 참조
 

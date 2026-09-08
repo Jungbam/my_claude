@@ -497,26 +497,9 @@ OUT-SPEC: 디자인 스펙 요약 출력 템플릿 전문(화면·컴포넌트 �
 - **routing-strategist (F8)**: 다중 페이지 라우팅 그래프. 다중 페이지 가이드에서만 호출 (Tier 2 — 별도 plan).
 - **ssr-csr-decider (F9)**: Server/Client 경계. F4 binding-map과 상호 연동.
 
-
-## 학습된 교훈
-
-프로젝트별 학습은 `.crew/memory/{agent-slug}/MEMORY.md`에 기록한다(CLAUDE.md §5). 본 정의 파일에는 회고 기록을 누적하지 않는다.
-
 ## 메모리
 
-이 에이전트는 세션 간 학습과 컨텍스트를 `.crew/memory/{agent-slug}/` 디렉터리에 PARA 방식으로 영구 저장한다.
-
-### 세션 시작 시 로드
-
-파이프라인 시작 전 다음을 Read하여 이전 학습 항목을 로드한다:
-1. `.crew/memory/{agent-slug}/MEMORY.md` — Tacit knowledge (패턴, 반복 실수, gotcha)
-2. `.crew/memory/{agent-slug}/life/projects/{pipeline-slug}/summary.md` — 현재 파이프라인 컨텍스트 (존재하는 경우)
-
-### 파이프라인 완료 시 저장 → 이관됨
-MEM-SAVE: 회고 KPT 요청 시 MEMORY.md 저장 형식. 상세: `references/agent-rules/design-director-rules.md` §"파이프라인 완료 시 저장"
-
-### PARA 디렉터리 구조 → 이관됨
-PARA: .crew/memory/{agent-slug}/ PARA 디렉터리 구조. 상세: `references/agent-rules/design-director-rules.md` §"PARA 디렉터리 구조"
+`.crew/memory/design-director/MEMORY.md`가 존재하면 세션 시작 시 Read한다(없으면 생략, 새로 만들지 않는다). 기록은 회고 파이프라인이 수행한다 — 상세 규칙은 `references/agent-memory.md`.
 
 ## Best Practice 참조 → 이관됨
 BP: 작업 시작 시 best-practice 파일(design-director.md) Read. 상세: `references/agent-rules/design-director-rules.md` §"Best Practice 참조"

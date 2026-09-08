@@ -134,7 +134,7 @@ pipeline-orchestrator가 수집된 KPT 항목을 종합하고 다음을 결정�
 
 ## 5. 학습 교훈 저장
 
-회고에서 도출된 교훈은 각 에이전트의 프로젝트 로컬 메모리 파일 `.crew/memory/{agent-slug}/MEMORY.md`에 기록합니다 (CLAUDE.md §5). **플러그인 정의 파일(`plugins/bams-plugin/agents/*.md`)에는 회고 기록(날짜 항목·프로젝트 특정 경로·KPT 인용·retro 슬러그 출처)을 절대 기록하지 않습니다.**
+회고에서 도출된 교훈은 각 에이전트의 프로젝트 로컬 메모리 파일 `.crew/memory/{agent-slug}/MEMORY.md`에 기록합니다 (CLAUDE.md §5, 저장 규칙 SSOT `references/agent-memory.md` — 단일 파일, PARA·`improvements/`·날짜별 세션 로그 폐지). 기록은 이 회고 파이프라인에서만 수행합니다. **플러그인 정의 파일(`plugins/bams-plugin/agents/*.md`)에는 회고 기록(날짜 항목·프로젝트 특정 경로·KPT 인용·retro 슬러그 출처)을 절대 기록하지 않습니다.**
 
 ### 5-1. 섹션 형식
 
@@ -163,7 +163,7 @@ pipeline-orchestrator가 수집된 KPT 항목을 종합하고 다음을 결정�
 
 ### 5-3. 교훈 → 행동 연결
 
-기록된 교훈은 해당 에이전트가 다음 호출 시 `## 메모리 > 세션 시작 시 로드` 절에 따라 `.crew/memory/{agent-slug}/MEMORY.md`를 Read하여 로드하고, 현재 작업과 관련된 교훈이 있으면 행동에 반영합니다.
+기록된 교훈은 해당 에이전트가 다음 호출 시 `references/agent-memory.md` 규칙(세션 시작 시 존재하면 Read)에 따라 `.crew/memory/{agent-slug}/MEMORY.md`를 로드하고, 현재 작업과 관련된 교훈이 있으면 행동에 반영합니다.
 
 ### 5-4. 정의 파일 행동 규칙 개선 (예외)
 

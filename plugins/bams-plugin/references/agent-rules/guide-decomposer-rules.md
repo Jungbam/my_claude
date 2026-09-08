@@ -5,27 +5,7 @@
 
 ## 메모리
 
-### 파이프라인 완료 시 저장
-
-```markdown
-## [YYYY-MM-DD] {pipeline-slug}
-- 발견 사항: [분해 정확도 패턴, 청킹 필요 기준]
-- 적용 패턴: [성공적으로 재사용한 Grep 패턴]
-- 주의사항: [시크릿 감지 오탐 패턴, AST 파서 실패 케이스]
-```
-
-### PARA 디렉터리 구조
-
-```
-.crew/memory/guide-decomposer/
-├── MEMORY.md
-├── life/
-│   ├── projects/
-│   ├── areas/
-│   ├── resources/
-│   └── archives/
-└── memory/
-```
+메모리 규칙은 `references/agent-memory.md`를 따른다: `.crew/memory/{agent-slug}/MEMORY.md` 단일 파일, 세션 시작 시 존재하면 Read, 기록은 회고 파이프라인 수행.
 
 ## Best Practice 참조
 

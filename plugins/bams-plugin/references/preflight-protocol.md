@@ -20,7 +20,7 @@ Bash로 `git rev-parse --is-inside-work-tree 2>/dev/null`를 실행하여 git �
 
 1. **`.crew/config.md`** — 프로젝트 메타정보 (기술스택, 디렉토리 구조, 컨벤션, 테스트 명령어)
    - `## Pipeline Learnings` 섹션에서 이번 작업과 관련된 항목만 추출.
-2. **`.crew/board.md`** — 현재 태스크 보드 (있으면)
+2. **`.crew/board.md`** — 현재 태스크 보드의 **활성 섹션만**(Backlog / In Progress / In Review). Done·완료 과거분은 `.crew/board-archive.md`에 분리되어 있으므로 읽지 않는다(감사·조회 시에만).
 3. **`CLAUDE.md`** — 프로젝트별 빌드/테스트/배포 명령어 + `## Gotchas` 섹션
 
 **config.md 없으면**: `/bams:init` 안내 후 중단.
@@ -32,7 +32,7 @@ Bash로 `git rev-parse --is-inside-work-tree 2>/dev/null`를 실행하여 git �
 
 4. **`.crew/gotchas.md`** — 프로젝트 gotchas 전체 목록 (있으면).
    - 이번 작업 영역과 관련된 gotchas를 추출하여 이후 단계에 경고로 전달.
-5. **`.crew/history.md`** — 이전 pipeline 완료 이력 (상태 판별의 SSOT).
+5. **`.crew/history.md`** — 이전 pipeline 완료 이력 (상태 판별의 SSOT). **최근 20건만 스캔**: `grep -n '^## ' .crew/history.md | head -20`으로 헤더를 훑고 필요한 블록만 읽는다(전체 파일 Read 금지).
    - 같은 pipeline 타입 + slug의 완료 기록이 없는데 산출물만 존재하면 미완료로 간주.
    - 미완료 파이프라인이 있으면 재개 여부를 AskUserQuestion으로 확인.
 6. **`.crew/artifacts/review/`** — 이전 리뷰 결과 (있으면).

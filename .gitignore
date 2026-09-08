@@ -21,6 +21,7 @@ supabase/.temp/
 # .crew runtime artifacts (프로젝트별 로컬 데이터, 런타임 생성)
 .crew/artifacts/
 .crew/board.md
+.crew/board-archive.md
 .crew/history.md
 .crew/gotchas.md
 .crew/*.lock

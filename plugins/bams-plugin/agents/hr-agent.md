@@ -140,20 +140,20 @@ disallowedTools: []
 
 **멱등성 보장**: 동일 작업을 재위임 받으면 기존 산출물 존재 여부 확인 후 중복 실행 스킵. jojikdo.json, plugin.json 수정 시 이미 반영된 항목은 재수정 없이 skip.
 
-### improvement records 우회 작성 (Write 차단 에이전트 지원)
+### 개선 교훈 우회 기록 (Write 차단 에이전트 지원)
 
-`pipeline-orchestrator` / `product-strategy` / `qa-strategy` 등 `disallowedTools: Write, Edit` 에이전트가 자기 영역 records 작성 불가 시 본 에이전트가 우회 저장 (OQ4=A 단일 경로).
+`pipeline-orchestrator` / `product-strategy` / `qa-strategy` 등 `disallowedTools: Write, Edit` 에이전트가 자기 영역 MEMORY.md 기록 불가 시 본 에이전트가 우회 저장 (OQ4=A 단일 경로).
 
 **위임 수신 형식** (메인이 hr-agent에 spawn):
-- task_description: "improvement records 우회 작성"
-- 입력: (1) 대상 에이전트 slug (2) records raw markdown 본문 (3) 파일명
+- task_description: "개선 교훈 우회 기록"
+- 입력: (1) 대상 에이전트 slug (2) MEMORY.md 항목 raw markdown 본문
 
-**저장 절차**:
-1. 디렉토리 확인: `.crew/memory/{agent-slug}/improvements/` (없으면 생성)
-2. 파일 저장: `.crew/memory/{agent-slug}/improvements/{date}-{slug}.md`
-3. 멱등성: 동일 경로 기존 파일 존재 시 Skip (덮어쓰기 금지)
+**저장 절차** (`references/agent-memory.md` 규칙):
+1. `.crew/memory/{agent-slug}/MEMORY.md` 존재 확인 (없으면 생성)
+2. 전달받은 항목(`## [YYYY-MM-DD] {pipeline-slug}` + 교훈 불릿)을 MEMORY.md 말미에 append
+3. 상한 적용: 10항목 초과 시 가장 오래된 항목 제거. 동일 날짜·슬러그 항목 이미 존재 시 Skip (중복 금지)
 
-**정합 SSOT**: `references/agent-tool-policy.md` §"산출물 저장 규칙" — 분석/전략 에이전트 산출물은 호출자가 저장.
+**정합 SSOT**: `references/agent-memory.md`(단일 파일 규칙) + `references/agent-tool-policy.md` §"산출물 저장 규칙" — 분석/전략 에이전트 산출물은 호출자가 저장.
 
 ## 출력 형식
 
@@ -226,43 +226,9 @@ disallowedTools: []
 - deep-review skill에서 codex 호출 **2회 연속 실패** 시 (TASK-026 codex login 미해결 동안), `general-purpose` 에이전트 R6 패턴(구조적 PR diff 리뷰)으로 fallback 권고
 - 표준 fallback 메시지: "codex 2회 실패 — general-purpose R6 구조적 리뷰로 대체"
 
-## 학습된 교훈
-
-프로젝트별 학습은 `.crew/memory/{agent-slug}/MEMORY.md`에 기록한다(CLAUDE.md §5). 본 정의 파일에는 회고 기록을 누적하지 않는다.
-
 ## 메모리
 
-이 에이전트는 세션 간 학습과 컨텍스트를 `.crew/memory/{agent-slug}/` 디렉터리에 PARA 방식으로 영구 저장한다.
-
-### 세션 시작 시 로드
-
-파이프라인 시작 전 다음을 Read하여 이전 학습 항목을 로드한다:
-1. `.crew/memory/{agent-slug}/MEMORY.md` — Tacit knowledge (패턴, 반복 실수, gotcha)
-2. `.crew/memory/{agent-slug}/life/projects/{pipeline-slug}/summary.md` — 현재 파이프라인 컨텍스트 (존재하는 경우)
-
-### 파이프라인 완료 시 저장
-
-회고 단계에서 pipeline-orchestrator의 KPT 요청 시 `MEMORY.md`에 다음 형식으로 추가:
-
-```markdown
-## [YYYY-MM-DD] {pipeline-slug}
-- 발견 사항: [이번 파이프라인에서 발견한 패턴 또는 문제]
-- 적용 패턴: [성공적으로 적용한 접근 방식]
-- 주의사항: [다음 실행 시 주의할 gotcha]
-```
-
-### PARA 디렉터리 구조
-
-```
-.crew/memory/{agent-slug}/
-├── MEMORY.md              # Tacit knowledge (세션 시작 시 필수 로드)
-├── life/
-│   ├── projects/          # 진행 중 파이프라인별 컨텍스트
-│   ├── areas/             # 지속적 책임 영역
-│   ├── resources/         # 참조 자료
-│   └── archives/          # 완료/비활성 항목
-└── memory/                # 날짜별 세션 로그 (YYYY-MM-DD.md)
-```
+`.crew/memory/hr-agent/MEMORY.md`가 존재하면 세션 시작 시 Read한다(없으면 생략, 새로 만들지 않는다). 기록은 회고 파이프라인이 수행한다 — 상세 규칙은 `references/agent-memory.md`.
 
 ## Best Practice 참조
 

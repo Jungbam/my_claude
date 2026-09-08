@@ -77,7 +77,7 @@ Step 4.5 Phase 1의 Advisor Response에서 근본 원인 부서장 정보를 활
    - `hotfix:` — 근본 원인 + 영향 범위 요약
    - `vulnerable:` — 같은 영역 반복 버그 감지 시 경고 수준 상향
    - `regression-test:` — 추가 회귀 테스트 경로
-3. 메인이 직접 `.crew/board.md` 관련 태스크를 `Done`으로 변경
+3. 메인이 직접 관련 태스크를 Done 처리하고 `.crew/board-archive.md`의 `## Done ({slug} — YYYY-MM-DD)` 섹션으로 이관(형식 그대로) — `completion-protocol.md` Step 4.6
 
 ---
 
@@ -94,7 +94,7 @@ Step 4.5 Phase 1의 Advisor Response에서 근본 원인 부서장 정보를 활
 - parent: {parent_pipeline_slug or null}
 ```
 
-`.crew/board.md` 업데이트: 관련 태스크 있으면 `Done`으로 변경.
+`.crew/board.md` 업데이트: 관련 태스크 있으면 Done 처리 후 `.crew/board-archive.md`로 이관(Step 4.6 아카이브 규칙).
 
 **`references/completion-protocol.md` 참조.** 표준 프로토콜을 따릅니다.
 

@@ -32,7 +32,7 @@ _RETRO_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/retro/
 
 활성 스프린트 없으면 `skipped` → Step 3으로.
 
-board.md에서 태스크 현황 파악 + 이번 주 파이프라인 완료 기록(history.md)과 태스크 매핑.
+board.md의 활성 섹션(Backlog/In Progress/In Review)에서 태스크 현황 파악 + 이번 주 파이프라인 완료 기록(history.md 최근 20건: `grep -n '^## ' .crew/history.md | head -20` 후 필요한 블록만)과 태스크 매핑.
 `/bams:sprint status` 실행.
 
 ## Step 2: 스프린트 종료

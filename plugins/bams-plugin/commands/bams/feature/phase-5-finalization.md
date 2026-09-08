@@ -129,8 +129,8 @@ Advisor가 권고한 부서장들에 대해, **단일 메시지에 복수 Task t
 
 1. 합의 도출: 수집된 KPT를 종합하여 Problem 우선순위 정렬, 액션 아이템 확정, 교차 검증
 2. 피드백 반영: 에이전트 교훈 저장, gotchas 승격 검사, Pipeline Learnings 갱신, 프로세스 개선 제안
-3. 보드 및 히스토리 업데이트:
-   - 완료된 모든 태스크를 board.md의 `## Done`으로 이동
+3. 보드 및 히스토리 업데이트 (`completion-protocol.md` Step 4.6 아카이브 규칙 준수):
+   - 완료된 모든 태스크를 `.crew/board-archive.md`의 `## Done ({slug} — YYYY-MM-DD)` 섹션으로 이관(형식 그대로). board.md에는 활성 섹션만 남기고 Done은 최근 1개 파이프라인분만 유지.
    - **히스토리 기록 (파이프라인 완료 표준)**: `.crew/history.md`에 1줄 기록을 추가합니다 (기존 형식):
      ```
      ## {YYYY-MM-DD} | {slug} | {COMPLETED|FAILED}

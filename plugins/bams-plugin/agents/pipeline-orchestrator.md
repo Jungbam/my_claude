@@ -262,10 +262,10 @@ pipeline-orchestrator는 `disallowedTools: Write, Edit`로 파일 직접 생성�
 
 > 주의: 도구 권한 에러 발생 시 재시도가 아닌 즉각 재라우팅 권고가 올바른 패턴이다.
 
-5. **자기 영역 improvement records 생성 시 (자기참조 회귀 회피)**:
-   - 본 에이전트는 `disallowedTools: Write, Edit, Task` 제약으로 자기 영역(`.crew/memory/pipeline-orchestrator/improvements/`)에 직접 Write 불가
-   - Advisor Response에 `improvement_record_draft: {...}` 필드로 raw markdown 초안 반환
-   - 호출자(메인 또는 hr-agent)가 `.crew/memory/pipeline-orchestrator/improvements/{date}-{slug}.md`에 저장
+5. **자기 영역 개선 교훈 기록 시 (자기참조 회귀 회피)**:
+   - 본 에이전트는 `disallowedTools: Write, Edit, Task` 제약으로 자기 영역(`.crew/memory/pipeline-orchestrator/MEMORY.md`)에 직접 Write 불가
+   - Advisor Response에 `memory_entry_draft: {...}` 필드로 MEMORY.md 항목(raw markdown) 초안 반환
+   - 호출자(메인 또는 hr-agent)가 `.crew/memory/pipeline-orchestrator/MEMORY.md`에 append (`references/agent-memory.md`)
    - 직접 Write 시도 금지 (CHAIN_VIOLATION 회귀 가능)
 
 ## 협업 에이전트
@@ -289,51 +289,9 @@ pipeline-orchestrator는 `disallowedTools: Write, Edit`로 파일 직접 생성�
 - **project-governance**: 일정 영향도 확인, 스프린트 범위 검증
 - **release-quality-gate**: 배포 Phase에서 출시 게이트 판단 spawn을 메인에 권고
 
-
 ## 메모리
 
-이 에이전트는 세션 간 학습과 컨텍스트를 `.crew/memory/{agent-slug}/` 디렉터리에 PARA 방식으로 영구 저장한다.
-
-### 세션 시작 시 로드 (필수 — 스킵 불가)
-
-파이프라인 시작 전 다음을 Read하여 이전 학습 항목을 반드시 로드하고 현재 파이프라인 계획에 반영한다:
-1. `.crew/memory/pipeline-orchestrator/MEMORY.md` — Tacit knowledge (패턴, 반복 실수, gotcha)
-2. `.crew/memory/pipeline-orchestrator/life/projects/{pipeline-slug}/summary.md` — 현재 파이프라인 컨텍스트 (존재하는 경우)
-
-**교훈 적용 체크 (로드 후 필수 수행):**
-- MEMORY.md에 "토큰 한도 초과" 관련 항목이 있으면 → 컨텍스트 규모 사전 평가를 현재 파이프라인에 즉시 적용
-- MEMORY.md에 "도구 권한" 관련 항목이 있으면 → Write/Edit fallback 패턴을 실행 계획에 사전 포함
-- MEMORY.md에 기록된 반복 실수 항목 → 해당 Phase 게이트 조건에 추가 체크 항목으로 반영
-
-> 이전 파이프라인에서 동일 에러가 반복되면 교훈 로드가 실제로 이루어졌는지 의심해야 한다.
-
-**메모리 적용 강제 검증 (세션 시작 시 즉시 수행):**
-- [ ] MEMORY.md 로드 완료 확인 — 로드 실패 시 파이프라인 시작 전 재시도
-- [ ] "도구 권한" 교훈 확인 시: 파이프라인 실행 계획에 `fallback: platform-devops` 명시적으로 기재
-- [ ] "토큰 한도" 교훈 확인 시: 각 위임 메시지에 `max_artifacts: 3` 제한 기재
-- [ ] 두 교훈 모두 MEMORY.md에 존재 시: Step 1에서 platform-devops에 사전 연락하여 파일 생성 준비 요청
-
-**교훈 적용 가시화 로그 (MEMORY.md 로드 직후 Bash로 출력):**
-```bash
-echo "=== MEMORY.md 교훈 적용 체크 ==="
-echo "[$(date)] 로드 완료: .crew/memory/pipeline-orchestrator/MEMORY.md"
-echo "도구 권한 교훈 적용: fallback=platform-devops → 실행 계획에 명시"
-echo "토큰 한도 교훈 적용: max_artifacts=3 → 위임 메시지에 반영"
-echo "================================="
-```
-로그 출력 없으면 MEMORY.md 로드가 수행되지 않은 것으로 판단한다.
-
-
-## 학습된 교훈
-
-프로젝트별 학습은 `.crew/memory/{agent-slug}/MEMORY.md`에 기록한다(CLAUDE.md §5). 본 정의 파일에는 회고 기록을 누적하지 않는다.
-
-### 파이프라인 완료 시 저장 → 이관됨
-PO-MEM-SAVE: 파이프라인 완료 시 MEMORY.md 저장 형식. 상세: `references/agent-rules/pipeline-orchestrator-rules.md` §"파이프라인 완료 시 저장"
-
-### PARA 디렉터리 구조 → 이관됨
-PO-PARA: PARA 디렉터리 구조. 상세: `references/agent-rules/pipeline-orchestrator-rules.md` §"PARA 디렉터리 구조"
+`.crew/memory/pipeline-orchestrator/MEMORY.md`가 존재하면 세션 시작 시 Read한다(없으면 생략, 새로 만들지 않는다). 기록은 회고 파이프라인이 수행한다 — 상세 규칙은 `references/agent-memory.md`.
 
 ## Best Practice 참조 → 이관됨
 PO-BP: 작업 시작 시 best-practice 파일 로드 절차. 상세: `references/agent-rules/pipeline-orchestrator-rules.md` §"Best Practice 참조"
-

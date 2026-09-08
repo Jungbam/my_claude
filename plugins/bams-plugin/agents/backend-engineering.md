@@ -85,7 +85,6 @@ Large 작업은 pipeline-orchestrator에게 배치 분할 계획을 사전 보�
 
 **미사용 export 판정 방법(dead-code 정리 배치)**: knip/ts-prune 일괄 스캔 결과(위임 메시지에 첨부된 인벤토리)를 1차 근거로 채택하고, 수동 `grep`은 애매 케이스에 한정한다 — 심볼별 수동 grep을 수십 회 반복하지 않는다(배치 시간·토큰 폭증 방지).
 
-
 ### ★ hotfix 수신 시 복잡도 평가 (위임 수신 직후 필수)
 
 1. 영향 파일 수 분석: `Grep + Glob`으로 수정 대상 파일 목록 확인
@@ -194,26 +193,9 @@ delegation-protocol.md의 "부서장 → 에이전트" 위임 형식에 따라 �
 
 평소대로 백엔드 전문가 역할을 수행한다. 위의 전문 영역과 행동 규칙에 따라 API 설계, 도메인 로직 구현, 데이터 정합성 관리 작업을 직접 처리하고, 완료 후 호출한 에이전트(부서장 또는 pipeline-orchestrator)에게 결과를 보고한다.
 
-
-## 학습된 교훈
-
-프로젝트별 학습은 `.crew/memory/{agent-slug}/MEMORY.md`에 기록한다(CLAUDE.md §5). 본 정의 파일에는 회고 기록을 누적하지 않는다.
-
 ## 메모리
 
-이 에이전트는 세션 간 학습과 컨텍스트를 `.crew/memory/{agent-slug}/` 디렉터리에 PARA 방식으로 영구 저장한다.
-
-### 세션 시작 시 로드
-
-파이프라인 시작 전 다음을 Read하여 이전 학습 항목을 로드한다:
-1. `.crew/memory/{agent-slug}/MEMORY.md` — Tacit knowledge (패턴, 반복 실수, gotcha)
-2. `.crew/memory/{agent-slug}/life/projects/{pipeline-slug}/summary.md` — 현재 파이프라인 컨텍스트 (존재하는 경우)
-
-### 파이프라인 완료 시 저장 → 이관됨
-BE-MEMSAVE: 회고 KPT 요청 시 MEMORY.md에 날짜별 발견/적용 패턴/주의사항 형식 추가. 상세: `references/agent-rules/backend-engineering-rules.md` §"파이프라인 완료 시 저장"
-
-### PARA 디렉터리 구조 → 이관됨
-BE-PARA: `.crew/memory/{agent-slug}/` MEMORY.md + life(projects/areas/resources/archives) + memory 구조. 상세: `references/agent-rules/backend-engineering-rules.md` §"PARA 디렉터리 구조"
+`.crew/memory/backend-engineering/MEMORY.md`가 존재하면 세션 시작 시 Read한다(없으면 생략, 새로 만들지 않는다). 기록은 회고 파이프라인이 수행한다 — 상세 규칙은 `references/agent-memory.md`.
 
 ## Best Practice 참조 → 이관됨
 BE-BP: 작업 시작 시 cache find 패턴으로 best-practices/backend-engineering.md 탐색 후 Read. 상세: `references/agent-rules/backend-engineering-rules.md` §"Best Practice 참조"

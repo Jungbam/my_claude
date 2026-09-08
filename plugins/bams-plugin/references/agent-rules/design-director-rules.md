@@ -177,29 +177,7 @@ constraints:
 
 ## 메모리
 
-### 파이프라인 완료 시 저장
-
-회고 단계에서 pipeline-orchestrator의 KPT 요청 시 `MEMORY.md`에 다음 형식으로 추가:
-
-```markdown
-## [YYYY-MM-DD] {pipeline-slug}
-- 발견 사항: [이번 파이프라인에서 발견한 패턴 또는 문제]
-- 적용 패턴: [성공적으로 적용한 접근 방식]
-- 주의사항: [다음 실행 시 주의할 gotcha]
-```
-
-### PARA 디렉터리 구조
-
-```
-.crew/memory/{agent-slug}/
-├── MEMORY.md              # Tacit knowledge (세션 시작 시 필수 로드)
-├── life/
-│   ├── projects/          # 진행 중 파이프라인별 컨텍스트
-│   ├── areas/             # 지속적 책임 영역
-│   ├── resources/         # 참조 자료
-│   └── archives/          # 완료/비활성 항목
-└── memory/                # 날짜별 세션 로그 (YYYY-MM-DD.md)
-```
+메모리 규칙은 `references/agent-memory.md`를 따른다: `.crew/memory/{agent-slug}/MEMORY.md` 단일 파일, 세션 시작 시 존재하면 Read, 기록은 회고 파이프라인 수행.
 
 ## Best Practice 참조
 

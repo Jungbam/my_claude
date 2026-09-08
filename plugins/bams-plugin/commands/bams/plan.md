@@ -23,7 +23,7 @@ Glob으로 `.crew/config.md`가 존재하는지 확인합니다. 없으면:
 - 출력: "프로젝트가 초기화되지 않았습니다. `/bams:init`을 실행하여 설정하세요."
 - 여기서 중단.
 
-`.crew/config.md`와 `.crew/board.md`를 읽어 현재 상태를 파악합니다.
+`.crew/config.md`와 `.crew/board.md`(활성 섹션만 — Backlog/In Progress/In Review)를 읽어 현재 상태를 파악합니다. Done·과거 완료분은 `.crew/board-archive.md`에 분리되어 있어 읽지 않습니다.
 
 > **위임 체계 (Canonical)**: 이 커맨드는 `_shared_common.md` §위임 원칙 + 부록 **루프 B**(Advised)를 따른다. 메인(커맨드)이 부서장을 **직접** Task tool로 spawn하며, pipeline-orchestrator는 조언자(Advisor) 모드로 1회만 호출된다. orchestrator를 경유한 중첩 spawn 금지(harness 깊이 2 제약).
 

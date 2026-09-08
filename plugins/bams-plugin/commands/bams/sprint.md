@@ -23,7 +23,7 @@ Glob으로 `.crew/config.md`가 존재하는지 확인합니다. 없으면:
 - 출력: "프로젝트가 초기화되지 않았습니다. `/bams:init`을 실행하여 설정하세요."
 - 여기서 중단.
 
-`.crew/config.md`와 `.crew/board.md`를 읽습니다.
+`.crew/config.md`와 `.crew/board.md`(활성 섹션만 — Backlog/In Progress/In Review)를 읽습니다.
 
 Glob으로 `.crew/sprints/sprint-*.md`를 찾아 기존 스프린트를 확인합니다. 활성 스프린트는 YAML 프론트매터에 `completed: null`이 있습니다.
 

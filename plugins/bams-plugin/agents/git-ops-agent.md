@@ -51,3 +51,7 @@ Agent(
 - 정책 SSOT: `references/model-config.md` (Tier 4 — Haiku 4.5)
 - 게이트 이중 방어: `/careful` hook (실행 직전 파괴 명령 경고 — git skill은 사전 게이트, 역할 분리는 PRD F-R7 참조)
 - 경계: PR·머지·배포는 `/ship`, `/land-and-deploy` 담당
+
+## 메모리
+
+`.crew/memory/git-ops-agent/MEMORY.md`가 존재하면 세션 시작 시 Read한다(없으면 생략, 새로 만들지 않는다). 기록은 회고 파이프라인이 수행한다 — 상세 규칙은 `references/agent-memory.md`.

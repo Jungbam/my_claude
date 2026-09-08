@@ -30,7 +30,7 @@ $ARGUMENTS가 완전히 비어 있으면 → OQ10=(a): 인터랙티브 prompt �
 
 Bash로 `.crew/config.md` 존재 여부 확인:
 - 없으면 "/bams:init 을 먼저 실행하세요" 출력 후 중단.
-- 있으면 `.crew/config.md` 와 `.crew/board.md` Read.
+- 있으면 `.crew/config.md` 와 `.crew/board.md`(활성 섹션만 — Backlog/In Progress/In Review) Read.
 
 ## Phase 라우팅 표
 

@@ -213,41 +213,9 @@ input_artifacts:
 - **platform-devops** (협력): dev 서버 기동 요청 시.
 - **frontend-engineering** (후속): verdict FAIL/CONDITIONAL 시 미스매치 항목 전달.
 
-## 학습된 교훈
-
-프로젝트별 학습은 `.crew/memory/{agent-slug}/MEMORY.md`에 기록한다(CLAUDE.md §5). 본 정의 파일에는 회고 기록을 누적하지 않는다.
-
 ## 메모리
 
-이 에이전트는 세션 간 학습과 컨텍스트를 `.crew/memory/visual-fidelity-verifier/` 디렉터리에 PARA 방식으로 영구 저장한다.
-
-### 세션 시작 시 로드
-
-파이프라인 시작 전 다음을 Read하여 이전 학습 항목을 로드한다:
-1. `.crew/memory/visual-fidelity-verifier/MEMORY.md` — Tacit knowledge (패턴, 반복 실수, gotcha)
-2. `.crew/memory/visual-fidelity-verifier/life/projects/{pipeline-slug}/summary.md` — 현재 파이프라인 컨텍스트 (존재하는 경우)
-
-### 파이프라인 완료 시 저장
-
-```markdown
-## [YYYY-MM-DD] {pipeline-slug}
-- 발견 사항: [픽셀 diff 임계값 적합성, WCAG 이슈 빈도]
-- 적용 패턴: [G-SIDECAR Preflight 결과 패턴]
-- 주의사항: [외부 URL 화이트리스트 체크 누락 방지]
-```
-
-### PARA 디렉터리 구조
-
-```
-.crew/memory/visual-fidelity-verifier/
-├── MEMORY.md
-├── life/
-│   ├── projects/
-│   ├── areas/
-│   ├── resources/
-│   └── archives/
-└── memory/
-```
+`.crew/memory/visual-fidelity-verifier/MEMORY.md`가 존재하면 세션 시작 시 Read한다(없으면 생략, 새로 만들지 않는다). 기록은 회고 파이프라인이 수행한다 — 상세 규칙은 `references/agent-memory.md`.
 
 ## Best Practice 참조
 

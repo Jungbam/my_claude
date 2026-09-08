@@ -5,35 +5,18 @@ deep-review 및 hotfix finalization에서 개선점이 발견될 때 이 프로�
 
 ## 1. 개선 기록 구조
 
-개선점은 에이전트별 디렉터리에 파일로 저장합니다:
+개선점은 에이전트별 **`.crew/memory/{agent-slug}/MEMORY.md` 항목**으로 append합니다(단일 파일 규칙 — `references/agent-memory.md`). 별도 `improvements/*.md` 파일을 신규 생성하지 않습니다.
 
+### 항목 형식
+
+```markdown
+## [YYYY-MM-DD] {pipeline-slug}
+- ({pattern_tag} · {type} · {severity}) {반복 발견된 패턴 요약과 개선 제안}
+- [교훈 불릿 — 항목당 최대 3개]
 ```
-.crew/memory/{agent}/improvements/{YYYY-MM-DD}-{slug}.md
-```
 
-### 파일 형식
-
-```yaml
----
-date: {YYYY-MM-DD}
-pipeline_slug: {slug}
-parent_pipeline_slug: {parent_slug or null}
-agent: {agent_type}
-pattern_tag: {category}:{specific_tag}
-type: one-off | structural
-severity: minor | major | critical
----
-
-## 리뷰에서 발견된 패턴
-{반복 발견된 코드 패턴 또는 아키텍처 이슈}
-
-## 개선 제안
-{에이전트 또는 스킬에 대한 구체적 개선 제안}
-
-## 관련 파이프라인
-- 원본: {parent_pipeline_slug}
-- 리뷰: {slug}
-```
+- `pattern_tag`/`type`/`severity`는 불릿 앞 괄호에 인라인 주석으로 남겨 §2~§4 반복 감지에 활용합니다.
+- 원본/리뷰 파이프라인 구분이 필요하면 불릿에 `(원본: {parent_pipeline_slug})`를 덧붙입니다.
 
 ## 2. pattern_tag 체계
 
@@ -75,11 +58,11 @@ severity: minor | major | critical
 
 ### 실행 단계
 
-1. **패턴 분석**: 해당 pattern_tag의 모든 improvement 파일을 수집하여 공통 원인 도출
+1. **패턴 분석**: 해당 pattern_tag의 모든 MEMORY.md 항목을 수집하여 공통 원인 도출
 2. **개선안 작성**: 에이전트의 행동 규칙 또는 프롬프트 수정안 제안
 3. **사용자 승인**: AskUserQuestion으로 수정안 승인 요청
 4. **적용**: 승인 시 에이전트 `.md` 파일의 행동 규칙 섹션 수정
-5. **검증 마커**: improvement 파일에 `resolved_by: {수정 내용 요약}` 추가
+5. **검증 마커**: 해당 MEMORY.md 항목 불릿에 `(resolved: {수정 내용 요약})` 추가
 
 ### 적용 대상
 
@@ -93,9 +76,8 @@ severity: minor | major | critical
 
 ## 6. 이력 관리
 
-- improvement 파일은 **삭제하지 않음** (감사 추적용)
-- resolved 상태의 파일은 6개월 후 `.crew/memory/{agent}/improvements/archive/`로 이동
-- 에이전트당 active improvement 파일은 최대 20개 유지
+- MEMORY.md 항목 상한·보존은 `references/agent-memory.md`를 따른다: 파일당 최대 10항목, 6개월 경과 항목 삭제.
+- 기존 `.crew/memory/{agent}/improvements/*.md` 파일은 **삭제하지 않되**(감사 추적), 신규 생성하지 않고 참조만 한다.
 
 ## 7. 에이전트 정의 분량 상한 규칙 (NFR-2)
 

@@ -20,8 +20,8 @@
 
 메인이 직접 다음을 수행합니다:
 
-1. 보드 업데이트:
-   - 완료된 모든 태스크를 board.md의 `## Done`으로 이동
+1. 보드 업데이트 (`completion-protocol.md` Step 4.6 아카이브 규칙 준수):
+   - 완료된 모든 태스크를 `.crew/board-archive.md`의 `## Done ({slug} — YYYY-MM-DD)` 섹션으로 이관(형식 그대로). board.md에는 활성 섹션만 남기고 Done은 최근 1개 파이프라인분만 유지.
    - board.md의 `> Last updated:` 갱신
 2. **히스토리 기록 (파이프라인 완료 표준)**: `.crew/history.md`에 1줄 기록을 추가합니다 (기존 형식):
    ```

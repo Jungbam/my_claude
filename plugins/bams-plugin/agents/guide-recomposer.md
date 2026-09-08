@@ -196,37 +196,6 @@ _BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practi
 
 발견 시 §1~§4 (호출 컨텍스트 / 실수 3건 / 권장 패턴 / 체크리스트 5건) 확인 후 작업 진행.
 
-## 학습된 교훈
-
-프로젝트별 학습은 `.crew/memory/{agent-slug}/MEMORY.md`에 기록한다(CLAUDE.md §5). 본 정의 파일에는 회고 기록을 누적하지 않는다.
-
 ## 메모리
 
-이 에이전트는 세션 간 학습과 컨텍스트를 `.crew/memory/guide-recomposer/` 디렉터리에 PARA 방식으로 영구 저장한다.
-
-### 세션 시작 시 로드
-
-1. `.crew/memory/guide-recomposer/MEMORY.md`
-2. `.crew/memory/guide-recomposer/life/projects/{pipeline-slug}/summary.md`
-
-### 파이프라인 완료 시 저장
-
-```markdown
-## [YYYY-MM-DD] {pipeline-slug}
-- 발견 사항: [손실 패턴, severity 분포]
-- 적용 패턴: [플레이스홀더 마킹 규칙]
-- 주의사항: [loss=high → F1 재실행 트리거 임계값]
-```
-
-### PARA 디렉터리 구조
-
-```
-.crew/memory/guide-recomposer/
-├── MEMORY.md
-├── life/
-│   ├── projects/
-│   ├── areas/
-│   ├── resources/
-│   └── archives/
-└── memory/
-```
+`.crew/memory/guide-recomposer/MEMORY.md`가 존재하면 세션 시작 시 Read한다(없으면 생략, 새로 만들지 않는다). 기록은 회고 파이프라인이 수행한다 — 상세 규칙은 `references/agent-memory.md`.

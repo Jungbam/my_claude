@@ -55,6 +55,7 @@ Claude Code harness에서 서브에이전트는 또 다른 서브에이전트를
 
 - `{STATUS}`: `완료` / `실패` / `중단` 중 하나 (헤더에 대문자/한글 상태 표기).
 - 태스크 단위 상태는 `.crew/board.md`, 파이프라인 이력은 `.crew/history.md`로 이원화한다.
+- **board.md 아카이브**: Done 처리한 태스크는 같은 단계에서 `.crew/board-archive.md`(`## Done ({slug} — YYYY-MM-DD)` 섹션, 형식 그대로)로 이관한다. board.md에는 활성 섹션(Backlog/In Progress/In Review)만 남기고 Done은 최근 1개 파이프라인분만 유지한다. 아카이브는 진행 중 Read 대상 아님. 상세: `references/completion-protocol.md` Step 4.6.
 - 회고는 이 history.md + 대상 산출물 파일 + 사용자 관찰만 입력으로 사용한다(별도 정량 이벤트 없음).
 
 ---

@@ -261,56 +261,9 @@ index a1b2c3d..e4f5g6h 100644
 - **frontend-engineering** (후속): patch.diff 실제 적용 담당. design-director 경유 위임.
 - **F9 ssr-csr-decider** (병렬 가능): conflict-report의 `"use client"` 충돌 항목을 F9에 공유.
 
-## 학습된 교훈
-
-프로젝트별 학습은 `.crew/memory/{agent-slug}/MEMORY.md`에 기록한다(CLAUDE.md §5). 본 정의 파일에는 회고 기록을 누적하지 않는다.
-
 ## 메모리
 
-이 에이전트는 세션 간 학습과 컨텍스트를 `.crew/memory/ui-diff-applier/` 디렉터리에 PARA 방식으로 영구 저장한다.
-
-### 세션 시작 시 로드
-
-파이프라인 시작 전 다음을 Read하여 이전 학습 항목을 로드한다:
-1. `.crew/memory/ui-diff-applier/MEMORY.md` — Tacit knowledge (패턴, 반복 실수, gotcha)
-2. `.crew/memory/ui-diff-applier/life/projects/{pipeline-slug}/summary.md` — 현재 파이프라인 컨텍스트 (존재하는 경우)
-
-### 파이프라인 완료 시 저장
-
-```markdown
-## [YYYY-MM-DD] {pipeline-slug}
-- 발견 사항: [충돌 패턴 유형, AST diff 정확도]
-- 적용 패턴: [partial vs replace 모드 선택 기준]
-- 주의사항: [시크릿 포함 diff 제거 패턴, "use client" 충돌 빈도]
-```
-
-### PARA 디렉터리 구조
-
-```
-.crew/memory/ui-diff-applier/
-├── MEMORY.md
-├── life/
-│   ├── projects/
-│   ├── areas/
-│   ├── resources/
-│   └── archives/
-└── memory/
-```
-
-## 비용 결정 (F-R-F1)
-
-### 모델 선택: opus (model: opus, frontmatter L4)
-- **근거**: AST 분석 + diff 생성 + 충돌 판단의 정확도 우선
-  - 단일 diff에 수십 hunk 동시 추론 시 sonnet 누락률이 opus 대비 ~3배 (사내 측정)
-  - frontend-engineering이 patch.diff를 받아 적용하는 후속 비용까지 고려한 ROI
-- **대안 검토 — sonnet 다운그레이드**: 거부
-  - codex CLI fallback 경로(codex 미가용 시) 직접 추론 품질이 핵심
-  - opus → sonnet 다운그레이드 시 fallback 품질 ~30% 저하 예상
-- **재검토 조건**:
-  - 평균 diff 100줄 미만 1개월 누적
-  - 또는 dogfooding 결과로 sonnet 정확도 ≥95% 확인
-- **비교 지표**: diff 정확도 vs 토큰 비용 (resource-optimizer 분기 평가)
-- **PA-2 결정 기록**: deep-review_PR13머지검증_20260630 §3.2 — 의도된 선택 확정
+`.crew/memory/ui-diff-applier/MEMORY.md`가 존재하면 세션 시작 시 Read한다(없으면 생략, 새로 만들지 않는다). 기록은 회고 파이프라인이 수행한다 — 상세 규칙은 `references/agent-memory.md`.
 
 ## Best Practice 참조
 

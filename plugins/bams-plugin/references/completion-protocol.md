@@ -70,6 +70,15 @@
 - `{STATUS}`: `완료` / `실패` / `중단`.
 - 태스크 단위 상태는 `.crew/board.md`, 파이프라인 이력은 `.crew/history.md`로 이원화합니다.
 
+## Step 4.6: board.md 아카이브 (Done 태스크 이관)
+
+파이프라인 완료로 Done 처리한 태스크는 **같은 단계에서 `.crew/board-archive.md`로 이관**한다. board.md에는 활성 섹션(Backlog / In Progress / In Review)만 남기고, Done은 **최근 1개 파이프라인분만** 유지한다.
+
+- 이관 형식: `.crew/board-archive.md` 하단에 `## Done ({pipeline-slug} — YYYY-MM-DD)` 섹션을 추가하고, 해당 태스크 블록을 형식 그대로(수정 없이) 옮긴다.
+- board.md의 In Review/In Progress에 남은 완료(머지·종료)된 항목도 같은 규칙으로 아카이브로 이관한다.
+- `.crew/board-archive.md`는 **진행 중 Read 대상이 아니다** — 감사·조회 시에만 참조한다. 커맨드/에이전트는 board.md의 활성 섹션만 Read한다.
+- board.md·board-archive.md는 gitignored 로컬 상태 파일이므로 커밋 대상이 아니다.
+
 ## Step 4.9: Context Health 평가 및 /compact 제안
 
 파이프라인 완료 시점의 context 상태를 평가하고, 필요 시 `/compact`를 제안합니다.

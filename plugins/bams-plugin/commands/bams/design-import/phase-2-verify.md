@@ -129,6 +129,7 @@ fi
 - `guide_vs_impl_diff`: 원본 가이드 vs 구현 픽셀 diff (≤5% PASS, ≤20% CONDITIONAL)
 - `recompose_vs_impl_diff`: F2 재조립 vs 구현 (참고용)
 - `verdict`: PASS / CONDITIONAL / FAIL / ENV_FAIL
+- `skipped`: (선택) 파이프라인 중 사용자가 스킵한 항목 배열 — 각 `{step, reason, regression_test_skipped?, ts}`. 별도 jsonl 로그 파일을 두지 않고 이 필드에 흡수한다(2-E 참조).
 
 ## 2-E. 회귀 테스트 (S2 한정)
 
@@ -148,9 +149,13 @@ AskUserQuestion(
 - "회귀 테스트 실행 (Recommended)" 선택 시: qa-strategy 에 회귀 테스트 위임
   - qa-strategy 에 S2 conflict-report.md + 변경 파일 목록 전달
 - "스킵 — 위험 인지 확인 (regression_test_skipped: true 기록)" 선택 시:
-  - `.crew/artifacts/design/${slug}/skip-log.jsonl`에 기록:
-    ```json
-    {"timestamp": "{ISO8601}", "step": "2-E", "reason": "user_skip", "regression_test_skipped": true}
+  - 별도 jsonl을 만들지 않고, 기존 verdict 산출물(`.crew/artifacts/design/${slug}/fidelity/verdict.json`)의 `skipped` 배열에 항목을 흡수한다(없으면 배열 생성):
+    ```bash
+    _V=".crew/artifacts/design/${slug}/fidelity/verdict.json"
+    mkdir -p ".crew/artifacts/design/${slug}/fidelity"
+    [ -s "$_V" ] || echo '{}' > "$_V"
+    _TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    jq --arg ts "$_TS" '.skipped = ((.skipped // []) + [{"step":"2-E","reason":"user_skip","regression_test_skipped":true,"ts":$ts}])' "$_V" > "$_V.tmp" && mv "$_V.tmp" "$_V"
     ```
   - 수동 확인 권고 후 계속 진행
 
