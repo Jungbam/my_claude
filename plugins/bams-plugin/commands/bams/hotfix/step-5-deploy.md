@@ -15,6 +15,7 @@
 **루프 A — 단일 부서장 직접 spawn (배포 환경 점검은 platform-devops 단일 책임).**
 
 Task tool, subagent_type: **"bams-plugin:platform-devops"** — 메인이 직접 호출:
+<!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 
 > **Hotfix Step 5 — 배포 환경 점검**
 >

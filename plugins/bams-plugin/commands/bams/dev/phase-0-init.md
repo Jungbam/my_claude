@@ -17,6 +17,7 @@
 **루프 A (Simple) — 메인이 resource-optimizer를 직접 spawn합니다.** (orchestrator 조언 생략, `_shared_common.md` 부록 참조)
 
 서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:resource-optimizer"**):
+<!-- load_profile:exempt non-department-lead spawn -->
 
 > **파이프라인 초기화 — dev 파이프라인 전략 수립**
 >

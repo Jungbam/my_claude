@@ -24,6 +24,7 @@
 ### Step 8-a. pipeline-orchestrator 조언 요청 (Advisor)
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
+<!-- load_profile:exempt non-department-lead spawn -->
 
 > **Phase 3 Step 8 Advisor 호출 — 3관점 리뷰 + 성과 평가 라우팅 권고**
 >
@@ -48,6 +49,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 **단일 메시지에 2개 Task tool 호출을 묶어** 병렬 spawn합니다:
 
 1. Task tool, subagent_type: **"bams-plugin:qa-strategy"**:
+<!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 > ```
 > task_description: "3관점(정확성, 보안+성능, 코드품질) 병렬 리뷰를 실행하라"
 > input_artifacts:
@@ -67,6 +69,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 > - 관점 3: 코드 품질 + 유지보수성
 
 2. Task tool, subagent_type: **"bams-plugin:product-analytics"**:
+<!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 > ```
 > task_description: "구현 결과의 성능과 비즈니스 지표를 평가하라"
 > input_artifacts:

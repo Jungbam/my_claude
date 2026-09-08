@@ -29,6 +29,7 @@
 **루프 A (Simple) — 단일 부서장(project-governance)이므로 메인이 직접 spawn합니다.** (orchestrator 조언 생략, `_shared_common.md` 부록 참조)
 
 Task tool, subagent_type: **"bams-plugin:project-governance"** — 메인이 직접 호출:
+<!-- load_profile:exempt non-department-lead spawn -->
 
 > **Phase 3.5 Quality Gate 검증 (iteration {iteration}/3)**
 >

@@ -18,6 +18,7 @@
 ### Step 3-4-a. pipeline-orchestrator 조언 요청 (Advisor)
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
+<!-- load_profile:exempt non-department-lead spawn -->
 
 > **Hotfix Step 3-4 Advisor 호출 — CI/CD + 출시 준비 검토 라우팅 권고**
 >
@@ -42,6 +43,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 **단일 메시지에 2개 Task tool 호출을 묶어** 병렬 spawn합니다:
 
 1. Task tool, subagent_type: **"bams-plugin:platform-devops"** — CI/CD 프리플라이트 (Step 3):
+<!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 
 > **Step 3 — CI/CD 프리플라이트 (`/bams:verify`)**
 > ```
@@ -54,6 +56,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 > ```
 
 2. Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 출시 준비 검토 (Step 4):
+<!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 
 > **Step 4 — 출시 준비 검토 (release-quality-gate)**
 > ```

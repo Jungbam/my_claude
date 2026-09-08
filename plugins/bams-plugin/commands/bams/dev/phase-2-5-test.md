@@ -31,6 +31,7 @@ Options:
 단일 도메인/낮은 복잡도이므로 orchestrator 조언을 생략하고 메인이 qa-strategy(QA부장)를 **직접** spawn합니다. (`_shared_common.md` 부록 루프 A 참조)
 
 Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호출:
+<!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 
 > **Phase 2.5 테스트 작성**
 >

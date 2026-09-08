@@ -40,6 +40,7 @@
 ### Step 10b-a. pipeline-orchestrator 조언 요청 (retro-protocol 라우팅)
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
+<!-- load_profile:exempt non-department-lead spawn -->
 
 > **Phase 4 Step 10b Advisor 호출 — 회고 참여자 라우팅 권고**
 >
@@ -62,6 +63,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 Advisor가 권고한 참여 부서장 목록에 대해, **단일 메시지에 복수 Task tool 호출**로 병렬 spawn합니다.
 
 Task tool, subagent_type: **"bams-plugin:{참여-부서장}"** (Advisor 권고 목록의 각 부서장에 대해 병렬로) — KPT 제출:
+<!-- load_profile:exempt non-department-lead spawn -->
 > 이 파이프라인에서 **Keep(유지)/Problem(문제)/Try(시도)** 항목을 제출하세요. 참여한 Phase/Step, 발생한 이슈, 개선 제안을 포함합니다.
 
 메인이 수집된 KPT를 종합하여:

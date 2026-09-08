@@ -18,6 +18,7 @@
 **루프 A — 단일 부서장 직접 spawn (QA 검증은 qa-strategy 단일 책임).**
 
 Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호출:
+<!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 
 > **Hotfix Step 2 — 핫픽스 회귀 테스트**
 >

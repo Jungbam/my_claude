@@ -18,6 +18,7 @@
 ### Step 1-a. pipeline-orchestrator 조언 요청 (Advisor)
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
+<!-- load_profile:exempt non-department-lead spawn -->
 
 > **Hotfix Step 1 Advisor 호출 — 긴급 진단+수정 라우팅 권고**
 >
@@ -45,6 +46,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 ### Step 1-b. 메인이 qa-strategy 직접 spawn (결함 분류)
 
 Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호출:
+<!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 
 > **Hotfix Step 1 — 결함 분류 + 근본 원인 추적**
 >
@@ -75,6 +77,7 @@ Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호
 Advisor가 권고한 개발부장(frontend-engineering / backend-engineering / platform-devops 중 하나)에 대해:
 
 Task tool, subagent_type: **"bams-plugin:{dept}"** — 메인이 직접 호출:
+<!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 
 > **Hotfix Step 1 — 외과적 수정 + 회귀 테스트**
 >
@@ -102,6 +105,7 @@ Task tool, subagent_type: **"bams-plugin:{dept}"** — 메인이 직접 호출:
 수정 대상이 `*.tsx`, `*.css`, `src/components/**`, `src/app/**` (API 제외) 등 프론트엔드 파일인 경우, design-director를 병렬로 호출하여 UI 일관성을 검토합니다:
 
 Task tool, subagent_type: **"bams-plugin:design-director"**:
+> load_profile: { level: L2, refs: [{doc: design-artifact-layout, section: "경계 마커"}, {doc: design-artifact-templates}] }
 > **FE 핫픽스 디자인 영향 검토**
 > UI 변경이 디자인 시스템과 일관적인지 확인하고, 필요 시 디자인 가이드를 제공합니다.
 

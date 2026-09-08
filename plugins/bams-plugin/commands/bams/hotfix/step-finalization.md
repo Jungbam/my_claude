@@ -18,6 +18,7 @@
 **Phase 1: Advisor 호출 (pipeline-orchestrator, 조언자 모드)**
 
 서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, **조언자 모드**):
+<!-- load_profile:exempt non-department-lead spawn -->
 
 > **조언자 요청** — 본 핫픽스의 근본 원인 에이전트 식별 및 개선점 기록 전략을 조언해 주세요. spawn 지시는 금지이며, Advisor Response 계약 형식(대상 에이전트/태스크 내역/주의사항/승인 조건)으로 반환합니다.
 >
