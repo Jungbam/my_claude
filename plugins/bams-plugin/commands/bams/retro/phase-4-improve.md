@@ -24,6 +24,7 @@ phase2-kpt-consolidated.md에서 **"단일 프로젝트 한정"으로 분류된 
 같은 에이전트가 다중 프로젝트 재현 가능 Problem과 단일 프로젝트 한정 Problem 둘 다에 의해 지목된 경우, 다중 프로젝트 재현 가능 Problem 부분만 plugin agent 수정 대상에 포함합니다.
 
 **Step 1a: Advisor 호출** — Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, 조언자 모드. 컨텍스트: phase2-kpt-consolidated.md, phase2-kpt-*.md, agents 정의 디렉터리.
+<!-- load_profile:exempt non-department-lead spawn -->
 
 > **조언자 요청 — Phase 2 개선안 수립 대상 결정**
 >
@@ -49,6 +50,7 @@ phase2-kpt-consolidated.md에서 **"단일 프로젝트 한정"으로 분류된 
 **Step 1b: 메인이 부서장 병렬 spawn + 종합**
 
 1. Task tool 병렬 호출 (subagent_type: `bams-plugin:{부서장명}`)
+   <!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 2. 모든 `phase4-improvement-*.md` 수집 후 메인 또는 Advisor 지정 에이전트가 `phase4-improvements-summary.md` 생성 (중복/충돌/우선순위 조정)
 
 각 부서장 위임 메시지 템플릿 — 원본:
@@ -225,10 +227,12 @@ Step 2에서 승인(전체 또는 선택)된 개선안이 있을 경우에만 �
 **2단 위임 — 루프 A**: orchestrator 조언 → 메인이 hr-agent 직접 spawn.
 
 **Step 3a: Advisor 호출** — Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, 조언자 모드. 컨텍스트: 승인된 phase4-improvement-*.md 경로 목록, agents 정의 디렉터리, retro-protocol.md. Advisor Response: hr-agent 태스크 초안, 수정 규칙 검증, gotcha 승격 후보 목록, 교훈 10개 유지 규칙 확인. spawn 지시 금지.
+<!-- load_profile:exempt non-department-lead spawn -->
 
 **Step 3b: 메인이 hr-agent 직접 spawn**
 
 서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:hr-agent"**):
+<!-- load_profile:exempt non-department-lead spawn -->
 
 > **Phase 2 Step 3 — 에이전트 정의 파일 수정 (승인 개선안 적용)**
 >

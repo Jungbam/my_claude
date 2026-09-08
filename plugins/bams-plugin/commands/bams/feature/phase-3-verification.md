@@ -37,6 +37,7 @@
 ### Step 5-a. pipeline-orchestrator 조언 요청 (Advisor)
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
+<!-- load_profile:exempt non-department-lead spawn -->
 
 > **Phase 3 Step 5 Advisor 호출 — 5관점 코드 리뷰 라우팅 권고**
 >
@@ -58,6 +59,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 ### Step 5-b. 메인이 qa-strategy(QA부장) 직접 spawn
 
 Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호출:
+<!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 
 > **Phase 3 Step 5 — 5관점 병렬 코드 리뷰**
 >
@@ -92,6 +94,7 @@ Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호
 ### Step 6-7-8-a. pipeline-orchestrator 조언 요청 (Advisor)
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
+<!-- load_profile:exempt non-department-lead spawn -->
 
 > **Phase 3 Step 6-7-8 Advisor 호출 — QA + 성능 + 보안 라우팅 권고**
 >
@@ -116,6 +119,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 **단일 메시지에 2개 Task tool 호출을 묶어** 병렬 spawn합니다:
 
 1. Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 브라우저 QA + 보안 감사 (Step 6 + Step 8):
+<!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 
 > **Step 6 — 브라우저 QA:**
 > ```
@@ -149,6 +153,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 > QA부장은 automation-qa / defect-triage specialist를 최대 1회 추가 spawn 가능(harness 깊이 2).
 
 2. Task tool, subagent_type: **"bams-plugin:product-analytics"** — 성능 베이스라인 (Step 7):
+<!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 
 > **Step 7 — 성능 베이스라인:**
 > ```
@@ -177,6 +182,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 ### Step 9-a. pipeline-orchestrator 조언 요청 (Advisor)
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
+<!-- load_profile:exempt non-department-lead spawn -->
 
 > **Phase 3 CI/CD + Phase 3 → Phase 4 Advisor 호출**
 >
@@ -205,6 +211,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 ### Step 9-b. 메인이 platform-devops 직접 spawn (CI/CD 프리플라이트)
 
 Task tool, subagent_type: **"bams-plugin:platform-devops"** — 메인이 직접 호출:
+<!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 
 > **CI/CD 프리플라이트 실행 (`/bams:verify`)**
 >
@@ -218,6 +225,7 @@ Task tool, subagent_type: **"bams-plugin:platform-devops"** — 메인이 직접
 Advisor 판정이 GO 또는 CONDITIONAL-GO인 경우에 진행. NO-GO이면 미충족 항목을 사용자에게 보고하고 해결 후 재시도.
 
 Task tool, subagent_type: **"bams-plugin:cross-department-coordinator"** — 메인이 직접 호출:
+<!-- load_profile:exempt non-department-lead spawn -->
 
 > **Phase 3→4 핸드오프 조율**
 >

@@ -22,6 +22,7 @@ Step 11(Deploy) 선택 시 문서 갱신과 배포가 병렬로 진행됩니다.
 **루프 A — 단일 부서장 직접 spawn (문서 갱신은 product-strategy 단일 책임).**
 
 Task tool, subagent_type: **"bams-plugin:product-strategy"** — 메인이 직접 호출:
+> load_profile: { level: L2, refs: [{doc: agent-rules, agent: product-strategy}] }
 
 > **Phase 5 Step 12 — 문서 갱신**
 >
@@ -50,6 +51,7 @@ Task tool, subagent_type: **"bams-plugin:product-strategy"** — 메인이 직�
 **루프 A — 단일 부서장 직접 spawn (스프린트 종료는 product-strategy 단일 책임, 내부에서 project-governance specialist 호출).**
 
 Task tool, subagent_type: **"bams-plugin:product-strategy"** — 메인이 직접 호출:
+> load_profile: { level: L2, refs: [{doc: agent-rules, agent: product-strategy}] }
 
 > **Phase 5 Step 13 — 스프린트 종료**
 >
@@ -80,6 +82,7 @@ Task tool, subagent_type: **"bams-plugin:product-strategy"** — 메인이 직�
 ### Step 14-a. pipeline-orchestrator 조언 요청 (Advisor)
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
+<!-- load_profile:exempt non-department-lead spawn -->
 
 > **Phase 5 Step 14 Advisor 호출 — 자동 강제 회고 라우팅 권고**
 >

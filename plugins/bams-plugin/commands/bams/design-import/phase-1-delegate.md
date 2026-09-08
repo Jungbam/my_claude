@@ -10,6 +10,7 @@ orchestrator 조언 생략. 커맨드가 design-director를 직접 spawn.
 ## design-director 위임 메시지 (표준 형식 — PRD §F3)
 
 Task tool, subagent_type: **"bams-plugin:design-director"**:
+> load_profile: { level: L2, refs: [{doc: design-artifact-layout, section: "경계 마커"}, {doc: design-artifact-templates}, {doc: codex-delegation}] }
 
 ```
 task_description: 외부 디자인 가이드 기반 UI 재구성 — F1~F9 파이프라인 실행
@@ -79,6 +80,7 @@ done
 ### 1B-4. frontend-engineering spawn
 
 Task tool, subagent_type: **"bams-plugin:frontend-engineering"**:
+<!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 
 ```
 task_description: design-import Phase 1B — FE 구현

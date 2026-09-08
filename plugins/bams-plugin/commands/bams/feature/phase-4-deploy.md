@@ -25,6 +25,7 @@
 ### Step 10-a. pipeline-orchestrator 조언 요청 (Advisor)
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
+<!-- load_profile:exempt non-department-lead spawn -->
 
 > **Phase 4 Step 10 Advisor 호출 — Ship 라우팅 권고**
 >
@@ -53,6 +54,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 GO 판정 시 진행. HOLD이면 사용자에게 보고 후 해결.
 
 Task tool, subagent_type: **"bams-plugin:platform-devops"** — 메인이 직접 호출:
+<!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 
 > **Phase 4 Step 10 — Ship 실행 (`_SHIP_SKILL`)**
 >

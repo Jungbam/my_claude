@@ -19,10 +19,12 @@
 **2단 위임 — 루프 A**: orchestrator 조언 → 메인이 product-analytics 직접 spawn.
 
 **Step 1a: Advisor 호출** — Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, 조언자 모드. 컨텍스트: `.crew/artifacts/retro/{slug}/` 전체 Phase 1-2 산출물, retro-protocol.md. Advisor Response: 보고서 섹션 검증, 신호등 임계값, 1페이지 요약 포맷 재확인. spawn 지시 금지.
+<!-- load_profile:exempt non-department-lead spawn -->
 
 **Step 1b: 메인이 product-analytics 직접 spawn**
 
 서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:product-analytics"**):
+<!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 
 > **Phase 3 — 종합 보고서 생성**
 >

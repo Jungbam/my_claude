@@ -23,6 +23,7 @@
 **Step 1a: Advisor 호출 (참여 부서장 결정)**
 
 서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, **조언자 모드**):
+<!-- load_profile:exempt non-department-lead spawn -->
 
 > **조언자 요청 — Phase 1 KPT 참여 부서장 동적 결정**
 >
@@ -41,6 +42,7 @@
 **Step 1b: 메인이 부서장 병렬 spawn**
 
 Advisor Response에서 반환된 참여 부서장 목록을 파싱 후, 메인이 Task tool 병렬 호출 — 각 subagent_type은 `bams-plugin:{부서장명}`.
+<!-- load_profile:exempt inherits _shared_common §위임 원칙 -->
 
 각 부서장에게 전달할 공통 위임 메시지 템플릿:
 
@@ -106,6 +108,7 @@ Advisor Response에서 반환된 참여 부서장 목록을 파싱 후, 메인�
 ## Step 2: KPT 종합 (2단 위임 — 루프 A)
 
 **Step 2a: Advisor 호출** — Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, 조언자 모드. 컨텍스트: phase2-kpt-*.md 전체, retro-protocol.md. Advisor Response: 병합/우선순위 전략, 교차 검증 항목, 담당자 할당 기준. spawn 지시 금지.
+<!-- load_profile:exempt non-department-lead spawn -->
 
 **Step 2b: 메인이 종합 직접 수행 또는 product-analytics 위임**
 
