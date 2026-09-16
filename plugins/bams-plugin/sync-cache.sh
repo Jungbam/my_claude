@@ -75,6 +75,7 @@ SYNC_DIRS=(
 )
 
 SYNC_FILES=(
+  .claude-plugin/plugin.json
   SKILL.md
   SKILL.md.tmpl
   package.json
@@ -152,6 +153,11 @@ for file in "${SYNC_FILES[@]}"; do
   dst="$VERSION_DIR/$file"
 
   if [ -f "$src" ]; then
+    # 하위 디렉토리 포함 경로(예: .claude-plugin/plugin.json): 부모 디렉토리 부재 시
+    # rsync 단일 파일 복사가 실패하므로 동기화 직전 최소 생성.
+    if [ "$file" != "${file##*/}" ] && ! $DRY_RUN; then
+      mkdir -p "$(dirname "$dst")"
+    fi
     sync_item "$src" "$dst" false
   else
     # source에 없는데 cache에 존재하면 삭제
