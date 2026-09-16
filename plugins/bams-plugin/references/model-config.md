@@ -220,11 +220,11 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
 
 ### 2026-09-16 — Tier 전수 재검토: data-integration Tier 3 → Tier 2 승격 (1건)
 
-- data-integration은 Write/Edit 권한으로 결제·인증·웹훅 외부 연동 코드, DB 마이그레이션(롤백 SQL 동봉), ETL 파이프라인을 직접 구현하는 유일한 Tier 3 에이전트다. 동일하게 프로덕션 코드를 구현하는 FE/BE/platform-devops는 전원 Tier 2이며, Tier 2 정의("실제 구현/변경 작업 수행")에 문자 그대로 해당한다.
+- data-integration은 Write/Edit 권한으로 결제·인증·웹훅 외부 연동 코드, DB 마이그레이션(롤백 SQL 동봉), ETL 파이프라인을 직접 구현하는, 승격 전 유일한 Tier 3 에이전트였다. 동일하게 프로덕션 코드를 구현하는 FE/BE/platform-devops는 전원 Tier 2이며, Tier 2 정의("실제 구현/변경 작업 수행")에 문자 그대로 해당한다.
 - 실패 비용이 데이터 정합성·결제 오류·시크릿 노출(웹훅 서명 검증, 서버 전용 모듈 격리)로 직결되어 "data correctness / security 영역은 quality 우선" 기준에 해당한다.
 - 호출 빈도가 낮아(retro_전체회고_2 94-slug 집계 창에서 호출 0건) 비용 영향은 미미하다.
-- 2026-08-20 plan_모델재분배프롬프트세분화 FR-M4("유지, opus 근거 부족")는 비용 증가 0(NFR-1) 제약 하의 판단이었으며, 2026-09-16 사용자 지시(역할·실패 비용 기준 tier 전수 재검토, 데이터 정합성 영역 품질 우선)로 재평가됨. 나머지 7개 specialist(business-analysis, ux-research, automation-qa, defect-triage, experimentation, business-kpi, performance-evaluation)는 유지.
-- 신규 모델 ID 도입 없음(claude-opus-4-8은 기존 9개 에이전트에서 운용 중) → 업그레이드 절차 Step 0 spawn ping 생략. harness는 에이전트 정의를 세션 시작 시 스냅샷하므로 Task tool 레벨 반영은 세션 재시작 후 확인.
+- 2026-08-20 plan_모델재분배프롬프트세분화 FR-M4("유지, opus 근거 부족")는 비용 증가 0(NFR-1) 제약 하의 판단이었으며, 2026-09-16 사용자 지시(역할·실패 비용 기준 tier 전수 재검토, 데이터 정합성 영역 품질 우선)로 재평가됨. 나머지 specialist — Tier 3의 business-analysis, ux-research, automation-qa, defect-triage, experimentation, business-kpi 6개와 Tier 4(Haiku)의 performance-evaluation — 는 유지.
+- 신규 모델 ID 도입 없음(claude-opus-4-8은 승격 전부터 9개 부서장급 에이전트에서 운용 중) → 업그레이드 절차 Step 0 spawn ping 생략. harness는 에이전트 정의를 세션 시작 시 스냅샷하므로 Task tool 레벨 반영은 세션 재시작 후 확인.
 - 동시 처리: 커맨드·레퍼런스·best-practices·skills/codex/SKILL.md에 잔존하던 deprecated codex 모델 ID gpt-5.3-codex를 정본 gpt-5.6-luna로 정정. plan.md Phase 2 codex 게이트는 (a) deprecated 모델 지정으로 auth ping이 항상 실패하고 (b) macOS에 `timeout` 명령이 없어 같은 분기가 항상 참이 되어 무조건 Skipped 처리되던 배선 버그 2건을 정정(`_to` 래퍼: timeout/gtimeout 부재 시 무타임아웃 실행 — hang 방어 상실은 후속 과제). skills/codex/SKILL.md는 `codex review` 호출 2곳이 HTTP 400으로 전면 실패하던 것을 정정(SKILL.md는 .tmpl 생성기 부재로 직접 편집).
 - 하향 후보(변경 없음, 향후 검토): resource-optimizer(retro_전체회고_2 "가장 뚜렷한 과잉 배정"), cross-department-coordinator(체크리스트 중심 절차).
 

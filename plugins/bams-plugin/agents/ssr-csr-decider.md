@@ -112,7 +112,7 @@ input_artifacts:
 
 ## 협업 에이전트
 
-> **codex provider 사용**: 본 에이전트는 `gpt-5.6-luna` 모델로 실행됨. bams-plugin model loader의 codex 라우팅 지원 필수 (트랙 B 선행). 미인증 시 OQ10 fallback 정책 적용.
+> **모델 이중 구조**: frontmatter `model: claude-sonnet-5`는 Claude 컨트롤러이고, 핵심 추론은 위 codex 위임 절에 따라 `mcp__codex__codex`(1차)/CLI(fallback)로 `gpt-5.6-luna`에 위임한다. 미가용 시 OQ10=b(design-director 에스컬레이션) 적용.
 
 - **design-director** (상위): 위임 수신, 완료 보고. Phase B에서 F2와 병렬 실행 가능.
 - **F1 guide-decomposer** (전 단계): `components.json` 수신.

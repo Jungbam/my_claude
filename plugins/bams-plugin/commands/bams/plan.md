@@ -165,10 +165,10 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 # 5.6-luna: 디자인/FE 리뷰 게이트
 # 목적: FE 설계 + 디자인(UI/UX) 설계를 Codex로 독립 검토 (advisory — 실패해도 Phase는 진행하되 Reviewer 태스크 강제)
 _CODEX_REVIEW_PATH=".crew/artifacts/review/{slug}-design-fe-codex-review.md"
-_CODEX_TIMEOUT="${_CODEX_TIMEOUT:-600}"   # A. codex hang 방어 (기본 600s). timeout 시 exit 124 → fallback (timeout/gtimeout 부재 시 _to가 무타임아웃 실행)
+_CODEX_TIMEOUT="${_CODEX_TIMEOUT:-600}"   # A. codex hang 방어 (기본 600s). timeout 시 exit 124 → fallback (timeout/gtimeout 부재 시 _to가 perl alarm으로 대체, 만료 exit 142)
 _CODEX_MIN_BYTES=200                       # C. 유효 리뷰 최소 크기 — 빈/부분(partial) 출력 거절 임계값
-_TO=$(command -v timeout || command -v gtimeout || true)   # macOS: coreutils 없으면 빈 값 → 타임아웃 없이 실행
-_to() { if [ -n "$_TO" ]; then "$_TO" "$@"; else shift; "$@"; fi; }   # 사용: _to <초> <명령...>
+_TO=$(command -v timeout || command -v gtimeout || true)   # macOS: coreutils 없으면 빈 값 → perl alarm 폴백
+_to() { if [ -n "$_TO" ]; then "$_TO" "$@"; else perl -e 'alarm shift; exec @ARGV' "$@"; fi; }   # 사용: _to <초> <명령...> — timeout/gtimeout 부재 시 perl alarm(macOS 기본 탑재)으로 hang 방어 유지(만료 시 SIGALRM, exit 142)
 _CODEX_OK=0
 mkdir -p .crew/artifacts/review
 
@@ -183,8 +183,8 @@ EOF
 
 if ! command -v codex >/dev/null 2>&1; then
   _write_codex_skip "codex CLI unavailable"
-elif ! _to 60 codex exec "ping" -s read-only -c 'model="gpt-5.6-luna"' 2>/dev/null | grep -q ""; then
-  # D. 인증 ping — command -v 통과 후 인증만료/모델 미가용을 실제 exec 전 사전 감지
+elif ! _to 60 codex exec "ping" -s read-only -c 'model="gpt-5.6-luna"' >/dev/null 2>&1; then
+  # D. 인증 ping — command -v 통과 후 인증만료/모델 미가용을 실제 exec 전 사전 감지 (exit code 직접 판정; stdout 유무로 판정하지 않음)
   _write_codex_skip "codex 인증 실패 또는 gpt-5.6-luna 미가용 (auth ping failed)"
 else
   # B. exit code 분기 + A. timeout 래퍼로 실제 리뷰 실행

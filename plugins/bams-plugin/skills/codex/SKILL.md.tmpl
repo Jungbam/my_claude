@@ -80,13 +80,13 @@ TMPERR=$(mktemp /tmp/codex-err-XXXXXX.txt)
 
 2. Run the review (5-minute timeout):
 ```bash
-codex review --base <base> -c 'model_reasoning_effort="xhigh"' --enable web_search_cached 2>"$TMPERR"
+codex review --base <base> -c 'model="gpt-5.6-luna"' -c 'model_reasoning_effort="xhigh"' --enable web_search_cached 2>"$TMPERR"
 ```
 
 Use `timeout: 300000` on the Bash call. If the user provided custom instructions
 (e.g., `/codex review focus on security`), pass them as the prompt argument:
 ```bash
-codex review "focus on security" --base <base> -c 'model_reasoning_effort="xhigh"' --enable web_search_cached 2>"$TMPERR"
+codex review "focus on security" --base <base> -c 'model="gpt-5.6-luna"' -c 'model_reasoning_effort="xhigh"' --enable web_search_cached 2>"$TMPERR"
 ```
 
 3. Capture the output. Then parse cost from stderr:
@@ -309,9 +309,7 @@ Session saved — run /codex again to continue this conversation.
 
 ## Model & Reasoning
 
-**Model:** No model is hardcoded — codex uses whatever its current default is (the frontier
-agentic coding model). This means as OpenAI ships newer models, /codex automatically
-uses them. If the user wants a specific model, pass `-m` through to codex.
+**Model:** Review mode pins `gpt-5.6-luna` (SSOT: `references/model-config.md` — the previous default `gpt-5.2-codex` was incompatible with `codex review`'s default `text.verbosity="low"`, and `gpt-5.3-codex` is deprecated). Challenge/consult modes use the codex default from `~/.codex/config.toml` (currently `gpt-5.6-luna`). When the codex model generation changes, update model-config.md and these two review calls together.
 
 **Reasoning effort:** All modes use `xhigh` — maximum reasoning power. When reviewing code, breaking code, or consulting on architecture, you want the model thinking as hard as possible.
 

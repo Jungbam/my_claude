@@ -134,7 +134,7 @@ input_artifacts:
   "parallel_slots": [],
   "interceptors": [],
   "generated_at": "2026-06-19T00:00:00Z",
-  "via": "gpt-5.6-luna (codex CLI)"
+  "via": "gpt-5.6-luna (codex MCP)"
 }
 ```
 
