@@ -19,14 +19,14 @@
 
 - 부서장급 조율 역할과 더불어, 코드/문서를 직접 구현·변경하는 역할 포함
 - 판단 깊이가 깊거나 여러 하위 에이전트/문서를 종합하는 역할
-- 대상: frontend-engineering, design-director, backend-engineering, platform-devops, qa-strategy, product-analytics, hr-agent, resource-optimizer, cross-department-coordinator (모든 부서장 포함 — 예외 없음)
+- 대상: frontend-engineering, design-director, backend-engineering, platform-devops, qa-strategy, product-analytics, hr-agent, resource-optimizer, cross-department-coordinator, data-integration (모든 부서장 포함 — 예외 없음; data-integration은 프로덕션 코드 구현 specialist로 2026-09-16 승격)
 
 ### Tier 3 — Sonnet 5 (claude-sonnet-5)
 **specialist**: 정형 구조 출력, 빠른 응답, 단일 도메인 세부 작업
 
 - 부서장의 위임을 받아 특정 영역을 처리
 - TTFT(첫 토큰까지 시간)와 응답 속도가 사용자 체감 UX에 직접 기여
-- 대상: business-analysis, ux-research, data-integration, automation-qa, defect-triage, experimentation, business-kpi, ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent, guide-decomposer, guide-recomposer, ui-diff-applier, data-binding-mapper, visual-fidelity-verifier, nextjs-convention-mapper, accessibility-auditor, routing-strategist, ssr-csr-decider
+- 대상: business-analysis, ux-research, automation-qa, defect-triage, experimentation, business-kpi, ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent, guide-decomposer, guide-recomposer, ui-diff-applier, data-binding-mapper, visual-fidelity-verifier, nextjs-convention-mapper, accessibility-auditor, routing-strategist, ssr-csr-decider
 
 ### Tier 4 — Haiku 4.5 (claude-haiku-4-5-20251001)
 **결정론적 절차 자동화**: bash 절차 위주 저비용 실행. 토큰 절감을 최우선 축으로 하는 skill/에이전트 위임 경로.
@@ -128,7 +128,7 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
 | frontend-engineering | 개발 FE 부서장 | claude-opus-4-8 | UI 구현, 컴포넌트 설계 |
 | backend-engineering | 개발 BE 부서장 | claude-opus-4-8 | API 설계, 트랜잭션/동시성 |
 | platform-devops | 개발 인프라 부서장 | claude-opus-4-8 | 인프라, CI/CD, 보안 |
-| data-integration | 개발 specialist | claude-sonnet-5 | 이벤트 트래킹, 외부 연동 |
+| data-integration | 개발 specialist (구현) | claude-opus-4-8 | 이벤트 트래킹, 외부 연동, 마이그레이션 — Tier 2 (2026-09-16 sonnet→opus-4-8 승격, 구현 specialist 동등 배정) |
 | git-ops-agent | 개발 specialist (저비용) | claude-haiku-4-5-20251001 | git skill 실행 전담, 토큰 절감 위임 경로 |
 
 ### 디자인부 (Design)
@@ -177,7 +177,7 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
 | hr-agent | 경영지원 | claude-opus-4-8 | 에이전트 생명주기, 조직도 관리 |
 | cross-department-coordinator | 경영지원 | claude-opus-4-8 | 부서간 협업 조율 |
 
-**총계**: Opus 5 = 4개 (핵심 의사결정, Tier 1) / Opus 4.8 = 9개 (부서장급 + 구현, Tier 2) / Sonnet 5 = 21개 (specialist) / Haiku 4.5 = 2개 (저비용/결정론) — 합계 36개
+**총계**: Opus 5 = 4개 (핵심 의사결정, Tier 1) / Opus 4.8 = 10개 (부서장급 + 구현, Tier 2) / Sonnet 5 = 20개 (specialist) / Haiku 4.5 = 2개 (저비용/결정론) — 합계 36개
 
 ## 업그레이드 절차
 
@@ -217,6 +217,16 @@ harness에서 `xW()` display/집계 정규화 함수가 opus 계열 모델 ID를
    - 커밋 메시지에 본 문서 경로 + 변경 내역 참조
 
 ## 변경 이력
+
+### 2026-09-16 — Tier 전수 재검토: data-integration Tier 3 → Tier 2 승격 (1건)
+
+- data-integration은 Write/Edit 권한으로 결제·인증·웹훅 외부 연동 코드, DB 마이그레이션(롤백 SQL 동봉), ETL 파이프라인을 직접 구현하는 유일한 Tier 3 에이전트다. 동일하게 프로덕션 코드를 구현하는 FE/BE/platform-devops는 전원 Tier 2이며, Tier 2 정의("실제 구현/변경 작업 수행")에 문자 그대로 해당한다.
+- 실패 비용이 데이터 정합성·결제 오류·시크릿 노출(웹훅 서명 검증, 서버 전용 모듈 격리)로 직결되어 "data correctness / security 영역은 quality 우선" 기준에 해당한다.
+- 호출 빈도가 낮아(retro_전체회고_2 94-slug 집계 창에서 호출 0건) 비용 영향은 미미하다.
+- 2026-08-20 plan_모델재분배프롬프트세분화 FR-M4("유지, opus 근거 부족")는 비용 증가 0(NFR-1) 제약 하의 판단이었으며, 2026-09-16 사용자 지시(역할·실패 비용 기준 tier 전수 재검토, 데이터 정합성 영역 품질 우선)로 재평가됨. 나머지 7개 specialist(business-analysis, ux-research, automation-qa, defect-triage, experimentation, business-kpi, performance-evaluation)는 유지.
+- 신규 모델 ID 도입 없음(claude-opus-4-8은 기존 9개 에이전트에서 운용 중) → 업그레이드 절차 Step 0 spawn ping 생략. harness는 에이전트 정의를 세션 시작 시 스냅샷하므로 Task tool 레벨 반영은 세션 재시작 후 확인.
+- 동시 처리: 커맨드·레퍼런스·best-practices·skills/codex/SKILL.md에 잔존하던 deprecated codex 모델 ID gpt-5.3-codex를 정본 gpt-5.6-luna로 정정. plan.md Phase 2 codex 게이트는 (a) deprecated 모델 지정으로 auth ping이 항상 실패하고 (b) macOS에 `timeout` 명령이 없어 같은 분기가 항상 참이 되어 무조건 Skipped 처리되던 배선 버그 2건을 정정(`_to` 래퍼: timeout/gtimeout 부재 시 무타임아웃 실행 — hang 방어 상실은 후속 과제). skills/codex/SKILL.md는 `codex review` 호출 2곳이 HTTP 400으로 전면 실패하던 것을 정정(SKILL.md는 .tmpl 생성기 부재로 직접 편집).
+- 하향 후보(변경 없음, 향후 검토): resource-optimizer(retro_전체회고_2 "가장 뚜렷한 과잉 배정"), cross-department-coordinator(체크리스트 중심 절차).
 
 ### 2026-08-25c — Tier 1 Fable 5 → Opus 5 전면 교체 (claude-opus-5 신설)
 
