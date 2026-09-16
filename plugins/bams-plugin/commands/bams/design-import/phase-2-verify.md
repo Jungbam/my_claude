@@ -101,7 +101,7 @@ if [ "$DRY_RUN" = "false" ]; then
   # Task tool 호출 (메인이 직접 spawn — Phase F의 일부로 처리)
   # subagent_type: "bams-plugin:visual-fidelity-verifier"
   <!-- load_profile:exempt non-department-lead spawn -->
-  # model: "gpt-5.3-codex"
+  # (codex 위임 모델: gpt-5.6-luna — 에이전트 본문 codex-delegation.md 경유; Task tool model 파라미터 아님)
   # prompt:
   #   task_description: "DRY_RUN=false 실 적용 완료 후 baseline triplet 픽셀 diff"
   #   input_artifacts:

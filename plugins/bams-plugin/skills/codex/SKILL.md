@@ -270,16 +270,16 @@ TMPERR=$(mktemp /tmp/codex-err-XXXXXX.txt)
 
 2. Run the review (5-minute timeout):
 ```bash
-codex review --base <base> -c 'model="gpt-5.3-codex"' -c 'model_reasoning_effort="xhigh"' --enable web_search_cached 2>"$TMPERR"
+codex review --base <base> -c 'model="gpt-5.6-luna"' -c 'model_reasoning_effort="xhigh"' --enable web_search_cached 2>"$TMPERR"
 ```
 
 Use `timeout: 300000` on the Bash call. If the user provided custom instructions
 (e.g., `/codex review focus on security`), pass them as the prompt argument:
 ```bash
-codex review "focus on security" --base <base> -c 'model="gpt-5.3-codex"' -c 'model_reasoning_effort="xhigh"' --enable web_search_cached 2>"$TMPERR"
+codex review "focus on security" --base <base> -c 'model="gpt-5.6-luna"' -c 'model_reasoning_effort="xhigh"' --enable web_search_cached 2>"$TMPERR"
 ```
 
-> **NOTE — codex CLI 호환 (2026-06-24 기준)**: `gpt-5.2-codex` 기본 모델은 `codex review`의 디폴트 `text.verbosity="low"`와 호환 불가. 위 호출에서 `-c model="gpt-5.3-codex"` 명시로 우회. codex CLI 업데이트 후 재평가 권고.
+> **NOTE — codex 모델 고정 (2026-09-16 갱신)**: 2026-06-24에는 당시 기본 모델 `gpt-5.2-codex`가 `codex review`의 디폴트 `text.verbosity="low"`와 호환되지 않아 `gpt-5.3-codex`를 명시했으나, 해당 모델은 2026-08-21 deprecated(ChatGPT 계정에서 HTTP 400). 현재는 정본 `references/model-config.md`의 codex 모델 `gpt-5.6-luna`로 고정한다(`~/.codex/config.toml` 기본값과 동일). codex 모델 세대 교체 시 model-config.md 갱신과 함께 이 두 호출도 갱신할 것.
 
 3. Capture the output. Then parse cost from stderr:
 ```bash

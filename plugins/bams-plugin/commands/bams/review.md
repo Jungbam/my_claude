@@ -113,7 +113,7 @@ Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호
 `ASPECT_LIST`가 `["code"]`이면 본 절을 건너뛴다(§Aspect 파싱과 동일 조건).
 
 그 외의 경우, `ASPECT_LIST`의 각 항목(이미 spawn된 `code`는 제외)에 대해 `references/multi-perspective-review.md` §aspect별 위임 메시지 템플릿을 사용하여 해당 부서장을 **병렬** 직접 spawn한다(§aspect 정의 표의 부서장 컬럼).  
-`uiux` aspect는 **항상 `design-director` + `gpt-5.3-codex`**로 실행한다. 각 aspect별 부서장 매핑: spec=product-strategy, functional=qa-strategy, performance=product-analytics, uiux=design-director.
+`uiux` aspect는 **항상 `design-director` + `gpt-5.6-luna`**로 실행한다. 각 aspect별 부서장 매핑: spec=product-strategy, functional=qa-strategy, performance=product-analytics, uiux=design-director.
 
 **기대 산출물**: aspect별 리뷰 결과(관점별 발견 사항 목록) — Phase 3에서 code aspect 결과와 함께 종합.
 
