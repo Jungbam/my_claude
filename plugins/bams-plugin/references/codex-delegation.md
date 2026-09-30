@@ -31,29 +31,68 @@ _CODEX_TIMEOUT=120
 
 codex_available() {  # 인증/설치 상태 확인
   command -v codex >/dev/null 2>&1 || return 1
-  codex auth status >/dev/null 2>&1 || [ -n "$(jq -r '.auth_mode // empty' ~/.codex/auth.json 2>/dev/null)" ]
+  codex login status >/dev/null 2>&1 || [ -n "$(jq -r '.auth_mode // empty' ~/.codex/auth.json 2>/dev/null)" ]
+}
+
+# timeout 래퍼: timeout > gtimeout > perl 순으로 대체(macOS 무의존).
+# 문자열 접두어가 아닌 함수+"$@"로 확장하므로 bash/zsh 모두에서 단어분리 문제 없음.
+# perl 분기는 exec 대신 fork로 자식을 띄우고 프로세스 그룹째 종료한다.
+# (node 기반 codex는 exec 후 SIGALRM/타이머를 리셋해 'alarm; exec' 방식이 무력화되기 때문)
+_codex_with_timeout() {  # $1=secs, $2..=command
+  local _secs="$1"; shift
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$_secs" "$@"
+  elif command -v gtimeout >/dev/null 2>&1; then
+    gtimeout "$_secs" "$@"
+  else
+    perl -e '
+      my $t = shift;
+      my $pid = fork();
+      die "fork failed\n" unless defined $pid;
+      if ($pid == 0) { setpgrp(0,0); exec @ARGV; exit 127; }
+      $SIG{ALRM} = sub { kill "TERM", -$pid; };
+      alarm $t;
+      waitpid($pid, 0);
+      my $st = $?;
+      alarm 0;
+      exit($st >> 8 ? ($st >> 8) : ($st & 127 ? 128 + ($st & 127) : 0));
+    ' "$_secs" "$@"
+  fi
 }
 
 run_codex() {  # $1=prompt, $2=sandbox(read-only|workspace-write)
   codex_available || { echo "[codex-fallback] 미가용 — 컨트롤러 직접 처리" >&2; return 1; }
-  timeout "$_CODEX_TIMEOUT" \
+  local _out
+  _out=$(_codex_with_timeout "$_CODEX_TIMEOUT" \
     codex exec -m "$_CODEX_MODEL" "$1" -s "${2:-read-only}" \
-      -c 'model_reasoning_effort="xhigh"' --json 2>/dev/null \
+      -c 'model_reasoning_effort="xhigh"' --json </dev/null 2>/dev/null \
     | python3 -c "
 import sys, json
+out = []
 for line in sys.stdin:
     line = line.strip()
     if not line: continue
     try:
         obj = json.loads(line)
-        if obj.get('type') == 'item.completed':
-            item = obj.get('item', {})
-            if item.get('type') == 'message':
-                for c in item.get('content', []):
-                    if c.get('type') == 'output_text':
-                        print(c.get('text', ''))
-    except: pass
-"
+    except: continue
+    if obj.get('type') != 'item.completed': continue
+    item = obj.get('item', {})
+    itype = item.get('type')
+    if itype == 'agent_message':          # codex-cli >= 0.15x
+        t = item.get('text', '')
+        if t: out.append(t)
+    elif itype == 'message':               # 구버전 호환
+        for c in item.get('content', []):
+            if c.get('type') == 'output_text':
+                t = c.get('text', '')
+                if t: out.append(t)
+print('\n'.join(out))
+")
+  if [ -z "$_out" ]; then
+    echo "[codex-fallback] codex 응답 없음(빈 출력/시간초과/오류) — 3단 fallback 트리거" >&2
+    return 1
+  fi
+  printf '%s\n' "$_out"
 }
 ```
 
