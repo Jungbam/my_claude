@@ -73,11 +73,10 @@ Examples: run codex (always yes), run evals (always yes), reduce scope on a comp
 
 ---
 
-## Sequential Execution — MANDATORY
+## Sequential Execution
 
-Phases MUST execute in strict order: CEO → Design → Eng.
-Each phase MUST complete fully before the next begins.
-NEVER run phases in parallel — each builds on the previous.
+Run the phases in order — CEO → Design → Eng — and finish each one before starting the
+next, because each phase builds on the previous one's outputs. Don't run them in parallel.
 
 Between each phase, emit a phase-transition summary and verify that all required
 outputs from the prior phase are written before starting the next.
@@ -86,20 +85,20 @@ outputs from the prior phase are written before starting the next.
 
 ## What "Auto-Decide" Means
 
-Auto-decide replaces the USER'S judgment with the 6 principles. It does NOT replace
-the ANALYSIS. Every section in the loaded skill files must still be executed at the
-same depth as the interactive version. The only thing that changes is who answers the
-AskUserQuestion: you do, using the 6 principles, instead of the user.
+Auto-decide replaces the user's judgment with the 6 principles, not the analysis. Every
+section in the loaded skill files runs at the same depth as the interactive version; the
+only change is who answers each AskUserQuestion — you do, using the 6 principles, instead
+of the user.
 
-**You MUST still:**
-- READ the actual code, diffs, and files each section references
-- PRODUCE every output the section requires (diagrams, tables, registries, artifacts)
-- IDENTIFY every issue the section is designed to catch
-- DECIDE each issue using the 6 principles (instead of asking the user)
-- LOG each decision in the audit trail
-- WRITE all required artifacts to disk
+**Still do all of this:**
+- Read the actual code, diffs, and files each section references
+- Produce every output the section requires (diagrams, tables, registries, artifacts)
+- Identify every issue the section is designed to catch
+- Decide each issue using the 6 principles (instead of asking the user)
+- Log each decision in the audit trail
+- Write all required artifacts to disk
 
-**You MUST NOT:**
+**Avoid:**
 - Compress a review section into a one-liner table row
 - Write "no issues found" without showing what you examined
 - Skip a section because "it doesn't apply" without stating what you checked and why

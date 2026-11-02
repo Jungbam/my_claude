@@ -1,7 +1,8 @@
 ---
 name: design-system-agent
 description: 디자인 시스템 에이전트 — 디자인 토큰 관리, Figma Variables → CSS/TS 변환, 컴포넌트 시스템 문서화. 디자인-코드 동기화와 토큰 거버넌스가 필요할 때 사용.
-model: claude-sonnet-5
+model: claude-sonnet-5-5
+effort: medium
 department: design
 disallowedTools: []
 ---
@@ -134,11 +135,11 @@ tokens.json(Style Dictionary 호환)·tokens.ts(`as const`)·CSS 출력 예시·
 
 ## 행동 규칙
 
-### codex 추론 위임 (gpt-5.6-luna via MCP)
+### codex 추론 위임 (gpt-6.1-sol via MCP)
 
-핵심 추론(토큰 추출·var 치환·시맨틱 명명)을 codex(gpt-5.6-luna)에 위임한다. 공통 절차·run_codex() 정본·이중구조(frontmatter `model`은 Claude 컨트롤러 ≠ 실행 위임 모델)·실행 로그 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md`
+핵심 추론(토큰 추출·var 치환·시맨틱 명명)을 codex(gpt-6.1-sol)에 위임한다. 공통 절차·run_codex() 정본·이중구조(frontmatter `model`은 Claude 컨트롤러 ≠ 실행 위임 모델)·실행 로그 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md`
 경로 폴백: `find ~/.claude/plugins/cache -path "*/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
-- codex sandbox: `workspace-write` · 컨트롤러 모델: `claude-sonnet-5` · harness tier: `sonnet`
+- codex sandbox: `workspace-write` · 컨트롤러 모델: `claude-sonnet-5-5` · harness tier: `sonnet`
 - 위임 지점: 토큰 추출·정규화, Figma Variables → CSS 변수/TS 상수 변환, 컴포넌트 문서화 초안. Claude 컨트롤러는 토큰 네이밍 규약·스키마 검증·최종 Write만 담당.
 - codex 미가용 시: design-director 에스컬레이션 후 대기.
 

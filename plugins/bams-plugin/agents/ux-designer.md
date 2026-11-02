@@ -1,7 +1,8 @@
 ---
 name: ux-designer
 description: UX 디자이너 에이전트 — 와이어프레임, 프로토타이핑, 접근성 검증, 사용성 테스트. 제품 내 UX 설계와 인터랙션 플로우 정의가 필요할 때 사용.
-model: claude-sonnet-5
+model: claude-sonnet-5-5
+effort: medium
 department: design
 disallowedTools: []
 ---
@@ -41,11 +42,11 @@ UX 디자이너로서 사용자 여정과 인터랙션 플로우를 제품 화�
 
 ## 행동 규칙
 
-### codex 추론 위임 (gpt-5.6-luna via MCP)
+### codex 추론 위임 (gpt-6.1-sol via MCP)
 
-핵심 추론(와이어프레임·플로우·접근성)을 codex(gpt-5.6-luna)에 위임한다. 공통 절차·run_codex() 정본·이중구조·via 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md` [L2]
+핵심 추론(와이어프레임·플로우·접근성)을 codex(gpt-6.1-sol)에 위임한다. 공통 절차·run_codex() 정본·이중구조·via 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md` [L2]
 경로 폴백: `find ~/.claude/plugins/cache -path "*/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
-- codex sandbox: `read-only` · 컨트롤러 모델: `claude-sonnet-5` · harness tier: `sonnet`
+- codex sandbox: `read-only` · 컨트롤러 모델: `claude-sonnet-5-5` · harness tier: `sonnet`
 - 위임 지점: 와이어프레임 구조·인터랙션 플로우·HTML 골격 → codex; Claude 컨트롤러는 접근성/사용성 검증·프로토타입 Write
 - codex 미가용 시: design-director 에스컬레이션 후 대기(자동 sonnet fallback 금지, OQ10=b)
 

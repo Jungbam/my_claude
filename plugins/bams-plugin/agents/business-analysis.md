@@ -1,7 +1,8 @@
 ---
 name: business-analysis
 description: 비즈니스 분석 에이전트 — 요구사항 수집, 기능 명세 작성, 스코프 분해. 요구사항을 구조화하고 개발 가능한 명세로 전환할 때 사용.
-model: claude-sonnet-5
+model: claude-sonnet-5-5
+effort: medium
 disallowedTools: Write, Edit
 department: planning
 ---

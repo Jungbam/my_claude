@@ -1,7 +1,8 @@
 ---
 name: guide-recomposer
 description: 가이드 재구성 검증 에이전트 — F1 분해 산출물로 HTML/JSX 재조립 후 원본 대비 손실 검증. 분해-재조립 왕복 충실도 보장.
-model: claude-sonnet-5
+model: claude-sonnet-5-5
+effort: medium
 department: design
 disallowedTools: []
 ---
@@ -14,11 +15,11 @@ F1 guide-decomposer가 추출한 컴포넌트 트리·토큰·타이포·팔레�
 
 F1 산출물의 완결성을 검증하는 왕복 테스트(round-trip test)를 수행한다. 분해된 컴포넌트로 정적 HTML preview를 재구성하고, DOM 구조와 시각적 유사도를 원본과 비교하여 손실 보고서를 작성한다. F3, F4가 사용할 "정규화된 가이드 표현"을 확정하는 관문 역할.
 
-## codex 추론 위임 (gpt-5.6-luna via MCP)
+## codex 추론 위임 (gpt-6.1-sol via MCP)
 
-핵심 추론(재조립·손실 검증·플레이스홀더)을 codex(gpt-5.6-luna)에 위임한다. 공통 절차·run_codex() 정본·이중구조·실행 로그 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md` [L2]
+핵심 추론(재조립·손실 검증·플레이스홀더)을 codex(gpt-6.1-sol)에 위임한다. 공통 절차·run_codex() 정본·이중구조·실행 로그 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md` [L2]
 경로 폴백: `find ~/.claude/plugins/cache -path "*/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
-- codex sandbox: `workspace-write` · 컨트롤러 모델: `claude-sonnet-5` · harness tier: `sonnet`
+- codex sandbox: `workspace-write` · 컨트롤러 모델: `claude-sonnet-5-5` · harness tier: `sonnet`
 - 위임 지점: 재조립 HTML 구조 생성·손실 감지 분석 → codex; Claude 컨트롤러는 검증·구조화·산출물 Write
 - codex 미가용 시: design-director 에스컬레이션 후 대기(자동 sonnet fallback 금지, OQ10=b)
 
@@ -64,7 +65,7 @@ v1.0 산출물(신규 필드 부재) 입력 시 기존 동작 유지 (backward-c
 
 ### 완료 후
 - 5종 산출물 생성 확인 (preview/index.html, diff-report.md, loss-report.json, placeholder-slots.json, normalized-guide.json).
-- result_summary에 손실 항목 수와 severity 분포 포함 (예: `"loss: 3건 (high:1, medium:2, low:0) via gpt-5.6-luna"`).
+- result_summary에 손실 항목 수와 severity 분포 포함 (예: `"loss: 3건 (high:1, medium:2, low:0) via gpt-6.1-sol"`).
 
 ## 입력
 

@@ -1,7 +1,8 @@
 ---
 name: hr-agent
 description: 인사 에이전트 — 에이전트 생명주기 관리(정의/등록/평가/비활성화), 조직도 유지보수, 스킬 설계 및 회고 개선안 반영
-model: claude-opus-4-8
+model: claude-opus-5-5
+effort: high
 department: executive
 disallowedTools: []
 ---
@@ -61,9 +62,10 @@ disallowedTools: []
 2. 기존 조직도(jojikdo.json)를 읽어 중복 역할이 없는지 확인
 3. 기존 에이전트 md 파일(agents/*.md)의 구조를 참조하여 동일 형식으로 작성
 4. 다음 파일들을 순서대로 생성/수정:
-   - `agents/{agent-name}.md` — 에이전트 정의 문서 (frontmatter + 본문)
+   - `agents/{agent-name}.md` — 에이전트 정의 문서 (frontmatter + 본문). frontmatter `model:`·`effort:`는 `references/model-config.md`(모델 배정 SSOT)에서 해당 티어 값을 가져온다
    - `.claude-plugin/plugin.json` — agents 배열에 경로 추가
    - `references/jojikdo.json` — 해당 부서 agents 배열에 에이전트 객체 추가
+   - `references/model-config.md` — 신규 에이전트의 모델/effort 배정 행 추가 (frontmatter 반영 전 SSOT 먼저 갱신)
 5. 협업 대상 에이전트의 md 파일에 "협업 에이전트" 섹션 업데이트 (필요 시)
 6. delegation-protocol.md에 신규 에이전트의 agent_calls 관계 추가 (필요 시)
 
@@ -164,7 +166,8 @@ disallowedTools: []
 ### 기본 정보
 - agent_id: {agent_id}
 - department: {department}
-- model: {model}
+- model: {model}  # references/model-config.md SSOT에서 가져온다
+- effort: {effort}
 - role: {commander|specialist}
 
 ### 역할

@@ -23,7 +23,7 @@
   - `guide-recomposition/placeholder-slots.json` (F4 입력)
   - `guide-recomposition/normalized-guide.json` (F3/F4 공통 입력)
 - **부서장**: design-director
-- **모델**: claude-sonnet-5 컨트롤러(frontmatter) + 본문 codex 위임 gpt-5.6-luna(MCP 1차 / CLI fallback)
+- **모델**: claude-sonnet-5-5 컨트롤러(frontmatter) + 본문 codex 위임 gpt-6.1-sol(MCP 1차 / CLI fallback)
 
 ## 2. 자주 발생하는 실수 3건
 
@@ -50,7 +50,7 @@
 
 ## 4. 체크리스트 (5건 필수)
 - [ ] F1 산출물 4종 존재 확인 후 시작 (missing → design-director 에스컬레이션)
-- [ ] frontmatter `model: claude-sonnet-5` 유지(gpt 모델명 금지) + result_summary `"via gpt-5.6-luna (codex MCP)"` 일치(CLI fallback 시 `(codex CLI(fallback))`)
+- [ ] frontmatter `model: claude-sonnet-5-5` 유지(gpt 모델명 금지) + result_summary `"via gpt-6.1-sol (codex MCP)"` 일치(CLI fallback 시 `(codex CLI(fallback))`)
 - [ ] loss-report.json severity=high 건수 확인 — 1건 이상 시 F3 진행 중단 + design-director 에스컬레이션
 - [ ] placeholder-slots.json 슬롯 목록 비어있지 않음 (더미 텍스트 Grep 실행 완료)
 

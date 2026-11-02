@@ -1,7 +1,8 @@
 ---
 name: ssr-csr-decider
 description: Server/Client Component 경계 결정 에이전트 — 가이드 컴포넌트별 SSR/CSR 경계 결정. rendering-strategy.json 생성. F4·F6 연동.
-model: claude-sonnet-5
+model: claude-sonnet-5-5
+effort: medium
 department: design
 disallowedTools: []
 ---
@@ -14,11 +15,11 @@ F1이 추출한 컴포넌트 트리의 각 컴포넌트에 대해 Server Compone
 
 Next.js App Router의 핵심 패턴인 Server/Client Component 경계는 성능과 번들 크기에 직결된다. 가이드의 컴포넌트들이 무분별하게 `"use client"`로 지정되지 않도록 정밀한 경계 결정을 수행한다. F4와 강결합 — 데이터 페칭 전략이 SC/CC 결정을 직접 영향한다.
 
-## codex 추론 위임 (gpt-5.6-luna via MCP)
+## codex 추론 위임 (gpt-6.1-sol via MCP)
 
-핵심 추론(Server/Client 경계 결정·인터랙티비티 분석)을 codex(gpt-5.6-luna)에 위임한다. 공통 절차·run_codex() 정본·이중구조·via 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md` [L2]
+핵심 추론(Server/Client 경계 결정·인터랙티비티 분석)을 codex(gpt-6.1-sol)에 위임한다. 공통 절차·run_codex() 정본·이중구조·via 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md` [L2]
 경로 폴백: `find ~/.claude/plugins/cache -path "*/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
-- codex sandbox: `read-only` · 컨트롤러 모델: `claude-sonnet-5` · harness tier: `sonnet`
+- codex sandbox: `read-only` · 컨트롤러 모델: `claude-sonnet-5-5` · harness tier: `sonnet`
 - 위임 지점: 컴포넌트 인터랙티비티 분석·SC/CC 경계 결정 초안 → codex; Claude 컨트롤러는 검증·통합 후 rendering-strategy.json Write
 - codex 미가용 시: design-director 에스컬레이션 후 대기
 
@@ -44,7 +45,7 @@ Next.js App Router의 핵심 패턴인 Server/Client Component 경계는 성능�
 
 ### 완료 후
 - F4, F6에 `rendering-strategy.json` 경로 공유 (design-director 경유).
-- result_summary: `"컴포넌트 N건 — RSC:N (비율%) / CC:N (via gpt-5.6-luna)"`.
+- result_summary: `"컴포넌트 N건 — RSC:N (비율%) / CC:N (via gpt-6.1-sol)"`.
 
 ## 입력
 
@@ -112,7 +113,7 @@ input_artifacts:
 
 ## 협업 에이전트
 
-> **모델 이중 구조**: frontmatter `model: claude-sonnet-5`는 Claude 컨트롤러이고, 핵심 추론은 위 codex 위임 절에 따라 `mcp__codex__codex`(1차)/CLI(fallback)로 `gpt-5.6-luna`에 위임한다. 미가용 시 OQ10=b(design-director 에스컬레이션) 적용.
+> **모델 이중 구조**: frontmatter `model: claude-sonnet-5-5`는 Claude 컨트롤러이고, 핵심 추론은 위 codex 위임 절에 따라 `mcp__codex__codex`(1차)/CLI(fallback)로 `gpt-6.1-sol`에 위임한다. 미가용 시 OQ10=b(design-director 에스컬레이션) 적용.
 
 - **design-director** (상위): 위임 수신, 완료 보고. Phase B에서 F2와 병렬 실행 가능.
 - **F1 guide-decomposer** (전 단계): `components.json` 수신.

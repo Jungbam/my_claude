@@ -187,7 +187,7 @@ constraints:
 > 공통 본문(`run_codex()` 정본·이중구조·MCP 규격)은 `references/codex-delegation.md` SSOT. 아래는 design-director 값·위임 지점.
 
 **1차 경로 — `mcp__codex__codex` MCP 도구 (권장):**
-- `prompt`: 위임 작업 지시문  ·  `model`: `"gpt-5.6-luna"` (viz 로그 명확성 위해 명시; 생략 시 `~/.codex/config.toml` 기본값 적용)
+- `prompt`: 위임 작업 지시문  ·  `model`: `"gpt-6.1-sol"` (viz 로그 명확성 위해 명시; 생략 시 `~/.codex/config.toml` 기본값 적용)
 - `sandbox`: `"read-only"` (디렉션·전략·품질 판정 분석 전용)  ·  `cwd`: 대상 프로젝트 루트 절대경로  ·  `approval-policy`: `"never"` (비대화형 파이프라인)
 - 멀티턴 후속 위임: 반환된 `threadId`로 `mcp__codex__codex-reply` 호출해 세션을 이어간다.
 - codex 응답은 그대로 채택하지 않고 Claude가 검증·통합 후 최종 산출물을 생성한다.

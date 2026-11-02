@@ -1,7 +1,8 @@
 ---
 name: nextjs-convention-mapper
 description: Next.js App Router 컨벤션 매핑 에이전트 — 가이드의 임의 파일 구조를 App Router 컨벤션(page/layout/loading/error/not-found.tsx)에 매핑. convention-map.json 생성. 외부 가이드 입력 시 Phase A에 호출.
-model: claude-sonnet-5
+model: claude-sonnet-5-5
+effort: medium
 department: design
 disallowedTools: []
 ---
@@ -26,11 +27,11 @@ disallowedTools: []
 
 ## 행동 규칙
 
-### codex 추론 위임 (gpt-5.6-luna via MCP)
+### codex 추론 위임 (gpt-6.1-sol via MCP)
 
-핵심 추론(컴포넌트 역할 분류·App Router 매핑 결정)을 codex(gpt-5.6-luna)에 위임한다. 공통 절차·run_codex() 정본·이중구조(frontmatter claude-sonnet-5=컨트롤러 ≠ 실행 gpt-5.6-luna)·via 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md` [L2]
+핵심 추론(컴포넌트 역할 분류·App Router 매핑 결정)을 codex(gpt-6.1-sol)에 위임한다. 공통 절차·run_codex() 정본·이중구조(frontmatter claude-sonnet-5-5=컨트롤러 ≠ 실행 gpt-6.1-sol)·via 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md` [L2]
 경로 폴백: `find ~/.claude/plugins/cache -path "*/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
-- codex sandbox: `read-only` · 컨트롤러 모델: `claude-sonnet-5` · harness tier: `sonnet`
+- codex sandbox: `read-only` · 컨트롤러 모델: `claude-sonnet-5-5` · harness tier: `sonnet`
 - 위임 지점: 컴포넌트 역할 분류·App Router 매핑 결정 → codex; Claude 컨트롤러는 입력 전처리·출력 검증·convention-map.json Write
 - codex 미가용 시: design-director 에스컬레이션 후 대기(자동 sonnet fallback 금지, OQ10=b)
 

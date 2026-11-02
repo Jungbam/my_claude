@@ -90,5 +90,5 @@ fi
 
 ### 완료 후
 - 4종 산출물 생성 확인 (components.json, tokens.css, typography.json, palette.json).
-- 각 파일의 항목 수를 result_summary에 포함 (예: `"components: 12, tokens: 34, colors: 8 (via gpt-5.6-luna)"`).
+- 각 파일의 항목 수를 result_summary에 포함 (예: `"components: 12, tokens: 34, colors: 8 (via gpt-6.1-sol)"`).
 - design-director에게 완료 보고 후 F2 위임 준비.

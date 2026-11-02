@@ -1,7 +1,8 @@
 ---
 name: guide-decomposer
 description: 디자인 가이드 분해 에이전트 — React JSX/HTML을 컴포넌트 트리·타이포·팔레트·디자인 토큰으로 분해. 외부 가이드 이식 파이프라인의 첫 단계.
-model: claude-sonnet-5
+model: claude-sonnet-5-5
+effort: medium
 department: design
 disallowedTools: []
 ---
@@ -14,11 +15,11 @@ disallowedTools: []
 
 외부 가이드 이식 파이프라인(F1→F2→F3→F4→F5)의 진입점으로서, 입력 코드를 정적 분석하여 구조화된 컴포넌트 트리·토큰·타이포·팔레트 4종 산출물을 생성한다. design-system-agent의 Grep 패턴 4종을 재사용하되, 입력 소스를 "Figma 목업"에서 "가이드 React/HTML 코드"로 교체한다. 대형 가이드(1만 줄 이상)는 디렉터리 단위로 청킹하여 처리한다.
 
-## codex 추론 위임 (gpt-5.6-luna via MCP)
+## codex 추론 위임 (gpt-6.1-sol via MCP)
 
-핵심 추론(JSX/HTML 분해·토큰/팔레트 추출)을 codex(gpt-5.6-luna)에 위임한다. 공통 절차·run_codex() 정본·이중구조·실행 로그 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md` [L2]
+핵심 추론(JSX/HTML 분해·토큰/팔레트 추출)을 codex(gpt-6.1-sol)에 위임한다. 공통 절차·run_codex() 정본·이중구조·실행 로그 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md` [L2]
 경로 폴백: `find ~/.claude/plugins/cache -path "*/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
-- codex sandbox: `read-only` · 컨트롤러 모델: `claude-sonnet-5` · harness tier: `sonnet`
+- codex sandbox: `read-only` · 컨트롤러 모델: `claude-sonnet-5-5` · harness tier: `sonnet`
 - 위임 지점: 복잡한 AST 분석·토큰 추출 → codex; Claude 컨트롤러는 입력 전처리·검증·구조화·산출물 Write
 - codex 미가용 시: design-director 에스컬레이션 후 대기(자동 sonnet fallback 금지, OQ10=b)
 

@@ -5,7 +5,7 @@ argument-hint: <피처 또는 이슈 설명>
 
 # Bams Plan
 
-Bams 오케스트레이터로서 product-strategy, business-analysis, design-director, frontend/backend-engineering 에이전트를 활용한 플래닝 워크플로를 실행합니다. FE/디자인 설계는 Codex가 작성하고, 결과물은 Codex 리뷰 게이트(5.6-luna)를 통과시킵니다.
+Bams 오케스트레이터로서 product-strategy, business-analysis, design-director, frontend/backend-engineering 에이전트를 활용한 플래닝 워크플로를 실행합니다. FE/디자인 설계는 Codex가 작성하고, 결과물은 Codex 리뷰 게이트(gpt-6.1-sol)를 통과시킵니다.
 
 기획할 피처/이슈: $ARGUMENTS
 
@@ -64,7 +64,7 @@ Task tool, subagent_type: **"bams-plugin:product-strategy"** — 메인이 직�
 - **성공 시**: 완료로 기록하고 Phase 2로 진행.
 - **에러 시**: 사용자에게 에러를 보고하고, 계속 진행할지 중단할지 AskUserQuestion으로 확인. 중단 선택 시 파이프라인 상태를 failed로 기록 후 Phase 7로 이동.
 
-**미결 질문이 있으면**: 불릿 포인트로 사용자에게 제시합니다. Phase 2로 진행하기 전에 사용자의 답변을 기다립니다. 이 단계를 절대 건너뛰지 마세요. 답변을 받은 후 PRD에 반영합니다.
+**미결 질문이 있으면**: 불릿 포인트로 사용자에게 제시합니다. Phase 2로 진행하기 전에 사용자의 답변을 기다렸다가, 답변을 받은 후 PRD에 반영합니다.
 
 ## Phase 2: 기능 명세 + 기술 설계 — 루프 B (Advised, 다부서 병렬 직접 spawn)
 
@@ -98,7 +98,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 
 정상인 경우 Phase 2-b로 진행.
 
-### Phase 2-b. 메인이 부서장 4트랙 병렬 직접 spawn + 5.6-luna 게이트
+### Phase 2-b. 메인이 부서장 4트랙 병렬 직접 spawn + gpt-6.1-sol 게이트
 
 **단일 메시지에 4개 Task tool 호출을 동시에 발행하여 메인이 직접 병렬 spawn:**
 
@@ -162,7 +162,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 4개 반환 후 각 에이전트 결과를 확인합니다. 에러가 있으면 사용자에게 어떤 트랙이 실패했는지 보고하고 계속 진행할지 중단할지 AskUserQuestion으로 확인한다(중단 선택 시 파이프라인 상태를 failed로 기록 후 Phase 7로 이동).
 
 ```bash
-# 5.6-luna: 디자인/FE 리뷰 게이트
+# gpt-6.1-sol: 디자인/FE 리뷰 게이트
 # 목적: FE 설계 + 디자인(UI/UX) 설계를 Codex로 독립 검토 (advisory — 실패해도 Phase는 진행하되 Reviewer 태스크 강제)
 _CODEX_REVIEW_PATH=".crew/artifacts/review/{slug}-design-fe-codex-review.md"
 _CODEX_TIMEOUT="${_CODEX_TIMEOUT:-600}"   # A. codex hang 방어 (기본 600s). timeout 시 exit 124 → fallback (timeout/gtimeout 부재 시 _to가 perl alarm으로 대체, 만료 exit 142)
@@ -183,13 +183,13 @@ EOF
 
 if ! command -v codex >/dev/null 2>&1; then
   _write_codex_skip "codex CLI unavailable"
-elif ! _to 60 codex exec "ping" -s read-only -c 'model="gpt-5.6-luna"' >/dev/null 2>&1; then
+elif ! _to 60 codex exec "ping" -s read-only -c 'model="gpt-6.1-sol"' >/dev/null 2>&1; then
   # D. 인증 ping — command -v 통과 후 인증만료/모델 미가용을 실제 exec 전 사전 감지 (exit code 직접 판정; stdout 유무로 판정하지 않음)
-  _write_codex_skip "codex 인증 실패 또는 gpt-5.6-luna 미가용 (auth ping failed)"
+  _write_codex_skip "codex 인증 실패 또는 gpt-6.1-sol 미가용 (auth ping failed)"
 else
   # B. exit code 분기 + A. timeout 래퍼로 실제 리뷰 실행
   if _to "$_CODEX_TIMEOUT" codex exec "다음 2개 설계 문서를 함께 리뷰하라: .crew/artifacts/design/{slug}-design-fe.md 와 .crew/artifacts/design/{slug}-design-ui.md. UI 구조, UX 흐름, 상태 관리, 라우팅, 접근성, 토큰/스타일 일관성을 점검하고 Critical/Major/Minor로 분류하라. 결과를 한국어 Markdown으로 출력하라." \
-       -s read-only -c 'model="gpt-5.6-luna"' -c 'model_reasoning_effort="high"' --enable web_search_cached \
+       -s read-only -c 'model="gpt-6.1-sol"' -c 'model_reasoning_effort="high"' --enable web_search_cached \
        > "$_CODEX_REVIEW_PATH" 2>/dev/null; then
     # C. 산출물 비어있음/부분출력 체크 (최소 바이트 임계값 통과 시에만 유효 리뷰로 인정)
     if [ -s "$_CODEX_REVIEW_PATH" ] && [ "$(wc -c < "$_CODEX_REVIEW_PATH")" -ge "$_CODEX_MIN_BYTES" ]; then
@@ -208,7 +208,7 @@ fi
 # → codex 검토 결과: $_CODEX_OK (1=독립 검토 완료 / 0=Reviewer 보강 태스크 Phase 3 필수 추가)
 ```
 
-**기대 산출물**: 기능 명세, 디자인(UI/UX) 기술 설계, FE 기술 설계, BE 기술 설계, Codex FE/디자인 리뷰 리포트 (4트랙 + 5.6-luna)
+**기대 산출물**: 기능 명세, 디자인(UI/UX) 기술 설계, FE 기술 설계, BE 기술 설계, Codex FE/디자인 리뷰 리포트 (4트랙 + gpt-6.1-sol)
 
 ## Phase 3: 태스크 분해
 

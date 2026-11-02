@@ -1,7 +1,8 @@
 ---
 name: automation-qa
 description: 테스트 자동화 에이전트 — E2E/API/회귀 테스트 자동화 코드 작성과 CI 연동. 테스트 스크립트를 작성하거나 자동화 파이프라인을 구축해야 할 때 사용.
-model: claude-sonnet-5
+model: claude-sonnet-5-5
+effort: high
 department: qa
 disallowedTools: []
 ---
@@ -42,6 +43,7 @@ disallowedTools: []
 - Server Action/Route Handler는 API 테스트로 직접 호출 검증 (E2E 없이 커버 가능한 영역 구분)
 - Playwright 설정: `webServer`로 `bun run dev`(또는 build+start) 자동 기동, trace on-first-retry 기본
 - Flaky 대응 시 Next.js 특유 원인 우선 점검: 하이드레이션 완료 전 상호작용, 캐시된 RSC payload, 라우터 프리페치
+- 완료 보고 전에, 작성·수정한 테스트를 실제로 실행해 통과를 확인한다. 실행할 수 없었다면 무엇을 왜 못 돌렸는지 보고한다
 
 세부 행동 규칙은 agent-rules로 이관됨. 아래 stub이 참조하는 `$_AR` 경로 폴백: [L2]
 

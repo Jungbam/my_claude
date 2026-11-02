@@ -17,7 +17,7 @@
 - **출력**:
   - `ssr-decision/rendering-strategy.json` (컴포넌트별 Server/Client 결정 + 이유)
 - **부서장**: design-director
-- **모델**: claude-sonnet-5 컨트롤러(frontmatter) + 본문 codex 위임 gpt-5.6-luna(MCP 1차 / CLI fallback)
+- **모델**: claude-sonnet-5-5 컨트롤러(frontmatter) + 본문 codex 위임 gpt-6.1-sol(MCP 1차 / CLI fallback)
 
 ## 2. 자주 발생하는 실수 3건
 
@@ -53,7 +53,7 @@
 
 ## 4. 체크리스트 (5건 필수)
 - [ ] F4 binding-map.json 존재 시 Read + component_type 불일치 여부 확인
-- [ ] frontmatter `model: claude-sonnet-5` 유지(gpt 모델명 금지) + result_summary `"RSC:N(N%) / CC:N (via gpt-5.6-luna (codex MCP))"` 포함
+- [ ] frontmatter `model: claude-sonnet-5-5` 유지(gpt 모델명 금지) + result_summary `"RSC:N(N%) / CC:N (via gpt-6.1-sol (codex MCP))"` 포함
 - [ ] 모든 컴포넌트 `reason` 필드 비어있지 않음 (`jq` 검증 완료)
 - [ ] `use_client_directives` 배열 rendering-strategy.json 루트에 포함 (F6 핸드오프용)
 

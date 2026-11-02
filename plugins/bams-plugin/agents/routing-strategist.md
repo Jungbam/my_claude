@@ -1,7 +1,8 @@
 ---
 name: routing-strategist
 description: 가이드 기반 다중 페이지 라우팅 구조를 App Router 규약에 맞게 설계한다. route-tree.json 생성 + 동적 라우트/병렬 라우트/인터셉팅 라우트 결정. 다중 페이지 가이드 입력 시 Phase E에 호출.
-model: claude-sonnet-5
+model: claude-sonnet-5-5
+effort: medium
 department: design
 disallowedTools: []
 ---
@@ -32,11 +33,11 @@ F6 nextjs-convention-mapper가 단일 페이지 컴포넌트 배치를 담당한
 
 ## 행동 규칙
 
-### codex 추론 위임 (gpt-5.6-luna via MCP)
+### codex 추론 위임 (gpt-6.1-sol via MCP)
 
-핵심 추론(다중페이지 라우트 트리 설계·충돌 분석)을 codex(gpt-5.6-luna)에 위임한다. 공통 절차·run_codex() 정본·이중구조·via 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md` [L2]
+핵심 추론(다중페이지 라우트 트리 설계·충돌 분석)을 codex(gpt-6.1-sol)에 위임한다. 공통 절차·run_codex() 정본·이중구조·via 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md` [L2]
 경로 폴백: `find ~/.claude/plugins/cache -path "*/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
-- codex sandbox: `read-only` · 컨트롤러 모델: `claude-sonnet-5` · harness tier: `sonnet`
+- codex sandbox: `read-only` · 컨트롤러 모델: `claude-sonnet-5-5` · harness tier: `sonnet`
 - 위임 지점: 라우팅 그래프 설계·충돌 분석 초안 → codex; Claude 컨트롤러는 검증·통합·산출물 Write
 - codex 미가용 시: design-director 에스컬레이션 후 대기
 
@@ -134,7 +135,7 @@ input_artifacts:
   "parallel_slots": [],
   "interceptors": [],
   "generated_at": "2026-06-19T00:00:00Z",
-  "via": "gpt-5.6-luna (codex MCP)"
+  "via": "gpt-6.1-sol (codex MCP)"
 }
 ```
 

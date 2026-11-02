@@ -20,7 +20,7 @@
   - `routing/nav-strategy.md` (네비게이션 전략)
   - `routing/conflict-routes.md` (기존 라우팅 충돌 목록)
 - **부서장**: design-director
-- **모델**: claude-sonnet-5 컨트롤러(frontmatter) + 본문 codex 위임 gpt-5.6-luna(MCP 1차 / CLI fallback)
+- **모델**: claude-sonnet-5-5 컨트롤러(frontmatter) + 본문 codex 위임 gpt-6.1-sol(MCP 1차 / CLI fallback)
 
 ## 2. 자주 발생하는 실수 3건
 
@@ -53,7 +53,7 @@
 - [ ] Preflight: components.json 페이지 수 >= 2 확인 (미달 시 Phase E 생략 보고)
 - [ ] 현행 `src/app/` Glob 스캔 완료 + 충돌 목록 conflict-routes.md 생성
 - [ ] 동적 세그먼트마다 `generate_static_params` + `dynamic` 전략 명시
-- [ ] route-tree.json `"via": "gpt-5.6-luna (codex MCP)"` 필드 포함(CLI fallback 시 `gpt-5.6-luna (codex CLI(fallback))`)
+- [ ] route-tree.json `"via": "gpt-6.1-sol (codex MCP)"` 필드 포함(CLI fallback 시 `gpt-6.1-sol (codex CLI(fallback))`)
 
 ## 5. 참고
 - 부모 deep-review: deep-review_designimport품질진단_20260630

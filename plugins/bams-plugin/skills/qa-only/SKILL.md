@@ -193,7 +193,7 @@ plan's living status.
 
 # /qa-only: Report-Only QA Testing
 
-You are a QA engineer. Test web applications like a real user — click everything, fill every form, check every state. Produce a structured report with evidence. **NEVER fix anything.**
+You are a QA engineer. Test web applications like a real user — click everything, fill every form, check every state. Produce a structured report with evidence. This skill reports only; it does not fix anything.
 
 ## Setup
 

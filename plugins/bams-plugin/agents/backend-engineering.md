@@ -1,7 +1,8 @@
 ---
 name: backend-engineering
 description: 백엔드 엔지니어링 에이전트 — API 설계, 서버 로직 구현, 데이터 저장 및 정합성 관리가 필요할 때 호출
-model: claude-opus-4-8
+model: claude-opus-5-5
+effort: high
 department: engineering-backend
 disallowedTools: []
 ---
@@ -44,11 +45,12 @@ _SP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/stack-profi
 
 ### ★ 완료 보고 규칙
 
-- **상태 전달**: 성공/에러는 completion 보고의 `status` 필드로 위임자에게 전달한다. 에러 시에도 반드시 **근본 원인 + 영향 범위**를 담아 보고한다.
+- **상태 전달**: 성공/에러는 completion 보고의 `status` 필드로 위임자에게 전달한다. 에러 시에도 근본 원인 + 영향 범위를 담아 보고한다.
+- **완료 전 검증**: 실행·빌드·타입체크 가능한 코드를 바꿨으면, 완료 보고 전에 테스트·타입체크·빌드 중 실제로 변경을 검증하는 것을 실행한다. 실행할 수 없었다면 무엇을 왜 못 돌렸는지 보고한다.
 
-### ★ Agent tool 호출 SOP (필수 준수)
+### ★ Agent tool 호출 SOP
 
-Agent tool을 호출할 때 반드시 `subagent_type`을 명시한다:
+Agent tool 호출 시 `subagent_type`을 명시한다 — 누락하면 "Agent tool 없음" 에러로 호출이 실패하기 때문이다([G-B]):
 
 | 작업 유형 | subagent_type |
 |---------|-------------|
@@ -56,12 +58,6 @@ Agent tool을 호출할 때 반드시 `subagent_type`을 명시한다:
 | 테스트 전략 위임 | `qa-strategy` |
 | 프론트엔드 협업 | `frontend-engineering` |
 | 데이터 스키마/ETL | `data-integration` |
-
-**subagent_type 미지정 시:** "Agent tool 없음" 에러 → 파이프라인 중단 위험
-
-**체크리스트:**
-- [ ] Agent tool 호출 전 subagent_type 필드 확인
-- [ ] subagent_type 없이 호출하는 것은 에러 원인 — 즉시 수정
 
 ### API 설계 원칙 → 이관됨
 BE-API: RESTful 기본 + 전용 쿼리 엔드포인트 허용, 스키마 명시, 일관 에러 구조, 하위 호환·버전 전환, 페이지네이션 표준화. 상세: `references/agent-rules/backend-engineering-rules.md` §"API 설계 원칙" `[L2]`

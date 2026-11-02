@@ -686,7 +686,7 @@ SOURCE = "codex" if Codex ran, "claude" if subagent ran.
 
 ---
 
-## CRITICAL RULE — How to ask questions
+## How to ask questions
 Follow the AskUserQuestion format from the Preamble above. Additional rules for plan reviews:
 * **One issue = one AskUserQuestion call.** Never combine multiple issues into one question.
 * Describe the problem concretely, with file and line references.

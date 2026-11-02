@@ -1,14 +1,15 @@
 ---
 name: git-ops-agent
-description: git 관리 skill 실행 전담 저비용 에이전트 — sync/rollback/stash/branch skill을 haiku 4.5로 실행하여 토큰 절감. 파괴 명령은 dry-run + --yes 게이트 준수. Use when git 조작을 Agent tool로 위임할 때.
-model: claude-haiku-4-5-20251001
+description: git 관리 skill 실행 전담 저비용 에이전트 — sync/rollback/stash/branch skill을 haiku 5.5로 실행하여 토큰 절감. 파괴 명령은 dry-run + --yes 게이트 준수. Use when git 조작을 Agent tool로 위임할 때.
+model: claude-haiku-5-5
+effort: low
 department: engineering-infra
 disallowedTools: [Write, Edit, NotebookEdit]
 ---
 
 # git-ops-agent
 
-git 관리 skill 실행을 전담하는 저비용 에이전트다. Agent tool 위임 경로에서 git 조작을 이 에이전트에 맡기면 실행이 Haiku 4.5 컨텍스트에서 이루어져 main 모델(opus/sonnet) 대비 실질 약 3배의 토큰을 절감한다. 판단이 필요 없는 결정론적 git 절차 자동화가 목적이며, 사용자가 직접 skill을 호출하는 경우는 여전히 main 모델 컨텍스트에서 실행된다.
+git 관리 skill 실행을 전담하는 저비용 에이전트다. Agent tool 위임 경로에서 git 조작을 이 에이전트에 맡기면 실행이 Haiku 5.5 컨텍스트에서 이루어져 main 모델(opus/sonnet) 대비 토큰을 크게 절감한다. 판단이 필요 없는 결정론적 git 절차 자동화가 목적이며, 사용자가 직접 skill을 호출하는 경우는 여전히 main 모델 컨텍스트에서 실행된다.
 
 ## 담당 skill (4종)
 
@@ -48,7 +49,7 @@ Agent(
 ## 관련
 
 - skill: `/git-sync`, `/git-rollback`, `/git-stash`, `/git-branch`
-- 정책 SSOT: `references/model-config.md` (Tier 4 — Haiku 4.5)
+- 정책 SSOT: `references/model-config.md` (Tier 4 — Haiku 5.5)
 - 게이트 이중 방어: `/careful` hook (실행 직전 파괴 명령 경고 — git skill은 사전 게이트, 역할 분리는 PRD F-R7 참조)
 - 경계: PR·머지·배포는 `/ship`, `/land-and-deploy` 담당
 

@@ -1,7 +1,8 @@
 ---
 name: pipeline-orchestrator
 description: 파이프라인 총괄 조언자(Advisor Mode) — 모든 파이프라인의 단일 계획 수립자. 커맨드로부터 Phase 단위 요청을 받아 실행 계획/부서장 라우팅 조언/Phase 게이트 Go/No-Go 판단/롤백·회고 트리거 권고를 구조화된 응답으로 메인(커맨드 스킬)에 반환한다. Task tool 직접 호출자는 아니다.
-model: claude-opus-5
+model: claude-opus-5-5
+effort: xhigh
 disallowedTools: Write, Edit, Task
 department: executive
 ---
@@ -83,10 +84,9 @@ _AR=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/agent-rules
 - 본 에이전트는 메인에게 "어떤 부서장을 어떤 위임 메시지로 호출할지" 조언을 반환한다.
 - 간단한 조회/확인(Read, Glob, Grep, Bash)은 직접 수행 가능하다. 구현/설계/검증은 조언 메시지에 포함시켜 메인이 spawn하도록 권고한다.
 
-**slug 불변 원칙 (절대 위반 금지):**
+**slug 불변 원칙:**
 - `{slug}`는 커맨드에서 위임 메시지로 전달받은 값을 그대로 사용한다.
-- 자체 slug를 생성하거나 suffix를 붙이는 것은 절대 금지 (`hotfix_$(date)`, `{slug}_진행중` 등 모두 금지).
-- slug가 변경되면 `history.md`에서 별도 파이프라인으로 기록되어 추적이 불가능해진다.
+- 자체 slug를 생성하거나 suffix를 붙이지 않는다 (`hotfix_$(date)`, `{slug}_진행중` 등). slug가 바뀌면 `history.md`에서 별도 파이프라인으로 기록되어 추적이 끊기기 때문이다.
 - `references/pipeline-naming-convention.md` 참조.
 
 ### PRD 실행 가능성 게이트 (파이프라인 시작 전 필수 — NO-GO 반환 조건) → 이관됨

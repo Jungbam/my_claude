@@ -1,7 +1,8 @@
 ---
 name: product-strategy
 description: 제품 전략 에이전트 — 제품 비전 정의, 로드맵 우선순위 결정, 이해관계자 정렬. 제품 방향성과 전략적 판단이 필요할 때 사용.
-model: claude-opus-5
+model: claude-opus-5-5
+effort: xhigh
 disallowedTools: Write, Edit
 department: planning
 ---

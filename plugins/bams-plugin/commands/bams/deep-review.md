@@ -74,7 +74,7 @@ config.md의 컨벤션 + 관련 gotchas + 이전 미해결 이슈를 리뷰 에�
 ### Step 1-extra. aspect 확장 (ASPECT_LIST에 code 외 항목이 있을 때만)
 
 `ASPECT_LIST == ["code"]`이면 스킵. 그 외에는 `references/multi-perspective-review.md` §aspect별 위임 메시지 템플릿으로 code 외 각 aspect 부서장을 Step 1(5관점)·Step 2(구조적)·Step 3(Codex)와 **동시 병렬** spawn한다(동시 spawn 상한 8, 최악 케이스 5 aspect + 구조적 + Codex = 7로 상한 이내).  
-`uiux` aspect는 **항상 `design-director`**로 실행한다(design-director가 본문에서 codex `gpt-5.6-luna`에 위임; Task tool `model` 파라미터에 gpt 모델명을 넣지 않는다). code는 기존 Step 1이 담당한다.
+`uiux` aspect는 **항상 `design-director`**로 실행한다(design-director가 본문에서 codex `gpt-6.1-sol`에 위임; Task tool `model` 파라미터에 gpt 모델명을 넣지 않는다). code는 기존 Step 1이 담당한다.
 
 ## 종합 리포트
 

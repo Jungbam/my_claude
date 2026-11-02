@@ -270,16 +270,16 @@ TMPERR=$(mktemp /tmp/codex-err-XXXXXX.txt)
 
 2. Run the review (5-minute timeout):
 ```bash
-codex review --base <base> -c 'model="gpt-5.6-luna"' -c 'model_reasoning_effort="xhigh"' --enable web_search_cached 2>"$TMPERR"
+codex review --base <base> -c 'model="gpt-6.1-sol"' -c 'model_reasoning_effort="xhigh"' --enable web_search_cached 2>"$TMPERR"
 ```
 
 Use `timeout: 300000` on the Bash call. If the user provided custom instructions
 (e.g., `/codex review focus on security`), pass them as the prompt argument:
 ```bash
-codex review "focus on security" --base <base> -c 'model="gpt-5.6-luna"' -c 'model_reasoning_effort="xhigh"' --enable web_search_cached 2>"$TMPERR"
+codex review "focus on security" --base <base> -c 'model="gpt-6.1-sol"' -c 'model_reasoning_effort="xhigh"' --enable web_search_cached 2>"$TMPERR"
 ```
 
-> **NOTE — codex 모델 고정 (2026-09-16 갱신)**: 2026-06-24에는 당시 기본 모델 `gpt-5.2-codex`가 `codex review`의 디폴트 `text.verbosity="low"`와 호환되지 않아 `gpt-5.3-codex`를 명시했으나, 해당 모델은 2026-08-21 deprecated(ChatGPT 계정에서 HTTP 400). 현재는 정본 `references/model-config.md`의 codex 모델 `gpt-5.6-luna`로 고정한다(`~/.codex/config.toml` 기본값과 동일). codex 모델 세대 교체 시 model-config.md 갱신과 함께 이 두 호출도 갱신할 것.
+> **NOTE — codex 모델**: review 호출은 `gpt-6.1-sol`로 고정한다(정본: `references/model-config.md`, `~/.codex/config.toml` 기본값과 동일). 모델 세대 교체 시 model-config.md와 이 두 호출을 함께 갱신한다.
 
 3. Capture the output. Then parse cost from stderr:
 ```bash
@@ -566,17 +566,14 @@ Session saved — run /codex again to continue this conversation.
 
 ## Model & Reasoning
 
-**Model:** No model is hardcoded — codex uses whatever its current default is (the frontier
-agentic coding model). This means as OpenAI ships newer models, /codex automatically
-uses them. If the user wants a specific model, pass `-m` through to codex.
+**Model:** Review mode pins `gpt-6.1-sol` via `-c model=` (SSOT: `references/model-config.md`), matching the `~/.codex/config.toml` default. Challenge and consult modes use the codex default. When the codex model generation changes, update `references/model-config.md` and these review calls together.
 
-**Reasoning effort:** All modes use `xhigh` — maximum reasoning power. When reviewing code, breaking code, or consulting on architecture, you want the model thinking as hard as possible.
+**Reasoning effort:** All modes use `xhigh` for the deepest analysis on review, challenge, and consult work.
 
 **Web search:** All codex commands use `--enable web_search_cached` so Codex can look up
-docs and APIs during review. This is OpenAI's cached index — fast, no extra cost.
+docs and APIs during review — OpenAI's cached index, fast and no extra cost.
 
-If the user specifies a model (e.g., `/codex review -m gpt-5.1-codex-max`
-or `/codex challenge -m gpt-5.2`), pass the `-m` flag through to codex.
+If the user specifies a model (e.g., `/codex review -m gpt-6.1-sol`), pass the `-m` flag through to codex.
 
 ---
 

@@ -19,7 +19,7 @@
   - `a11y/accessibility-report.md` (우선순위화된 위반 + 권고)
   - `a11y/a11y-verdict.json` (PASS/CONDITIONAL/FAIL + 위반 수)
 - **부서장**: design-director
-- **모델**: claude-sonnet-5 컨트롤러(frontmatter) + 본문 codex 위임 gpt-5.6-luna(MCP 1차 / CLI fallback)
+- **모델**: claude-sonnet-5-5 컨트롤러(frontmatter) + 본문 codex 위임 gpt-6.1-sol(MCP 1차 / CLI fallback)
 
 ## 2. 자주 발생하는 실수 3건
 
@@ -55,7 +55,7 @@
 - [ ] Preflight: target_url 응답 200 확인 후 axe 실행
 - [ ] SR-3: target_url이 localhost 패턴인지 grep 검사 완료
 - [ ] 판정 로직 준수: critical > 0 또는 serious > 0이면 FAIL (CONDITIONAL 오판 금지)
-- [ ] a11y-verdict.json `"via": "gpt-5.6-luna (codex MCP)"` 필드 포함(CLI fallback 시 `gpt-5.6-luna (codex CLI(fallback))`)
+- [ ] a11y-verdict.json `"via": "gpt-6.1-sol (codex MCP)"` 필드 포함(CLI fallback 시 `gpt-6.1-sol (codex CLI(fallback))`)
 
 ## 5. 참고
 - 부모 deep-review: deep-review_designimport품질진단_20260630

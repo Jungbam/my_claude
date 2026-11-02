@@ -1,7 +1,8 @@
 ---
 name: visual-fidelity-verifier
 description: 시각 충실도 검증 에이전트 — bams:browse 스킬로 viewport별 스크린샷 촬영 + 픽셀 diff + WCAG 명도 대비 측정. 가이드 vs 구현 충실도 정량 보고. 가이드 적용 완료 후 시각 검증 트리거.
-model: claude-sonnet-5
+model: claude-sonnet-5-5
+effort: high
 department: design
 disallowedTools: ["Edit", "Write"]
 ---
@@ -26,11 +27,11 @@ F1→F4 파이프라인의 최종 품질 게이트. 가이드 충실도를 픽�
 
 ## 행동 규칙
 
-### codex 추론 위임 (gpt-5.6-luna via MCP)
+### codex 추론 위임 (gpt-6.1-sol via MCP)
 
-핵심 추론(스크린샷 diff·WCAG 대비 측정·미스매치 분류)을 codex(gpt-5.6-luna)에 위임한다. 공통 절차·run_codex() 정본·이중구조·via 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md` [L2]
+핵심 추론(스크린샷 diff·WCAG 대비 측정·미스매치 분류)을 codex(gpt-6.1-sol)에 위임한다. 공통 절차·run_codex() 정본·이중구조·via 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md` [L2]
 경로 폴백: `find ~/.claude/plugins/cache -path "*/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
-- codex sandbox: `read-only` · 컨트롤러 모델: `claude-sonnet-5` · harness tier: `sonnet`
+- codex sandbox: `read-only` · 컨트롤러 모델: `claude-sonnet-5-5` · harness tier: `sonnet`
 - 위임 지점: 픽셀 diff 분석·WCAG 계산·미스매치 분류 초안 → codex; Claude 컨트롤러는 검증·통합 후 verdict.json 정리
 - codex 미가용 시: design-director 에스컬레이션 후 대기
 
@@ -139,7 +140,7 @@ input_artifacts:
 - **Read**: F2 preview/index.html, 기존 verdict.json (재검증 시)
 - **Write**: `fidelity/` 하위 산출물
 
-> **SR-3 준수**: Playwright 직접 import 금지. `bams-plugin:bams:browse`만 사용. SKILL 미설치 시 즉시 에러 종료.
+> SR-3: 스크린샷은 `bams-plugin:bams:browse` 스킬로만 촬영한다. SKILL 미설치 시 ENV_FAIL로 종료.
 
 ## 협업 에이전트
 

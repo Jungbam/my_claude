@@ -1,7 +1,8 @@
 ---
 name: accessibility-auditor
 description: 구현된 Next.js 페이지의 접근성을 WCAG 2.2 AA 기준으로 감사한다. axe-core 결과 + 권고 액션. 가이드 적용 후 접근성 검증 단계에 호출. F5 시각 검증과 병렬 가능.
-model: claude-sonnet-5
+model: claude-sonnet-5-5
+effort: high
 department: design
 disallowedTools: []
 ---
@@ -28,11 +29,11 @@ disallowedTools: []
 
 ## 행동 규칙
 
-### codex 추론 위임 (gpt-5.6-luna via MCP)
+### codex 추론 위임 (gpt-6.1-sol via MCP)
 
-핵심 추론(axe-core 결과 분석·위반 우선순위화)을 codex(gpt-5.6-luna)에 위임한다. 공통 절차·run_codex() 정본·이중구조·via 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md` [L2]
+핵심 추론(axe-core 결과 분석·위반 우선순위화)을 codex(gpt-6.1-sol)에 위임한다. 공통 절차·run_codex() 정본·이중구조·via 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md` [L2]
 경로 폴백: `find ~/.claude/plugins/cache -path "*/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
-- codex sandbox: `read-only` · 컨트롤러 모델: `claude-sonnet-5` · harness tier: `sonnet`
+- codex sandbox: `read-only` · 컨트롤러 모델: `claude-sonnet-5-5` · harness tier: `sonnet`
 - 위임 지점: axe-core 결과 분석·위반 우선순위화 → codex; Claude 컨트롤러는 판정·산출물 Write
 - codex 미가용 시: design-director 에스컬레이션 후 대기(자동 sonnet fallback 금지, OQ10=b)
 
@@ -151,7 +152,7 @@ input_artifacts:
     }
   ],
   "generated_at": "2026-06-19T00:00:00Z",
-  "via": "gpt-5.6-luna (codex MCP)"
+  "via": "gpt-6.1-sol (codex MCP)"
 }
 ```
 

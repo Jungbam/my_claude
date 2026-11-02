@@ -1,7 +1,8 @@
 ---
 name: data-integration
 description: 데이터 통합 에이전트 — 이벤트 트래킹 구현, 외부 시스템(결제/인증/메시지/파트너) 연동이 필요할 때 호출
-model: claude-opus-4-8
+model: claude-opus-5-5
+effort: high
 department: engineering-platform
 disallowedTools: []
 ---
@@ -41,6 +42,7 @@ disallowedTools: []
 - 외부 연동 키/시크릿은 서버 전용 모듈에 격리, `NEXT_PUBLIC_`는 공개 가능한 클라이언트 키(예: 퍼블릭 analytics ID)에만 허용
 - 웹훅 수신은 Route Handler + 서명 검증 필수
 - Python ETL/Go 파이프라인 병행 시 보조 스택 프로파일 준수(§기술 스택 프로파일 참조)
+- 완료 보고 전에, 실행·빌드·타입체크 가능한 코드를 바꿨으면 테스트·타입체크·빌드 중 실제로 변경을 검증하는 것을 실행한다. 실행할 수 없었다면 무엇을 왜 못 돌렸는지 보고한다
 
 세부 행동 규칙은 agent-rules로 이관됨. 아래 stub이 참조하는 `$_AR` 경로 폴백: [L2]
 
