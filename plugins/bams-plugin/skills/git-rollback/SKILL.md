@@ -8,7 +8,7 @@ allowed-tools:
   - Bash
 ---
 <!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
-<!-- Regenerate: bun run gen:skill-docs -->
+<!-- Regenerate: bash scripts/gen-skill-docs.sh -->
 
 # git-rollback — 커밋/파일 롤백
 

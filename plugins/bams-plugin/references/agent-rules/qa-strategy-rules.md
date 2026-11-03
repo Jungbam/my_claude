@@ -38,37 +38,33 @@ Major/Critical 결함의 정량 근거(grep count 등) 보고 시, 동일 명령
 
 ### ★ QA Phase 완료 조건 (Phase 게이트 — 생략 불가)
 
-pipeline-orchestrator에 GO 보고 전 반드시 확인:
-- [ ] qa-strategy 결과 보고 완료 (status=success 또는 error)
-- [ ] automation-qa 결과 보고 완료 (Full Path 시)
-- [ ] defect-triage 결과 보고 완료 (Critical/Major 결함 발견 시)
-- [ ] release-quality-gate 결과 보고 완료
+메인에 GO 보고 전 확인 (위임했든 직접 수행했든 결과가 있어야 한다 — 위임 한도는 ★ [하드 게이트] 참조):
+- [ ] 테스트 실행 결과(명령 + exit code) — Full Path 필수
+- [ ] 결함 분류 — Critical/Major 결함 발견 시
+- [ ] 출시 판정 — `agents/release-quality-gate.md` §증거 기반 판정 적용
 - [ ] **spec After 활성 코드 검증** (Critical, OQ2=B): F7 회귀 시 `grep -c "^# " <변경 블록>` 자동 실행 → ≠0이면 즉시 FAIL. 주석 처리 발견 시 hr-agent 재spawn 요청
 
-★ 위 4항목 중 미완료 항목이 있으면 GO 보고 불가
+★ 위 항목 중 미완료가 있으면 GO 보고 불가
 
 ### ★ qa-strategy 보고서 필수 포함 항목 (결과 보고 시)
 
 | 항목 | 필수 |
 |------|------|
-| automation-qa 호출 여부 | O |
-| automation-qa call_id 및 결과 요약 | O (호출 시) |
-| defect-triage 호출 여부 | O |
-| release-quality-gate GO/NO-GO | O |
+| automation-qa 위임 여부 + 결과 요약(미위임 시 직접 실행한 테스트 명령·결과) | O |
+| defect-triage 위임 여부 | O |
+| 출시 판정 GO/NO-GO | O |
 | 디자인 검증 수행 여부 | O |
-
-automation-qa 호출 없이 QA 완료 보고 시: `specialist_skip_reason` 명시 필수 (★ [하드 게이트] specialist 위임 강제 참조)
 
 ### ★ automation-qa 위임 판단 체크리스트 (IMP-QS-3 — 보고서 필수 산출물, 누락 시 QA Phase 미완료)
 
-QA Phase 시작 시 아래 4개 항을 **기계 파싱 가능한 고정 포맷**으로 보고서 상단에 출력한다. 미출력 시 QA Phase 미완료로 간주(no_end proxy 오염 차단). 이 출력은 파이프라인 레벨 게이트(D-2)가 파싱하는 상류 계약이다.
+QA Phase 시작 시 아래 고정 포맷을 보고서 상단에 출력한다. 미출력 시 QA Phase 미완료로 간주.
 
 ```
 changed_files: N
 path: [Fast | Full]        # 변경<3 & hotfix/debug → Fast, 변경≥3 또는 dev/feature/debug → Full
-automation_qa: <call_id> | skip_reason=<사유>
-defect_triage: <call_id> | skip_reason=<사유>   # 신규 — Critical/Major 결함 발견 시 call_id 필수, 결함 0건이면 skip_reason=no-defect
-release_quality_gate: <위임 여부 or call_id>
+automation_qa: delegated | self | skip_reason=<사유>
+defect_triage: delegated | self | skip_reason=<사유>   # Critical/Major 0건이면 skip_reason=no-defect
+release_quality_gate: delegated | self
 ```
 
 ### review.md / AC 작성 시 (SR-5: 셸 스크립트 추출 의무)
@@ -117,13 +113,10 @@ design-director 에러 감지 또는 완료 보고 없을 시:
 
 ### ★ [하드 게이트] specialist 위임 강제
 
-동일 취지로 흩어져 있던 위임 규칙(보고서 필수 항목의 automation-qa 미호출 사유 / IMP-QS-3 미위임 사유 / specialist_skip_reason)을 본 블록으로 단일화한다. 명칭은 `specialist_skip_reason` 하나로 통일한다.
-
-1. 변경 파일 ≥3 또는 dev/feature/debug → automation-qa 위임 필수(Full Path). 변경 <3 & hotfix → Fast Path(automation-qa 핵심 회귀만).
-2. automation-qa / defect-triage / release-quality-gate 중 어느 것이든 생략 시 → 보고서에 `specialist_skip_reason: <대상>=<사유>` 1줄 의무. 사유 없으면 규칙 위반.
-3. 보고서 상단에 위임 판단 체크리스트(변경파일수 / 경로 / 각 specialist call_id or skip_reason)를 항상 출력(IMP-QS-3 고정 포맷).
-
-**강제의 근본은 파이프라인 레벨 기계 게이트(A5/D-2, platform-devops 훅의 `automation_qa_call_id` 필드 검사)에 있으며, 본 정의는 그 게이트가 파싱할 구조화된 출력을 보장하는 상류 계약이다. 위임 규칙 문구를 추가로 늘리지 않는다(과적재 방지).**
+1. 변경 파일 ≥3 또는 dev/feature/debug → Full Path(테스트 작성·실행 필수). 변경 <3 & hotfix → Fast Path(핵심 회귀만).
+2. specialist spawn은 1회 한도이고 specialist는 하위 spawn을 못 한다(`delegation-protocol.md` §1·§2-3). 우선순위: automation-qa(Full Path) > defect-triage(Critical/Major 발견 시) > release-quality-gate. spawn하지 않은 역할은 직접 수행하고, spawn 도구가 없으면(서브에이전트 환경) 전부 직접 수행한다.
+3. 위임하지 않은 역할마다 `specialist_skip_reason: <대상>=<사유>`(예: `release-quality-gate=1회 한도`, `automation-qa=spawn 불가`) 1줄 의무. 사유 없으면 규칙 위반.
+4. 보고서 상단에 IMP-QS-3 체크리스트를 항상 출력한다.
 
 ### ★ 정리/제거 모드 분기
 

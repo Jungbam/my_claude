@@ -80,45 +80,11 @@ Task tool, subagent_type: **"bams-plugin:defect-triage"** — 지적 1건당 1�
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
 <!-- load_profile:exempt non-department-lead spawn -->
 
-> **코드 품질 관점 에이전트 개선점 분석 모드 (Advisor)** — 리뷰에서 반복적으로 발견된 패턴을 에이전트 개선 기회로 기록합니다.
->
-> **수행할 작업:**
-> 1. 종합 리포트에서 에이전트가 유발했을 가능성이 있는 이슈를 식별:
->    - 코드 품질 패턴 → `code-quality:` 접두사
->    - 아키텍처 설계 문제 → `architecture:` 접두사
->    - 성능 이슈 → `performance:` 접두사
->    - 보안 패턴 → `security:` 접두사
->    - 테스트 커버리지 갭 → `test-coverage:` 접두사
-> 2. 각 이슈에 대해 원인이 된 에이전트를 식별
-> 3. 일회성 실수인지 구조적 개선이 필요한지 판별:
->    - `.crew/memory/{agent}/improvements/` 디렉토리에서 동일 pattern_tag 기존 레코드 검색
->    - 기존 레코드가 있으면 type: structural, 없으면 type: one-off
-> 4. `.crew/memory/{agent}/improvements/{date}-{slug}.md` 파일 생성:
->    ```yaml
->    ---
->    date: {YYYY-MM-DD}
->    pipeline_slug: {slug}
->    parent_pipeline_slug: {parent_slug or null}
->    agent: {agent_type}
->    pattern_tag: {code-quality:|architecture:|performance:|security:|test-coverage:}{구체적 태그}
->    type: one-off | structural
->    severity: minor | major | critical
->    ---
->    
->    ## 리뷰에서 발견된 패턴
->    {반복 발견된 코드 패턴 또는 아키텍처 이슈}
->    
->    ## 개선 제안
->    {에이전트 또는 스킬에 대한 구체적 개선 제안}
->    
->    ## 관련 파이프라인
->    - 원본: {parent_pipeline_slug}
->    - 리뷰: {slug}
->    ```
-> 5. structural 유형이고 동일 pattern_tag가 2회 이상이면:
->    - AskUserQuestion: "이 패턴이 반복되고 있습니다. 에이전트 개선을 진행할까요?"
->    - Yes → `references/agent-improvement-protocol.md`의 Evolution Hook 실행
->    - No → 기록만 남기고 종료
+> **에이전트 개선점 분석 (Advisor)** — 종합 리포트에서 에이전트가 유발한 major 이상 지적마다 원인 에이전트·lesson-id(`references/agent-improvement-protocol.md` §2 카테고리)·severity를 식별하고, `.crew/memory/{agent}/MEMORY.md`의 같은 lesson-id 항목 유무와 갱신 후 §5 승격 게이트 충족 여부를 반환한다. 파일 쓰기·spawn 지시 금지.
+
+메인은 Advisor Response로 다음을 수행한다 (규약: 같은 문서 §1~§5):
+1. 사용자 확인 후 MEMORY.md 반영 — 같은 lesson-id면 seen+1(다른 pipeline-slug일 때만)·`last`·evidence 갱신, 없으면 새 항목(`references/agent-memory.md` 형식, conf low·seen 1). critical은 `.crew/gotchas.md` 후보로 제안
+2. §5 게이트 충족 항목만 AskUserQuestion → Yes면 §5 개선안 작성 후 hr-agent spawn으로 적용, No면 MEMORY.md 갱신으로 종료
 
 ## 마무리
 

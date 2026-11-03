@@ -86,44 +86,34 @@ phase2-kpt-consolidated.md에서 **"단일 프로젝트 한정"으로 분류된 
 >   path: .crew/artifacts/retro/{slug}/phase4-improvement-{에이전트명}.md
 > quality_criteria:
 >   - 개선안 형식 준수 (아래 형식 사용)
->   - 현재 행동 규칙 원문을 인용 후 변경안 제시
->   - 예상 효과를 정성적으로 서술
->   - 적용 범위 체크박스 명시
+>   - 정의 파일 승격 시 "삭제/대체할 기존 문장"에 현재 정의 원문 인용 (비면 승격 불가)
 > ```
 >
 > **개선안 파일 형식 (`phase4-improvement-{에이전트명}.md`):**
 > ```markdown
-> ## 개선안: {에이전트명}
+> ## 개선안: {에이전트명} ← {lesson-id} (seen N · conf low|med|high)
 >
 > ### 평가 근거
 > - 주요 문제: {KPT Problem 핵심 요약 2-3줄}
 >
-> ### 일반화 가능성 (필수, 둘 중 1개 반드시 체크)
+> ### 일반화 가능성 (필수, 1개 체크 — 3개 이상 프로젝트 재현만 "다중", 그 외 보수적으로 "단일")
 > [ ] 다중 프로젝트 재현 가능 (3개 이상)
 > [ ] 단일 프로젝트 한정
->
-> 판정 임계값: 3개 이상 프로젝트에서 재현 가능한 패턴만 "다중 프로젝트 재현 가능"으로 분류. 그 외는 보수적으로 "단일 프로젝트 한정".
->
-> 근거: {대상 Problem의 분류 사유 1-2줄. 단일 프로젝트 한정인 경우 한정 차원(스택/도메인/외부 서비스/특정 브라우저·OS·디바이스 등)을 명시}
->
-> ### 현재 행동 규칙 (변경 대상)
-> > 현재: {agents/*.md에서 인용한 원문}
->
-> ### 제안 변경
-> > 변경: {수정 제안 내용}
->
-> ### 예상 효과
-> {행동 변화 기술 (정성)}
+> 근거: {1-2줄. 단일이면 한정 차원(스택/도메인/외부 서비스/브라우저·OS·디바이스 등) 명시}
 >
 > ### 적용 범위
-> [ ] 행동 규칙 수정(일반 규칙만)  (※ "단일 프로젝트 한정" 체크 시 비활성 — plugin agents/*.md 수정 금지. 반영 시에도 회고 슬러그·날짜·경로·KPT 인용 없이 일반 규칙 문장만)
-> [ ] MEMORY.md 교훈 기록    (→ .crew/memory/{agent-slug}/MEMORY.md — 플러그인 agents/*.md에는 회고 기록 금지)
-> [ ] gotcha 승격
-> [ ] .crew/gotchas.md 후보   (※ "단일 프로젝트 한정" 체크 시 권장 — Step 2 별도 AskUserQuestion에서 사용자 확인)
+> [ ] MEMORY.md 항목 갱신 (기본 — `references/agent-memory.md` 형식, 같은 lesson-id면 seen+1)
+> [ ] 정의 파일 승격 (`references/agent-improvement-protocol.md` §5 게이트 충족 + "다중" 체크 시만)
+> [ ] .crew/gotchas.md 후보 ("단일" 체크 시 권장 — Step 2-2에서 사용자 확인)
+>
+> ### 승격 필드 (정의 파일 승격 체크 시 필수)
+> - 대상 파일: agents/{slug}.md §{섹션} | references/{doc}.md §{섹션}
+> - 추가 문장: {일반 규칙 1~3줄 — 날짜·회고 slug·프로젝트 경로·KPT 인용 금지}
+> - 삭제/대체할 기존 문장: {같은 파일 원문 인용}
+> - 바이트 증감: {after − before} (≤ 0)
 > ```
 >
-> **NF1 호환성 안내 (옵셔널 처리)**:
-> 기존 `phase4-improvement-*.md` 파일에 `### 일반화 가능성` 섹션이 없는 것은 오류가 아닙니다. 신규 필드는 옵셔널 처리되며, 미존재 시 표시 단계에서 "분류 미상"으로 간주합니다(Step 2 표시 시 명시적 분류 라벨 부재).
+> **NF1 호환성 안내**: 구 `phase4-improvement-*.md`에 `### 일반화 가능성`이 없으면 "분류 미상", 승격 필드가 없으면 승격 불가(MEMORY.md 갱신만)로 간주합니다.
 >
 > **orchestrator 종합 작업:**
 > - 모든 phase4-improvement-*.md 수집
@@ -149,7 +139,7 @@ AskUserQuestion으로 사용자에게 제시합니다.
 개선 대상 에이전트 ({N}개):
 1. {에이전트명} — {주요 문제 1줄 요약}
    일반화 가능성: {다중 프로젝트 재현 가능 / 단일 프로젝트 한정}
-   적용 범위: {행동 규칙 수정(일반 규칙) / MEMORY.md 교훈 기록 / gotcha 승격 / .crew/gotchas.md 후보}
+   적용 범위: {MEMORY.md 항목 갱신 / 정의 파일 승격(바이트 증감) / .crew/gotchas.md 후보}
 2. ...
 
 선택지:
@@ -162,7 +152,7 @@ C) 보류 — 개선안 파일만 저장하고 에이전트 파일은 수정하�
 phase4-improvements-summary.md에서 각 개선안의 `### 일반화 가능성` 섹션 체크 결과를 읽어 위 형식의 "일반화 가능성:" 라인에 표시합니다. 분류가 "단일 프로젝트 한정"인 항목은 A/B 선택지에서 plugin agents/*.md 수정 대상에서 자동 제외됩니다.
 
 **교훈 기록 위치 규칙 (R4/NG1 확장)**:
-"다중 프로젝트 재현 가능"으로 분류된 교훈이라도 **날짜 항목(`### [YYYY-MM-DD]`)·회고 서사 형태로 plugin `agents/*.md`에 기록하지 않습니다.** 교훈은 `.crew/memory/{agent-slug}/MEMORY.md`(프로젝트 로컬)에, 항구적 일반 규칙은 `agents/*.md`의 `## 행동 규칙` 또는 `references/*.md` SSOT에 **회고 슬러그·날짜·프로젝트 경로·KPT 인용 없이 1~3줄 일반 규칙 문장으로만** 반영합니다.
+교훈은 `.crew/memory/{agent-slug}/MEMORY.md`에만 축적합니다(`references/retro-protocol.md` §5). "다중"이라도 정의 파일(`agents/*.md` `## 행동 규칙`·`references/*.md`)로는 §5 승격 게이트 통과분만, 날짜·회고 slug·경로·KPT 인용 없는 1~3줄 일반 규칙으로 옮깁니다.
 
 **사용자 응답 입력 검증 (Major-1 정합 — 입력 검증: `references/delegation-message-security.md` §2 참조)**:
 
@@ -226,7 +216,7 @@ Step 2에서 승인(전체 또는 선택)된 개선안이 있을 경우에만 �
 
 **2단 위임 — 루프 A**: orchestrator 조언 → 메인이 hr-agent 직접 spawn.
 
-**Step 3a: Advisor 호출** — Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, 조언자 모드. 컨텍스트: 승인된 phase4-improvement-*.md 경로 목록, agents 정의 디렉터리, retro-protocol.md. Advisor Response: hr-agent 태스크 초안, 수정 규칙 검증, gotcha 승격 후보 목록, 교훈 10개 유지 규칙 확인. spawn 지시 금지.
+**Step 3a: Advisor 호출** — Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, 조언자 모드. 컨텍스트: 승인된 phase4-improvement-*.md 경로 목록, agents 정의 디렉터리, retro-protocol.md. Advisor Response: hr-agent 태스크 초안, 승격 게이트(§5) 충족 여부, gotcha 승격 후보 목록. spawn 지시 금지.
 <!-- load_profile:exempt non-department-lead spawn -->
 
 **Step 3b: 메인이 hr-agent 직접 spawn**
@@ -242,15 +232,12 @@ Step 2에서 승인(전체 또는 선택)된 개선안이 있을 경우에만 �
 > input_artifacts: [{승인된 phase4-improvement-*.md 경로 목록}]
 > target_files: .crew/memory/{에이전트명}/MEMORY.md (교훈), plugins/bams-plugin/agents/ 또는 references/*.md (일반 행동 규칙만)
 > modification_rules:
->   - 행동 규칙 수정(일반 규칙): agents/{에이전트명}.md의 ## 행동 규칙 섹션 또는 references/*.md SSOT에 반영 — 회고 슬러그·날짜·프로젝트 경로·KPT 인용을 정의 파일에 넣지 않고 일반 규칙 문장(1~3줄)만 작성
->   - 교훈 기록: .crew/memory/{에이전트명}/MEMORY.md에 retro-protocol.md §5-1 형식으로 기록 (**플러그인 agents/*.md에는 날짜 항목·회고 기록 절대 금지**)
->       형식: ## [YYYY-MM-DD] {pipeline-slug} > ### 교훈 제목 (맥락·문제·교훈·적용 범위·출처)
+>   - MEMORY.md: references/agent-memory.md 형식(## {lesson-id} · conf · seen · last). 같은 lesson-id면 새 항목 대신 seen+1·last 갱신. 유지(신뢰도·10항목/3,000자·90일 TTL·구형식 전환)는 retro-protocol.md §5-2
+>   - 정의 파일 승격: agent-improvement-protocol.md §5 게이트 충족 + 승격 필드 완비 개선안만. 추가·삭제를 함께 적용(바이트 증감 ≤ 0), 승격 항목은 MEMORY.md에서 삭제
 >   - gotcha 승격: .crew/gotchas.md에 항목 추가 (사용자 확인 완료 상태)
->   - 기존 교훈 갱신: 같은 맥락+문제면 MEMORY.md에서 날짜와 내용 업데이트 (중복 추가 금지)
->   - 교훈 최대 10개 유지: MEMORY.md에서 초과 시 오래된 항목부터 제거
 > quality_criteria:
->   - 각 수정 후 변경된 내용의 diff 요약 출력
->   - 수정 전 원문과 수정 후 내용 병기
+>   - 파일별 before/after 바이트 + diff 요약
+>   - 승격 시 scripts/validate-harness.sh WARN 수 증가 0
 >   - 의도치 않은 섹션 삭제 금지
 > ```
 >
@@ -276,8 +263,7 @@ Step 2에서 승인(전체 또는 선택)된 개선안이 있을 경우에만 �
 - Step 2 사용자 승인 결과가 기록됨 (전체 승인 / 선택 승인 / 보류 중 하나)
 
 **조건부 (선택 승인/전체 승인 시 추가 확인):**
-- 승인된 에이전트 수만큼 에이전트 파일 수정 완료
-- 수정 diff 요약이 보고서에 포함됨
+- 승인된 개선안별 MEMORY.md 또는 정의 파일 반영을 diff·grep으로 확인 (`delegation-protocol.md` §2-6)
 
 **결과 처리:**
 - **GO**: 필수 조건 통과 → Phase 3로 진행

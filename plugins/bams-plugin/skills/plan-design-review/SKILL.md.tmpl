@@ -129,7 +129,9 @@ AskUserQuestion: "I've rated this plan {N}/10 on design completeness. The bigges
 
 **STOP.** Do NOT proceed until user responds.
 
-{{DESIGN_OUTSIDE_VOICES}}
+## Design Outside Voices (parallel)
+
+**[L2]** Run when Codex is available — Read `${CLAUDE_SKILL_DIR}/references/outside-voices.md` and follow it.
 
 ## The 0-10 Rating Method
 
@@ -211,7 +213,6 @@ Each decision = one AskUserQuestion with recommendation + WHY + alternatives. Ed
 
 ## How to ask questions
 Follow the AskUserQuestion format from the Preamble above. Additional rules for plan design reviews:
-* **One issue = one AskUserQuestion call.** Never combine multiple issues into one question.
 * Describe the design gap concretely — what's missing, what the user will experience if it's not specified.
 * Present 2-3 options. For each: effort to specify now, risk if deferred.
 * **Map to Design Principles above.** One sentence connecting your recommendation to a specific principle.
@@ -280,7 +281,7 @@ the same pattern. The review dashboard depends on this data. Skipping this
 command breaks the review readiness dashboard in /ship.
 
 ```bash
-~/.claude/skills/gstack/bin/gstack-review-log '{"skill":"plan-design-review","timestamp":"TIMESTAMP","status":"STATUS","initial_score":N,"overall_score":N,"unresolved":N,"decisions_made":N,"commit":"COMMIT"}'
+"$_GSTACK_BIN"/gstack-review-log '{"skill":"plan-design-review","timestamp":"TIMESTAMP","status":"STATUS","initial_score":N,"overall_score":N,"unresolved":N,"decisions_made":N,"commit":"COMMIT"}'
 ```
 
 Substitute values from the Completion Summary:
@@ -292,9 +293,13 @@ Substitute values from the Completion Summary:
 - **decisions_made**: number of design decisions added to the plan
 - **COMMIT**: output of `git rev-parse --short HEAD`
 
-{{REVIEW_DASHBOARD}}
+## Review Readiness Dashboard
 
-{{PLAN_FILE_REVIEW_REPORT}}
+**[L2]** Always show after logging the review — Read `${CLAUDE_SKILL_DIR}/../_shared/REVIEW_DASHBOARD.md` and follow it.
+
+## Plan File Review Report
+
+**[L2]** Always write the report into the plan file — Read `${CLAUDE_SKILL_DIR}/../_shared/PLAN_FILE_REVIEW_REPORT.md` and follow it.
 
 ## Next Steps — Review Chaining
 

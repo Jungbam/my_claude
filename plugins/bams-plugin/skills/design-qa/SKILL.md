@@ -11,7 +11,7 @@ allowed-tools:
   - Grep
 ---
 <!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
-<!-- Regenerate: bun run gen:skill-docs -->
+<!-- Regenerate: bash scripts/gen-skill-docs.sh -->
 
 # design-qa — 브라우저 정성 QA
 

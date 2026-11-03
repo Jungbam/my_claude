@@ -119,174 +119,7 @@ If timeout (15 min): **STOP.** "CI has been running for 15 minutes. Investigate 
 
 ## Step 3.5: Pre-merge readiness gate
 
-**This is the critical safety check before an irreversible merge.** The merge cannot
-be undone without a revert commit. Gather ALL evidence, build a readiness report,
-and get explicit user confirmation before proceeding.
-
-Collect evidence for each check below. Track warnings (yellow) and blockers (red).
-
-### 3.5a: Review staleness check
-
-```bash
-~/.claude/skills/gstack/bin/gstack-review-read 2>/dev/null
-```
-
-Parse the output. For each review skill (plan-eng-review, plan-ceo-review,
-plan-design-review, design-review-lite, codex-review):
-
-1. Find the most recent entry within the last 7 days.
-2. Extract its `commit` field.
-3. Compare against current HEAD: `git rev-list --count STORED_COMMIT..HEAD`
-
-**Staleness rules:**
-- 0 commits since review → CURRENT
-- 1-3 commits since review → RECENT (yellow if those commits touch code, not just docs)
-- 4+ commits since review → STALE (red — review may not reflect current code)
-- No review found → NOT RUN
-
-**Critical check:** Look at what changed AFTER the last review. Run:
-```bash
-git log --oneline STORED_COMMIT..HEAD
-```
-If any commits after the review contain words like "fix", "refactor", "rewrite",
-"overhaul", or touch more than 5 files — flag as **STALE (significant changes
-since review)**. The review was done on different code than what's about to merge.
-
-### 3.5b: Test results
-
-**Free tests — run them now:**
-
-Read CLAUDE.md to find the project's test command. If not specified, use `bun test`.
-Run the test command and capture the exit code and output.
-
-```bash
-bun test 2>&1 | tail -10
-```
-
-If tests fail: **BLOCKER.** Cannot merge with failing tests.
-
-**E2E tests — check recent results:**
-
-```bash
-ls -t ~/.gstack-dev/evals/*-e2e-*-$(date +%Y-%m-%d)*.json 2>/dev/null | head -20
-```
-
-For each eval file from today, parse pass/fail counts. Show:
-- Total tests, pass count, fail count
-- How long ago the run finished (from file timestamp)
-- Total cost
-- Names of any failing tests
-
-If no E2E results from today: **WARNING — no E2E tests run today.**
-If E2E results exist but have failures: **WARNING — N tests failed.** List them.
-
-**LLM judge evals — check recent results:**
-
-```bash
-ls -t ~/.gstack-dev/evals/*-llm-judge-*-$(date +%Y-%m-%d)*.json 2>/dev/null | head -5
-```
-
-If found, parse and show pass/fail. If not found, note "No LLM evals run today."
-
-### 3.5c: PR body accuracy check
-
-Read the current PR body:
-```bash
-gh pr view --json body -q .body
-```
-
-Read the current diff summary:
-```bash
-git log --oneline $(gh pr view --json baseRefName -q .baseRefName 2>/dev/null || echo main)..HEAD | head -20
-```
-
-Compare the PR body against the actual commits. Check for:
-1. **Missing features** — commits that add significant functionality not mentioned in the PR
-2. **Stale descriptions** — PR body mentions things that were later changed or reverted
-3. **Wrong version** — PR title or body references a version that doesn't match VERSION file
-
-If the PR body looks stale or incomplete: **WARNING — PR body may not reflect current
-changes.** List what's missing or stale.
-
-### 3.5d: Document-release check
-
-Check if documentation was updated on this branch:
-
-```bash
-git log --oneline --all-match --grep="docs:" $(gh pr view --json baseRefName -q .baseRefName 2>/dev/null || echo main)..HEAD | head -5
-```
-
-Also check if key doc files were modified:
-```bash
-git diff --name-only $(gh pr view --json baseRefName -q .baseRefName 2>/dev/null || echo main)...HEAD -- README.md CHANGELOG.md ARCHITECTURE.md CONTRIBUTING.md CLAUDE.md VERSION
-```
-
-If CHANGELOG.md and VERSION were NOT modified on this branch and the diff includes
-new features (new files, new commands, new skills): **WARNING — /document-release
-likely not run. CHANGELOG and VERSION not updated despite new features.**
-
-If only docs changed (no code): skip this check.
-
-### 3.5e: Readiness report and confirmation
-
-Build the full readiness report:
-
-```
-╔══════════════════════════════════════════════════════════╗
-║              PRE-MERGE READINESS REPORT                  ║
-╠══════════════════════════════════════════════════════════╣
-║                                                          ║
-║  PR: #NNN — title                                        ║
-║  Branch: feature → main                                  ║
-║                                                          ║
-║  REVIEWS                                                 ║
-║  ├─ Eng Review:    CURRENT / STALE (N commits) / —       ║
-║  ├─ CEO Review:    CURRENT / — (optional)                ║
-║  ├─ Design Review: CURRENT / — (optional)                ║
-║  └─ Codex Review:  CURRENT / — (optional)                ║
-║                                                          ║
-║  TESTS                                                   ║
-║  ├─ Free tests:    PASS / FAIL (blocker)                 ║
-║  ├─ E2E tests:     52/52 pass (25 min ago) / NOT RUN     ║
-║  └─ LLM evals:     PASS / NOT RUN                        ║
-║                                                          ║
-║  DOCUMENTATION                                           ║
-║  ├─ CHANGELOG:     Updated / NOT UPDATED (warning)       ║
-║  ├─ VERSION:       0.9.8.0 / NOT BUMPED (warning)        ║
-║  └─ Doc release:   Run / NOT RUN (warning)               ║
-║                                                          ║
-║  PR BODY                                                 ║
-║  └─ Accuracy:      Current / STALE (warning)             ║
-║                                                          ║
-║  WARNINGS: N  |  BLOCKERS: N                             ║
-╚══════════════════════════════════════════════════════════╝
-```
-
-If there are BLOCKERS (failing free tests): list them and recommend B.
-If there are WARNINGS but no blockers: list each warning and recommend A if
-warnings are minor, or B if warnings are significant.
-If everything is green: recommend A.
-
-Use AskUserQuestion:
-
-- **Re-ground:** "About to merge PR #NNN (title) from branch X to Y. Here's the
-  readiness report." Show the report above.
-- List each warning and blocker explicitly.
-- **RECOMMENDATION:** Choose A if green. Choose B if there are significant warnings.
-  Choose C only if the user understands the risks.
-- A) Merge — readiness checks passed (Completeness: 10/10)
-- B) Don't merge yet — address the warnings first (Completeness: 10/10)
-- C) Merge anyway — I understand the risks (Completeness: 3/10)
-
-If the user chooses B: **STOP.** List exactly what needs to be done:
-- If reviews are stale: "Re-run /plan-eng-review (or /review) to review current code."
-- If E2E not run: "Run `bun run test:e2e` to verify."
-- If docs not updated: "Run /document-release to update documentation."
-- If PR body stale: "Update the PR body to reflect current changes."
-
-If the user chooses A or C: continue to Step 4.
-
----
+**[L2]** Always run — this is the critical safety check before an irreversible merge; get explicit user confirmation — Read `${CLAUDE_SKILL_DIR}/references/readiness-gate.md` and follow it.
 
 ## Step 4: Merge the PR
 
@@ -328,12 +161,44 @@ Determine what kind of project this is and how to verify the deploy.
 
 First, run the deploy configuration bootstrap to detect or read persisted deploy settings:
 
-{{DEPLOY_BOOTSTRAP}}
+```bash
+# Check for persisted deploy config in CLAUDE.md
+DEPLOY_CONFIG=$(grep -A 20 "## Deploy Configuration" CLAUDE.md 2>/dev/null || echo "NO_CONFIG")
+echo "$DEPLOY_CONFIG"
+
+# If config exists, parse it
+if [ "$DEPLOY_CONFIG" != "NO_CONFIG" ]; then
+  PROD_URL=$(echo "$DEPLOY_CONFIG" | grep -i "production.*url" | head -1 | sed 's/.*: *//')
+  PLATFORM=$(echo "$DEPLOY_CONFIG" | grep -i "platform" | head -1 | sed 's/.*: *//')
+  echo "PERSISTED_PLATFORM:$PLATFORM"
+  echo "PERSISTED_URL:$PROD_URL"
+fi
+
+# Auto-detect platform from config files
+[ -f fly.toml ] && echo "PLATFORM:fly"
+[ -f render.yaml ] && echo "PLATFORM:render"
+([ -f vercel.json ] || [ -d .vercel ]) && echo "PLATFORM:vercel"
+[ -f netlify.toml ] && echo "PLATFORM:netlify"
+[ -f Procfile ] && echo "PLATFORM:heroku"
+([ -f railway.json ] || [ -f railway.toml ]) && echo "PLATFORM:railway"
+
+# Detect deploy workflows
+for f in .github/workflows/*.yml .github/workflows/*.yaml; do
+  [ -f "$f" ] && grep -qiE "deploy|release|production|staging|cd" "$f" 2>/dev/null && echo "DEPLOY_WORKFLOW:$f"
+done
+```
+
+If `PERSISTED_PLATFORM` and `PERSISTED_URL` were found in CLAUDE.md, use them directly
+and skip manual detection. If no persisted config exists, use the auto-detected platform
+to guide deploy verification. If nothing is detected, ask the user via AskUserQuestion
+in the decision tree below.
+
+If you want to persist deploy settings for future runs, suggest the user run `/setup-deploy`.
 
 Then run `gstack-diff-scope` to classify the changes:
 
 ```bash
-eval $(~/.claude/skills/gstack/bin/gstack-diff-scope $(gh pr view --json baseRefName -q .baseRefName 2>/dev/null || echo main) 2>/dev/null)
+eval $("$_GSTACK_BIN"/gstack-diff-scope $(gh pr view --json baseRefName -q .baseRefName 2>/dev/null || echo main) 2>/dev/null)
 echo "FRONTEND=$SCOPE_FRONTEND BACKEND=$SCOPE_BACKEND DOCS=$SCOPE_DOCS CONFIG=$SCOPE_CONFIG"
 ```
 
@@ -504,55 +369,7 @@ After a successful revert, note the revert commit SHA and continue to Step 9 wit
 
 ## Step 9: Deploy report
 
-Create the deploy report directory:
-
-```bash
-mkdir -p .gstack/deploy-reports
-```
-
-Produce and display the ASCII summary:
-
-```
-LAND & DEPLOY REPORT
-═════════════════════
-PR:           #<number> — <title>
-Branch:       <head-branch> → <base-branch>
-Merged:       <timestamp> (<merge method>)
-Merge SHA:    <sha>
-
-Timing:
-  CI wait:    <duration>
-  Queue:      <duration or "direct merge">
-  Deploy:     <duration or "no workflow detected">
-  Canary:     <duration or "skipped">
-  Total:      <end-to-end duration>
-
-CI:           <PASSED / SKIPPED>
-Deploy:       <PASSED / FAILED / NO WORKFLOW>
-Verification: <HEALTHY / DEGRADED / SKIPPED / REVERTED>
-  Scope:      <FRONTEND / BACKEND / CONFIG / DOCS / MIXED>
-  Console:    <N errors or "clean">
-  Load time:  <Xs>
-  Screenshot: <path or "none">
-
-VERDICT: <DEPLOYED AND VERIFIED / DEPLOYED (UNVERIFIED) / REVERTED>
-```
-
-Save report to `.gstack/deploy-reports/{date}-pr{number}-deploy.md`.
-
-Log to the review dashboard:
-
-```bash
-{{SLUG_EVAL}}
-mkdir -p ~/.gstack/projects/$SLUG
-```
-
-Write a JSONL entry with timing data:
-```json
-{"skill":"land-and-deploy","timestamp":"<ISO>","status":"<SUCCESS/REVERTED>","pr":<number>,"merge_sha":"<sha>","deploy_status":"<HEALTHY/DEGRADED/SKIPPED>","ci_wait_s":<N>,"queue_s":<N>,"deploy_s":<N>,"canary_s":<N>,"total_s":<N>}
-```
-
----
+**[L2]** Always run at the end — Read `${CLAUDE_SKILL_DIR}/references/deploy-report.md` and follow it.
 
 ## Step 10: Suggest follow-ups
 

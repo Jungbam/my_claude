@@ -548,9 +548,9 @@ CLAUDE.md에 Bams 조직 운영 규칙을 추가합니다. 이 규칙은 Claude�
 
 ### 5. 회고 규칙
 
-- 파이프라인 완료(정상/실패) 시 무조건 회고 실행 (사용자 명시적 스킵 요청만 예외)
+- 파이프라인 완료(정상/실패) 시 무조건 회고 실행 (사용자 명시 스킵만 예외)
 - KPT 프레임워크 (Keep/Problem/Try)
-- 학습 → `.crew/memory/{agent-slug}/MEMORY.md` 기록 (max 10개, 6개월 후 삭제)
+- 학습 → `.crew/memory/{agent-slug}/MEMORY.md` 기록 (max 10개, 90일 미확인 삭제)
 - gotchas 승격 → `.crew/gotchas.md` 갱신
 
 ### 6. 에이전트 필수 활용 원칙

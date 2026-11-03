@@ -111,11 +111,11 @@ design-be(또는 상위 plan) 설계 문서를 수신해 구현에 착수하기 
 
 ### ★ specialist 위임 생략 시 사유 명시 (specialist_skip_reason)
 
-Agent tool로 호출 가능한 협업 대상(business-analysis, frontend-engineering, qa-strategy, product-analytics, performance-evaluation, data-integration)을 호출하지 않고 직접 처리하는 경우, 결과 보고의 `issues` 또는 `recommendations`에 `specialist_skip_reason` 1줄을 반드시 포함한다 (예: "qa-strategy skip: 단일 엔드포인트 hotfix, 회귀 테스트 자체 수행").
+Agent tool로 호출 가능한 협업 대상(business-analysis, frontend-engineering, qa-strategy, product-analytics, performance-evaluation, data-integration)을 호출하지 않고 직접 처리하는 경우, 결과 보고의 `concerns`에 `specialist_skip_reason` 1줄을 반드시 포함한다 (예: "qa-strategy skip: 단일 엔드포인트 hotfix, 회귀 테스트 자체 수행").
 
 ### load_profile 소비 (부서장 C-1~C-3, delegation-protocol §2-2/§2-3)
 
-- **C-1 (재판정 금지)**: 커맨드가 첨부한 `load_profile.refs`를 해석 없이 그대로 Read한다. refs에 없는 L1 문서는 로드하지 않고, 추가 로드 필요 시 §2-5 보고 `issues`에 `load_profile 부족: {doc}` 1줄을 남긴다.
+- **C-1 (재판정 금지)**: 커맨드가 첨부한 `load_profile.refs`를 해석 없이 그대로 Read한다. refs에 없는 L1 문서는 로드하지 않고, 추가 로드 필요 시 §2-5 보고 `concerns`에 `load_profile 부족: {doc}` 1줄을 남긴다.
 - **C-2 (상속 무변경)**: specialist 위임 시 §2-3 `reference`에 `load_profile` 블록을 문자 그대로 복사한다(추가·삭제·재정렬 금지, `inherit: false`만 미상속). 위임 깊이 2 불변.
 - **C-3 (L2 불간섭)**: `load_profile`은 L2를 억제·허가하지 않는다. `level: L2` 위임에서도 정의 파일 stub 분기 조건이 참이면 L2 Read는 정상 동작한다.
 
@@ -183,14 +183,12 @@ delegation-protocol.md의 "부서장 → 에이전트" 위임 형식에 따라 �
 
 **부서장 수행 절차:**
 
-1. pipeline-orchestrator로부터 받은 `task_description`, `input_artifacts`, `expected_output`을 분석한다
-2. 위 분배 기준에 따라 하위 작업을 도출하고, 각 에이전트에게 위임 메시지를 전달한다
-3. 각 에이전트의 보고(`output_artifacts`, `status`, `issues`)를 수집한다
-4. 전체 품질 기준 충족 여부를 검토하고 `quality_status`를 결정한다
-5. pipeline-orchestrator에게 종합 보고(`aggregated_output`, `quality_status`, `quality_detail`)를 전달한다
-   **보고 시 status(success/error)를 명확히 전달한다.**
+1. 메인이 보낸 `task_description`, `input_artifacts`, `expected_output`을 분석한다
+2. 위 분배 기준에 따라 하위 작업을 도출한다(specialist spawn은 1회 한도 — delegation-protocol.md §2-3)
+3. 하위 보고는 미검증 주장으로 보고 diff·테스트로 품질 기준 충족을 확인한다
+4. 메인에게 §2-5 계약(status·changed_files·verification·concerns·report)으로 종합 보고한다
 
-**에스컬레이션:** 부서 내 해결이 불가능한 이슈(부서 간 인터페이스 충돌, 품질 기준 미달)는 pipeline-orchestrator에게 즉시 에스컬레이션한다.
+**에스컬레이션:** 부서 내 해결이 불가능한 이슈(부서 간 인터페이스 충돌, 품질 기준 미달)는 메인에 `BLOCKED`로 즉시 에스컬레이션한다(delegation-protocol §5).
 
 ### 부서장으로 지정되지 않은 경우
 

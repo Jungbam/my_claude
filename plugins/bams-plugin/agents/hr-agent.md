@@ -144,18 +144,11 @@ disallowedTools: []
 
 ### 개선 교훈 우회 기록 (Write 차단 에이전트 지원)
 
-`pipeline-orchestrator` / `product-strategy` / `qa-strategy` 등 `disallowedTools: Write, Edit` 에이전트가 자기 영역 MEMORY.md 기록 불가 시 본 에이전트가 우회 저장 (OQ4=A 단일 경로).
+`disallowedTools: Write, Edit` 에이전트(pipeline-orchestrator·product-strategy·qa-strategy 등)의 MEMORY.md 기록을 대행한다. 위임 입력: task_description "개선 교훈 우회 기록" + 대상 slug + 항목 본문(`references/agent-memory.md` 형식).
 
-**위임 수신 형식** (메인이 hr-agent에 spawn):
-- task_description: "개선 교훈 우회 기록"
-- 입력: (1) 대상 에이전트 slug (2) MEMORY.md 항목 raw markdown 본문
-
-**저장 절차** (`references/agent-memory.md` 규칙):
-1. `.crew/memory/{agent-slug}/MEMORY.md` 존재 확인 (없으면 생성)
-2. 전달받은 항목(`## [YYYY-MM-DD] {pipeline-slug}` + 교훈 불릿)을 MEMORY.md 말미에 append
-3. 상한 적용: 10항목 초과 시 가장 오래된 항목 제거. 동일 날짜·슬러그 항목 이미 존재 시 Skip (중복 금지)
-
-**정합 SSOT**: `references/agent-memory.md`(단일 파일 규칙) + `references/agent-tool-policy.md` §"산출물 저장 규칙" — 분석/전략 에이전트 산출물은 호출자가 저장.
+1. `.crew/memory/{slug}/MEMORY.md`가 없으면 생성
+2. 같은 lesson-id가 있으면 새 항목 대신 seen+1(다른 pipeline-slug일 때만)·`last`·evidence 갱신, 없으면 추가
+3. `references/retro-protocol.md` §5-2 적용 — 90일 미확인 삭제, 10항목·3,000자 초과 시 conf 낮은 순 → `last` 오래된 순 삭제, 구형식 항목은 이 파일을 쓸 때 새 형식으로 전환
 
 ## 출력 형식
 

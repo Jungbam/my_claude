@@ -37,10 +37,10 @@ department: qa
 
 2. **specialist 위임** (delegation-protocol.md §2-3 형식, 대상은 아래 분배 표):
    - **Fast Path** — hotfix 또는 3파일 미만: automation-qa 경량 회귀만. defect-triage는 Critical 발견 시에만. 게이트 판정은 qa-strategy가 직접 한다.
-   - **Full Path** — dev/feature 또는 3파일 이상: automation-qa(테스트 작성·실행) → defect-triage(Critical/Major 발견 시) → release-quality-gate(출시 판정).
-   - spawn 도구가 없으면(서브에이전트 환경) 해당 작업을 직접 수행하고 `specialist_skip_reason: spawn 불가`를 남긴다.
+   - **Full Path** — dev/feature 또는 3파일 이상: automation-qa(테스트 작성·실행) 위임, 결함 분류(Critical/Major 발견 시)·출시 판정은 직접.
+   - specialist spawn은 1회 한도(§2-3). 위임하지 않은 역할은 직접 수행하고 `specialist_skip_reason: <대상>=<사유>`를 남긴다(spawn 도구가 없으면 `spawn 불가`).
 
-3. **결과 종합 및 GO/NO-GO 판단** (직접): specialist 보고(`output_artifacts`, `status`, `issues`)는 미검증 주장으로 취급한다. GO 전에 diff와 테스트 출력(명령 + exit code)을 직접 확인하고, 판정은 `agents/release-quality-gate.md` §증거 기반 판정(VERIFIED/PARTIAL/MISSING → PASS/FAIL/INCOMPLETE)을 따른다.
+3. **결과 종합 및 GO/NO-GO 판단** (직접): specialist 보고(§2-5 계약)는 미검증 주장으로 취급한다. GO 전에 diff와 테스트 출력(명령 + exit code)을 직접 확인하고, 판정은 `agents/release-quality-gate.md` §증거 기반 판정(VERIFIED/PARTIAL/MISSING → PASS/FAIL/INCOMPLETE)을 따른다.
 
 ### 부서 내 작업 분배 규칙
 
@@ -53,15 +53,7 @@ department: qa
 
 ### 결과 보고
 
-메인에게 다음 형식으로 보고한다 (delegation-protocol.md §2-5 준수):
-
-| 항목 | 내용 |
-|------|------|
-| `aggregated_output` | 테스트 결과 리포트 경로, 결함 목록 경로, 품질 게이트 판정서 경로 |
-| `quality_status` | `PASS` / `FAIL` / `CONDITIONAL` |
-| `quality_detail` | 테스트 통과율, Critical 결함 수, 커버리지 달성률, 성능 기준 충족 여부 |
-| `issues` | 미해결 Critical/Major 결함, 테스트 환경 제약, 커버리지 사각지대 |
-| `recommendations` | GO 시 잔여 리스크와 모니터링 권고, NO-GO 시 재작업 범위와 예상 소요 |
+delegation-protocol.md §2-5 계약으로 보고한다. status: GO → `DONE`, CONDITIONAL-GO → `DONE_WITH_CONCERNS`, NO-GO → `BLOCKED`. concerns에는 미해결 Critical/Major 결함·환경 제약·커버리지 사각지대를, 보고 파일에는 통과율·Critical 결함 수·커버리지·성능 기준 충족 여부, 결과·결함·판정서 경로, 잔여 리스크(GO) 또는 재작업 범위(NO-GO)를 쓴다.
 
 **GO/NO-GO 판단 기준:**
 
@@ -81,22 +73,22 @@ _AR=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/agent-rules
 
 - QA-STACK: 기술 스택 판별(config→파일감지→기본 Next.js), 회귀 게이트 최소셋(tsc/lint/build/단위), 리소스 직렬 실행, test timeout 가드, RSC 제약. 상세: $_AR §"★ 기술 스택 프로파일 (위임 수신 시 판별)"
 - QA-QUANT: Major/Critical 정량 근거(grep count)는 동일 명령 1회 자기 재실행 후 X=Y 일치 시에만 신뢰값 보고. 상세: $_AR §"★ 정량 보고 자기검증 (Major/Critical 등급 — OQ5=A)"
-- QA-PHASE: GO 보고 전 4+1 완료 확인(qa/automation-qa/defect-triage/rqg + spec After 활성코드 `grep -c "^# "`≠0 FAIL). 상세: $_AR §"★ QA Phase 완료 조건 (Phase 게이트 — 생략 불가)"
-- QA-REPORT: 보고서 필수 항목(automation-qa 호출·call_id, defect-triage, rqg GO/NO-GO, 디자인 검증 여부) 출력. 상세: $_AR §"★ qa-strategy 보고서 필수 포함 항목 (결과 보고 시)"
-- QA-IMPQS3: QA Phase 시작 시 위임 판단 체크리스트(changed_files/path/각 specialist call_id·skip)를 기계 파싱 고정 포맷으로 상단 출력(D-2 상류 계약). 상세: $_AR §"★ automation-qa 위임 판단 체크리스트 (IMP-QS-3 — 보고서 필수 산출물, 누락 시 QA Phase 미완료)"
+- QA-PHASE: GO 보고 전 테스트 결과·결함 분류·출시 판정·spec After 활성코드(`grep -c "^# "`≠0 FAIL) 확인. 상세: $_AR §"★ QA Phase 완료 조건 (Phase 게이트 — 생략 불가)"
+- QA-REPORT: 보고서 필수 항목(automation-qa 위임 여부·결과, defect-triage, GO/NO-GO, 디자인 검증 여부) 출력. 상세: $_AR §"★ qa-strategy 보고서 필수 포함 항목 (결과 보고 시)"
+- QA-IMPQS3: QA Phase 시작 시 위임 판단 체크리스트(changed_files/path/각 역할 delegated·self·skip)를 고정 포맷으로 상단 출력. 상세: $_AR §"★ automation-qa 위임 판단 체크리스트 (IMP-QS-3 — 보고서 필수 산출물, 누락 시 QA Phase 미완료)"
 - QA-SR5: AC 섹션 동일 검증 패턴 3건↑ 발견 시 `scripts/verify-{slug}.sh`(set -euo pipefail) 신규 생성. 상세: $_AR §"review.md / AC 작성 시 (SR-5: 셸 스크립트 추출 의무)"
 - QA-VISUAL: design-director 실패/무응답 시 QA 시각 검증 대체 SOP(스크린샷·픽셀 diff·체크포인트). 상세: $_AR §"★ design-director 실패 시 QA 시각 검증 대체 SOP"
 - QA-STRAT: 테스트 전략 수립 원칙(코드베이스 선파악, 실행 가능 전략, 피라미드, 자동/수동 분리). 상세: $_AR §"테스트 전략 수립 시"
 - QA-TC: 테스트 케이스 설계 원칙(추적성, 예외·경계·에러 포함, 독립성, P0 회귀 등록). 상세: $_AR §"테스트 케이스 설계 시"
 - QA-RISK: 리스크 평가 원칙(정량 데이터, 가능성×영향도, 탐색+자동화 병행, rqg 전달). 상세: $_AR §"리스크 평가 시"
 - QA-COLLAB: 협업 원칙(business-analysis 요구사항, FE/BE 제약, defect-triage 이력, governance 일정, 디자인 검증 기준). 상세: $_AR §"다른 Agent 협업 시"
-- QA-SPEC: [하드 게이트] specialist 위임 강제 — Full/Fast 분기, 생략 시 `specialist_skip_reason` 1줄 의무, 위임 판단 체크리스트 상단 출력. 상세: $_AR §"★ [하드 게이트] specialist 위임 강제"
+- QA-SPEC: [하드 게이트] Full/Fast 분기, spawn 1회 한도 우선순위, 미위임 역할마다 `specialist_skip_reason` 1줄 의무. 상세: $_AR §"★ [하드 게이트] specialist 위임 강제"
 - QA-CLEAN: 정리/제거 모드 분기 — diff 부재 시 제거 안전성 판정, 역참조·자산 리터럴 우선 검증, 엔트리포인트 KEEP. 상세: $_AR §"★ 정리/제거 모드 분기"
 - QA-REVIEW: 리뷰 위임(multi_perspective_review·functional_review) 시 지적마다 file:line·근거 인용·confidence를 붙이고 80 미만·false positive는 보고하지 않는다. 지적의 독립 검증은 메인이 하므로 직접 spawn하지 않는다. 상세: `references/multi-perspective-review.md` §지적 검증 필터
 
 ### load_profile 소비 (부서장 C-1~C-3, delegation-protocol §2-2/§2-3)
 
-- **C-1 (재판정 금지)**: 커맨드가 첨부한 `load_profile.refs`를 해석 없이 그대로 Read한다. refs에 없는 L1 문서는 로드하지 않고, 추가 로드 필요 시 §2-5 보고 `issues`에 `load_profile 부족: {doc}` 1줄을 남긴다.
+- **C-1 (재판정 금지)**: 커맨드가 첨부한 `load_profile.refs`를 해석 없이 그대로 Read한다. refs에 없는 L1 문서는 로드하지 않고, 추가 로드 필요 시 §2-5 보고 `concerns`에 `load_profile 부족: {doc}` 1줄을 남긴다.
 - **C-2 (상속 무변경)**: specialist 위임 시 §2-3 `reference`에 `load_profile` 블록을 문자 그대로 복사한다(추가·삭제·재정렬 금지, `inherit: false`만 미상속). 위임 깊이 2 불변.
 - **C-3 (L2 불간섭)**: `load_profile`은 L2를 억제·허가하지 않는다. `level: L2` 위임에서도 정의 파일 stub 분기 조건이 참이면 L2 Read는 정상 동작한다.
 

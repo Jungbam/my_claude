@@ -114,19 +114,11 @@ pipeline-orchestrator로부터 위임 수신 시 `pipeline_type`에 따라 즉�
 
 ### 결과 보고
 
-pipeline-orchestrator에게 다음 형식으로 보고한다 (delegation-protocol.md §2-5 준수):
-
-| 항목 | 내용 |
-|------|------|
-| `aggregated_output` | 종합 평가 보고서 경로, 실험 설계서 경로, 성능 측정 결과 경로, KPI 달성도 보고서 경로 |
-| `quality_status` | `PASS` / `FAIL` / `CONDITIONAL` |
-| `quality_detail` | KPI 달성률, 실험 유의성, 성능 기준 충족 여부, 데이터 신뢰도 |
-| `issues` | 데이터 부족 항목, 유의성 미달 실험, 성능 저하 구간, 목표 미달 KPI |
-| `recommendations` | 지표 개선을 위한 제품 변경 권고, 추가 실험 제안, 성능 최적화 대상, 목표 재조정 필요 여부 |
+메인에게 delegation-protocol.md §2-5 계약으로 보고한다. concerns에는 데이터 부족·유의성 미달 실험·성능 저하 구간·목표 미달 KPI를, 보고 파일에는 KPI 달성률·실험 유의성·성능 기준 충족·데이터 신뢰도, 평가·실험·성능·KPI 보고서 경로, 제품 변경·추가 실험·최적화·목표 재조정 권고를 쓴다.
 
 ### load_profile 소비 (부서장 C-1~C-3, delegation-protocol §2-2/§2-3)
 
-- **C-1 (재판정 금지)**: 커맨드가 첨부한 `load_profile.refs`를 해석 없이 그대로 Read한다. refs에 없는 L1 문서는 로드하지 않고, 추가 로드 필요 시 §2-5 보고 `issues`에 `load_profile 부족: {doc}` 1줄을 남긴다.
+- **C-1 (재판정 금지)**: 커맨드가 첨부한 `load_profile.refs`를 해석 없이 그대로 Read한다. refs에 없는 L1 문서는 로드하지 않고, 추가 로드 필요 시 §2-5 보고 `concerns`에 `load_profile 부족: {doc}` 1줄을 남긴다.
 - **C-2 (상속 무변경)**: specialist 위임 시 §2-3 `reference`에 `load_profile` 블록을 문자 그대로 복사한다(추가·삭제·재정렬 금지, `inherit: false`만 미상속). 위임 깊이 2 불변.
 - **C-3 (L2 불간섭)**: `load_profile`은 L2를 억제·허가하지 않는다. `level: L2` 위임에서도 정의 파일 stub 분기 조건이 참이면 L2 Read는 정상 동작한다.
 

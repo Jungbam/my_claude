@@ -25,43 +25,19 @@
 > **컨텍스트:**
 > - triage: `.crew/artifacts/hotfix/{slug}-triage.md`
 > - parent_pipeline_slug: {parent_slug or null}
-> - 기존 improvements: `.crew/memory/{agent}/improvements/`
+> - 기존 학습: `.crew/memory/{agent}/MEMORY.md`
 >
 > **조언 필요 항목:**
-> 1. 근본 원인 에이전트 후보 및 pattern_tag 추천
-> 2. one-off / structural 분류 기준
-> 3. improvements 파일 YAML front-matter 템플릿 검증
-> 4. AskUserQuestion 트리거 조건 (structural 2회 이상 반복 시)
+> 1. 근본 원인 에이전트 후보 및 lesson-id(`{카테고리}:{태그}`) 추천
+> 2. severity(minor/major/critical) 판정
+> 3. 같은 lesson-id 기존 항목 유무와 승격 게이트 충족 여부
 
-**Phase 2: 메인이 직접 실행**
+**Phase 2: 메인이 직접 실행** (규약: `references/agent-improvement-protocol.md` §1~§5)
 
-메인 스레드가 Advisor Response를 파싱한 후 직접:
-1. triage.md Read → 근본 원인 에이전트 식별
-2. `.crew/memory/{agent}/improvements/` Glob → 동일 pattern_tag 검색 → type 결정
-3. `.crew/memory/{agent}/improvements/{date}-{slug}.md` Write (아래 YAML)
-4. structural + 2회 이상 반복 시 AskUserQuestion → Yes면 `references/agent-improvement-protocol.md` Evolution Hook 실행
-
-```yaml
----
-date: {YYYY-MM-DD}
-pipeline_slug: {slug}
-parent_pipeline_slug: {parent_slug or null}
-agent: {agent_type}
-pattern_tag: {카테고리 태그}
-type: one-off | structural
-severity: minor | major | critical
----
-
-## 근본 원인
-{triage 근본 원인}
-
-## 개선 제안
-{구체적 제안}
-
-## 관련 파이프라인
-- 원본: {parent_pipeline_slug}
-- 핫픽스: {slug}
-```
+1. triage.md Read → 근본 원인 에이전트·lesson-id·severity 확정. minor면 기록 생략
+2. `.crew/memory/{agent}/MEMORY.md`에 사용자 확인 후 반영 — 같은 lesson-id가 있으면 seen+1(다른 pipeline-slug일 때만)·`last`·evidence 갱신, 없으면 새 항목(`references/agent-memory.md` 형식, conf low·seen 1)
+3. critical이면 `.crew/gotchas.md` 후보로 사용자에게 제안
+4. 갱신 결과 §5 승격 게이트(seen ≥3·conf high·다중 프로젝트 재현) 충족 시에만 AskUserQuestion → Yes면 §5 개선안 작성 후 hr-agent spawn으로 적용
 
 ---
 

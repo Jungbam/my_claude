@@ -20,6 +20,8 @@ jobs:
         run: bash plugins/bams-plugin/tests/hooks/run-hook-tests.sh
       - name: validate-harness.sh
         run: bash plugins/bams-plugin/scripts/validate-harness.sh
+      - name: SKILL.md generated from templates
+        run: bash plugins/bams-plugin/scripts/gen-skill-docs.sh --check
       # check [12](repo↔plugin-cache diff)는 installed_plugins.json의 installPath를 요구한다.
       # CI에는 설치된 캐시가 없으므로 체크아웃 자체를 installPath로 등록해 [12]를 자기 비교(항상 일치)로 만든다.
       - name: Register checkout as plugin install path

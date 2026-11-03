@@ -70,7 +70,7 @@ After the user chooses, execute their choice (commit or stash), then continue wi
 
 **Check test framework (bootstrap if needed):**
 
-{{TEST_BOOTSTRAP}}
+**[L2]** Always run (exits early if a test framework exists or bootstrap was declined) — Read `${CLAUDE_SKILL_DIR}/../_shared/TEST_BOOTSTRAP.md` and follow it.
 
 **Create output directories:**
 
@@ -83,9 +83,142 @@ mkdir -p "$REPORT_DIR/screenshots"
 
 ## Phases 1-6: Design Audit Baseline
 
-{{DESIGN_METHODOLOGY}}
+## Modes
 
-{{DESIGN_HARD_RULES}}
+### Full (default)
+Systematic review of all pages reachable from homepage. Visit 5-8 pages. Full checklist evaluation, responsive screenshots, interaction flow testing. Produces complete design audit report with letter grades.
+
+### Quick (`--quick`)
+Homepage + 2 key pages only. First Impression + Design System Extraction + abbreviated checklist. Fastest path to a design score.
+
+### Deep (`--deep`)
+Comprehensive review: 10-15 pages, every interaction flow, exhaustive checklist. For pre-launch audits or major redesigns.
+
+### Diff-aware (automatic when on a feature branch with no URL)
+When on a feature branch, scope to pages affected by the branch changes:
+1. Analyze the branch diff: `git diff main...HEAD --name-only`
+2. Map changed files to affected pages/routes
+3. Detect running app on common local ports (3000, 4000, 8080)
+4. Audit only affected pages, compare design quality before/after
+
+### Regression (`--regression` or previous `design-baseline.json` found)
+Run full audit, then load previous `design-baseline.json`. Compare: per-category grade deltas, new findings, resolved findings. Output regression table in report.
+
+---
+
+## Phase 1: First Impression
+
+The most uniquely designer-like output. Form a gut reaction before analyzing anything.
+
+1. Navigate to the target URL
+2. Take a full-page desktop screenshot: `$B screenshot "$REPORT_DIR/screenshots/first-impression.png"`
+3. Write the **First Impression** using this structured critique format:
+   - "The site communicates **[what]**." (what it says at a glance — competence? playfulness? confusion?)
+   - "I notice **[observation]**." (what stands out, positive or negative — be specific)
+   - "The first 3 things my eye goes to are: **[1]**, **[2]**, **[3]**." (hierarchy check — are these intentional?)
+   - "If I had to describe this in one word: **[word]**." (gut verdict)
+
+This is the section users read first. Be opinionated. A designer doesn't hedge — they react.
+
+---
+
+## Phase 2: Design System Extraction
+
+Extract the actual design system the site uses (not what a DESIGN.md says, but what's rendered):
+
+```bash
+# Fonts in use (capped at 500 elements to avoid timeout)
+$B js "JSON.stringify([...new Set([...document.querySelectorAll('*')].slice(0,500).map(e => getComputedStyle(e).fontFamily))])"
+
+# Color palette in use
+$B js "JSON.stringify([...new Set([...document.querySelectorAll('*')].slice(0,500).flatMap(e => [getComputedStyle(e).color, getComputedStyle(e).backgroundColor]).filter(c => c !== 'rgba(0, 0, 0, 0)'))])"
+
+# Heading hierarchy
+$B js "JSON.stringify([...document.querySelectorAll('h1,h2,h3,h4,h5,h6')].map(h => ({tag:h.tagName, text:h.textContent.trim().slice(0,50), size:getComputedStyle(h).fontSize, weight:getComputedStyle(h).fontWeight})))"
+
+# Touch target audit (find undersized interactive elements)
+$B js "JSON.stringify([...document.querySelectorAll('a,button,input,[role=button]')].filter(e => {const r=e.getBoundingClientRect(); return r.width>0 && (r.width<44||r.height<44)}).map(e => ({tag:e.tagName, text:(e.textContent||'').trim().slice(0,30), w:Math.round(e.getBoundingClientRect().width), h:Math.round(e.getBoundingClientRect().height)})).slice(0,20))"
+
+# Performance baseline
+$B perf
+```
+
+Structure findings as an **Inferred Design System**:
+- **Fonts:** list with usage counts. Flag if >3 distinct font families.
+- **Colors:** palette extracted. Flag if >12 unique non-gray colors. Note warm/cool/mixed.
+- **Heading Scale:** h1-h6 sizes. Flag skipped levels, non-systematic size jumps.
+- **Spacing Patterns:** sample padding/margin values. Flag non-scale values.
+
+After extraction, offer: *"Want me to save this as your DESIGN.md? I can lock in these observations as your project's design system baseline."*
+
+---
+
+## Phase 3: Page-by-Page Visual Audit
+
+**[L2]** Always run for each page in scope (includes the 10-category design checklist) — Read `${CLAUDE_SKILL_DIR}/references/page-audit.md` and follow it.
+
+## Phase 4: Interaction Flow Review
+
+Walk 2-3 key user flows and evaluate the *feel*, not just the function:
+
+```bash
+$B snapshot -i
+$B click @e3           # perform action
+$B snapshot -D          # diff to see what changed
+```
+
+Evaluate:
+- **Response feel:** Does clicking feel responsive? Any delays or missing loading states?
+- **Transition quality:** Are transitions intentional or generic/absent?
+- **Feedback clarity:** Did the action clearly succeed or fail? Is the feedback immediate?
+- **Form polish:** Focus states visible? Validation timing correct? Errors near the source?
+
+---
+
+## Phase 5: Cross-Page Consistency
+
+Compare screenshots and observations across pages for:
+- Navigation bar consistent across all pages?
+- Footer consistent?
+- Component reuse vs one-off designs (same button styled differently on different pages?)
+- Tone consistency (one page playful while another is corporate?)
+- Spacing rhythm carries across pages?
+
+---
+
+## Phase 6: Compile Report
+
+**[L2]** Always run after Phases 1-5 (output locations, scoring, regression output) — Read `${CLAUDE_SKILL_DIR}/references/compile-report.md` and follow it.
+
+## Design Critique Format
+
+Use structured feedback, not opinions:
+- "I notice..." — observation (e.g., "I notice the primary CTA competes with the secondary action")
+- "I wonder..." — question (e.g., "I wonder if users will understand what 'Process' means here")
+- "What if..." — suggestion (e.g., "What if we moved search to a more prominent position?")
+- "I think... because..." — reasoned opinion (e.g., "I think the spacing between sections is too uniform because it doesn't create hierarchy")
+
+Tie everything to user goals and product objectives. Always suggest specific improvements alongside problems.
+
+---
+
+## Important Rules
+
+1. **Think like a designer, not a QA engineer.** You care whether things feel right, look intentional, and respect the user. You do NOT just care whether things "work."
+2. **Screenshots are evidence.** Every finding needs at least one screenshot. Use annotated screenshots (`snapshot -a`) to highlight elements.
+3. **Be specific and actionable.** "Change X to Y because Z" — not "the spacing feels off."
+4. **Never read source code.** Evaluate the rendered site, not the implementation. (Exception: offer to write DESIGN.md from extracted observations.)
+5. **AI Slop detection is your superpower.** Most developers can't evaluate whether their site looks AI-generated. You can. Be direct about it.
+6. **Quick wins matter.** Always include a "Quick Wins" section — the 3-5 highest-impact fixes that take <30 minutes each.
+7. **Use `snapshot -C` for tricky UIs.** Finds clickable divs that the accessibility tree misses.
+8. **Responsive is design, not just "not broken."** A stacked desktop layout on mobile is not responsive design — it's lazy. Evaluate whether the mobile layout makes *design* sense.
+9. **Document incrementally.** Write each finding to the report as you find it. Don't batch.
+10. **Depth over breadth.** 5-10 well-documented findings with screenshots and specific suggestions > 20 vague observations.
+11. **Show screenshots to the user.** After every `$B screenshot`, `$B snapshot -a -o`, or `$B responsive` command, use the Read tool on the output file(s) so the user can see them inline. For `responsive` (3 files), Read all three. This is critical — without it, screenshots are invisible to the user.
+
+### Design Hard Rules
+
+**[L2]** Read before scoring or fixing — classifier plus landing-page / app-UI hard rules — Read `${CLAUDE_SKILL_DIR}/../_shared/DESIGN_HARD_RULES.md` and follow it.
 
 Record baseline design score and AI slop score at end of Phase 6.
 
@@ -110,7 +243,9 @@ Record baseline design score and AI slop score at end of Phase 6.
 
 ---
 
-{{DESIGN_OUTSIDE_VOICES}}
+## Design Outside Voices (parallel)
+
+**[L2]** Run when Codex is available (automatic, no opt-in) — Read `${CLAUDE_SKILL_DIR}/references/outside-voices.md` and follow it.
 
 ## Phase 7: Triage
 

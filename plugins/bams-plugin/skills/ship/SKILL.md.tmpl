@@ -60,7 +60,7 @@ You are running the `/ship` workflow. This is a **non-interactive, fully automat
 
 4. Check review readiness:
 
-{{REVIEW_DASHBOARD}}
+**[L2]** Build and show the Review Readiness Dashboard — Read `${CLAUDE_SKILL_DIR}/../_shared/REVIEW_DASHBOARD.md` and follow it.
 
 If the Eng Review is NOT "CLEAR":
 
@@ -76,7 +76,7 @@ If the Eng Review is NOT "CLEAR":
    - RECOMMENDATION: Choose C if the change is obviously trivial (< 20 lines, typo fix, config-only); Choose B for larger changes
    - Options: A) Ship anyway  B) Abort — run /review or /plan-eng-review first  C) Change is too small to need eng review
    - If CEO Review is missing, mention as informational ("CEO Review not run — recommended for product changes") but do NOT block
-   - For Design Review: run `source <(~/.claude/skills/gstack/bin/gstack-diff-scope <base> 2>/dev/null)`. If `SCOPE_FRONTEND=true` and no design review (plan-design-review or design-review-lite) exists in the dashboard, mention: "Design Review not run — this PR changes frontend code. The lite design check will run automatically in Step 3.5, but consider running /design-review for a full visual audit post-implementation." Still never block.
+   - For Design Review: run `source <("$_GSTACK_BIN"/gstack-diff-scope <base> 2>/dev/null)`. If `SCOPE_FRONTEND=true` and no design review (plan-design-review or design-review-lite) exists in the dashboard, mention: "Design Review not run — this PR changes frontend code. The lite design check will run automatically in Step 3.5, but consider running /design-review for a full visual audit post-implementation." Still never block.
 
 3. **If the user chooses A or C,** persist the decision so future `/ship` runs on this branch skip the gate:
    ```bash
@@ -90,30 +90,7 @@ If the Eng Review is NOT "CLEAR":
 
 ## Step 1.5: Distribution Pipeline Check
 
-If the diff introduces a new standalone artifact (CLI binary, library package, tool) — not a web
-service with existing deployment — verify that a distribution pipeline exists.
-
-1. Check if the diff adds a new `cmd/` directory, `main.go`, or `bin/` entry point:
-   ```bash
-   git diff origin/<base> --name-only | grep -E '(cmd/.*/main\.go|bin/|Cargo\.toml|setup\.py|package\.json)' | head -5
-   ```
-
-2. If new artifact detected, check for a release workflow:
-   ```bash
-   ls .github/workflows/ 2>/dev/null | grep -iE 'release|publish|dist'
-   ```
-
-3. **If no release pipeline exists and a new artifact was added:** Use AskUserQuestion:
-   - "This PR adds a new binary/tool but there's no CI/CD pipeline to build and publish it.
-     Users won't be able to download the artifact after merge."
-   - A) Add a release workflow now (GitHub Actions cross-platform build + GitHub Releases)
-   - B) Defer — add to TODOS.md
-   - C) Not needed — this is internal/web-only, existing deployment covers it
-
-4. **If release pipeline exists:** Continue silently.
-5. **If no new artifact detected:** Skip silently.
-
----
+**[L2]** Only if the diff adds a new standalone artifact (CLI binary, library package, tool) rather than a deployed web service — Read `${CLAUDE_SKILL_DIR}/references/distribution-check.md` and follow it.
 
 ## Step 2: Merge the base branch (BEFORE tests)
 
@@ -131,113 +108,31 @@ git fetch origin <base> && git merge origin/<base> --no-edit
 
 ## Step 2.5: Test Framework Bootstrap
 
-{{TEST_BOOTSTRAP}}
+**[L2]** Always run (it exits early when a test framework already exists or bootstrap was declined) — Read `${CLAUDE_SKILL_DIR}/../_shared/TEST_BOOTSTRAP.md` and follow it.
 
 ---
 
 ## Step 3: Run tests (on merged code)
 
-**Do NOT run `RAILS_ENV=test bin/rails db:migrate`** — `bin/test-lane` already calls
-`db:test:prepare` internally, which loads the schema into the correct lane database.
-Running bare test migrations without INSTANCE hits an orphan DB and corrupts structure.sql.
+Run the project's test suite(s): use the commands named in CLAUDE.md / `.crew/config.md`; otherwise detect them (`package.json` scripts, `Makefile`, `pytest`, `go test ./...`, `cargo test`). Tee output to `/tmp/ship_tests.txt` and read it to decide pass/fail.
 
-Run both test suites in parallel:
-
-```bash
-bin/test-lane 2>&1 | tee /tmp/ship_tests.txt &
-npm run test 2>&1 | tee /tmp/ship_vitest.txt &
-wait
-```
-
-After both complete, read the output files and check pass/fail.
-
-**If any test fails:** Do NOT immediately stop. Apply the Test Failure Ownership Triage:
-
-{{TEST_FAILURE_TRIAGE}}
-
-**After triage:** If any in-branch failures remain unfixed, **STOP**. Do not proceed. If all failures were pre-existing and handled (fixed, TODOed, assigned, or skipped), continue to Step 3.25.
-
-**If all pass:** Continue silently — just note the counts briefly.
-
----
+**[L2]** If any test fails, do NOT stop immediately — Read `${CLAUDE_SKILL_DIR}/references/test-failure-triage.md` and follow it (classify in-branch vs pre-existing failures first).
 
 ## Step 3.25: Eval Suites (conditional)
 
-Evals are mandatory when prompt-related files change. Skip this step entirely if no prompt files are in the diff.
-
-**1. Check if the diff touches prompt-related files:**
-
-```bash
-git diff origin/<base> --name-only
-```
-
-Match against these patterns (from CLAUDE.md):
-- `app/services/*_prompt_builder.rb`
-- `app/services/*_generation_service.rb`, `*_writer_service.rb`, `*_designer_service.rb`
-- `app/services/*_evaluator.rb`, `*_scorer.rb`, `*_classifier_service.rb`, `*_analyzer.rb`
-- `app/services/concerns/*voice*.rb`, `*writing*.rb`, `*prompt*.rb`, `*token*.rb`
-- `app/services/chat_tools/*.rb`, `app/services/x_thread_tools/*.rb`
-- `config/system_prompts/*.txt`
-- `test/evals/**/*` (eval infrastructure changes affect all suites)
-
-**If no matches:** Print "No prompt-related files changed — skipping evals." and continue to Step 3.5.
-
-**2. Identify affected eval suites:**
-
-Each eval runner (`test/evals/*_eval_runner.rb`) declares `PROMPT_SOURCE_FILES` listing which source files affect it. Grep these to find which suites match the changed files:
-
-```bash
-grep -l "changed_file_basename" test/evals/*_eval_runner.rb
-```
-
-Map runner → test file: `post_generation_eval_runner.rb` → `post_generation_eval_test.rb`.
-
-**Special cases:**
-- Changes to `test/evals/judges/*.rb`, `test/evals/support/*.rb`, or `test/evals/fixtures/` affect ALL suites that use those judges/support files. Check imports in the eval test files to determine which.
-- Changes to `config/system_prompts/*.txt` — grep eval runners for the prompt filename to find affected suites.
-- If unsure which suites are affected, run ALL suites that could plausibly be impacted. Over-testing is better than missing a regression.
-
-**3. Run affected suites at `EVAL_JUDGE_TIER=full`:**
-
-`/ship` is a pre-merge gate, so always use full tier (Sonnet structural + Opus persona judges).
-
-```bash
-EVAL_JUDGE_TIER=full EVAL_VERBOSE=1 bin/test-lane --eval test/evals/<suite>_eval_test.rb 2>&1 | tee /tmp/ship_evals.txt
-```
-
-If multiple suites need to run, run them sequentially (each needs a test lane). If the first suite fails, stop immediately — don't burn API cost on remaining suites.
-
-**4. Check results:**
-
-- **If any eval fails:** Show the failures, the cost dashboard, and **STOP**. Do not proceed.
-- **If all pass:** Note pass counts and cost. Continue to Step 3.5.
-
-**5. Save eval output** — include eval results and cost dashboard in the PR body (Step 8).
-
-**Tier reference (for context — /ship always uses `full`):**
-| Tier | When | Speed (cached) | Cost |
-|------|------|----------------|------|
-| `fast` (Haiku) | Dev iteration, smoke tests | ~5s (14x faster) | ~$0.07/run |
-| `standard` (Sonnet) | Default dev, `bin/test-lane --eval` | ~17s (4x faster) | ~$0.37/run |
-| `full` (Opus persona) | **`/ship` and pre-merge** | ~72s (baseline) | ~$1.27/run |
-
----
+**[L2]** Only if the diff touches prompt-related files; otherwise skip this step — Read `${CLAUDE_SKILL_DIR}/references/eval-suites.md` and follow it.
 
 ## Step 3.4: Test Coverage Audit
 
-{{TEST_COVERAGE_AUDIT_SHIP}}
-
----
+**[L2]** Always run — Read `${CLAUDE_SKILL_DIR}/references/test-coverage-audit.md` and follow it.
 
 ## Step 3.45: Plan Completion Audit
 
-{{PLAN_COMPLETION_AUDIT_SHIP}}
+**[L2]** Always run — Read `${CLAUDE_SKILL_DIR}/references/plan-completion-audit.md` and follow it.
 
----
+## Step 3.47: Plan Verification
 
-{{PLAN_VERIFICATION_EXEC}}
-
----
+**[L2]** Always run — Read `${CLAUDE_SKILL_DIR}/references/plan-verification.md` and follow it.
 
 ## Step 3.5: Pre-Landing Review
 
@@ -281,44 +176,11 @@ Save the review output — it goes into the PR body in Step 8.
 
 ## Step 3.75: Address Greptile review comments (if PR exists)
 
-Read `.claude/skills/review/greptile-triage.md` and follow the fetch, filter, classify, and **escalation detection** steps.
+**[L2]** Only if a PR already exists (skip silently otherwise) — Read `${CLAUDE_SKILL_DIR}/references/greptile.md` and follow it.
 
-**If no PR exists, `gh` fails, API returns an error, or there are zero Greptile comments:** Skip this step silently. Continue to Step 4.
+## Step 3.8: Adversarial review (auto-scaled)
 
-**If Greptile comments are found:**
-
-Include a Greptile summary in your output: `+ N Greptile comments (X valid, Y fixed, Z FP)`
-
-Before replying to any comment, run the **Escalation Detection** algorithm from greptile-triage.md to determine whether to use Tier 1 (friendly) or Tier 2 (firm) reply templates.
-
-For each classified comment:
-
-**VALID & ACTIONABLE:** Use AskUserQuestion with:
-- The comment (file:line or [top-level] + body summary + permalink URL)
-- `RECOMMENDATION: Choose A because [one-line reason]`
-- Options: A) Fix now, B) Acknowledge and ship anyway, C) It's a false positive
-- If user chooses A: apply the fix, commit the fixed files (`git add <fixed-files> && git commit -m "fix: address Greptile review — <brief description>"`), reply using the **Fix reply template** from greptile-triage.md (include inline diff + explanation), and save to both per-project and global greptile-history (type: fix).
-- If user chooses C: reply using the **False Positive reply template** from greptile-triage.md (include evidence + suggested re-rank), save to both per-project and global greptile-history (type: fp).
-
-**VALID BUT ALREADY FIXED:** Reply using the **Already Fixed reply template** from greptile-triage.md — no AskUserQuestion needed:
-- Include what was done and the fixing commit SHA
-- Save to both per-project and global greptile-history (type: already-fixed)
-
-**FALSE POSITIVE:** Use AskUserQuestion:
-- Show the comment and why you think it's wrong (file:line or [top-level] + body summary + permalink URL)
-- Options:
-  - A) Reply to Greptile explaining the false positive (recommended if clearly wrong)
-  - B) Fix it anyway (if trivial)
-  - C) Ignore silently
-- If user chooses A: reply using the **False Positive reply template** from greptile-triage.md (include evidence + suggested re-rank), save to both per-project and global greptile-history (type: fp)
-
-**SUPPRESSED:** Skip silently — these are known false positives from previous triage.
-
-**After all comments are resolved:** If any fixes were applied, the tests from Step 3 are now stale. **Re-run tests** (Step 3) before continuing to Step 4. If no fixes were applied, continue to Step 4.
-
----
-
-{{ADVERSARIAL_STEP}}
+**[L2]** Always run (thoroughness scales with diff size) — Read `${CLAUDE_SKILL_DIR}/references/adversarial-review.md` and follow it.
 
 ## Step 4: Version bump (auto-decide)
 
@@ -363,58 +225,7 @@ For each classified comment:
 
 ## Step 5.5: TODOS.md (auto-update)
 
-Cross-reference the project's TODOS.md against the changes being shipped. Mark completed items automatically; prompt only if the file is missing or disorganized.
-
-Read `.claude/skills/review/TODOS-format.md` for the canonical format reference.
-
-**1. Check if TODOS.md exists** in the repository root.
-
-**If TODOS.md does not exist:** Use AskUserQuestion:
-- Message: "GStack recommends maintaining a TODOS.md organized by skill/component, then priority (P0 at top through P4, then Completed at bottom). See TODOS-format.md for the full format. Would you like to create one?"
-- Options: A) Create it now, B) Skip for now
-- If A: Create `TODOS.md` with a skeleton (# TODOS heading + ## Completed section). Continue to step 3.
-- If B: Skip the rest of Step 5.5. Continue to Step 6.
-
-**2. Check structure and organization:**
-
-Read TODOS.md and verify it follows the recommended structure:
-- Items grouped under `## <Skill/Component>` headings
-- Each item has `**Priority:**` field with P0-P4 value
-- A `## Completed` section at the bottom
-
-**If disorganized** (missing priority fields, no component groupings, no Completed section): Use AskUserQuestion:
-- Message: "TODOS.md doesn't follow the recommended structure (skill/component groupings, P0-P4 priority, Completed section). Would you like to reorganize it?"
-- Options: A) Reorganize now (recommended), B) Leave as-is
-- If A: Reorganize in-place following TODOS-format.md. Preserve all content — only restructure, never delete items.
-- If B: Continue to step 3 without restructuring.
-
-**3. Detect completed TODOs:**
-
-This step is fully automatic — no user interaction.
-
-Use the diff and commit history already gathered in earlier steps:
-- `git diff <base>...HEAD` (full diff against the base branch)
-- `git log <base>..HEAD --oneline` (all commits being shipped)
-
-For each TODO item, check if the changes in this PR complete it by:
-- Matching commit messages against the TODO title and description
-- Checking if files referenced in the TODO appear in the diff
-- Checking if the TODO's described work matches the functional changes
-
-**Be conservative:** Only mark a TODO as completed if there is clear evidence in the diff. If uncertain, leave it alone.
-
-**4. Move completed items** to the `## Completed` section at the bottom. Append: `**Completed:** vX.Y.Z (YYYY-MM-DD)`
-
-**5. Output summary:**
-- `TODOS.md: N items marked complete (item1, item2, ...). M items remaining.`
-- Or: `TODOS.md: No completed items detected. M items remaining.`
-- Or: `TODOS.md: Created.` / `TODOS.md: Reorganized.`
-
-**6. Defensive:** If TODOS.md cannot be written (permission error, disk full), warn the user and continue. Never stop the ship workflow for a TODOS failure.
-
-Save this summary — it goes into the PR body in Step 8.
-
----
+**[L2]** Always run — Read `${CLAUDE_SKILL_DIR}/references/todos-update.md` and follow it.
 
 ## Step 6: Commit (bisectable chunks)
 
@@ -451,6 +262,11 @@ Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
 EOF
 )"
 ```
+
+6. **Staging hygiene (required before every commit):**
+   - Reset the index first so a prior partial staging cannot contaminate this commit: `git reset` (unstage everything).
+   - Stage **only this commit's intended paths by name**: `git add <path> <path> …`. Do **not** use `git add -A` / `git add .` — leftover staging from earlier steps pollutes the first commit.
+   - Verify the staged set matches intent before committing: `git diff --cached --name-only` and confirm it equals the intended path set for this commit. If it differs, unstage the strays and re-add.
 
 ---
 
@@ -545,50 +361,11 @@ EOF
 
 ## Step 8.5: Auto-invoke /document-release
 
-After the PR is created, automatically sync project documentation. Read the
-`document-release/SKILL.md` skill file (adjacent to this skill's directory) and
-execute its full workflow:
-
-1. Read the `/document-release` skill: `cat ${CLAUDE_SKILL_DIR}/../document-release/SKILL.md`
-2. Follow its instructions — it reads all .md files in the project, cross-references
-   the diff, and updates anything that drifted (README, ARCHITECTURE, CONTRIBUTING,
-   CLAUDE.md, TODOS, etc.)
-3. If any docs were updated, commit the changes and push to the same branch:
-   ```bash
-   git add -A && git commit -m "docs: sync documentation with shipped changes" && git push
-   ```
-4. If no docs needed updating, say "Documentation is current — no updates needed."
-
-This step is automatic. Do not ask the user for confirmation. The goal is zero-friction
-doc updates — the user runs `/ship` and documentation stays current without a separate command.
-
----
+**[L2]** Always run after the PR is created — Read `${CLAUDE_SKILL_DIR}/references/document-release.md` and follow it.
 
 ## Step 8.75: Persist ship metrics
 
-Log coverage and plan completion data so `/retro` can track trends:
-
-```bash
-eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" && mkdir -p .crew/artifacts/review
-```
-
-Append to `.crew/artifacts/review/$BRANCH-reviews.jsonl`:
-
-```bash
-echo '{"skill":"ship","timestamp":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'","coverage_pct":COVERAGE_PCT,"plan_items_total":PLAN_TOTAL,"plan_items_done":PLAN_DONE,"verification_result":"VERIFY_RESULT","version":"VERSION","branch":"BRANCH"}' >> .crew/artifacts/review/$BRANCH-reviews.jsonl
-```
-
-Substitute from earlier steps:
-- **COVERAGE_PCT**: coverage percentage from Step 3.4 diagram (integer, or -1 if undetermined)
-- **PLAN_TOTAL**: total plan items extracted in Step 3.45 (0 if no plan file)
-- **PLAN_DONE**: count of DONE + CHANGED items from Step 3.45 (0 if no plan file)
-- **VERIFY_RESULT**: "pass", "fail", or "skipped" from Step 3.47
-- **VERSION**: from the VERSION file
-- **BRANCH**: current branch name
-
-This step is automatic — never skip it, never ask for confirmation.
-
----
+**[L2]** Always run after the PR is created — Read `${CLAUDE_SKILL_DIR}/references/ship-metrics.md` and follow it.
 
 ## Important Rules
 

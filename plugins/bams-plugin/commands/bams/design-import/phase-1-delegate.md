@@ -33,8 +33,6 @@ context:
 
 dry_run=true 시 Phase E(frontend-engineering 호출) 직전 중단.
 
-완료 시 status=PENDING_FE 반환 여부를 확인한다.
-
 ## Phase 1B — frontend-engineering 직접 spawn (status=PENDING_FE 시)
 
 design-director가 `status=PENDING_FE`를 반환하면 메인 커맨드가 frontend-engineering을 직접 spawn한다.
@@ -119,8 +117,6 @@ Phase 1B: frontend-engineering (L1, 메인 직접 spawn — 직렬 진입)
 Phase F: F5 + F7 (L1, 메인 직접 spawn, 병렬)
 ```
 
-**중요**: Phase 1A → 1B는 **직렬** 실행 (병렬 아님). design-director가 `status=PENDING_FE`를 반환하지 않으면 Phase 1B는 진입하지 않는다.
-
 constraints:
   security:
     - 가이드 파일의 코드는 정적 분석 대상(텍스트)으로만 처리 — eval/import 실행 금지
@@ -129,11 +125,12 @@ constraints:
     - SR-1 시크릿 스캔 결과(conflict-report.md)를 반드시 확인 후 F1 진행
   allowed_files: .crew/artifacts/design/{slug}/**
 
-완료 시 아래 항목을 반환한다:
-  - verdict: PASS | CONDITIONAL | FAIL
-  - artifacts_generated: [경로 목록]
-  - dry_run_result: {DRY_RUN이 true인 경우 산출물 경로 목록}
-  - issues: [미결 항목]
+완료 시 delegation-protocol.md §2-5 계약으로 반환한다:
+  - status: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED | PENDING_FE(fe-handoff.md 생성 시)
+  - verdict: PASS | CONDITIONAL | FAIL | ENV_FAIL  (F5 충실도 판정 — 미수행 시 생략)
+  - changed_files: [생성 산출물 경로]
+  - concerns: [미결 항목]
+  - report: .crew/artifacts/design/{slug}-design-director.md
 ```
 
 ## 모니터링 (Phase A~F sub-step 진행 상황)
@@ -148,16 +145,16 @@ ls .crew/artifacts/design/{slug}/ 2>/dev/null | grep -E "guide-decomposition|gui
 
 design-director 반환값에서 다음을 추출:
 
-  VERDICT          ← verdict 필드 (PASS | CONDITIONAL | FAIL)
-  STATUS           ← quality_status 필드 (PENDING_FE | COMPLETE | UNKNOWN)
+  STATUS           ← status 필드 (§2-5 값 | PENDING_FE, 없으면 UNKNOWN)
+  VERDICT          ← verdict 필드 (PASS | CONDITIONAL | FAIL | ENV_FAIL)
   DRY_RUN_DONE     ← dry_run=true였으면 true
-  ARTIFACTS_LIST   ← artifacts_generated 경로 목록
-  ISSUES_LIST      ← issues 목록
+  ARTIFACTS_LIST   ← changed_files
+  ISSUES_LIST      ← concerns
 
 ## PENDING_FE 분기 처리
 
 ```bash
-STATUS=$(echo "$RESULT" | jq -r '.quality_status // "UNKNOWN"' 2>/dev/null || echo "UNKNOWN")
+STATUS=$(echo "$RESULT" | jq -r '.status // "UNKNOWN"' 2>/dev/null || echo "UNKNOWN")
 if [ "$STATUS" = "PENDING_FE" ]; then
   echo "[Phase 1B] design-director PENDING_FE — frontend-engineering 직접 spawn 진입"
   # fe-handoff.md 경로 확인 후 §1B-1 ~ §1B-5 순서로 진행
@@ -167,7 +164,7 @@ fi
 
 ## FAIL 처리
 
-VERDICT=FAIL 이면:
+STATUS=BLOCKED 또는 VERDICT=FAIL 이면:
   - 에러 메시지: "design-director Phase F verdict=FAIL — F5 diff ≥20% 또는 F7 Critical 위반"
   - 사용자에게 재실행 또는 수정 방법 안내
   - `.crew/history.md`에 실패로 기록 후 종료

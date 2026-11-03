@@ -45,12 +45,7 @@ disallowedTools: []
      - `input_artifacts`: 관련 prisma schema, 기존 마이그레이션, 데이터셋 경로
      - `quality_criteria`: 마이그레이션 idempotency, FK 무결성 PASS, 롤백 SQL 동봉
 
-3. **결과 보고 형식** (메인 커맨드에게 보고)
-   - `aggregated_output`: 변경된 인프라 파일 경로, data-integration 산출물 경로
-   - `quality_status`: PASS / FAIL / CONDITIONAL
-   - `quality_detail`: 빌드 통과, 배포 게이트 통과, 데이터 정합성 통과 여부
-   - `issues`: 미해결 인프라/데이터 이슈
-   - `recommendations`: 후속 모니터링 항목, 롤백 트리거 조건
+3. **결과 보고**: 메인에게 delegation-protocol.md §2-5 계약으로 보고한다. verification은 빌드·배포 게이트·데이터 정합성 확인 결과, concerns는 미해결 인프라/데이터 이슈, 보고 파일에는 data-integration 산출물 경로·후속 모니터링·롤백 트리거 조건을 쓴다.
 
 ### 부서 내 작업 분배 규칙
 
@@ -159,11 +154,11 @@ PD-COLLAB: 배포 이슈 backend/frontend 공유, 릴리스 품질 release-quali
 
 ### ★ specialist 위임 생략 시 사유 명시 (specialist_skip_reason)
 
-data-integration 위임 트리거 조건(SQL 마이그레이션/ETL/데이터 정합성 검증)에 해당함에도 위임을 생략하고 직접 처리하는 경우, 결과 보고의 `issues`에 `specialist_skip_reason` 1줄을 반드시 포함한다.
+data-integration 위임 트리거 조건(SQL 마이그레이션/ETL/데이터 정합성 검증)에 해당함에도 위임을 생략하고 직접 처리하는 경우, 결과 보고의 `concerns`에 `specialist_skip_reason` 1줄을 반드시 포함한다.
 
 ### load_profile 소비 (부서장 C-1~C-3, delegation-protocol §2-2/§2-3)
 
-- **C-1 (재판정 금지)**: 커맨드가 첨부한 `load_profile.refs`를 해석 없이 그대로 Read한다. refs에 없는 L1 문서는 로드하지 않고, 추가 로드 필요 시 §2-5 보고 `issues`에 `load_profile 부족: {doc}` 1줄을 남긴다.
+- **C-1 (재판정 금지)**: 커맨드가 첨부한 `load_profile.refs`를 해석 없이 그대로 Read한다. refs에 없는 L1 문서는 로드하지 않고, 추가 로드 필요 시 §2-5 보고 `concerns`에 `load_profile 부족: {doc}` 1줄을 남긴다.
 - **C-2 (상속 무변경)**: specialist 위임 시 §2-3 `reference`에 `load_profile` 블록을 문자 그대로 복사한다(추가·삭제·재정렬 금지, `inherit: false`만 미상속). 위임 깊이 2 불변.
 - **C-3 (L2 불간섭)**: `load_profile`은 L2를 억제·허가하지 않는다. `level: L2` 위임에서도 정의 파일 stub 분기 조건이 참이면 L2 Read는 정상 동작한다.
 

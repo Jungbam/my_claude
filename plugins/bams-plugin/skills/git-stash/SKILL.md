@@ -8,7 +8,7 @@ allowed-tools:
   - Bash
 ---
 <!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
-<!-- Regenerate: bun run gen:skill-docs -->
+<!-- Regenerate: bash scripts/gen-skill-docs.sh -->
 
 # git-stash — 작업 임시 저장
 
