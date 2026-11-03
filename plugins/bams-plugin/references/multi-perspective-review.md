@@ -1,37 +1,31 @@
 # 5관점 코드 리뷰 → aspect 리뷰 — SSOT
 
-`commands/bams/review.md`, `commands/bams/deep-review.md`가 공통으로 참조한다 (Pattern A — 전체 참조).
-
-두 커맨드 모두 아래 aspect 정의·code aspect 5관점 정의·위임 메시지 템플릿·컨텍스트 패키징 포맷·종합/중복 제거 규칙·리포트 템플릿을 그대로 따른다. 커맨드별로 달라지는 부분(병렬 범위, 게이트 포함 여부)은 아래 "역할 구분" 표와 각 stub의 "차이점" 절에만 남긴다.
+`commands/bams/review.md`, `commands/bams/deep-review.md`가 공통으로 참조한다 (Pattern A). 커맨드별 차이(병렬 범위, 게이트 포함 여부)는 아래 "역할 구분" 표와 각 커맨드의 "차이점"에만 둔다.
 
 ## 역할 구분 (필독)
 
 | 커맨드 | 성격 | 게이트 포함 | 병렬 범위 |
 |--------|------|-------------|-----------|
-| `/bams:review` | 빠른 스크린 | **O** — release-quality-gate가 Phase 4에서 PASS/CONDITIONAL/FAIL 판정 (임계값: `commands/bams/review.md` Phase 4 참조) | 5관점만 (qa-strategy 병렬) |
-| `/bams:deep-review` | 심층 다관점 | **X — 출시 게이트 미포함. 릴리스 승인이 필요하면 `/bams:review` Phase 4 또는 `/bams:ship`을 별도 실행할 것.** deep-review는 구조적 리뷰 + Codex 세컨드 오피니언까지 포함한 진단 전용 파이프라인이다. | 5관점 + 구조적 리뷰 + Codex, 선택에 따라 최대 7개 동시 실행 |
+| `/bams:review` | 빠른 스크린 | **O** — Phase 4에서 PASS/CONDITIONAL/FAIL 판정 (임계값: `references/issue-severity.md` §Release Gate 임계값) | 5관점 (qa-strategy) + 선택 aspect |
+| `/bams:deep-review` | 심층 진단 | **X** — 릴리스 승인이 필요하면 `/bams:review` 또는 `/bams:ship`을 별도 실행 | 5관점 + 구조적 리뷰 + Codex, 최대 7개 동시 |
 
-두 커맨드는 서로 대체 관계가 아니다: `/bams:review`는 출시 직전 빠른 판정, `/bams:deep-review`는 정기 점검·구조 개선 진단에 사용한다.
+`/bams:review`는 출시 직전 판정, `/bams:deep-review`는 정기 점검·구조 개선 진단용이다(대체 관계 아님).
 
 ## aspect 정의
 
-5개 aspect는 **직교(orthogonal)**이며 병렬인 최상위 리뷰 차원이다. `code` aspect의 5관점(정확성/보안/성능/품질/테스트, 아래 §code aspect 참조)을 대체하지 않는다.
+5개 aspect는 서로 직교하는 최상위 리뷰 차원이다. `code` aspect의 5관점을 대체하지 않는다.
 
-| Aspect | 정의 | 부서장 | Specialist(최대 1회) | step_number(§병렬 spawn 상한 및 step_number 매핑) |
-|---|---|---|---|---|
-| `spec` | PRD·spec·AC 대비 구현 일치 | product-strategy | business-analysis | 20 |
-| `functional` | 기능 동작·엣지케이스·회귀 | qa-strategy | defect-triage, automation-qa | 21 |
-| `performance` | 벤치마크·N+1·번들·렌더링 | product-analytics | performance-evaluation | 22 |
-| `code` | 정확성/보안/성능/품질/테스트 (기존 5관점, 아래 §code aspect — 5관점 정의 참조) | qa-strategy | automation-qa | 23 |
-| `uiux` | 시각 충실도·접근성·사용성 | design-director (본문 codex 위임 `gpt-6.1-sol`) | visual-fidelity-verifier, accessibility-auditor | 24 |
+| Aspect | 정의 | 부서장 | Specialist(최대 1회) |
+|---|---|---|---|
+| `spec` | PRD·spec·AC 대비 구현 일치 | product-strategy | business-analysis |
+| `functional` | 기능 동작·엣지케이스·회귀 | qa-strategy | defect-triage, automation-qa |
+| `performance` | 벤치마크·N+1·번들·렌더링 | product-analytics | performance-evaluation |
+| `code` | 정확성/보안/성능/품질/테스트 (아래 §code aspect — 5관점 정의) | qa-strategy | automation-qa |
+| `uiux` | 시각 충실도·접근성·사용성 | design-director (본문 codex 위임 `gpt-6.1-sol`) | visual-fidelity-verifier, accessibility-auditor |
 
-(위 step_number는 review.md 기준. deep-review.md는 §step_number 예약 구간 상세표 참조.)
-
-`all` = 5개 전체. 인자 미지정 시 기본값은 `code` 단독이며, 이 경우 review.md/deep-review.md는 **아래 §--aspect 인자 파싱 규칙 이후를 전혀 거치지 않고 기존 흐름을 그대로 실행**한다(하위 호환, §종합/중복 제거 규칙 참조).
+`all` = 5개 전체. 인자 미지정 시 `code` 단독이며 이 경우 §--aspect 인자 파싱 규칙 이후를 거치지 않고 기존 흐름을 그대로 실행한다(하위 호환).
 
 ## code aspect — 5관점 정의 (상세 체크리스트)
-
-리뷰를 수행하는 모든 qa-strategy(또는 그 specialist) 에이전트는 아래 5관점을 기준으로 이슈를 식별한다.
 
 1. **정확성 (Correctness)** — 로직 오류, 엣지 케이스, 타입 안전성
 2. **보안 (Security)** — 인젝션, 인증/인가, 시크릿 노출
@@ -39,11 +33,11 @@
 4. **코드 품질 (Quality)** — 가독성, 중복, 패턴 일관성
 5. **테스트 (Testing)** — 커버리지 갭, 테스트 신뢰성
 
-각 관점의 심각도(Critical/Major/Minor) 판정 기준과 신뢰도 임계값은 `references/issue-severity.md`를 참조한다. 릴리스 게이트 통과 수치(PASS/CONDITIONAL/FAIL 임계값)는 이 파일의 스코프가 아니며, 현재는 `commands/bams/review.md` Phase 4에 하드코딩되어 있다 (SSOT 승격은 별도 트랙 소관).
+심각도 기준과 confidence 앵커는 `references/issue-severity.md`, 지적 형식과 필터는 아래 §지적 검증 필터를 따른다.
 
 ## qa-strategy 위임 메시지 템플릿 (code aspect)
 
-커맨드가 5관점 병렬 리뷰를 위해 qa-strategy를 spawn할 때 사용하는 표준 위임 메시지다. `/bams:review`, `/bams:deep-review` 모두 이 템플릿을 기준으로 삼는다(문구는 각 stub에서 파이프라인 맥락에 맞게 조정 가능하되 quality_criteria의 5관점 항목명은 변경하지 않는다).
+`code` aspect는 아래 템플릿을 그대로 쓴다(§aspect별 위임 메시지 템플릿의 canonical 템플릿 미적용 — 하위 호환). quality_criteria의 5관점 항목명은 변경하지 않는다.
 
 ```
 task_description: "5관점 병렬 코드 리뷰를 실행하라"
@@ -55,17 +49,16 @@ expected_output:
   type: multi_perspective_review
 quality_criteria:
   5관점 정의는 본 문서 §code aspect — 5관점 정의 참조 (정확성/보안/성능/코드 품질/테스트).
+  지적 형식·confidence·false positive 제외는 본 문서 §지적 검증 필터 1~2.
 ```
 
-QA부장(qa-strategy)은 도메인 내 관점별 specialist(automation-qa, defect-triage 등)를 **최대 1회** 추가 spawn 가능(harness 깊이 2 한도).
-
-`code` aspect는 아래 §aspect별 위임 메시지 템플릿의 canonical 템플릿을 적용하지 않고, 위 템플릿을 그대로 사용한다(하위 호환).
+QA부장은 도메인 내 specialist(automation-qa, defect-triage 등)를 **최대 1회** 추가 spawn 가능(harness 깊이 2 한도).
 
 ## --aspect 인자 파싱 규칙
 
-review.md·deep-review.md 모두 아래 알고리즘을 Pre-flight 직후, 파일 수집/spawn 이전에 실행한다(spawn 이전 차단).
+review.md·deep-review.md 모두 Pre-flight 직후, 파일 수집/spawn 이전에 실행한다.
 
-1. `$ARGUMENTS`에 `--aspect`가 없으면 `ASPECT_LIST = ["code"]`로 고정하고 **이하 전 단계를 스킵**, 기존 흐름 그대로 진행 (커맨드 stub 쪽 "기본 동작" 분기).
+1. `$ARGUMENTS`에 `--aspect`가 없으면 `ASPECT_LIST = ["code"]`로 고정하고 **이하 전 단계를 스킵**, 기존 흐름 그대로 진행.
 2. `--aspect ` 뒤 값(다음 공백 또는 문자열 끝까지)을 추출해 콤마로 분리 → `raw_list`.
 3. `raw_list == ["list"]`이면 위 §aspect 정의 표를 출력하고 **즉시 종료**(스캔·spawn 없음, 4~7번 스킵). 허용 집합 검사(5번) 대상이 아니다.
 4. `raw_list`에 `all`이 포함되어 있으면: `raw_list` 길이가 2 이상이면(다른 값과 혼용) 5번 진입 전에 즉시 에러 메시지 출력: `"'all'은 다른 aspect와 혼용할 수 없습니다. --aspect all 단독으로 사용하세요"` 후 **즉시 HALT**(파일 수집·spawn 없음). `all` 단독이면 `ASPECT_LIST = [spec, functional, performance, code, uiux]`로 확정.
@@ -75,11 +68,9 @@ review.md·deep-review.md 모두 아래 알고리즘을 Pre-flight 직후, 파�
 6. `ASPECT_LIST` 중복 제거(예: `code,code` → `[code]`).
 7. `--aspect` 토큰과 그 값을 `$ARGUMENTS`에서 제거한 나머지 문자열을 `REVIEW_TARGET`(파일/디렉토리/`pr`)으로 사용 — 기존 "리뷰 범위 결정" 로직 입력으로 그대로 전달.
 
-이 알고리즘은 review.md·deep-review.md 두 stub이 **동일하게** Pattern A로 참조한다(파싱 로직 자체는 두 커맨드 간 차이가 없음).
-
 ## aspect별 위임 메시지 템플릿
 
-`code` 이외 4개 aspect(spec/functional/performance/uiux)는 아래 canonical 템플릿 + delta 표로 위임 메시지를 구성한다(5개 템플릿 전문 나열 대신 압축).
+`code` 이외 4개 aspect는 아래 canonical 템플릿 + delta 표로 위임 메시지를 구성한다.
 
 ### Canonical 템플릿
 
@@ -94,6 +85,7 @@ expected_output:
   type: {ASPECT_OUTPUT_TYPE}
 quality_criteria:
   aspect 정의는 본 문서 §aspect 정의 - {ASPECT_NAME} 참조.
+  지적 형식·confidence·false positive 제외는 본 문서 §지적 검증 필터 1~2.
   {ASPECT_EXTRA_CRITERIA}
 ```
 
@@ -108,11 +100,32 @@ quality_criteria:
 | performance | 벤치마크·N+1·번들·렌더링 | 최근 benchmark 리포트 경로(있으면) | performance_review | LCP/번들 임계값은 `issue-severity.md` §aspect별 Override 참조 |
 | uiux | 시각 충실도·접근성·사용성 | 스크린샷 경로 또는 대상 URL(없으면 정적 diff만 수행) | uiux_review | WCAG AA 위반은 Critical(issue-severity.md §aspect별 Override), codex 위임 모델은 `gpt-6.1-sol`(codex-delegation.md SSOT) |
 
-`code` aspect는 위 canonical 템플릿을 적용하지 않고 §qa-strategy 위임 메시지 템플릿(code aspect)을 그대로 사용한다(하위 호환).
+## 지적 검증 필터
+
+리뷰어는 많이 찾는 것보다 맞게 찾는 것이 목표다. 오탐은 리뷰 전체의 신뢰를 깎는다.
+
+1. **지적 형식 (리뷰어)** — 지적마다 `심각도 | file:line | 문제 | 근거(코드 인용 또는 실행 출력) | 수정안 | confidence`. confidence는 `issue-severity.md` §신뢰도 기준 앵커로 매기고 **80 미만은 보고하지 않는다.**
+2. **false positive — 보고하지 않는다**
+   - 이번 변경 전부터 있던 문제 / 변경 범위 밖의 코드
+   - 린터·타입체커·포매터가 잡는 것 (확인하려고 린터를 돌리지 않는다)
+   - 취향·스타일 지적 (CLAUDE.md·config.md에 명시된 규칙 위반이 아니면)
+   - 버그처럼 보이지만 실제로는 맞는 코드, 코드에서 명시적으로 억제된 경고(lint ignore 등)
+   - 특정 입력·상태에서만 성립하는 추측성 지적 (재현 경로를 쓸 수 없으면)
+3. **메인 필터** — 종합 시 confidence 80 미만과 위 목록 해당 지적을 제거한다. 구조적 리뷰·Codex처럼 confidence가 없는 출처는 이 단계를 건너뛰고 4로 간다.
+4. **독립 검증 (메인이 spawn)** — 남은 Critical/Major 지적마다 쓰기 권한 없는 검증자 1개를 spawn한다. 서브에이전트는 다른 에이전트를 spawn할 수 없으므로 이 단계는 메인 커맨드가 수행한다. 지적들을 한 메시지에 묶어 병렬 spawn하고, 8개를 넘으면 8개씩 나눈다. 검증자 프롬프트:
+   ```
+   리뷰 지적 1건이 실제 문제인지 확인하라. 지적을 쓴 리뷰어와 독립적으로 판단한다.
+   지적: {심각도} | {file:line} | {문제} | {근거}
+   변경 의도: {PR 제목·설명 또는 태스크 요약}  diff: {해당 파일 diff 또는 경로}
+   해당 코드를 직접 Read하고, 필요하면 읽기 전용 명령으로 재현한다. 파일을 수정하지 않는다.
+   §지적 검증 필터 2의 false positive에 해당하면 REFUTED.
+   반환(3줄): verdict: CONFIRMED | REFUTED | UNCERTAIN / severity: {유지 또는 낮춘 등급} / evidence: {코드 인용 또는 명령+출력}
+   ```
+5. **반영** — CONFIRMED만 Critical/Major로 남긴다(검증자가 낮춘 등급이 있으면 그 등급). REFUTED·UNCERTAIN은 게이트 집계에서 빼고 리포트의 "제외된 지적"에 1줄씩 남긴다. Minor는 검증하지 않는다.
 
 ## 컨텍스트 패키징 포맷
 
-Phase 1(파일 수집)에서 얻은 파일 경로·내용(또는 diff)을 부서장 위임 메시지의 `context_package` 필드에 Markdown 블록으로 첨부한다. 이 필드가 있으면 부서장은 `input_artifacts`에 나열된 동일 파일을 재Read하지 않는다(specialist는 필요 시 재Read 가능). 각 department별 delegation 메시지에 동일한 Context Package 블록을 그대로 복사해 첨부한다(aspect마다 새로 만들지 않음 — Phase 1은 1회만 수행).
+Phase 1(파일 수집)에서 얻은 파일 경로·내용(또는 diff)을 부서장 위임 메시지의 `context_package` 필드에 Markdown 블록으로 첨부한다. 이 필드가 있으면 부서장은 `input_artifacts`의 동일 파일을 재Read하지 않는다(specialist는 필요 시 재Read 가능). Phase 1은 1회만 수행하고 모든 위임 메시지에 같은 블록을 붙인다.
 
 ### 표준 포맷
 
@@ -127,40 +140,37 @@ Phase 1(파일 수집)에서 얻은 파일 경로·내용(또는 diff)을 부서
 #### 2. `{file_path_2}` ({diff | full} · {line_count}줄)
 ...
 
-(이하 반복, 최대 15개 — 아래 §15개 초과 시 우선순위 선별)
+(이하 반복, 최대 15개)
 ```
 
-### 15개 초과 시 우선순위 선별
+15개 초과 시 "변경된 파일 > 핵심 로직 > 생성/벤더 파일 스킵" 순으로 선별하고, 제외 파일은 경로만 "참고용 파일 목록(미포함)"에 나열한다.
 
-기존 Phase 1(파일 수집) 규칙을 그대로 재사용한다: "15개 초과 시 우선순위: 변경된 파일 > 핵심 로직 > 생성/벤더 파일 스킵". 선별에서 제외된 파일은 경로만 별도 "참고용 파일 목록(미포함)" 섹션에 나열해 각 부서장이 필요 시 직접 재Read할 수 있는 단서를 남긴다.
+### 파일 fallback
 
-### 크기 초과 시 fallback
+블록이 80,000자를 넘거나 aspect가 2개 이상이면 블록을 `.crew/tmp/review-context-{slug}.md`에 1회 저장하고 `context_package`에는 경로 1줄만 넣는다(부서장은 최대 1회 Read). 동일 slug 재실행 시 덮어쓰며, `.crew/tmp/`는 파이프라인 종료 시 정리한다.
 
-Context Package 블록의 문자 수가 80,000자를 초과하면 fallback 모드로 전환한다: 블록을 프롬프트에 임베드하는 대신 `.crew/tmp/review-context-{slug}.md`에 동일한 Markdown 블록을 저장하고, delegation 메시지의 `context_package` 필드에는 파일 경로 1줄만 전달한다. 부서장은 이 경로를 1회만 Read한다. `.crew/tmp/`는 파이프라인 종료 시 정리 대상으로 등록한다. 동일 slug로 재실행 시 기존 파일은 덮어쓴다.
+## 병렬 spawn 상한
 
-### 다중 aspect 시 fallback
-
-선택된 aspect가 2개 이상이면, Context Package 블록 크기(80,000자)와 무관하게 `.crew/tmp/review-context-{slug}.md`에 1회 저장하고 각 부서장 delegation 메시지의 `context_package` 필드에는 파일 경로 1줄만 전달한다(각 부서장은 이 경로를 최대 1회 Read). 즉 "80,000자 초과" 또는 "aspect 2개 이상" 두 조건 중 하나라도 만족하면 fallback 모드로 전환한다.
-
-## 병렬 spawn 상한 및 step_number 매핑
-
-- **review.md**: aspect 최대 5개 병렬(§aspect 정의 표) — 5 ≤ 8이므로 배치 분할 불필요.
-- **deep-review.md**: 5 aspect + 구조적 리뷰 + Codex = 최대 7개 동시 실행(기존 정책) → 8 미만이므로 배치 분할 불필요. 향후 aspect 추가 시 8 초과하면 배치 분할(구조적 리뷰·Codex 우선, aspect는 2개 배치로 분리) 로직을 이 절에 추가한다.
+- **review.md**: aspect 최대 5개 병렬 — 상한 8 이내.
+- **deep-review.md**: 5 aspect + 구조적 리뷰 + Codex = 최대 7개. aspect 추가로 8을 넘으면 구조적 리뷰·Codex를 먼저, aspect를 2개 배치로 나눈다.
+- §지적 검증 필터 4의 검증자 spawn은 별도 메시지이며 8개씩 나눈다.
 
 ## 종합/중복 제거 규칙
 
-5개 관점(및 deep-review의 경우 구조적 리뷰·Codex)의 결과를 하나의 리포트로 합칠 때 다음 순서를 따른다.
+5관점(및 deep-review의 구조적 리뷰·Codex) 결과를 하나의 리포트로 합칠 때:
 
 1. 모든 발견 사항 수집
 2. **중복 제거**: 같은 파일, 같은 라인, 같은 개념의 이슈 병합
 3. **재검증** (이전 리뷰 산출물이 있는 경우): `resolved` / `persists` 판정
-4. **정렬**: Critical → Major → Minor 순. 같은 심각도 내에서는 신뢰도 높은 순
-5. 심각도별 총 이슈 수 집계
-6. (다중 aspect 실행 시) 각 발견 사항에 `[aspect: {name}]` 태그를 부여하여 Executive Summary에서 aspect별 이슈 카테고리를 구분 표시한다.
+4. **필터·독립 검증**: §지적 검증 필터 3~5
+5. **정렬**: Critical → Major → Minor 순. 같은 심각도 내에서는 confidence 높은 순
+6. 심각도별 총 이슈 수 집계
+7. (다중 aspect 실행 시) 각 발견 사항에 `[aspect: {name}]` 태그를 부여하여 Executive Summary에서 aspect별로 구분 표시한다.
 
 ## 리포트 템플릿 (Critical/Major/Minor 구조)
 
-- **요약**: 심각도별 이슈 건수 (+ `/bams:review`인 경우 릴리스 게이트 판정)
-- **Critical/Major/Minor 이슈**: 각 이슈 상세 — 카테고리(5관점 중 하나), file:line, 설명, 수정안, 신뢰도
+- **요약**: 심각도별 이슈 건수, 제외된 지적 수(confidence 미달/false positive/검증 탈락) (+ `/bams:review`인 경우 릴리스 게이트 판정)
+- **Critical/Major/Minor 이슈**: 각 이슈 상세 — 카테고리(5관점 중 하나), file:line, 설명, 근거, 수정안, confidence, 검증 결과(Critical/Major)
+- **제외된 지적**: 1줄씩 — 지적 요약 + 제외 사유
 - **긍정적 관찰**: 잘된 점
 - (`/bams:review`만) **릴리스 게이트 판정**: PASS/CONDITIONAL/FAIL + 근거

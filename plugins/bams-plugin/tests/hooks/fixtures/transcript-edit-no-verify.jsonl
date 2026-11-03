@@ -1,0 +1,4 @@
+{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Edit","input":{"file_path":"/repo/src/app/page.tsx","old_string":"a","new_string":"b"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","content":"ok"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"ls -la /repo/src"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","content":"ok"}]}}

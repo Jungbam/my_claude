@@ -3,19 +3,11 @@ description: 5관점 병렬 + 구조적 리뷰 + Codex 세컨드 오피니언 �
 argument-hint: [파일/디렉토리/pr] [--aspect <spec|functional|performance|code|uiux|all>[,...]]
 ---
 
-> **사용 시점**: 5관점 + 구조적 리뷰 + Codex 세컨드 오피니언까지 포함한 심층 리뷰가 필요할 때. review의 상위 확장.
+> **사용 시점**: 5관점 + 구조적 리뷰 + Codex 세컨드 오피니언까지 포함한 심층 리뷰. 공통 규약 SSOT: `references/multi-perspective-review.md` (§역할 구분).
 >
-> 본 커맨드와 review의 차이는 `references/multi-perspective-review.md` §역할 구분 참조 — **출시 게이트 미포함 — /bams:review Phase 4 또는 /bams:ship 필요**.
->
-> **`references/issue-severity.md` §Release Gate 임계값 참조.**
->
-> 차이점: 본 파이프라인은 게이트 판정을 직접 수행하지 않음 (심각도 정렬까지만 수행, N값 판정은 /bams:review Phase 4에서 적용).
->
-> --aspect 지원 — 인자 없으면 기존 5관점(code aspect) 흐름과 100% 동일.
+> 차이점: **출시 게이트 미포함** — 심각도 정렬까지만 하며, `references/issue-severity.md` §Release Gate 임계값 판정은 `/bams:review` Phase 4 또는 `/bams:ship`에서 한다.
 
 # Bams: Deep Review
-
-3개 리뷰 시스템을 실행하여 코드를 다각도로 검증합니다.
 
 ## Pre-flight
 
@@ -38,12 +30,9 @@ _CODEX_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/codex/
 
 ## Aspect 파싱
 
-`references/multi-perspective-review.md` §--aspect 인자 파싱 규칙을 Read하여 그 절차를 따른다 (Pattern A).
+`references/multi-perspective-review.md` §--aspect 인자 파싱 규칙을 Read하여 따른다 (Pattern A). `ASPECT_LIST == ["code"]`(인자 없음)이면 기본 흐름대로, 아니면 Step 1-2-3에서 `ASPECT_LIST`를 참조한다.
 
-- `ASPECT_LIST == ["code"]`(인자 없음)이면 본 섹션 이후 아무 것도 변경되지 않는다 — **이하 Step 0.5~Step 4·마무리를 기존과 완전히 동일하게 실행**(하위 호환).
-- 그 외의 경우, 이후 Step 1-2-3에서 `ASPECT_LIST`를 참조한다.
-
-> **위임 체계 (Canonical)**: 이 커맨드는 `_shared_common.md` §위임 원칙 + 부록 **루프 B**(Advised 병렬)를 따른다. Step 1-3의 5관점 리뷰·구조적 리뷰·Codex 리뷰는 메인이 qa-strategy 부서장 및 리뷰 스킬을 **직접** 병렬 spawn한다. Step 4는 orchestrator를 조언자로 1회 호출한다. orchestrator를 경유한 중첩 spawn 금지(harness 깊이 2 제약).
+> **위임 체계**: `_shared_common.md` §위임 원칙 + 부록 **루프 B**. 리뷰·검증 spawn은 모두 메인이 직접 병렬로 하며, Step 4만 orchestrator를 조언자로 1회 호출한다(서브에이전트는 spawn 불가).
 
 ## Step 1-2-3: 리뷰 실행 전략 선택
 
@@ -61,7 +50,7 @@ config.md의 컨벤션 + 관련 gotchas + 이전 미해결 이슈를 리뷰 에�
 **선택에 따라 모든 리뷰를 최대한 병렬로 실행합니다:**
 
 **Step 1 — 5개 qa-strategy 에이전트** (항상 병렬):
-5관점 정의는 `references/multi-perspective-review.md` §code aspect — 5관점 정의 참조.
+SSOT §qa-strategy 위임 메시지 템플릿(code aspect) — 5관점 정의와 지적 형식·confidence·false positive 기준 포함.
 
 **Step 2 — 구조적 리뷰** (선택 시 Step 1과 **동시 실행**):
 `_REVIEW_SKILL` 실행
@@ -73,19 +62,20 @@ config.md의 컨벤션 + 관련 gotchas + 이전 미해결 이슈를 리뷰 에�
 
 ### Step 1-extra. aspect 확장 (ASPECT_LIST에 code 외 항목이 있을 때만)
 
-`ASPECT_LIST == ["code"]`이면 스킵. 그 외에는 `references/multi-perspective-review.md` §aspect별 위임 메시지 템플릿으로 code 외 각 aspect 부서장을 Step 1(5관점)·Step 2(구조적)·Step 3(Codex)와 **동시 병렬** spawn한다(동시 spawn 상한 8, 최악 케이스 5 aspect + 구조적 + Codex = 7로 상한 이내).  
-`uiux` aspect는 **항상 `design-director`**로 실행한다(design-director가 본문에서 codex `gpt-6.1-sol`에 위임; Task tool `model` 파라미터에 gpt 모델명을 넣지 않는다). code는 기존 Step 1이 담당한다.
+SSOT §aspect별 위임 메시지 템플릿으로 code 외 각 aspect 부서장을 Step 1~3과 **동시 병렬** spawn한다(최대 7개, 상한 8 이내). `uiux`는 항상 `design-director`가 본문에서 codex `gpt-6.1-sol`에 위임한다(Task tool `model` 파라미터에 gpt 모델명 금지).
 
 ## 종합 리포트
 
-1. 중복 제거 (같은 파일/라인의 동일 이슈 병합)
-2. 이전 미해결 이슈 재검증 — `resolved` / `persists`
-3. 고유 발견 분류
-4. 심각도 정렬 (Critical → Major → Minor)
+모든 리뷰가 반환되면 SSOT §종합/중복 제거 규칙 1~7을 실행한다(3번은 이전 미해결 이슈 `resolved`/`persists`). 4번 필터·독립 검증은 메인이 직접 한다 — 구조적 리뷰·Codex 지적은 confidence가 없으므로 필터 없이 Critical/Major만 검증 대상에 넣는다. 남은 Critical/Major 지적마다 검증자 1개를 한 메시지로 묶어 병렬 spawn(8개 초과 시 8개씩):
+
+Task tool, subagent_type: **"bams-plugin:defect-triage"** — 지적 1건당 1개, 쓰기 금지:
+<!-- load_profile:exempt non-department-lead spawn -->
+
+> SSOT §지적 검증 필터 4의 검증자 프롬프트에 지적·변경 의도·diff를 채워 전달. CONFIRMED만 남기고 나머지는 "제외된 지적"으로.
 
 ## Step 4: 에이전트 개선점 수집 — 루프 A (Advisor 단독 호출)
 
-리뷰에서 발견된 이슈 중 에이전트 개선 가능한 항목을 기록합니다. 이 단계는 코드 수정이 없는 분석/파일 기록 전용 작업이므로 pipeline-orchestrator를 **조언자(Advisor) 모드 1회**로 직접 호출하여 개선 레코드를 수집합니다. 부서장 spawn은 발생하지 않습니다.
+검증을 통과한 지적 중 에이전트가 유발한 패턴을 기록한다. 코드 수정이 없는 분석 작업이므로 pipeline-orchestrator를 조언자 모드로 1회 호출한다.
 
 Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
 <!-- load_profile:exempt non-department-lead spawn -->
@@ -138,8 +128,6 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 ## 회고 연결
 
 완료 후 `references/completion-protocol.md`에 따라 `/bams:retro {slug}` 실행 여부를 확인한다 (CLAUDE.md §5 회고 의무). 스팸 방지 조건(소요 10분 미만 + 변경 없음/경량 파이프라인) 충족 시 자동 생략.
-
-**`references/completion-protocol.md` 참조.** 표준 프로토콜을 따릅니다.
 
 이 파이프라인의 Learnings 카테고리:
 1. `review:` — 여러 리뷰에서 동시 발견된 반복 패턴

@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# delegation-guard.sh — PreToolUse(Edit|Write|NotebookEdit): 메인 대화의 소스 직접 수정에 개입 (CLAUDE.md §1).
+# 메인/서브 판별: 공통 입력 필드 agent_id — 서브에이전트·in-process teammate 안에서만 존재
+#   (https://code.claude.com/docs/en/hooks#common-input-fields). agent_type은 --agent 세션의 메인에도 있어 판별에 쓰지 않는다.
+# 수준: BAMS_DELEGATION_GUARD=off|warn|strict (기본 warn). warn=additionalContext 안내, strict=deny.
+# 감사 로그 없음. 모든 자기 오류는 fail-open(exit 0).
+set +e
+
+main() {
+  local level="${BAMS_DELEGATION_GUARD:-warn}"
+  case "$level" in off) return 0 ;; warn|strict) ;; *) level=warn ;; esac
+  command -v jq >/dev/null 2>&1 || return 0
+
+  local input agent_id file_path scratch
+  input=$(cat 2>/dev/null)
+  [ -z "$input" ] && return 0
+  agent_id=$(printf '%s' "$input" | jq -r '.agent_id // ""' 2>/dev/null) || return 0
+  [ -n "$agent_id" ] && return 0   # 서브에이전트 내 수정 → 통과
+  file_path=$(printf '%s' "$input" | jq -r '.tool_input.file_path // .tool_input.notebook_path // ""' 2>/dev/null) || return 0
+  scratch=$(printf '%s' "$input" | jq -r '.scratchpad_dir // ""' 2>/dev/null)
+  [ -z "$file_path" ] && return 0
+
+  . "$(dirname "$0")/lib/source-path.sh" 2>/dev/null || return 0
+  bams_is_source_path "$file_path" "$scratch" || return 0
+
+  local route msg
+  route=$(bams_route_for_path "$file_path")
+  msg="[bams delegation-guard] 메인 대화가 소스 파일을 직접 수정하려 한다: ${file_path}. CLAUDE.md §1: 코드 수정은 부서장에게 위임하라(Agent tool, subagent_type 지정) — 추천: ${route}. 라우팅: *.tsx·src/app/**·*.css→frontend-engineering | src/app/api/**·*.server.ts·prisma/**→backend-engineering | Dockerfile·.github/**·*.sql·*.sh→platform-devops."
+
+  if [ "$level" = "strict" ]; then
+    jq -cn --arg r "$msg" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$r}}'
+  else
+    jq -cn --arg c "$msg" '{hookSpecificOutput:{hookEventName:"PreToolUse",additionalContext:$c}}'
+  fi
+  return 0
+}
+
+main
+exit 0

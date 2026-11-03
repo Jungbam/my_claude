@@ -48,19 +48,21 @@
 
 ## 신뢰도 기준
 
-모든 이슈에 0-100% 신뢰도를 부여합니다:
+리뷰 지적마다 confidence(0-100)를 붙인다. 앵커:
 
-| 신뢰도 | 의미 | 조치 |
-|--------|------|------|
-| 90-100% | 확실한 이슈 | 바로 보고 |
-| 80-89% | 높은 확률 이슈 | 보고 (기본 임계값) |
-| 60-79% | 가능성 있는 이슈 | 언급하되 확인 필요 표시 |
-| 0-59% | 불확실 | 보고하지 않음 |
+| 점수 | 의미 |
+|------|------|
+| 0 | 다시 보면 무너지는 오탐, 또는 변경 전부터 있던 문제 |
+| 25 | 실제일 수도 오탐일 수도 있음. 스타일 지적인데 프로젝트 규칙에 명시 없음 |
+| 50 | 실제 문제지만 사소하거나 드물게 발생 |
+| 75 | 재확인함. 실제로 발생할 가능성이 높고 기능에 직접 영향, 또는 프로젝트 규칙에 명시 |
+| 100 | 코드 인용·실행 출력으로 확정, 자주 발생 |
 
-## Release Gate 임계값 (SSOT — 승격 2026-07-02)
+**80 이상만 보고한다.** 필터·독립 검증 절차는 `references/multi-perspective-review.md` §지적 검증 필터.
 
-모든 릴리스 게이트 판정(review / deep-review / dev QG / feature Phase 3 / hotfix 검증 / ship / deploy)은
-아래 임계값을 SSOT로 사용한다. 파이프라인별 override는 §"파이프라인별 Override"를 참조한다.
+## Release Gate 임계값 (SSOT)
+
+모든 릴리스 게이트 판정(review / dev QG / feature Phase 3 / hotfix / ship / deploy / qa)은 아래 임계값을 쓴다. 파이프라인별 조정은 §파이프라인별 Override.
 
 ### 기본 임계값
 
@@ -85,37 +87,17 @@
 | `deploy` | 0 | ≤ 0 | 배포 직전은 Major도 0 (RQG override) |
 | `qa` | 0 | ≤ 2 | 기본값 |
 
-Override는 SSOT를 인용하는 각 커맨드에서 명시적으로 override 근거를 표기해야 하며,
-근거 없는 임의 완화는 금지한다.
+Override를 인용하는 커맨드는 근거를 함께 적는다. 근거 없는 완화는 금지한다.
 
-### 참조 지점 목록 (Reverse Index)
+참조처는 목록으로 관리하지 않는다 — `grep -rln 'issue-severity.md' plugins/bams-plugin/{agents,commands,references}`로 확인.
 
-본 SSOT를 참조하는 커맨드/에이전트/references는 다음과 같다. 신규 참조 추가 시 아래 목록도 갱신한다.
+### 하드코딩 금지 검사
 
-- `commands/bams/review.md` — Phase 4 (릴리스 품질 게이트)
-- `commands/bams/deep-review.md` — 판정 절차 (게이트 미포함, review Phase 4로 위임)
-- `commands/bams/qa.md` — QA 리포트 최종 판정
-- `commands/bams/ship.md` — 사전 게이트 (Quality Gate 판정)
-- `commands/bams/deploy.md` — RQG 게이트 (deploy override 적용)
-- `commands/bams/hotfix/step-3-4-cicd.md` — Step 4 출시 준비 검토 (hotfix override 적용)
-- `commands/bams/dev/phase-3-5-quality-gate.md` — Phase 3.5 QG
-- `commands/bams/feature/phase-3-verification.md` — Phase 3 완료 조건 판정
-- `agents/release-quality-gate.md` — 출시 준비 상태 검토 기준
-- `agents/release-quality-gate.md` — §자산 시각검증 게이트 (출시 준비 상태 검토 시)
-- `agents/frontend-engineering.md` — §자산 시각검증 게이트 (§품질 기준)
-- `agents/platform-devops.md` — §자산 시각검증 게이트 (자산 변경 시각검증 게이트 T-ASSET-1)
-- `references/rqg-templates.md` — §자산 시각검증 게이트 (게이트 템플릿)
-
-### 하드코딩 검색 CI 규칙
-
-다음 grep 패턴이 SSOT 파일(본 파일) 외에서 0건이 되어야 한다:
+임계값·aspect 기준 문구는 본 파일에만 둔다. 결과 0건이어야 PASS (`차이점: 본 파이프라인 N값` 통일본은 예외). aspect 임계값을 추가하면 패턴에도 추가한다.
 
 ```bash
-grep -rn 'Critical 0건.*Major 2건' plugins/bams-plugin/ \
-  --include='*.md' \
-  | grep -v 'references/issue-severity.md' \
-  | grep -v '차이점: 본 파이프라인 N값'  # SP-1 통일본 예외
-# 결과 0건이어야 PASS
+grep -rnE 'Critical 0건.*Major 2건|AC 미이행 [0-9]+건|WCAG 2.2 AA 위반' plugins/bams-plugin/ --include='*.md' \
+  | grep -v 'references/issue-severity.md' | grep -v '차이점: 본 파이프라인 N값'
 ```
 
 ### 자산 시각검증 게이트 (SSOT — A3)
@@ -128,9 +110,9 @@ CSS/폰트/이미지 등 **자산 변경 배치**(축소·삭제·교체 포함)
 
 이 게이트는 릴리스 게이트 판정 주체(RQG)와 자산을 변경하는 에이전트(frontend-engineering / platform-devops)가 공통으로 참조하는 SSOT다.
 
-## aspect별 Override (SSOT — F-R11, plan_리뷰파이프라인개편)
+## aspect별 Override (SSOT)
 
-`/bams:review --aspect ...`는 항상 Phase 4 게이트를 실행한다(OQ6=(b)). 아래는 aspect별 추가 Critical/Major 분류 기준이며, §기본 임계값(Critical 0 / Major ≤2)과 **함께** 적용한다(대체 아님).
+`/bams:review --aspect ...`는 항상 Phase 4 게이트를 실행한다. 아래 aspect별 추가 Critical/Major 기준은 §기본 임계값과 **함께** 적용한다(대체 아님).
 
 | aspect | 추가 Critical 기준 | 추가 Major 기준 | 근거 |
 |---|---|---|---|
@@ -140,24 +122,4 @@ CSS/폰트/이미지 등 **자산 변경 배치**(축소·삭제·교체 포함)
 | `spec` | AC 미이행 3건 이상 | AC 미이행 1~2건 | **제안값 — spec 단계에서 최종 확정 필요(PRD §13 로드맵)** |
 | `code` | (변경 없음 — 기존 §기본 임계값 그대로) | (변경 없음) | — |
 
-**다중 aspect 통합 판정 규칙**: 선택된 aspect 각각을 개별 판정한 뒤, **worst-case 원칙**: 하나라도 FAIL이면 전체 FAIL, FAIL이 없고 하나라도 CONDITIONAL이면 전체 CONDITIONAL, 모두 PASS일 때만 전체 PASS로 전체 판정을 결정한다.
-
-### aspect 임계값 하드코딩 검색 CI 규칙
-
-신규 aspect 임계값을 §aspect별 Override 표에 추가할 때는 아래 CI grep 규칙에도 해당 패턴을 추가할 것.
-
-```bash
-grep -rn 'AC 미이행 [0-9]\+건' plugins/bams-plugin/ \
-  --include='*.md' \
-  | grep -v 'references/issue-severity.md'
-# 결과 0건이어야 PASS
-```
-```bash
-grep -rn 'WCAG 2.2 AA 위반' plugins/bams-plugin/ \
-  --include='*.md' \
-  | grep -v 'references/issue-severity.md'
-# 결과 0건이어야 PASS
-```
-
-### 참조 지점 목록(Reverse Index) 갱신
-- `commands/bams/review.md` — Phase 4 (aspect override 적용)
+**다중 aspect 통합 판정 (worst-case)**: aspect별로 판정한 뒤 하나라도 FAIL이면 FAIL, FAIL 없이 CONDITIONAL이 있으면 CONDITIONAL, 모두 PASS일 때만 PASS.

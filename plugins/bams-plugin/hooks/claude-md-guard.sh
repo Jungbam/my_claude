@@ -26,6 +26,6 @@ BASE=$(basename "$FILE_PATH" 2>/dev/null)
 [ "${CLAUDE_MD_STEP3:-}" = "1" ] && exit 0          # E2 completion-protocol Step 3
 [ "${CLAUDE_MD_INIT:-}" = "1" ] && exit 0           # E1 init 컨텍스트
 
-# 모든 예외 false → deny
-printf '%s\n' '{"decision":"deny","reason":"CLAUDE.md 자동 편집 금지 (G-CLAUDE hook). 상태 기록은 .crew/board.md / .crew/history.md / .crew/artifacts/로. 예외: CLAUDE_MD_EDIT_ALLOWED=1 env 세팅 또는 /bams:init."}'
+# 모든 예외 false → deny (exit 2: stderr가 Claude에게 거부 사유로 전달됨)
+printf '%s\n' 'CLAUDE.md 자동 편집 금지 (G-CLAUDE hook). 상태 기록은 .crew/board.md / .crew/history.md / .crew/artifacts/로. 예외: CLAUDE_MD_EDIT_ALLOWED=1 env 세팅 또는 /bams:init.' >&2
 exit 2

@@ -5,42 +5,22 @@ argument-hint: "[all | {slug} | 빈값=최근5개]"
 
 # Bams: Retro
 
-파이프라인 이력 기반 정성 회고·개선을 독립 실행합니다. 3개 Phase, 평가부서(product-analytics) + 조언자(pipeline-orchestrator) 주도. **2단 위임 체계**: orchestrator는 조언자로만 호출되고, 메인이 각 Phase 파일의 지시에 따라 대상 에이전트를 직접 spawn합니다 (`_shared_common.md` §위임 원칙 + 부록 루프 A/B 준수).
-
-```
-retro.md (main) → [Phase N] pipeline-orchestrator (advisor)
-                         ↓ Advisor Response
-                  main → 대상 에이전트(들) 직접 spawn
-                    - Phase 1: 참여 부서장(동적, 루프 B) 병렬 → KPT 회고
-                    - Phase 2: 부서장(동적) 개선안 → hr-agent 적용
-                    - Phase 3: product-analytics 종합 보고서
-```
+파이프라인 이력 기반 정성 회고·개선. 3개 Phase, product-analytics + pipeline-orchestrator(조언자) 주도. 메인이 각 Phase 파일 지시에 따라 대상 에이전트를 직접 spawn한다(`_shared_common.md` §위임 원칙 + 부록 루프 A/B). 절차·학습 루프 SSOT: `references/retro-protocol.md`.
 
 입력: $ARGUMENTS
 
-## 회고 입력 소스 (정성)
-
-회고는 다음 정성 소스만 입력으로 사용합니다 (별도 정량 이벤트 로그 없음):
-- **대상 파이프라인 산출물**: `.crew/artifacts/{prd,design,review,report}/` — PRD·설계·리뷰·보고서
-- **파이프라인 이력**: `.crew/history.md` — 파이프라인 완료 기록(slug, type, status, 산출물, 요약)
-- **사용자 관찰**: 회고 실행 시 사용자가 제공하는 관찰·피드백
-
 ## 인수 파싱
 
-$ARGUMENTS 값에 따라 TARGET_SCOPE를 결정합니다:
-
 1. 비어있음 → `TARGET_SCOPE = "recent5"` (최근 5개 파이프라인)
-2. "all" → `TARGET_SCOPE = "all"` (전체 이력)
-3. "--since {N}d" 형식 → `TARGET_SCOPE = "since_{N}d"` (최근 N일)
-4. 그 외 문자열 → `TARGET_SCOPE = "slug:{값}"` (특정 slug)
+2. "all" → `TARGET_SCOPE = "all"`
+3. "--since {N}d" → `TARGET_SCOPE = "since_{N}d"`
+4. 그 외 → `TARGET_SCOPE = "slug:{값}"`
 
 ## 사전 조건
 
-**Step 1**: Glob으로 `.crew/config.md` 존재 확인. 없으면:
-- 출력: "프로젝트가 초기화되지 않았습니다. `/bams:init`을 실행하세요."
-- 중단.
+**Step 1**: `.crew/config.md`가 없으면 "프로젝트가 초기화되지 않았습니다. `/bams:init`을 실행하세요." 출력 후 중단.
 
-**Step 2**: `.crew/history.md` 존재 및 파이프라인 완료 기록 확인.
+**Step 2**: 완료 기록 확인.
 
 ```bash
 if [ ! -s .crew/history.md ] || ! grep -qE '^## [0-9]{4}-[0-9]{2}-[0-9]{2}' .crew/history.md 2>/dev/null; then
@@ -49,7 +29,7 @@ if [ ! -s .crew/history.md ] || ! grep -qE '^## [0-9]{4}-[0-9]{2}-[0-9]{2}' .cre
 fi
 ```
 
-**Step 3**: TARGET_SCOPE가 특정 slug인 경우, `.crew/history.md`에 해당 slug 완료 기록이 있는지 확인. 없으면 history.md의 slug 목록을 출력 후 재입력 요청:
+**Step 3**: 특정 slug면 history.md에 완료 기록이 있는지 확인. 없으면 slug 목록을 출력하고 재입력 요청:
 
 ```bash
 grep -oE '## [0-9]{4}-[0-9]{2}-[0-9]{2} \| [^ ]+' .crew/history.md 2>/dev/null | awk '{print $4}' | sort -u
@@ -57,13 +37,9 @@ grep -oE '## [0-9]{4}-[0-9]{2}-[0-9]{2} \| [^ ]+' .crew/history.md 2>/dev/null |
 
 ## 공통 규칙 로드
 
-이 파이프라인의 공통 규칙을 Read합니다:
-`plugins/bams-plugin/commands/bams/retro/_common.md`
+`plugins/bams-plugin/commands/bams/retro/_common.md`를 Read한다.
 
 ## Slug 결정
-
-CLAUDE.md 파이프라인 네이밍 규칙(`{command}_{한글요약}`)을 따릅니다.
-TARGET_SCOPE를 한글로 매핑하고, 같은 scope 중복 실행 시 순번(`_1`, `_2`, ...)을 자동 부여합니다:
 
 ```bash
 case "{TARGET_SCOPE}" in
@@ -78,20 +54,21 @@ SLUG="${BASE}_$((EXISTING + 1))"
 echo "[retro] slug: $SLUG"
 ```
 
-예: `retro_전체회고_1`, `retro_전체회고_2` (같은 scope 두 번째 실행)
-
 ## Phase 라우팅
 
-pipeline-orchestrator에게 Phase 순서대로 위임합니다. 각 Phase 파일을 Read하여 지시를 따릅니다:
+각 Phase 파일을 Read해 순서대로 진행하고, 게이트 확인 후 다음 Phase로 넘어간다.
 
-| Phase | 파일 | 설명 |
+| Phase | 파일 | 내용 |
 |-------|------|------|
-| Phase 1 | `plugins/bams-plugin/commands/bams/retro/phase-2-retro.md` | KPT 회고 |
-| Phase 2 | `plugins/bams-plugin/commands/bams/retro/phase-4-improve.md` | 개선 실행 |
-| Phase 3 | `plugins/bams-plugin/commands/bams/retro/phase-5-report.md` | 보고 |
+| Phase 1 | `plugins/bams-plugin/commands/bams/retro/phase-2-retro.md` | KPT 회고 (참여 부서장 병렬) |
+| Phase 2 | `plugins/bams-plugin/commands/bams/retro/phase-4-improve.md` | 개선 → hr-agent 적용 |
+| Phase 3 | `plugins/bams-plugin/commands/bams/retro/phase-5-report.md` | 종합 보고 (product-analytics) |
 
-Phase 1부터 순서대로 진행합니다. 각 Phase 완료 시 게이트 조건을 확인한 후 다음 Phase로 전환합니다.
+공통 준수:
+- spawn 프롬프트에는 이전 Phase 산출물 **경로**만 넘긴다(요약 붙여넣기 금지). 부서장 반환은 `delegation-protocol.md` §2-5 보고 계약.
+- 교훈은 MEMORY.md 항목 갱신(`retro-protocol.md` §5-2: 신뢰도·seen·90일 TTL·10항목 상한)으로만 남긴다.
+- 정의 파일 개선안은 `agent-improvement-protocol.md` §5 게이트(seen ≥3 + high + 순증가 0)와 형식(**삭제/대체할 기존 문장** 필드 필수)을 따른다. 게이트 미달 개선안은 MEMORY.md 갱신으로 대체한다.
 
 ## 마무리
 
-회고 완료 시 `.crew/history.md`에 완료 1줄을 기록합니다(`_shared_common.md` §파이프라인 완료 기록). 회고는 읽기·분석·개선 성격이므로 스팸 방지 조건(변경 없음/읽기 전용)에 해당하면 별도 하위 회고를 트리거하지 않습니다.
+`.crew/history.md`에 완료 블록을 기록한다(`_shared_common.md` §파이프라인 완료 기록). 회고 자체에 대해서는 하위 회고를 트리거하지 않는다.

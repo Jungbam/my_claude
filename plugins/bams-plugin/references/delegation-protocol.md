@@ -1,31 +1,17 @@
 # 위임 프로토콜 (2단 위임 + Orchestrator 조언자 모드)
 
-파이프라인의 작업 위임 구조를 정의합니다.
-**커맨드 → 부서장 → (선택적) 도메인 specialist** 2단 위임 체계를 따르며,
-pipeline-orchestrator는 Task 호출자가 아닌 **조언자(advisor)** 로서 계획·게이트 판정·라우팅 권고를 반환합니다.
-각 단계의 메시지 형식, 결정 규칙, 핸드오프 체크리스트, 에스컬레이션 경로를 규정합니다.
+**커맨드(메인) → 부서장 → (선택적) 도메인 specialist** 2단 위임의 메시지 형식, 보고 계약, 라우팅, 에스컬레이션을 정한다. harness는 서브에이전트의 중첩 spawn을 지원하지 않으므로 pipeline-orchestrator는 spawn하지 않는 **조언자**다(CLAUDE.md §1).
 
-> **근거**: Claude Code harness는 서브에이전트가 또 다른 서브에이전트를 Task tool로 spawn하는 **중첩 Task tool을 지원하지 않습니다**. 따라서 기존 3단 위임(`orchestrator → 부서장 → 에이전트`)은 구조적으로 실행 불가이며, 본 문서는 CLAUDE.md §1 (2단 위임 원칙) 및 `agents/pipeline-orchestrator.md` (조언자 모드) 개정과 정합합니다.
-
-## 1. 위임 구조 개요
+## 1. 위임 구조
 
 ```
-사용자 커맨드 (/bams:dev, /bams:feature 등) — 메인 대화 (SlashCommand)
-  │  ① (읽기 전용) pipeline-orchestrator 호출 → 계획/게이트/라우팅 조언 수신
-  │  ② Agent tool로 부서장 직접 spawn (깊이 1)
-  ▼
-부서장 (department lead)
-  │  ③ (선택적) Agent tool로 도메인 specialist 1회 추가 spawn (깊이 2, harness 허용 시)
-  ▼
-도메인 specialist (선택)
+메인(커맨드) ─① orchestrator 조언(선택) ─② 부서장 spawn(깊이 1) ─③ specialist 1회 spawn(깊이 2, 선택)
 ```
 
-**부서장 목록 (27개 에이전트 전체 보존):**
-
-- 기획부장: **product-strategy** — 산하 specialist: business-analysis, ux-research, project-governance
-- 개발부장: **frontend-engineering**, **backend-engineering** (각 부서는 직접 구현 중심)
-- 인프라부장: **platform-devops** — 산하 specialist: data-integration
-- 디자인부장: **design-director** — 산하 specialist: ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent, guide-decomposer, guide-recomposer, ui-diff-applier, data-binding-mapper, visual-fidelity-verifier, nextjs-convention-mapper, accessibility-auditor, routing-strategist, ssr-csr-decider
+- 기획부장: **product-strategy** — specialist: business-analysis, ux-research, project-governance
+- 개발부장: **frontend-engineering**, **backend-engineering** (직접 구현)
+- 인프라부장: **platform-devops** — specialist: data-integration
+- 디자인부장: **design-director** — specialist: ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent, guide-decomposer, guide-recomposer, ui-diff-applier, data-binding-mapper, visual-fidelity-verifier, nextjs-convention-mapper, accessibility-auditor, routing-strategist, ssr-csr-decider
 
 <!-- SYNC-SPECIALISTS:START -->
 디자인부 specialist 9종 (design-director 산하):
@@ -39,200 +25,123 @@ pipeline-orchestrator는 Task 호출자가 아닌 **조언자(advisor)** 로서 
 - ui-diff-applier
 - visual-fidelity-verifier
 <!-- SYNC-SPECIALISTS:END -->
-- QA부장: **qa-strategy** — 산하 specialist: automation-qa, defect-triage, release-quality-gate
-- 평가부장: **product-analytics** — 산하 specialist: experimentation, performance-evaluation, business-kpi
-- 경영지원(독립): **resource-optimizer**, **hr-agent**, **cross-department-coordinator**, **git-ops-agent** (git skill 저비용 실행 전담 — sync/rollback/stash/branch)
+- QA부장: **qa-strategy** — specialist: automation-qa, defect-triage, release-quality-gate
+- 평가부장: **product-analytics** — specialist: experimentation, performance-evaluation, business-kpi
+- 경영지원(독립): **resource-optimizer**, **hr-agent**, **cross-department-coordinator**, **git-ops-agent**(git skill 저비용 실행)
 - 조언자(Task 비호출): **pipeline-orchestrator**
-
-> engineering 부서는 engineering-frontend, engineering-backend, engineering-platform 3개 부서로 공식 분할 완료 (2026-04-09, dev_개발부서3분할공식화).
-
-각 부서장은 자신의 도메인 내에서 산출물을 직접 생성하거나, 필요 시 소속 specialist 1명을 추가 spawn하여 하위 작업을 수행하고, 결과를 종합해 **메인 대화**에 보고합니다. pipeline-orchestrator는 이 과정 중간에 **메인이 호출할 때만** 조언을 반환합니다 (Task 호출자 아님).
 
 ## 1-A. pipeline-orchestrator 조언자 모드
 
-- orchestrator는 **Task tool 직접 호출자가 아닙니다**. 메인이 orchestrator를 호출하면 다음을 반환합니다:
-  1. Phase 단위 실행 계획 (JSON/텍스트)
-  2. Phase 게이트 Go/No-Go 판단
-  3. 부서장 라우팅 조언 (어떤 부서장에게, 어떤 메시지로)
-  4. 롤백/회고 트리거 권고
-- 메인은 orchestrator의 조언을 파싱해 **직접 Agent tool로 부서장을 spawn** 합니다.
-- 상세 계약: `agents/pipeline-orchestrator.md` §"★★ 조언자 모드(Advisor Mode) 운영 원칙" 및 §"출력 형식 (조언자 응답 계약)" 참조.
+메인이 호출하면 (1) Phase 실행 계획 (2) 게이트 Go/No-Go (3) 부서장 라우팅 (4) 롤백/회고 권고를 반환한다. spawn은 메인이 한다. 상세: `agents/pipeline-orchestrator.md` §"조언자 모드"·§"출력 형식".
 
-## 2. 위임 메시지 형식
+## 2. 메시지 형식
 
-### 2-1. 커맨드 → pipeline-orchestrator (조언 요청)
+### 2-1. 메인 → orchestrator (조언 요청)
 
-커맨드 스킬이 orchestrator에게 **계획/게이트 조언**을 요청할 때 전달하는 항목입니다. orchestrator는 Task tool을 호출하지 않고 구조화된 조언 응답만 반환합니다.
+필수 `phase`, `slug`, `pipeline_type`, `context`(PRD·설계·산출물 **경로**), 선택 `constraints`(스킵 단계·사용자 지시).
+
+### 2-2. 메인 → 부서장 (spawn)
 
 | 항목 | 필수 | 설명 |
 |------|------|------|
-| `phase` | O | 현재 Phase 번호 (예: Phase 2) |
-| `slug` | O | 파이프라인 식별자 |
-| `pipeline_type` | O | feature / hotfix / dev / weekly 등 |
-| `context` | O | PRD 경로, 설계 경로, 관련 아티팩트 경로 목록 |
-| `constraints` | - | 시간 제약, 스킵할 단계, 사용자 지시사항 |
+| `task_description` | O | 수행할 작업 |
+| `input_artifacts` | O | 입력 산출물 **경로** 목록 |
+| `context_package` | 조건부(aspect 통합 리뷰 시 O) | Phase 1에서 1회 수집한 파일+내용(diff) 패키지 또는 임시 파일 경로 1줄(포맷 SSOT: `multi-perspective-review.md` §컨텍스트 패키징 포맷). 첨부 시 부서장은 같은 파일을 재Read하지 않는다 |
+| `expected_output` | O | 산출물 형식·경로 + 보고 파일 경로(§2-5) |
+| `quality_criteria` | O | 품질 기준(테스트·린트 통과 등) |
+| `constraints` | - | 수정 가능 파일 범위, 금지 패턴 |
+| `gotchas` | - | 관련 gotcha ID 발췌 |
+| `load_profile` | 조건부(spawn 발행 커맨드는 항상) | 사전 로드 L1 문서 목록. 스키마 §2-2-a |
 
-```
-예시:
-  phase: 2
-  slug: add-payment-flow
-  pipeline_type: feature
-  context:
-    prd: .crew/artifacts/prd/add-payment-flow.md
-    design: .crew/artifacts/design/add-payment-flow.md
-  constraints:
-    skip_steps: [benchmark]
-    user_note: "결제 모듈만 구현, 관리자 화면은 제외"
-```
-
-### 2-2. 커맨드(메인) → 부서장 (실제 spawn)
-
-메인 대화가 Agent tool로 부서장을 **직접 spawn**할 때 전달하는 항목입니다. (orchestrator가 아닌 메인이 호출자입니다. 메시지 본문은 orchestrator 조언을 기반으로 메인이 구성합니다.)
-
-| 항목 | 필수 | 설명 |
-|------|------|------|
-| `task_description` | O | 수행할 작업의 명확한 설명 |
-| `input_artifacts` | O | 입력 산출물 경로 목록 (기존 의미 불변 — 경로만, 콘텐츠는 재Read 대상) |
-| `context_package` | 조건부(aspect 통합 리뷰 시 O) | Phase 1에서 1회 수집한 파일 경로+내용(또는 diff)을 Markdown 블록으로 패키징한 텍스트, 또는(크기 초과 시) 임시 파일 경로 1줄. 포맷 상세는 `references/multi-perspective-review.md` §컨텍스트 패키징 포맷 참조(SSOT). **이 필드가 첨부된 경우 부서장은 `input_artifacts`에 나열된 동일 파일을 재Read하지 않는다** — specialist(2단계)는 필요 시 재Read 가능 |
-| `expected_output` | O | 기대하는 산출물 형식과 경로 |
-| `quality_criteria` | O | 품질 기준 (테스트 통과, 린트 통과 등) |
-| `constraints` | - | 수정 가능 파일 범위, 금지 패턴, 시간 제한 |
-| `gotchas` | - | 이 작업과 관련된 gotchas 항목 |
-| `load_profile` | 조건부(spawn 발행 커맨드는 항상 첨부) | 이 위임에서 부서장이 사전 로드할 L1 문서/구간의 명시 목록. 스키마는 §2-2-a. 부재 시 정의 파일 stub이 전 항목 L2 자기 트리거(V4). 부서장은 §2-3으로 재판정 없이 상속(V3) |
-
-```
-예시:
-  task_description: "결제 플로우 프론트엔드 구현"
-  input_artifacts:
-    - .crew/artifacts/prd/add-payment-flow.md
-    - .crew/artifacts/design/add-payment-flow.md
-  expected_output:
-    type: code_implementation
-    paths: [src/app/payment/**, src/components/payment/**]
-  quality_criteria:
-    - TypeScript 타입 에러 0건
-    - 린트 에러 0건
-    - 모든 시각적 상태(로딩, 에러, 빈 상태, 성공) 처리
-  constraints:
-    allowed_files: [src/app/payment/**, src/components/payment/**]
-  gotchas:
-    - "결제 API 응답 지연 시 타임아웃 처리 필수 (이전 hotfix 참조)"
-```
+- spawn 프롬프트는 이 작업 하나만 기술한다. **이전 Phase 요약·누적 이력을 붙이지 말고** 산출물 경로를 넘긴다 — 붙인 텍스트는 메인 컨텍스트에 남아 매 턴 재독된다.
 
 ### 2-2-a. load_profile 스키마
 
-`load_profile`은 이 위임에서 부서장이 spawn 즉시 사전 로드할 L1 문서/구간을 커맨드가 명시하는 필드입니다. **스키마 원문(SSOT)은 이 소절 한 곳에만 둡니다** — 커맨드·spec은 이 스키마를 재기술하지 않고 참조합니다(NFR-7). 검증 규칙(V1~V5):
+스키마 원문(SSOT)은 이 소절에만 둔다(NFR-7). 검증 규칙:
 
-- **V1** doc는 enum 8종(아래 YAML 주석) 외 자유 경로 금지(NFR-7 위배).
-- **V2** 필드-doc 유효 조합만 허용: `ids`=gotchas 전용, `agent`=best-practices·agent-rules 전용, `block`=best-practices 전용.
-- **V3** 부서장은 수신 프로파일을 재판정 없이 상속(§2-3): specialist 전용 문서 append만 허용, remove·재정렬 금지.
-- **V4** `level` 기본 L2, `refs` 부재/공백 → 전 항목 L2(기능 손실 없는 lazy 폴백).
-- **V5** `load_profile`은 L2를 억제·허가하지 않음: `level: L2` 위임에서도 정의 파일 stub 분기 조건이 참이면 L2 Read 정상.
+- **V1** doc는 enum 8종 외 자유 경로 금지.
+- **V2** `ids`=gotchas 전용, `agent`=best-practices·agent-rules 전용, `block`=best-practices 전용.
+- **V3** 부서장은 수신 프로파일을 재판정 없이 상속: specialist 전용 문서 append만, remove·재정렬 금지.
+- **V4** `level` 기본 L2. `refs` 부재/공백 → 전 항목 L2(정의 파일 stub 자기 트리거, 기능 손실 없음).
+- **V5** `level: L2` 위임에서도 정의 파일 stub 분기 조건이 참이면 L2 Read 정상.
 
 ```yaml
 load_profile:
-  level: L2                 # 프로파일 전역 기본값(L1|L2, 기본 L2). refs 미지목/필드 부재 시 적용
-  refs:                     # 이 spawn에서 사전 로드를 지시하는 문서 목록. 공백/부재 → 전 항목 L2(V4)
+  level: L2                 # 전역 기본값(L1|L2)
+  refs:                     # 사전 로드 지시 목록. 공백/부재 → 전 항목 L2(V4)
     - {doc: config,                 section: "§아키텍처,§컨벤션"}
     - {doc: gotchas,                ids: "G-A,G-C"}
     - {doc: stack-profile,          level: L1}                          # per-ref override
     - {doc: best-practices,         agent: frontend-engineering, block: "핸드오프"}
     - {doc: agent-rules,            agent: product-strategy,     section: "P-S2"}
     - {doc: design-artifact-layout, section: "§경계 마커"}
-  inherit: true             # 기본 true — §2-3 reference로 재판정 없이 상속(V3). false일 때만 미상속
+  inherit: true             # 기본 true(V3). false일 때만 미상속
 # doc enum 8종: config·gotchas·stack-profile·best-practices·agent-rules·design-artifact-layout·design-artifact-templates·codex-delegation
-# enum 외 자유 경로 금지(NFR-7·V1). design-artifact-templates·codex-delegation은 T4 문서명 확정 후 편입
 ```
 
-- 필드: `doc`(필수, enum 8종) · `level`(선택, per-ref override) · `section`(선택, §명) · `ids`(gotchas 전용) · `agent`(best-practices·agent-rules 전용) · `block`(best-practices 전용) · `inherit`(기본 true).
-- 부재/공백 시 폴백은 **전 항목 L2**(정의 파일 stub 자기 트리거) — 기능 손실 없음(V4).
+### 2-3. 부서장 → specialist (선택, 깊이 2)
 
-### 2-3. 부서장 → 도메인 specialist (선택적, 깊이 2)
+필수 `sub_task`, `input_artifacts`, `quality_criteria`; 선택 `reference`, `load_profile`(V3 상속, 깊이 2·위임 1회 한도 불변). harness가 spawn을 막으면 직접 수행하거나 메인에 재라우팅을 요청한다.
 
-부서장이 도메인 내 specialist에게 **최대 1회** 하위 작업을 위임할 때 전달하는 항목입니다. harness가 중첩 Task tool을 차단하면 부서장이 직접 수행하거나 메인에 재라우팅을 에스컬레이션합니다.
-
-> 부서장은 §2-2에서 수신한 `load_profile`을 재해석하지 않고 상속하며, 필요 시 specialist 전용 satellite 문서만 `refs`에 덧붙인다. 이 상속은 위임 단계를 늘리지 않는다(**깊이 2 불변 · 위임 1회 한도 보존**).
-
-| 항목 | 필수 | 설명 |
-|------|------|------|
-| `sub_task` | O | 하위 작업 설명 |
-| `input_artifacts` | O | 입력 산출물 경로 |
-| `deadline_hint` | - | 예상 소요 시간 또는 기한 힌트 |
-| `quality_criteria` | O | 이 하위 작업의 품질 기준 |
-| `reference` | - | 참고할 기존 코드, 패턴, 문서 |
-| `load_profile` | - | 커맨드에게서 상속받은 프로파일을 재판정 없이 전달(V3). specialist 전용 문서만 refs에 append 가능(remove 금지). 깊이 2·위임 1회 한도 불변 |
+- 부서장은 자기 작업을 검증받으려고 리뷰어·검증자를 spawn하지 않는다(검증은 메인 게이트 몫). specialist는 어떤 하위 spawn도 하지 않는다.
 
 ### 2-4. specialist → 부서장 (보고)
 
-도메인 specialist가 작업 완료 후 부서장에게 보고하는 항목입니다. (부서장이 specialist를 spawn하지 않은 경우 이 단계는 생략됩니다.)
+§2-5와 같은 계약을 쓴다.
 
-| 항목 | 필수 | 설명 |
-|------|------|------|
-| `output_artifacts` | O | 생성/수정한 산출물 경로 목록 |
-| `issues` | - | 발견한 이슈, 우려사항, 미해결 항목 |
-| `duration_ms` | O | 실제 소요 시간 (밀리초) |
-| `status` | O | `done` / `fail` / `partial` |
-| `notes` | - | 특이사항, 결정 근거, 후속 작업 제안 |
+### 2-5. 보고 계약 (부서장 → 메인)
 
-### 2-5. 부서장 → 커맨드(메인) (종합 보고)
+상세는 보고 파일에 쓰고, 최종 메시지는 아래만 15줄 이내로 반환한다.
 
-부서장이 **메인 대화**에 종합 결과를 보고하는 항목입니다. 메인은 이 결과를 받아 필요 시 orchestrator에게 다음 Phase 게이트 조언을 재요청합니다.
+```yaml
+status: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED
+changed_files: [경로, ...]
+verification: "{실행한 명령} → {결과 한 줄}"   # 실행 불가면 사유
+concerns: [...]                                # 없으면 생략
+report: .crew/artifacts/{report|review|design}/{slug}-{agent}.md
+```
 
-| 항목 | 필수 | 설명 |
-|------|------|------|
-| `aggregated_output` | O | 종합 산출물 경로 목록 |
-| `quality_status` | O | `PASS` / `FAIL` / `CONDITIONAL` |
-| `quality_detail` | O | 품질 기준별 충족 여부 상세 |
-| `issues` | - | 에스컬레이션 필요 이슈 |
-| `recommendations` | - | 다음 단계를 위한 권고사항 |
+| status | 의미 | 메인 행동 |
+|--------|------|-----------|
+| `DONE` | 완료·검증 통과 | §2-6 확인 후 게이트 |
+| `DONE_WITH_CONCERNS` | 완료했으나 정확성·범위 의문 | concerns 판정 → 진행 또는 재작업 |
+| `NEEDS_CONTEXT` | 정보 부족 | 필요한 정보를 보강해 같은 부서장 재spawn |
+| `BLOCKED` | 수행 불가 | §5 에스컬레이션 |
 
-**품질 상태 정의:**
+- NEEDS_CONTEXT·BLOCKED는 막힌 지점·시도한 것·필요한 도움을 최종 메시지 본문에 쓴다. 확신 없는 결과를 DONE으로 내지 않는다.
+- 보고 파일: 품질 기준별 충족 여부, 실행한 명령과 출력, 결정 근거, 후속 권고.
+- 구 스키마 호환: `quality_status` PASS/CONDITIONAL/FAIL은 각각 DONE/DONE_WITH_CONCERNS/BLOCKED로 읽는다. 커맨드 고유 확장 상태(design-import `PENDING_FE`)는 해당 커맨드 규약을 따른다.
 
-| 상태 | 의미 | 메인(orchestrator 조언 반영) 행동 |
-|------|------|------------------------------------|
-| `PASS` | 모든 품질 기준 충족 | 다음 Phase 진행 |
-| `FAIL` | 필수 품질 기준 미충족 | 재작업 지시 또는 에스컬레이션 (메인이 orchestrator에 게이트 재판정 요청) |
-| `CONDITIONAL` | 필수 충족, 권장 미충족 | 조건부 진행 (이슈 기록 후 계속) |
+### 2-6. 보고 검증 (메인, 게이트 전 필수)
 
-### 2-6. 완료 보고 검증 원칙 (상태 변경 주장 시 필수)
+- **부서장 보고는 미검증 주장으로 취급한다.** 게이트 전에 `git diff --stat`이 `changed_files`와 일치하는지 보고, `verification` 명령을 재실행하거나 그 출력을 직접 확인한다. 보고에 적힌 설계 근거("의도적으로 단순화" 등)는 지적의 심각도를 낮추지 않는다.
+- 상태 변경 주장(갱신·반영·저장·삭제)은 실재 근거(mtime, grep, row count, diff)를 동반해야 한다. 근거가 없으면 DONE이 아니라 미확인으로 에스컬레이션한다.
+- 상태 변경을 수반하는 하위 작업은 background로 위임하지 않는다(foreground로 완료 대기 후 검증).
 
-모든 보고 단계(specialist → 부서장, 부서장 → 메인)에서 다음 원칙을 반드시 지킵니다.
+### 2-7. dead-code 제거 위임 표준 문구
 
-- **완료 보고에 산출물 상태 변경 주장(갱신 / 완료 / 반영 / 저장 / 삭제 등)이 포함될 경우, 그 주장을 뒷받침하는 실재 검증 근거를 함께 제시해야 한다.** 근거 예시: 파일 mtime(`ls -l` / `stat`), grep 결과, DB row count(`SELECT COUNT(*)`), diff 요약 등 — 실제 명령 실행 결과를 인용한다.
-- **이런 검증 근거 없이 "완료" / "갱신됨"이라고만 보고하는 것을 금지한다.** 검증 불가(예: 하위 작업의 이벤트가 로그에 남지 않아 독립 확인 불가)한 경우 "완료"로 보고하지 말고 미확인 상태로 에스컬레이션한다.
-- **상태 변경을 수반하는 하위 작업은 background로 위임하지 않는다** — foreground(동기)로 위임하여 완료를 대기하고 결과를 직접 검증한 뒤 보고한다. background 위임은 stall·완료 미확인·허위 완료 보고의 원인이다.
-
-### 2-7. dead-code 제거 위임 표준 문구 (cross-file 폐포)
-
-dead-code/미사용 심볼·파일 제거를 위임할 때 `task_description` 또는 `constraints`에 다음 표준 문구를 포함한다.
+dead-code 제거 위임 시 `task_description` 또는 `constraints`에 포함한다:
 
 - **"제거로 참조 카운트가 0이 되는 cross-file 심볼/파일을 1단계 이상 폐포(closure)로 추적해 함께 정리하고, 완료 전 `grep -rn <removed_symbol>`로 잔여 참조 0을 재확인한다. 폐포가 2단계 이상으로 확장되면 추가 제거는 실행하지 말고 보고만 한다."**
-- "같은 파일 내 정리"로만 문구를 축약하지 않는다 — cross-file 연쇄 고아가 후속 재작업의 주 원인이다.
-- 문자열 리터럴 자산 참조(`src`/`srcSet`/`<picture>`/`url()`)와 `import type` 배럴 소비처는 정적 스캐너의 unused 판정을 신뢰하지 말고 별도 grep으로 교차 검증하도록 위임 문구에 명시한다.
+- 문자열 리터럴 자산 참조(`src`/`srcSet`/`<picture>`/`url()`)와 `import type` 배럴 소비처는 정적 스캐너의 unused 판정을 믿지 말고 별도 grep으로 교차 검증하게 한다.
 
 ## 3. 부서장 결정 규칙
 
-태스크가 어느 부서장에게 위임되는지 결정하는 규칙입니다.
-
-### 3-1. 태그 기반 결정 (최우선)
-
-태스크 또는 PRD에 명시적 태그가 있으면 해당 태그로 부서장을 결정합니다.
+### 3-1. 태그 기반 (최우선)
 
 | 태그 | 부서장 | 에이전트 풀 |
 |------|--------|-------------|
-| `frontend` | frontend-engineering | frontend-engineering (리드) |
-| `backend` | backend-engineering | backend-engineering (리드) |
-| `infra` / `devops` | platform-devops | platform-devops (리드) |
-| `data` | platform-devops | data-integration (specialist) |
+| `frontend` | frontend-engineering | frontend-engineering |
+| `backend` | backend-engineering | backend-engineering |
+| `infra` / `devops` | platform-devops | platform-devops |
+| `data` | platform-devops | data-integration |
 | `qa` | qa-strategy | qa-strategy, automation-qa, defect-triage |
 | `planning` | product-strategy | product-strategy, business-analysis, ux-research |
 | `design` / `ui` / `ux` | design-director | ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent |
-| `security` | platform-devops | platform-devops (보안 전문) |
-| `agent-management` | hr-agent | hr-agent (에이전트 생명주기 관리) |
+| `security` | platform-devops | platform-devops |
+| `agent-management` | hr-agent | hr-agent |
 
-### 3-2. 파일 패턴 기반 결정 (태그 없을 때)
-
-태그가 없으면 메인이 pipeline-orchestrator에게 라우팅 조언을 요청하고, orchestrator는 변경 대상 파일 패턴을 기준으로 부서장을 권고합니다. 메인은 조언에 따라 직접 Agent tool로 부서장을 spawn합니다.
+### 3-2. 파일 패턴 기반 (태그 없을 때 — orchestrator 권고, 메인 spawn)
 
 | 파일 패턴 | 부서장 |
 |-----------|--------|
@@ -243,100 +152,53 @@ dead-code/미사용 심볼·파일 제거를 위임할 때 `task_description` �
 | `src/styles/**`, `src/design/**`, `*.figma`, `design-tokens/**`, `src/components/**/style*` | design-director |
 | `agents/*.md`, `references/jojikdo.json`, `agents-config.ts` | hr-agent |
 
-### 3-3. 혼합 패턴 (복수 부서)
+### 3-3. 혼합 패턴
 
-변경 대상이 여러 부서에 걸치면:
-1. orchestrator가 파일 수 기준 **주요 부서장**을 1명 조언 (전체 조율 책임)
-2. 나머지 부서장은 **협력 부서장**으로 권고 — 메인이 순차 또는 병렬로 직접 spawn
-3. cross-department-coordinator가 부서 간 인터페이스 조율 (메인이 필요 시 별도 spawn)
+orchestrator가 파일 수 기준 주요 부서장 1명(전체 조율)과 협력 부서장을 권고하고, 메인이 순차/병렬 spawn한다. 부서 간 인터페이스 조율이 필요하면 cross-department-coordinator를 별도 spawn한다.
 
-### 3-4. 병렬 배치 규칙 (node_modules/build 직렬화·worktree 격리)
+### 3-4. 병렬 배치 규칙
 
-동일 워킹트리에서 부서장을 병렬 spawn할 때는 다음을 지킨다.
+- node_modules 변경(install/uninstall)·build 배치는 편집 배치와 직렬화하거나 배치별 `git worktree`로 격리한다.
+- 병렬 배치의 게이트(build/test/시각검증)는 최종 병합 후 메인이 1회 재실행한다.
+- 대량 편집 배치를 맡은 부서장은 워킹트리 배타 점유 구간을 보고하고, 같은 워킹트리 병렬 요청에는 직렬화를 제안한다.
 
-- **node_modules를 변경(install/uninstall)하거나 build를 수반하는 배치는 편집 배치와 직렬화**한다(또는 배치별 `git worktree`로 격리). 동일 워킹트리에서 대량 편집 배치와 의존성/빌드 조작 배치를 병렬 실행하면 서로의 산출물을 덮어써 경합이 발생한다 — 재시도 규칙은 사후 방어일 뿐 근본 격리가 아니다.
-- **병렬 배치의 게이트(build/test/시각검증)는 각 배치 개별 실행이 아니라 최종 병합 후 메인이 1회 재실행**하여 통합 상태를 판정한다.
-- 대량 파일 편집 배치를 착수하는 부서장은 "워킹트리 배타 점유(dependency/build 조작 금지)" 구간을 보고하고, 동일 워킹트리 병렬 요청을 받으면 직렬화를 제안한다.
+## 4. Phase 전환 체크리스트
 
-## 4. 핸드오프 체크리스트
+메인이 orchestrator 게이트 조언과 함께 확인한다.
 
-Phase 전환 시 메인이 pipeline-orchestrator에게 게이트 조언을 요청하면서 함께 확인하는 항목입니다. (orchestrator는 체크리스트 판정 결과를 조언 응답에 포함해 반환하며, 실제 Phase 전환 실행은 메인이 수행합니다.)
+| # | 확인 | 미충족 시 |
+|---|------|-----------|
+| 1 | 필수 Step 완료 | 재실행 또는 에스컬레이션 |
+| 2 | Critical 이슈 0건 | FAIL — 해결 후 재시도 |
+| 3 | 필수 산출물 존재 | 생성 지시 |
+| 4 | 다음 Phase 선행 조건 충족 | 대기 |
+| 5 | 보고 계약(§2-5) 충족 + §2-6 검증 완료 | 검증 후 진행 |
 
-### Phase 전환 공통 체크리스트
+| 전환 | 추가 확인 |
+|------|-----------|
+| 기획 → 구현 | PRD 승인, 기술 설계, 태스크 분해 |
+| 구현 → 검증 | 빌드·타입체크·린트 통과 |
+| 검증 → 리뷰 | 테스트 통과, QA 리포트, 성능 기준 |
+| 리뷰 → 배포 | 리뷰 승인, 보안 스캔, 릴리스 품질 게이트 PASS |
 
-| # | 확인 항목 | 미충족 시 행동 |
-|---|----------|---------------|
-| 1 | 현재 Phase의 모든 필수 Step이 `done` 상태인가 | 미완료 Step 재실행 또는 에스컬레이션 |
-| 2 | Critical 이슈가 0건인가 | FAIL — 이슈 해결 후 재시도 |
-| 3 | 필수 산출물이 모두 생성되었는가 | 누락 산출물 생성 지시 |
-| 4 | 다음 Phase의 선행 조건이 충족되었는가 | 선행 조건 해결 대기 |
-| 5 | tracking 파일에 현재 Phase 결과가 기록되었는가 | 기록 후 진행 |
-
-### Phase별 추가 확인
-
-| 전환 | 추가 확인 항목 |
-|------|---------------|
-| Phase 1 → 2 (기획 → 구현) | PRD 승인 상태, 기술 설계 완료, 태스크 분해 완료 |
-| Phase 2 → 3 (구현 → 검증) | 빌드 성공, 타입 체크 통과, 린트 통과 |
-| Phase 3 → 4 (검증 → 리뷰) | 테스트 전체 통과, QA 리포트 생성, 성능 기준 충족 |
-| Phase 4 → 5 (리뷰 → 배포) | 코드 리뷰 승인, 보안 스캔 통과, 릴리즈 품질 게이트 PASS |
-
-## 5. 에스컬레이션 경로
-
-문제 발생 시 단계적으로 상위로 에스컬레이션합니다. 2단 위임 구조에서는 에스컬레이션의 최종 실행 주체가 **메인 대화**이며, orchestrator는 조언 반환을 통해 메인의 판단을 돕습니다.
+## 5. 에스컬레이션
 
 ```
-도메인 specialist (자체 해결 시도, 선택적 레벨)
-  │ 실패
-  ▼
-부서장 (대안 전략 수립, specialist 재호출 1회 또는 직접 수행)
-  │ 실패 또는 부서 범위 초과
-  ▼
-커맨드(메인 대화)
-  │  ├─ pipeline-orchestrator에 조언 요청 (Phase 재설계/롤백/스킵 판단 권고)
-  │  └─ 필요 시 cross-department-coordinator 또는 타 부서장 추가 spawn
-  │ 실패 또는 전략 판단 필요
-  ▼
-사용자 (AskUserQuestion으로 최종 결정)
+specialist ─실패→ 부서장(대안·specialist 재호출 1회·직접 수행) ─실패/범위 초과→ 메인(orchestrator 조언·타 부서장 spawn) ─전략 판단→ 사용자(AskUserQuestion)
 ```
 
-**중첩 Task tool 위반 감지 시 (CHAIN_VIOLATION):**
-- 서브에이전트(orchestrator 포함)가 Task tool을 호출하려 시도하는 정황이 감지되면 **즉시 중단** 하고 `agents/pipeline-orchestrator.md` §"에스컬레이션 경고 반환 조건"에 따라 `CHAIN_VIOLATION` 경고를 응답 상단에 반환합니다. 메인이 해당 경고를 파싱해 직접 부서장을 spawn합니다.
-
-### 에스컬레이션 트리거 조건
-
-| 레벨 | 트리거 | 예시 |
-|------|--------|------|
-| specialist → 부서장 | 작업 실패, 모호한 요구사항, 권한 밖 작업 | 빌드 실패, API 스키마 불일치 |
-| 부서장 → 메인 | 부서 내 해결 불가, 부서 간 충돌, 품질 기준 미달, specialist spawn 실패 | 프론트-백엔드 인터페이스 불일치, 테스트 커버리지 기준 미달, harness가 중첩 spawn 차단 |
-| 메인 → orchestrator(조언) | Phase 재설계/롤백 판단 필요 | 핵심 기능 구현 불가, 일정 초과, 아키텍처 변경 필요 |
-| 메인 → 사용자 | orchestrator 조언 반영 후에도 전략 판단 필요 | 스코프 확장, 파이프라인 중단 판단 |
-
-### 에스컬레이션 메시지 형식
-
-에스컬레이션 시 반드시 포함할 항목:
-
-| 항목 | 설명 |
-|------|------|
-| `issue` | 문제 설명 |
-| `attempted` | 시도한 해결 방법 |
-| `impact` | 미해결 시 영향 범위 |
-| `options` | 가능한 대안 목록 (최소 2개) |
-| `recommendation` | 권장 대안과 근거 |
-
-### 자동 해결 vs. 에스컬레이션 판단 기준
+- 서브에이전트의 중첩 spawn 시도가 감지되면 즉시 중단하고 응답 상단에 `CHAIN_VIOLATION`을 반환한다(`agents/pipeline-orchestrator.md` §"에스컬레이션 경고 반환 조건"). 메인이 직접 부서장을 spawn한다.
+- 에스컬레이션 메시지 필수 항목: `issue`, `attempted`, `impact`, `options`(≥2), `recommendation`.
 
 | 상황 | 행동 |
 |------|------|
-| 린트/타입 에러 | 부서장/specialist가 자동 수정 → 재검증 |
-| 테스트 1~2개 실패 | 부서장이 수정 시도 (최대 2회) → 실패 시 메인 보고 |
-| 빌드 실패 | 부서장이 원인 분석 → 필요 시 specialist 1회 재spawn, 그래도 실패 시 메인 보고 |
-| 전체 테스트 실패 | 즉시 메인 에스컬레이션 → orchestrator 조언 요청 |
-| 보안 Critical 발견 | 즉시 메인 에스컬레이션 → orchestrator 조언 + 사용자 보고 |
-| 요구사항 모호 | 즉시 사용자 에스컬레이션 (AskUserQuestion) |
-| 중첩 Task tool 호출 시도 감지 | **CHAIN_VIOLATION 경고 반환, 계획 수립 중단** — 메인이 직접 부서장 spawn |
-| Write/Edit 권한 에러 | **재시도 0회, 즉시 메인 에스컬레이션** (CLAUDE.md §6 Critical Gotchas) |
+| 린트/타입 에러 | 부서장/specialist 자동 수정 → 재검증 |
+| 테스트 1~2개 실패 | 부서장 수정(최대 2회) → 실패 시 BLOCKED 보고 |
+| 빌드 실패 | 원인 분석 → specialist 1회 재spawn → 실패 시 BLOCKED 보고 |
+| 전체 테스트 실패 · 보안 Critical | 즉시 메인 → orchestrator 조언(보안은 사용자 보고 병행) |
+| 요구사항 모호 | NEEDS_CONTEXT → 메인이 사용자 질문 |
+| Write/Edit 권한 에러 | 재시도 0회, 즉시 메인 에스컬레이션 |
 
-## 6. 파이프라인 완료 기록 책임
+## 6. 파이프라인 완료 기록
 
-파이프라인 상태 기록은 완료 시 메인(커맨드)이 `.crew/history.md`에 1줄 append하는 방식으로 수행합니다(`commands/bams/_shared_common.md` §파이프라인 완료 기록). 부서장·specialist는 결과를 메인에 반환하고, 상태 기록은 메인이 전담합니다. pipeline-orchestrator(조언자)는 완료 기록을 직접 수행하지 않고 조언 응답에 완료 요약을 포함합니다.
+완료 기록은 메인이 `.crew/history.md`에 append한다(`commands/bams/_shared_common.md` §파이프라인 완료 기록). 부서장·specialist는 결과만 반환하고, orchestrator는 조언 응답에 완료 요약만 포함한다.

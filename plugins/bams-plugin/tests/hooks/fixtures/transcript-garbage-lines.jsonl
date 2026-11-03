@@ -1,0 +1,4 @@
+not json {{{
+{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Edit","input":{"file_path":"/repo/src/app/page.tsx","old_string":"a","new_string":"b"}}]}}
+{"type":"assistant","message":
+{"type":"user","message":{"content":[{"type":"tool_result","content":"ok"}]}}

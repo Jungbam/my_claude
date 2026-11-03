@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# validate-agent-sync.sh — 에이전트 12 checks 동기화 검증 (11 + [12] repo↔cache diff)
+# validate-agent-sync.sh — 에이전트 13 checks 동기화 검증 (11 + [12] repo↔cache diff + [13] validate-harness.sh)
 # 사용법: bash plugins/bams-plugin/scripts/validate-agent-sync.sh
 # Exit code: 0=정합, 1=불일치
 
@@ -379,6 +379,21 @@ if [[ -n "$CACHE_ROOT" ]]; then
     echo -e "  [12/12] repo↔cache (sync-cache.sh) ... ${YELLOW}WARN${NC}: 캐시에 sync-cache.sh 부재"
   fi
   [[ "$_DIFF_FAIL" -eq 0 ]] && echo -e "  [12/12] repo↔cache diff ... ${GREEN}OK${NC} (${CACHE_ROOT##*/bams-plugin/})"
+fi
+
+# ─────────────────────────────────────────────
+# 13. validate-harness.sh (frontmatter 허용값 / plugin.json hooks·agents / 크기 예산)
+#     FAIL → ERRORS++, WARN만 있으면 통과.
+# ─────────────────────────────────────────────
+_VH_RC=0
+_VH_OUT=$(bash "$PLUGIN_DIR/scripts/validate-harness.sh" --quiet 2>&1) || _VH_RC=$?
+_VH_SUM=$(echo "$_VH_OUT" | grep '^=== validate-harness' | sed 's/^=== //; s/ ===$//')
+if [[ "$_VH_RC" -eq 0 ]]; then
+  echo -e "  [13] harness static checks ... ${GREEN}OK${NC} (${_VH_SUM:-no summary})"
+else
+  echo -e "  [13] harness static checks ... ${RED}FAIL${NC} (${_VH_SUM:-exit $_VH_RC})"
+  echo "$_VH_OUT" | grep '^  FAIL' | sed 's/^/      /' || true
+  ERRORS=$((ERRORS + 1))
 fi
 
 # ─────────────────────────────────────────────
