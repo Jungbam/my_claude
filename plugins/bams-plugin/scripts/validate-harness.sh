@@ -3,7 +3,8 @@
 # 사용법: bash plugins/bams-plugin/scripts/validate-harness.sh [--quiet]
 #   --quiet: FAIL/WARN 줄과 요약만 출력. Exit: 0=FAIL 없음(WARN 허용), 1=FAIL 있음.
 # FAIL: model/effort 허용값 이외(gpt 명 등), name≠파일명, description 부재·1024자 초과,
-#       plugin.json hook 스크립트 부재·비실행·상대경로, plugin.json agents ↔ agents/*.md 불일치.
+#       plugin.json hook 스크립트 부재·비실행·상대경로, plugin.json agents ↔ agents/*.md 불일치,
+#       SubagentStart/Stop matcher가 플러그인 에이전트를 '^<plugin>:(...)$' 없이 지목하거나 없는 이름 나열.
 # WARN: 에이전트 본문 10,000자 초과(plugin-dev 가이드), SKILL.md 500줄 초과(skill-creator 가이드),
 #       references/*.md 300줄 초과인데 목차 없음.
 # macOS 기본 bash 3.2 / BSD awk 호환. timeout·GNU 전용 옵션 사용 금지.
@@ -121,6 +122,43 @@ else
         esac
       done > "$T/hooks"
       flush "$T/hooks"
+
+      # SubagentStart/SubagentStop matcher ↔ plugin-scoped agent_type ("<plugin>:<agent>").
+      # 공식 문서: 글자·숫자·_·-·공백·,·| 만으로 된 matcher는 exact string 목록 비교 → 플러그인
+      # 에이전트에는 절대 매칭되지 않는다. 앵커 정규식 ^<plugin>:(a|b)$ 형태여야 한다.
+      info "[2b] SubagentStart/SubagentStop matcher"
+      pname=$(jq -r '.name // ""' "$PJ")
+      for f in "$PLUGIN_DIR"/agents/*.md; do [ -f "$f" ] && basename "$f" .md; done > "$T/agent_names"
+      jq -r "$hq | to_entries[]? | select(.key == \"SubagentStart\" or .key == \"SubagentStop\")
+             | .key as \$e | .value[]? | [\$e, (.matcher // \"\")] | @tsv" "$hsrc" 2>/dev/null \
+      | while IFS=$'\t' read -r ev m; do
+          case "$m" in ''|'*') continue ;; esac
+          if printf '%s' "$m" | grep -q "^\\^$pname:"; then
+            # ^<plugin>:(a|b|c)$ → 나열된 이름이 agents/*.md 에 존재하는지
+            case "$m" in *'$') ;; *) echo "  FAIL  $ev matcher '$m': 끝 앵커 \$ 없음 — 더 긴 이름에도 매칭됨" ;; esac
+            names=$(printf '%s' "$m" | sed -e "s|^\\^$pname:||" -e 's|\$$||' -e 's|^(\(.*\))$|\1|')
+            if printf '%s' "$names" | grep -q '[^A-Za-z0-9_|-]'; then
+              echo "  WARN  $ev matcher '$m': 단순 이름 목록이 아니라 에이전트 존재 검사 생략"
+            else
+              printf '%s\n' "$names" | tr '|' '\n' | while IFS= read -r n; do
+                [ -z "$n" ] && continue
+                grep -qx -- "$n" "$T/agent_names" || echo "  FAIL  $ev matcher: '$n' 에 해당하는 agents/$n.md 없음"
+              done
+            fi
+          else
+            # 접두사 없음: 플러그인 에이전트 이름을 담고 있으면 절대 매칭 불가
+            hit=$(printf '%s' "$m" | tr -c 'A-Za-z0-9_-' '\n' | grep -vx '' | grep -xF -f "$T/agent_names" | head -1)
+            if [ -n "$hit" ]; then
+              if printf '%s' "$m" | grep -q '^[A-Za-z0-9_ ,|-]*$'; then
+                why="exact-match 문자 집합만 사용 — agent_type '$pname:$hit' 에 절대 매칭 안 됨"
+              else
+                why="'^$pname:' 앵커 접두사 없음 — 비앵커 부분 매칭(다른 플러그인·이름 오매칭) 또는 매칭 실패"
+              fi
+              echo "  FAIL  $ev matcher '$m': $why. '^$pname:(...)\$' 형태 사용"
+            fi
+          fi
+        done > "$T/matcher"
+      flush "$T/matcher"
     fi
   fi
 fi

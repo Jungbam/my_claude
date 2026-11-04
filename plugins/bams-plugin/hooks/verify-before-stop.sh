@@ -7,9 +7,26 @@
 # transcript JSONL 형식은 비공개 내부 형식 — 파싱 실패·파일 부재 등 모든 오류는 fail-open(exit 0).
 set +e
 
+# plugin.json SubagentStop matcher(^bams-plugin:(...)$)와 동일 목록을 유지한다.
 TARGET_AGENTS=" frontend-engineering backend-engineering platform-devops data-integration automation-qa "
-# 검증 명령으로 인정하는 Bash 패턴 (대소문자 무시)
-VERIFY_RE='(^|[^[:alnum:]_])(tests?|tsc|typecheck|type-check|build|lint|vitest|jest|pytest|cargo|mypy|ruff|eslint|biome|shellcheck|playwright|validate[[:alnum:]_-]*)([^[:alnum:]_]|$)|go (test|vet|build)|(bash|sh|zsh) -n |node --check|py_compile|make( |$)'
+
+# 검증 명령으로 인정하는 Bash 패턴 (대소문자 무시, bash 3.2 [[ =~ ]] ERE).
+# 검증 도구가 "명령 위치"에 있어야 인정한다 — 줄 시작 또는 ; & | ( ` 뒤, 또는 @tsv가 줄바꿈을
+# 바꾼 리터럴 \n 뒤(앞 공백·VAR=val 접두 허용). `ls tests/`, `cd build`, `cat test.log`,
+# `grep -r lint .` 처럼 인자에만 등장하는 단어는 검증으로 보지 않는다.
+_CP='(^|[;&|(`]|\\n)[[:space:]]*([[:alpha:]_][[:alnum:]_]*=[^[:space:]]*[[:space:]]+)*'
+_END='([[:space:]]|$|[;&|)`])'
+_V_PM='(npm|pnpm|yarn|bun)[[:space:]]+(run[[:space:]]+)?(test|build|lint|typecheck|type-check|check)([^[:alnum:]_]|$)'
+_V_NPX='(npx|bunx|pnpm[[:space:]]+(exec|dlx)|yarn[[:space:]]+(exec|dlx))[[:space:]]+(-[^[:space:]]+[[:space:]]+)*(tsc|vitest|jest|eslint|playwright|biome)'"$_END"
+_V_BARE='((uv|poetry)[[:space:]]+run[[:space:]]+)?(\./node_modules/\.bin/)?(tsc|vitest|jest|pytest|mypy|ruff|eslint|shellcheck)'"$_END"
+_V_GO='go[[:space:]]+(test|vet|build)'"$_END"
+_V_CARGO='cargo[[:space:]]+(test|build|check|clippy)'"$_END"
+_V_MAKE='make[[:space:]]+([^;&|[:space:]]+[[:space:]]+)*(test|check|lint|build)'"$_END"
+_V_SHSCRIPT='(bash|sh|zsh)[[:space:]]+([^;&|]*[[:space:]])?[^[:space:];&|]*(validate|test)[^[:space:];&|]*\.sh'"$_END"
+_V_DIRECT='\.{0,2}/[^[:space:];&|]*(validate|test)[^[:space:];&|]*\.sh'"$_END"
+_V_SYNTAX='((bash|sh|zsh)[[:space:]]+-n|node[[:space:]]+--check)'"$_END"
+_V_PY='python3?[[:space:]]+-m[[:space:]]+(pytest|py_compile|mypy)'"$_END"
+VERIFY_RE="${_CP}(${_V_PM}|${_V_NPX}|${_V_BARE}|${_V_GO}|${_V_CARGO}|${_V_MAKE}|${_V_SHSCRIPT}|${_V_DIRECT}|${_V_SYNTAX}|${_V_PY})"
 ESCAPE_RE='검증 ?불가|검증할 수 없|검증하지 못|unable to verify|could not verify|cannot verify'
 
 main() {
