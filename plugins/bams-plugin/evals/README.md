@@ -11,7 +11,7 @@
 ./run.sh --config bams --task all --trials 3 --total-budget-usd 40
 ./compare.sh results/<A>-single.jsonl results/<B>-bams.jsonl   # 과제별·전체 점수/시간/비용 표
 ```
-결과: `results/<timestamp>-<config>.jsonl` (task, config, trial, score, duration_s, tokens, cost_usd, turns, error), 원본 JSON은 `results/raw/`.
+결과: `results/<timestamp>-<config>.jsonl` (task, config, trial, score, duration_s, tokens, cost_usd, turns, agent_spawns, skill_calls, tool_calls, error), 원본 stream-json은 `results/raw/`. 같은 초에 동시 실행해도 `-N` 접미사로 분리.
 환경변수: `EVAL_MODEL`, `EVAL_PERMISSION_MODE`(기본 acceptEdits), `EVAL_ALLOWED_TOOLS`, `EVAL_PLUGIN_DIR`, `EVAL_STRICT_MCP=0`.
 
 ## 비용 주의
@@ -24,11 +24,12 @@
 결과 jsonl은 PR에 첨부. 과제/채점기 수정은 하네스 변경과 별도 PR로 하고 baseline을 다시 측정한다.
 
 ## 구성 차이 (유일한 변수)
-- bams: `--plugin-dir <evals 제외 스냅샷>` + 프롬프트 `"/bams:<cmd> <요청>"` + 작업 디렉터리에 최소 `.crew/config.md`.
+- bams: `--plugin-dir <evals 제외 스냅샷>` + 프롬프트 `"/bams:<cmd> <요청>"` + 작업 디렉터리에 중립적인 최소 `.crew/config.md`(과제 제약은 두 구성 공통으로 prompt.md에만 둠).
 - single: `--plugin-dir` 없음 + `--settings '{"enabledPlugins":{"bams-plugin@my-claude":false}}'` + 요청 문장만. (공통: `--setting-sources project,local`로 user 설정/플러그인 미로드, `BAMS_ROUTER=off`)
 
 ## 결과 해석
-- score = 숨김 테스트 통과율(`regress:` 가드 테스트는 분모 제외, 하나라도 깨지면 x0.5). 기존 테스트 파일 변조/삭제 시 0(`tampered`).
+- score = 숨김 테스트 통과율(`regress:` 가드 테스트는 분모 제외, 하나라도 깨지면 x0.5). 기존 테스트 파일의 기존 줄을 삭제·수정하면 0(`tampered`; 테스트 추가는 허용), 원본 테스트를 복원해 돌려 실패하면 x0.5.
 - 리뷰: 심어진 결함 4개 재현율 - 무해 변경을 문제라 한 오탐 건당 0.1. 계획: 키워드 루브릭(19항목) — 형식 충족도를 보는 거친 척도이며 품질 판단은 사람이 샘플 확인.
+- `agent_spawns`(Agent/Task 호출 수)·`skill_calls`가 0이면 bams 구성이라도 파이프라인 없이 직접 처리한 것이다 — 점수 해석 시 함께 볼 것.
 - `error` 비어있지 않은 시도(timeout, budget 초과 등)는 score 0으로 집계되므로 error 열도 함께 볼 것.
 - 한계: 에이전트가 Bash로 evals 경로를 읽을 수 있음(bams 구성은 스냅샷에서 evals 제외, 작업 사본에는 hidden/solution 없음). 합성 소과제라 큰 저장소 성능을 대변하지 않음.

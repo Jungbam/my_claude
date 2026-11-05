@@ -4,7 +4,7 @@
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"; fail=0
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/eval-validate-XXXXXX")"; trap 'rm -rf "$TMP"' EXIT
-printf '%-26s %-18s %8s %8s %8s  %s\n' task type original solution tamper structure
+printf '%-26s %-18s %8s %8s %8s %8s %8s  %s\n' task type original solution +test editAssert delTest structure
 for tdir in "$HERE"/tasks/*/; do
   t="$(basename "$tdir")"; type=$(jq -r .type "$tdir/task.json")
   # 구조
@@ -22,19 +22,26 @@ for tdir in "$HERE"/tasks/*/; do
   # 정답 적용본
   cp -R "$tdir/solution/." "$TMP/w/"
   sol=$("$tdir/grade.sh" "$TMP/w" | jq -r .score)
-  # 변조(코드 과제만): 정답 적용본에서 기존 테스트 하나를 수정
-  tam="n/a"
+  # 변조 판정(코드 과제만): 정답 적용본 위에서 (a) 기존 테스트 파일에 테스트 '추가'만 -> 1.0 유지, (b) 기존 assert 수정 -> 0, (c) 기존 테스트 삭제 -> 0
+  tam="n/a"; add="n/a"; del="n/a"
   tf=$(cd "$tdir/repo" && find . -name '*.test.ts' | head -1)
   if [ "${type%%-*}" != review ] && [ "$type" != plan ] && [ -n "$tf" ]; then
-    echo "// tampered" >> "$TMP/w/$tf"; tam=$("$tdir/grade.sh" "$TMP/w" | jq -r .score)
+    cp "$TMP/w/$tf" "$TMP/orig.test.ts"
+    printf '\ntest("extra added by agent", () => { expect(1).toBe(1); });\n' >> "$TMP/w/$tf"
+    add=$("$tdir/grade.sh" "$TMP/w" | jq -r .score)
+    cp "$tdir/repo/$tf" "$TMP/w/$tf"
+    perl -i -pe 'if(!$d && /\.(toBe|toEqual)\(/){s/\.(toBe|toEqual)\(/.$1(null ?? /; $d=1}' "$TMP/w/$tf"
+    tam=$("$tdir/grade.sh" "$TMP/w" | jq -r .score)
+    cp "$tdir/repo/$tf" "$TMP/w/$tf"; sed -i '' -e '/^test(/,/^});/d' "$TMP/w/$tf"
+    del=$("$tdir/grade.sh" "$TMP/w" | jq -r .score)
   fi
   ok=1
   awk -v s="$sol" 'BEGIN{exit !(s>=0.9999)}' || ok=0
   awk -v o="$orig" 'BEGIN{exit !(o<=0.5)}' || ok=0
-  { [ "$tam" = "n/a" ] || [ "$tam" = "0.0000" ] || [ "$tam" = "0" ]; } || ok=0
+  { [ "$tam" = "n/a" ] || { [ "$tam" = "0.0000" ] && [ "$del" = "0.0000" ] && [ "$add" = "1.0000" ]; }; } || ok=0
   [ "$st" = ok ] || ok=0
   [ "$ok" = 1 ] || fail=1
-  printf '%-26s %-18s %8s %8s %8s  %s %s\n' "$t" "$type" "$orig" "$sol" "$tam" "$st" "$([ $ok = 1 ] && echo PASS || echo FAIL)"
+  printf '%-26s %-18s %8s %8s %8s %8s %8s  %s %s\n' "$t" "$type" "$orig" "$sol" "$add" "$tam" "$del" "$st" "$([ $ok = 1 ] && echo PASS || echo FAIL)"
 done
 for c in bams single; do
   if "$HERE/run.sh" --config $c --task all --dry-run >"$TMP/dry-$c.txt" 2>&1; then
@@ -43,5 +50,8 @@ for c in bams single; do
 done
 grep -q -- "--plugin-dir" "$TMP/dry-bams.txt" && ! grep -q -- "--plugin-dir" "$TMP/dry-single.txt" && grep -q 'enabledPlugins' "$TMP/dry-single.txt" \
   && echo "config diff: OK (bams=--plugin-dir, single=enabledPlugins false, no plugin-dir)" || { echo "config diff: FAIL"; fail=1; }
+# config.md 중립성: 과제 제약 문구가 .crew/config.md 에 들어가지 않았는지
+cfg=$(sed -n '/^write_crew_config()/,/^}/p' "$HERE/run.sh")
+if printf '%s' "$cfg" | grep -qE '수정하지|금지|의존성'; then echo "config.md neutrality: FAIL"; fail=1; else echo "config.md neutrality: OK"; fi
 grep -q '/bams:' "$TMP/dry-bams.txt" && ! grep -q "'/bams:" "$TMP/dry-single.txt" && echo "prompt diff: OK" || { echo "prompt diff: FAIL"; fail=1; }
 [ "$fail" = 0 ] && echo "ALL OK" || { echo "VALIDATION FAILED"; exit 1; }

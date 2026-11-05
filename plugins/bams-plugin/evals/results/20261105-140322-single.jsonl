@@ -1,0 +1,1 @@
+{"task":"bug-01-pagination","config":"single","trial":1,"score":0.0000,"duration_s":16,"tokens":82801,"out_tokens":1581,"cost_usd":0.11323499999999999,"turns":5,"error":"tampered_tests","tampered":true,"passed":9,"total":9}
