@@ -3,6 +3,7 @@
 #   run.sh --config bams|single [--task <id>|all] [--trials N] [--budget-usd X] [--timeout-s S]
 #          [--total-budget-usd X] [--model M] [--keep] [--dry-run]
 # 실제 claude -p 를 호출하므로 비용이 든다. --dry-run 은 명령만 출력한다.
+#   run.sh --regrade-text <results/raw/<dir>>...   # claude 호출 없이 기존 raw 의 리뷰·계획 과제를 최종 메시지만으로 재채점 -> results/regrade-<dir>.jsonl
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_ROOT="$(cd "$HERE/.." && pwd)"
@@ -19,6 +20,7 @@ while [ $# -gt 0 ]; do
     --model) MODEL="$2"; shift 2;;
     --keep) KEEP=1; shift;;
     --dry-run) DRY=1; shift;;
+    --regrade-text) shift; exec "$HERE/regrade_text.sh" "$@";;
     -h|--help) sed -n 2,6p "$0"; exit 0;;
     *) echo "unknown arg: $1" >&2; exit 2;;
   esac
@@ -29,6 +31,9 @@ command -v jq >/dev/null || { echo "jq 필요" >&2; exit 2; }
 
 if [ "$TASK" = all ]; then TASKS=$(cd "$HERE/tasks" && ls -d */ | tr -d /); else TASKS="$TASK"; fi
 for t in $TASKS; do [ -f "$HERE/tasks/$t/task.json" ] || { echo "no such task: $t" >&2; exit 2; }; done
+
+# --plugin-dir 로 로드한 플러그인의 커맨드는 "<plugin-name>:<dir>:<cmd>" 로 등록된다 (init 이벤트 slash_commands 실측: bams-plugin:bams:hotfix)
+BAMS_NS="$(jq -r .name "$PLUGIN_ROOT/.claude-plugin/plugin.json")"
 
 TS="$(date +%Y%m%d-%H%M%S)"
 # 같은 초에 같은 구성을 동시에 돌려도 파일이 섞이지 않게: 이미 있으면 -N 접미사 (bams/single 은 이름이 달라 원래도 충돌 없음)
@@ -119,6 +124,20 @@ finish_run() {
   [ "$R_rc" = 142 ] && errmsg="timeout(${R_tmo}s)"
   [ -n "$R_note" ] && errmsg="${errmsg:+$errmsg; }$R_note"
 
+  # 커맨드 인식 여부(bams만): init 이벤트의 slash_commands 에 이름이 있고, 최종 메시지에 "미등록/실행 안 됨" 류 문구가 bams 언급 근처에 없을 것.
+  # (스트림에는 사용자 메시지·커맨드 확장 본문이 나오지 않아 더 강한 신호는 없다)
+  local cmd_resolved=null init has bad
+  if [ "$CONFIG" = bams ]; then
+    init="$(printf '%s\n' "$evs" | jq -c 'select(.type=="system" and .subtype=="init")' 2>/dev/null | head -1)"
+    has=false; [ -n "$init" ] && has="$(jq --arg n "$R_cmdname" '(.slash_commands // []) | index($n) != null' <<<"$init")"
+    bad=false; [ -n "$result" ] && bad="$(jq -r '(.result // "") | test("(bams.{0,80}(실행되지 않|등록되어|등록돼|인식|not found|unknown|not registered|not installed|설치돼 있지 않|설치되어 있지 않))|((실행되지 않|등록되어|등록돼|인식|not found|unknown|not registered|not installed|설치돼 있지 않|설치되어 있지 않).{0,80}bams)"; "is")' <<<"$result")"
+    if [ "$has" = true ] && [ "$bad" != true ]; then cmd_resolved=true; else cmd_resolved=false; fi
+  fi
+  # 리뷰/계획 채점 입력: 최종 메시지 + 작업 디렉터리의 새/변경 .md (grade_text.py 가 EVAL_FINAL_MESSAGE_FILE 을 읽는다)
+  local final_file="$RAW/$R_task-$R_trial.final.txt"
+  { [ -n "$result" ] && jq -r '.result // ""' <<<"$result"; } > "$final_file" 2>/dev/null
+  export EVAL_FINAL_MESSAGE_FILE="$final_file"
+
   local g score=0 tampered=false passed=0 total=0
   if g="$("$HERE/tasks/$R_task/grade.sh" "$R_work" 2>>"$R_err")" && jq -e . >/dev/null 2>&1 <<<"$g"; then
     score=$(jq -r .score <<<"$g"); tampered=$(jq -r '.tampered // false' <<<"$g")
@@ -131,9 +150,9 @@ finish_run() {
   local rec
   rec="$(jq -nc --arg task "$R_task" --arg config "$CONFIG" --argjson trial "$R_trial" --argjson score "$score" \
     --argjson dur "$dur" --argjson tokens "$toks" --argjson out_tokens "$outtoks" --argjson cost "$cost" \
-    --argjson turns "$turns" --argjson tool_calls "$tc" --argjson agent_spawns "$ag" --argjson skill_calls "$sk" \
+    --argjson turns "$turns" --argjson tool_calls "$tc" --argjson agent_spawns "$ag" --argjson skill_calls "$sk" --argjson cmd_resolved "$cmd_resolved" \
     --arg error "$errmsg" --argjson tampered "$tampered" --argjson passed "$passed" --argjson total "$total" \
-    '{task:$task,config:$config,trial:$trial,score:$score,duration_s:$dur,tokens:$tokens,out_tokens:$out_tokens,cost_usd:$cost,turns:$turns,agent_spawns:$agent_spawns,skill_calls:$skill_calls,tool_calls:$tool_calls,error:$error,tampered:$tampered,passed:$passed,total:$total}')"
+    '{task:$task,config:$config,trial:$trial,score:$score,duration_s:$dur,tokens:$tokens,out_tokens:$out_tokens,cost_usd:$cost,turns:$turns,agent_spawns:$agent_spawns,skill_calls:$skill_calls,tool_calls:$tool_calls,cmd_resolved:$cmd_resolved,error:$error,tampered:$tampered,passed:$passed,total:$total}')"
   # 파일에 먼저 기록(O_APPEND 한 줄), 그 다음 stdout 은 실패해도 무시
   printf '%s\n' "$rec" >> "$RESULT"
   printf '%s\n' "$rec" 2>/dev/null || true
@@ -156,7 +175,8 @@ run_one() { # $1=task $2=trial
   budget="${BUDGET:-$(jq -r .budget_usd "$tdir/task.json")}"
   R_tmo="${TMO:-$(jq -r .timeout_s "$tdir/task.json")}"
   prompt="$(cat "$tdir/prompt.md")"
-  if [ "$CONFIG" = bams ]; then full="$cmd $prompt"; else full="$prompt"; fi
+  R_cmdname="$BAMS_NS:${cmd#/}"
+  if [ "$CONFIG" = bams ]; then full="/$R_cmdname $prompt"; else full="$prompt"; fi
 
   R_task="$task"; R_trial="$trial"; R_note=""; R_rc=0
   R_work="$(mktemp -d "${TMPDIR:-/tmp}/bams-eval-$task-XXXXXX")"

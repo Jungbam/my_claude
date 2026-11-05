@@ -1,0 +1,1 @@
+{"session_id":"m-sess-6","prompt_id":"u-1","transcript_path":"__D__/main6.jsonl","cwd":"__D__/proj","hook_event_name":"UserPromptExpansion","expansion_type":"slash_command","command_name":"bams:verify","command_args":"빌드","command_source":"plugin","prompt":"/bams:verify 빌드"}

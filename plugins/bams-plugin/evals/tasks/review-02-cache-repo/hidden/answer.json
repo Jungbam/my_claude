@@ -3,13 +3,92 @@
   "file": "REVIEW.md",
   "min_words": 30,
   "defects": [
-    {"id": "sql-injection", "file": "userRepo", "any": ["injection", "인젝션", "parameteri[sz]", "string (interpolation|concatenation)", "template (literal|string)", "sanitiz", "바인딩|파라미터"]},
-    {"id": "retry-swallows-error", "file": "retry", "any": ["swallow", "silent", "undefined", "rethrow|re-throw", "(doesn.t|does not|no longer|never|fails to) throw", "삼키|무시|던지지"]},
-    {"id": "cache-key-tenant", "file": "userRepo", "any": ["tenant.{0,80}(key|leak|collision|isolat|cross)", "(key|leak|collision|isolat|cross).{0,80}tenant", "테넌트"]},
-    {"id": "no-invalidation", "file": "userRepo", "any": ["invalidat", "stale", "evict", "(rename|update).{0,60}cache", "cache.{0,60}(rename|update)", "무효화|오래된|캐시.{0,20}(삭제|갱신)"]}
+    {
+      "id": "sql-injection",
+      "file": "userRepo",
+      "any": [
+        "injection",
+        "인젝션",
+        "parameteri[sz]",
+        "string (interpolation|concatenation)",
+        "template (literal|string)",
+        "sanitiz",
+        "바인딩|파라미터",
+        "SQL ?(주입|인젝션)",
+        "문자열 ?(보간|연결|결합)",
+        "템플릿 ?(리터럴|문자열)",
+        "placeholder|플레이스홀더|\\?\\s?바인딩|prepared"
+      ]
+    },
+    {
+      "id": "retry-swallows-error",
+      "file": "retry",
+      "any": [
+        "swallow",
+        "silent",
+        "undefined",
+        "rethrow|re-throw",
+        "(doesn.t|does not|no longer|never|fails to) throw",
+        "삼키|무시|던지지",
+        "에러를 ?(삼|무시|숨)",
+        "예외를 ?(삼|무시|숨)",
+        "(조용히|묵시적으로).{0,20}(실패|무시|삼)",
+        "재(던지|throw)",
+        "마지막 ?(에러|오류|예외)",
+        "undefined ?(를|을)? ?(반환|리턴)",
+        "실패.{0,30}undefined"
+      ]
+    },
+    {
+      "id": "cache-key-tenant",
+      "file": "userRepo",
+      "any": [
+        "tenant.{0,80}(key|leak|collision|isolat|cross)",
+        "(key|leak|collision|isolat|cross).{0,80}tenant",
+        "테넌트",
+        "테넌트.{0,60}(키|누수|충돌|격리|다른)",
+        "멀티 ?테넌",
+        "다른 (테넌트|고객|조직)",
+        "cross-?tenant",
+        "키.{0,30}(tenant|테넌트).{0,20}(없|빠|누락|포함)"
+      ]
+    },
+    {
+      "id": "no-invalidation",
+      "file": "userRepo",
+      "any": [
+        "invalidat",
+        "stale",
+        "evict",
+        "(rename|update).{0,60}cache",
+        "cache.{0,60}(rename|update)",
+        "무효화|오래된|캐시.{0,20}(삭제|갱신)",
+        "무효화",
+        "오래된 ?(값|데이터|이름|캐시)",
+        "캐시.{0,30}(갱신|삭제|제거|지우|남)",
+        "stale",
+        "(rename|이름 ?변경|업데이트|update).{0,60}캐시",
+        "캐시.{0,60}(rename|이름 ?변경|업데이트|update)",
+        "delete.{0,20}(cache|캐시)"
+      ]
+    }
   ],
   "decoys": [
-    {"id": "ttl-300", "file": "userRepo", "any": ["TTL.{0,40}(300|5 ?min)", "300[_,]?000", "(300|5 ?min).{0,40}TTL"]},
-    {"id": "warn-log", "file": "retry", "any": ["console\\.warn"]}
+    {
+      "id": "ttl-300",
+      "file": "userRepo",
+      "any": [
+        "TTL.{0,40}(300|5 ?min)",
+        "300[_,]?000",
+        "(300|5 ?min).{0,40}TTL"
+      ]
+    },
+    {
+      "id": "warn-log",
+      "file": "retry",
+      "any": [
+        "console\\.warn"
+      ]
+    }
   ]
 }

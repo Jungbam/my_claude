@@ -1,7 +1,7 @@
 {
   "version": 2,
   "plugin": "bams-plugin",
-  "note": "hooks/prompt-router.sh SSOT. 점수 = high 3 + med 1 + priority. high는 동작 동사(해줘·돌려·만들어 등)가 결합된 패턴만 — 명사 단독은 med. 최고점 high 단독 → high, 동점 high 경쟁·체인에 /bams:init 포함 → med, 합계 2 미만 → 출력 없음. negative 매칭 라우트 제외. global_negative(문서 산출 의도) 매칭 시 doc_ok 라우트 외 전부 제외. 정규식은 jq(Oniguruma) + i 플래그, 영어 단어 뒤쪽 경계는 (?![a-z]).",
+  "note": "hooks/prompt-router.sh SSOT. 점수 = high 3 + med 1 + priority. high는 동작 동사(해줘·돌려·만들어 등)가 결합된 패턴만 — 명사 단독은 med. 최고점 high 단독 → high, 동점 high 경쟁·체인에 /<plugin>:bams:init 포함 → med, 합계 2 미만 → 출력 없음. negative 매칭 라우트 제외. global_negative(문서 산출 의도) 매칭 시 doc_ok 라우트 외 전부 제외. 정규식은 jq(Oniguruma) + i 플래그, 영어 단어 뒤쪽 경계는 (?![a-z]). target은 실제 호출 이름 — 커맨드 /bams-plugin:bams:<cmd>, 스킬 bams-plugin:<skill> (validate-harness [7]이 검사).",
   "skip": {
     "min_chars": 6,
     "max_scan_chars": 1500,
@@ -20,7 +20,7 @@
   ],
   "routes": [
     {
-      "id": "hotfix", "target": "/bams:hotfix", "kind": "pipeline", "needs_crew": true,
+      "id": "hotfix", "target": "/bams-plugin:bams:hotfix", "kind": "pipeline", "needs_crew": true,
       "patterns": {
         "high": [
           "(버그|에러|오류|크래시|장애|예외|exception).{0,20}(고쳐|수정해|해결해|잡아|픽스)",
@@ -42,7 +42,7 @@
       "note": "재현 가능한 실패 1건 수정 (다건은 dev, 린트·문구는 일반 응답)"
     },
     {
-      "id": "dev", "target": "/bams:dev", "kind": "pipeline", "needs_crew": true,
+      "id": "dev", "target": "/bams-plugin:bams:dev", "kind": "pipeline", "needs_crew": true,
       "patterns": {
         "high": [
           "(버그|이슈|에러|오류)(들|\\s*[0-9]+\\s*(개|건)).{0,20}(고쳐|수정|해결|처리)",
@@ -58,7 +58,7 @@
       "note": "다건 버그 묶음 / 계획된 태스크 구현"
     },
     {
-      "id": "feature", "target": "/bams:feature", "kind": "pipeline", "needs_crew": true,
+      "id": "feature", "target": "/bams-plugin:bams:feature", "kind": "pipeline", "needs_crew": true,
       "patterns": {
         "high": [
           "(기능|피처).{0,20}(만들어|구현해|추가해|개발해|붙여)",
@@ -76,7 +76,7 @@
       "note": "신규 기능 즉시 풀 사이클 (계획만이면 plan)"
     },
     {
-      "id": "plan", "target": "/bams:plan", "kind": "pipeline", "needs_crew": true,
+      "id": "plan", "target": "/bams-plugin:bams:plan", "kind": "pipeline", "needs_crew": true,
       "patterns": {
         "high": [
           "(prd|스펙|기술 ?설계|설계 ?문서|태스크 ?분해|구현 ?계획|개발 ?계획|(기능|피처|서비스|api|화면).{0,10}(계획|기획|설계)).{0,15}(세워|짜|수립|작성|만들어|써)",
@@ -94,8 +94,8 @@
       "note": "구현 없이 PRD/설계/태스크 문서만"
     },
     {
-      "id": "plan-then-dev", "target": "/bams:plan", "kind": "pipeline", "needs_crew": true, "priority": 1,
-      "chain": ["/bams:plan", "/bams:dev"],
+      "id": "plan-then-dev", "target": "/bams-plugin:bams:plan", "kind": "pipeline", "needs_crew": true, "priority": 1,
+      "chain": ["/bams-plugin:bams:plan", "/bams-plugin:bams:dev"],
       "patterns": {
         "high": [
           "(계획|기획|prd|설계|스펙|spec).{0,30}(구현|개발)(까지|도)",
@@ -107,7 +107,7 @@
       "note": "계획 수립 후 구현까지 (plan → dev 체인)"
     },
     {
-      "id": "review", "target": "/bams:review", "kind": "pipeline", "needs_crew": true,
+      "id": "review", "target": "/bams-plugin:bams:review", "kind": "pipeline", "needs_crew": true,
       "patterns": {
         "high": [
           "(\\bpr(?![a-z])|diff|변경 ?사항|코드|브랜치|커밋|풀 ?리퀘).{0,15}(리뷰|검토)\\s*(해|부탁|좀|하자|진행)",
@@ -124,7 +124,7 @@
       "note": "5관점 리뷰 + 릴리스 게이트"
     },
     {
-      "id": "deep-review", "target": "/bams:deep-review", "kind": "pipeline", "needs_crew": true,
+      "id": "deep-review", "target": "/bams-plugin:bams:deep-review", "kind": "pipeline", "needs_crew": true,
       "patterns": {
         "high": [
           "(심층|딥|깊게|깊이|구조적).{0,10}(리뷰|검토)\\s*(해|부탁|좀|하자|진행)",
@@ -137,7 +137,7 @@
       "note": "구조적 리뷰 + Codex 세컨드 오피니언 (게이트 없음)"
     },
     {
-      "id": "deploy", "target": "/bams:deploy", "kind": "pipeline", "needs_crew": true,
+      "id": "deploy", "target": "/bams-plugin:bams:deploy", "kind": "pipeline", "needs_crew": true,
       "patterns": {
         "high": [
           "배포\\s*(해|하자|진행|부탁|해줘)",
@@ -150,7 +150,7 @@
       "note": "출시 검증 + Land & Deploy"
     },
     {
-      "id": "ship", "target": "/bams:ship", "kind": "pipeline", "needs_crew": true,
+      "id": "ship", "target": "/bams-plugin:bams:ship", "kind": "pipeline", "needs_crew": true,
       "patterns": {
         "high": [
           "(\\bpr|풀 ?리퀘|pull request).{0,10}(만들어|생성|올려|열어)",
@@ -163,7 +163,7 @@
       "note": "PR 생성 + 머지"
     },
     {
-      "id": "performance", "target": "/bams:performance", "kind": "pipeline", "needs_crew": true,
+      "id": "performance", "target": "/bams-plugin:bams:performance", "kind": "pipeline", "needs_crew": true,
       "patterns": {
         "high": [
           "성능.{0,10}(측정|개선|최적화|분석|점검)\\s*(해|하자|좀|진행|부탁)",
@@ -176,7 +176,7 @@
       "note": "benchmark 기반 성능 측정/최적화"
     },
     {
-      "id": "security", "target": "/bams:security", "kind": "pipeline", "needs_crew": true,
+      "id": "security", "target": "/bams-plugin:bams:security", "kind": "pipeline", "needs_crew": true,
       "patterns": {
         "high": [
           "(보안|취약점).{0,10}(감사|점검|검사|스캔|리뷰|확인)\\s*(해|하자|좀|진행|부탁|돌려)",
@@ -189,7 +189,7 @@
       "note": "시크릿 체크 + OWASP/STRIDE"
     },
     {
-      "id": "q", "target": "/bams:q", "kind": "question", "needs_crew": false, "doc_ok": true,
+      "id": "q", "target": "/bams-plugin:bams:q", "kind": "question", "needs_crew": false, "doc_ok": true,
       "patterns": {
         "high": [
           "(어디(서|에)|어떻게).{0,30}(정의|구현|호출|처리|동작|작동|사용)\\s*(돼|되|하|해|됨)",
@@ -203,7 +203,7 @@
       "note": "코드베이스 질문 (init 불필요)"
     },
     {
-      "id": "design-import", "target": "/bams:design-import", "kind": "pipeline", "needs_crew": true,
+      "id": "design-import", "target": "/bams-plugin:bams:design-import", "kind": "pipeline", "needs_crew": true,
       "patterns": {
         "high": [
           "(디자인|ui) ?가이드.{0,20}(이식|적용|가져|옮겨|반영|구현)",
@@ -216,7 +216,7 @@
       "note": "외부 디자인 가이드(JSX/HTML/ZIP) → Next.js 이식"
     },
     {
-      "id": "verify", "target": "/bams:verify", "kind": "pipeline", "needs_crew": true,
+      "id": "verify", "target": "/bams-plugin:bams:verify", "kind": "pipeline", "needs_crew": true,
       "patterns": {
         "high": [
           "(빌드|린트|lint|타입 ?체크|typecheck|tsc|테스트).{0,20}(돌려|실행해|확인해|검증해)",
@@ -233,7 +233,7 @@
       "note": "CI 프리플라이트 (검사 전용 — 수정 요청은 제외)"
     },
     {
-      "id": "retro", "target": "/bams:retro", "kind": "pipeline", "needs_crew": true,
+      "id": "retro", "target": "/bams-plugin:bams:retro", "kind": "pipeline", "needs_crew": true,
       "patterns": {
         "high": ["회고\\s*(해|하자|진행|돌려|시작)|(run|do) (a |the )?retro(spective)?(?![a-z])"],
         "med": ["회고|돌아보|\\bretro(spective)?(?![a-z])|\\bkpt(?![a-z])"]
@@ -242,7 +242,7 @@
       "note": "파이프라인 회고 + 에이전트 평가"
     },
     {
-      "id": "weekly", "target": "/bams:weekly", "kind": "pipeline", "needs_crew": true,
+      "id": "weekly", "target": "/bams-plugin:bams:weekly", "kind": "pipeline", "needs_crew": true,
       "patterns": {
         "high": [
           "(주간\\s*(루틴|회고|마무리)|이번 ?주\\s*(마무리|회고)|스프린트\\s*마무리).{0,5}(해|하자|진행|돌려|시작)",
@@ -254,7 +254,7 @@
       "note": "스프린트 마무리 + 회고 + 다음 계획"
     },
     {
-      "id": "sprint", "target": "/bams:sprint", "kind": "pipeline", "needs_crew": true,
+      "id": "sprint", "target": "/bams-plugin:bams:sprint", "kind": "pipeline", "needs_crew": true,
       "patterns": {
         "high": [
           "스프린트.{0,15}(계획|플래닝).{0,5}(세워|짜|해|하자|시작)",
@@ -267,7 +267,7 @@
       "note": "스프린트 플래닝/관리"
     },
     {
-      "id": "qa", "target": "/bams:qa", "kind": "pipeline", "needs_crew": false,
+      "id": "qa", "target": "/bams-plugin:bams:qa", "kind": "pipeline", "needs_crew": false,
       "patterns": {
         "high": [
           "브라우저.{0,15}(qa|테스트|검증).{0,5}(해|돌려|진행|좀)",
@@ -281,7 +281,7 @@
       "note": "브라우저 QA"
     },
     {
-      "id": "browse", "target": "/bams:browse", "kind": "skill", "needs_crew": false,
+      "id": "browse", "target": "/bams-plugin:bams:browse", "kind": "skill", "needs_crew": false,
       "patterns": {
         "high": [
           "스크린샷.{0,10}(찍|캡처|떠)",
@@ -294,7 +294,7 @@
       "note": "헤드리스 브라우저 탐색/스크린샷"
     },
     {
-      "id": "init", "target": "/bams:init", "kind": "pipeline", "needs_crew": false,
+      "id": "init", "target": "/bams-plugin:bams:init", "kind": "pipeline", "needs_crew": false,
       "patterns": {
         "high": [
           "(프로젝트|워크스페이스|\\.crew|bams).{0,10}(초기화|세팅|셋업)\\s*(해|하자|진행|좀)",
@@ -306,7 +306,7 @@
       "note": "프로젝트 .crew 초기화"
     },
     {
-      "id": "investigate", "target": "investigate", "kind": "skill", "needs_crew": false,
+      "id": "investigate", "target": "bams-plugin:investigate", "kind": "skill", "needs_crew": false,
       "patterns": {
         "high": [
           "원인.{0,5}(분석|조사|파악|찾아|추적)\\s*(해|좀|하자)?",
@@ -320,7 +320,7 @@
       "note": "근본 원인 조사 (수정 요청이면 hotfix)"
     },
     {
-      "id": "git-sync", "target": "git-sync", "kind": "skill", "needs_crew": false,
+      "id": "git-sync", "target": "bams-plugin:git-sync", "kind": "skill", "needs_crew": false,
       "patterns": {
         "high": [
           "(브랜치|branch).{0,15}(최신화|동기화|싱크|sync)",
@@ -333,7 +333,7 @@
       "note": "base 브랜치 최신화 (auto-stash)"
     },
     {
-      "id": "git-branch", "target": "git-branch", "kind": "skill", "needs_crew": false,
+      "id": "git-branch", "target": "bams-plugin:git-branch", "kind": "skill", "needs_crew": false,
       "patterns": {
         "high": [
           "브랜치.{0,10}(만들어|생성해|파 ?줘|삭제해|지워|이름 ?바꿔|목록 ?(보여|알려))",
@@ -345,7 +345,7 @@
       "note": "브랜치 list/create/rename/delete"
     },
     {
-      "id": "git-rollback", "target": "git-rollback", "kind": "skill", "needs_crew": false,
+      "id": "git-rollback", "target": "bams-plugin:git-rollback", "kind": "skill", "needs_crew": false,
       "patterns": {
         "high": [
           "(커밋|commit).{0,15}(되돌려|롤백해|취소해|revert|undo)",
@@ -358,7 +358,7 @@
       "note": "커밋/파일 롤백 (dry-run + --yes)"
     },
     {
-      "id": "git-stash", "target": "git-stash", "kind": "skill", "needs_crew": false,
+      "id": "git-stash", "target": "bams-plugin:git-stash", "kind": "skill", "needs_crew": false,
       "patterns": {
         "high": [
           "(stash|스태시)\\s*(해|하자|좀|pop|push|drop|list)",
@@ -371,7 +371,7 @@
       "note": "작업 임시 저장"
     },
     {
-      "id": "codex", "target": "codex", "kind": "skill", "needs_crew": false,
+      "id": "codex", "target": "bams-plugin:codex", "kind": "skill", "needs_crew": false,
       "patterns": {
         "high": [
           "(codex|코덱스).{0,15}(리뷰|검토|물어|상담|돌려|챌린지|review|ask|challenge|consult)",
@@ -383,7 +383,7 @@
       "note": "Codex 리뷰/챌린지/상담"
     },
     {
-      "id": "careful", "target": "careful", "kind": "skill", "needs_crew": false,
+      "id": "careful", "target": "bams-plugin:careful", "kind": "skill", "needs_crew": false,
       "patterns": {
         "high": ["(careful|safety|안전|조심|신중) ?(mode|모드).{0,10}(켜|on|활성|걸어|enable)|\\b(turn on|enable) (careful|safety) mode"],
         "med": ["(careful|safety|안전|조심|신중) ?(mode|모드)"]
@@ -392,7 +392,7 @@
       "note": "파괴 명령 경고 모드"
     },
     {
-      "id": "guard", "target": "guard", "kind": "skill", "needs_crew": false,
+      "id": "guard", "target": "bams-plugin:guard", "kind": "skill", "needs_crew": false,
       "patterns": {
         "high": ["(guard|가드) ?(mode|모드).{0,10}(켜|on|활성|걸어|enable)|\\b(turn on|enable) guard mode"],
         "med": ["(guard|가드) ?(mode|모드)|full safety|최대 ?안전"]
@@ -401,7 +401,7 @@
       "note": "careful + freeze"
     },
     {
-      "id": "freeze", "target": "freeze", "kind": "skill", "needs_crew": false,
+      "id": "freeze", "target": "bams-plugin:freeze", "kind": "skill", "needs_crew": false,
       "patterns": {
         "high": [
           "(편집|수정|edit).{0,15}(제한|잠금).{0,5}(걸어|해|켜)|(편집|수정|edit).{0,15}(막아|잠가)",
@@ -414,7 +414,7 @@
       "note": "편집 범위 디렉터리 제한"
     },
     {
-      "id": "unfreeze", "target": "unfreeze", "kind": "skill", "needs_crew": false,
+      "id": "unfreeze", "target": "bams-plugin:unfreeze", "kind": "skill", "needs_crew": false,
       "patterns": {
         "high": ["(편집|수정|프리즈|freeze).{0,10}(제한 ?)?(해제|풀어)"],
         "med": ["unfreeze"]
@@ -423,7 +423,7 @@
       "note": "freeze 해제"
     },
     {
-      "id": "document-release", "target": "document-release", "kind": "skill", "needs_crew": false, "doc_ok": true,
+      "id": "document-release", "target": "bams-plugin:document-release", "kind": "skill", "needs_crew": false, "doc_ok": true,
       "patterns": {
         "high": [
           "(문서|docs?|readme|changelog|체인지로그).{0,15}(업데이트|갱신|동기화|최신화)\\s*(해|하자|좀)|(update|sync) (the )?(docs|readme|changelog)(?![a-z])"
@@ -434,7 +434,7 @@
       "note": "출시 후 문서 동기화"
     },
     {
-      "id": "research-note", "target": "research-note", "kind": "skill", "needs_crew": false, "doc_ok": true,
+      "id": "research-note", "target": "bams-plugin:research-note", "kind": "skill", "needs_crew": false, "doc_ok": true,
       "patterns": {
         "high": ["(연구 ?노트|research note).{0,10}(작성|써|기록|남겨|정리해|write)"],
         "med": ["연구 ?노트|research note"]

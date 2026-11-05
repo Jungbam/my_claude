@@ -3,13 +3,82 @@
   "file": "REVIEW.md",
   "min_words": 30,
   "defects": [
-    {"id": "password-logged", "file": "auth\\.ts", "any": ["password.{0,60}(log|print|plain)", "(log|console).{0,60}password", "평문|비밀번호.{0,20}(로그|출력)"]},
-    {"id": "ttl-unit", "file": "session\\.ts", "any": ["(second|초).{0,80}(millisecond|ms|밀리초|1000)", "(millisecond|ms|밀리초).{0,80}(second|초)", "\\* ?1000", "unit|단위"]},
-    {"id": "logout-wrong-key", "file": "auth\\.ts", "any": ["userId.{0,80}(session ?id|sessionId|key|키)", "(session ?id|sessionId).{0,80}userId", "(not|never|doesn.t|fails?).{0,40}(invalidat|destroy|delet|remov)", "세션.{0,20}(삭제|무효).{0,20}(안|않|못)"]},
-    {"id": "cookie-flags", "file": "auth\\.ts", "any": ["httponly", "secure"]}
+    {
+      "id": "password-logged",
+      "file": "auth\\.ts",
+      "any": [
+        "password.{0,60}(log|print|plain)",
+        "(log|console).{0,60}password",
+        "평문|비밀번호.{0,20}(로그|출력)",
+        "비밀번호.{0,40}(console|로그|남기|기록|출력)",
+        "(console|로그).{0,40}(비밀번호|패스워드)",
+        "패스워드.{0,40}(로그|출력|남기)",
+        "credential.{0,30}log",
+        "자격 ?증명.{0,30}로그"
+      ]
+    },
+    {
+      "id": "ttl-unit",
+      "file": "session\\.ts",
+      "any": [
+        "(second|초).{0,80}(millisecond|ms|밀리초|1000)",
+        "(millisecond|ms|밀리초).{0,80}(second|초)",
+        "\\* ?1000",
+        "unit|단위",
+        "\\d+(\\.\\d+)? ?초(가|만|뒤|후|밖에)",
+        "1000 ?(배|x|times)",
+        "천 ?배",
+        "(밀리|milli)초",
+        "ttl.{0,40}(단위|너무 (짧|일찍)|즉시 만료)",
+        "expire[sd]?.{0,40}(early|too (soon|early)|immediately)",
+        "(early|too soon).{0,40}expir"
+      ]
+    },
+    {
+      "id": "logout-wrong-key",
+      "file": "auth\\.ts",
+      "any": [
+        "userId.{0,80}(session ?id|sessionId|key|키)",
+        "(session ?id|sessionId).{0,80}userId",
+        "(not|never|doesn.t|fails?).{0,40}(invalidat|destroy|delet|remov)",
+        "세션.{0,20}(삭제|무효).{0,20}(안|않|못)",
+        "로그아웃.{0,80}(그대로|살아|남아|유지|삭제되지|무효화되지|안 ?(지워|삭제|됩))",
+        "wrong key|잘못된 (키|값)",
+        "세션 ?(ID|id).{0,30}(아닌|대신|가 아니)",
+        "(session|세션).{0,40}(still (alive|valid|exists?)|remains?)"
+      ]
+    },
+    {
+      "id": "cookie-flags",
+      "file": "auth\\.ts",
+      "any": [
+        "httponly",
+        "secure",
+        "http-?only",
+        "secure 플래그|secure flag|secure 속성",
+        "쿠키.{0,30}(플래그|속성|옵션)",
+        "XSS",
+        "samesite"
+      ]
+    }
   ],
   "decoys": [
-    {"id": "expired-delete", "file": "session\\.ts", "any": ["delet.{0,40}expired", "expired.{0,60}delet", "side.?effect", "만료.{0,20}삭제"]},
-    {"id": "randomUUID", "file": "session\\.ts", "any": ["randomUUID"]}
+    {
+      "id": "expired-delete",
+      "file": "session\\.ts",
+      "any": [
+        "delet.{0,40}expired",
+        "expired.{0,60}delet",
+        "side.?effect",
+        "만료.{0,20}삭제"
+      ]
+    },
+    {
+      "id": "randomUUID",
+      "file": "session\\.ts",
+      "any": [
+        "randomUUID"
+      ]
+    }
   ]
 }

@@ -4,6 +4,8 @@
 # 공식 사실(https://code.claude.com/docs/en/hooks#userpromptsubmit): matcher 미지원(모든 프롬프트에서 실행),
 #   예약 작업·/loop·백그라운드 서브에이전트 보고·다른 세션 메시지에도 발화, 슬래시 입력은 원문 그대로,
 #   붙여넣기는 <pasted_content id="…"> … </pasted_content id="…"> 줄 사이로 온다. 기본 timeout 30초(초과 시 출력 폐기).
+# 이름: target·출력은 실제 등록 이름 — 커맨드 /bams-plugin:bams:<cmd>, 스킬 bams-plugin:<skill>(공식: plugin skills are namespaced
+#   as /plugin-name:skill-name). Skill tool 이름은 앞의 / 만 뗀 값. 짧은 /bams:<cmd> 는 실측상 미인식이라 출력하지 않는다.
 # 모드: BAMS_ROUTER=off|suggest|auto (기본 suggest — 실행 없이 추천만. 자동 실행은 BAMS_ROUTER=auto 로만). 표: ${CLAUDE_PLUGIN_ROOT}/references/route-table.json
 #   (BAMS_ROUTE_TABLE=<경로>로 대체 — 테스트용). 외부 프로세스: cat 1 + jq 2. 모든 자기 오류는 fail-open(exit 0).
 # .crew 판정: 입력 cwd에서 상위로 .crew/config.md 탐색(.git이 있는 디렉터리 또는 $HOME에서 정지) → $CLAUDE_PROJECT_DIR.
@@ -68,34 +70,34 @@ printf '%s' "$INPUT" | jq -c --slurpfile T "$TABLE" --arg mode "$MODE" --arg cre
   | .[0:3] as $c
   | if ($c | length) == 0 then empty else
   $c[0] as $b
-  | def disp: if startswith("/") then . else "\($tab.plugin):\(.)" end;
-    def skill: if startswith("/bams:") then "\($tab.plugin):bams:\(.[6:])" else "\($tab.plugin):\(.)" end;
-  (($b.r.chain // [$b.r.target]) | if $b.r.needs_crew and ($crew | not) then ["/bams:init"] + . else . end) as $chain
-  | ($chain[0] == "/bams:init" and $b.r.target != "/bams:init") as $initchain
+  | "/\($tab.plugin // "bams-plugin"):bams:init" as $init
+  | def skill: ltrimstr("/");
+  (($b.r.chain // [$b.r.target]) | if $b.r.needs_crew and ($crew | not) then [$init] + . else . end) as $chain
+  | ($chain[0] == $init and $b.r.target != $init) as $initchain
   | (if $b.h == 0 or $initchain then "med"
      elif any($c[1:][]; .h > 0 and .h >= $b.h) then "med"
      else "high" end) as $conf
   | ($b.ev | reduce .[] as $e ([]; if index([$e]) then . else . + [$e] end) | .[0:3] | map("\"\(.)\"") | join(", ")) as $why
-  | ($b.r.target | disp) as $top
+  | $b.r.target as $top
   | [ "[bams router] 후보: \($top) (\($conf), 근거: \($why))"
-      + (if ($chain | length) > 1 then " | 체인: \($chain | map(disp) | join(" → "))" else "" end)
+      + (if ($chain | length) > 1 then " | 체인: \($chain | join(" → "))" else "" end)
       + " | 모드: \($mode)",
       (if ($c | length) > 1 then
-         "대안: " + ([$c[1:][] | "\(.r.target | disp) (\(if .h > 0 then "high" else "med" end))"] | join(", "))
-         + (if ($crew | not) and any($c[1:][]; .r.needs_crew) then " — .crew/config.md 없음: 파이프라인을 고르면 /bams:init 먼저" else "" end)
+         "대안: " + ([$c[1:][] | "\(.r.target) (\(if .h > 0 then "high" else "med" end))"] | join(", "))
+         + (if ($crew | not) and any($c[1:][]; .r.needs_crew) then " — .crew/config.md 없음: 파이프라인을 고르면 \($init) 먼저" else "" end)
        else empty end),
       (if $crew and $crewdir != $cwd then ".crew 위치: \($crewdir) (cwd \($cwd) 기준 상위/프로젝트 루트 — 하위에 새 .crew를 만들지 말 것)" else empty end),
       (if $mode == "suggest" then
          "행동(suggest): 실행하지 말고 일반 응답 끝에 \"추천: \($top)\" 한 줄만 덧붙인다."
        elif $conf == "high" then
-         "행동(high): 첫 줄에 \"→ \($chain | map(disp) | join(" → ")) 로 진행 (원치 않으면 말씀해 주세요)\" 한 줄 고지 후 Skill tool로 실행: "
+         "행동(high): 첫 줄에 \"→ \($chain | join(" → ")) 로 진행 (원치 않으면 말씀해 주세요)\" 한 줄 고지 후 Skill tool로 실행: "
          + ([$chain | to_entries[] | (.value | skill)
-              + (if .value == "/bams:init" then "(인자 없음)"
-                 elif .key == (if $chain[0] == "/bams:init" then 1 else 0 end) then "(args=사용자 요청 원문)" else "" end)]
+              + (if .value == $init then "(인자 없음)"
+                 elif .key == (if $chain[0] == $init then 1 else 0 end) then "(args=사용자 요청 원문)" else "" end)]
             | join(" → "))
          + (if ($chain | length) > 1 then ". 앞 단계가 끝나면 다음 단계를 이어서 실행." else "." end)
        elif $initchain then
-         "행동(med): .crew/config.md 없음 — 바로 실행하지 말고 AskUserQuestion으로 \"/bams:init 후 \($chain[1:] | map(disp) | join(" → "))\"\(if ($c | length) > 1 then "·위 대안" else "" end)·\"일반 응답\" 중 하나를 고르게 한 뒤 고른 순서대로 Skill 실행(init은 인자 없음)."
+         "행동(med): .crew/config.md 없음 — 바로 실행하지 말고 AskUserQuestion으로 \"\($init) 후 \($chain[1:] | join(" → "))\"\(if ($c | length) > 1 then "·위 대안" else "" end)·\"일반 응답\" 중 하나를 고르게 한 뒤 고른 순서대로 Skill 실행(init은 인자 없음)."
        else
          "행동(med): 바로 실행하지 말고 AskUserQuestion으로 위 후보 2~3개와 \"일반 응답\" 중 하나를 고르게 한 뒤 고른 Skill을 실행."
        end),

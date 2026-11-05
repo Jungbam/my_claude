@@ -219,29 +219,29 @@ ctx_case() {
   if [ "$ok" = 1 ]; then PASS=$((PASS + 1)); echo "  PASS  $label"
   else FAIL=$((FAIL + 1)); echo "  FAIL  $label ($mode '$s'; ctx='$(printf '%s' "$ctx" | head -1)')"; fi
 }
-route_case "버그 1건(한) → hotfix high"        "로그인 페이지에서 500 에러 나는 거 고쳐줘"                "/bams:hotfix high"
-route_case "버그 1건(영) → hotfix high"        "Fix the crash on the checkout page when cart is empty"   "/bams:hotfix high"
-route_case "버그 다건 → dev high"              "결제 화면에서 버그 3개 있는데 한꺼번에 고쳐줘"            "/bams:dev high"
-route_case "신규 기능(한) → feature high"      "알림 설정 기능 새로 만들어줘"                             "/bams:feature high"
-route_case "신규 기능(영) → feature high"      "Implement a new feature for exporting CSV reports"       "/bams:feature high"
-route_case "계획만 → plan high"                "결제 플로우 PRD랑 설계 문서만 작성해줘, 구현 없이"        "/bams:plan high"
-route_case "리뷰(게이트) → review high"        "이 브랜치 코드 리뷰 해줘"                                 "/bams:review high"
-route_case "심층 리뷰 → deep-review high"      "codex 세컨드 오피니언 포함해서 심층 리뷰 해줘"            "/bams:deep-review high"
-route_case "배포 → deploy high"                "프로덕션에 배포해줘 이제"                                 "/bams:deploy high"
-route_case "성능 → performance high"           "메인 페이지 로딩이 너무 느려 성능 개선해줘"               "/bams:performance high"
-route_case "보안 → security high"              "보안 취약점 점검해줘 OWASP 기준으로"                      "/bams:security high"
-route_case "코드 질문(한) → q high"            "useAuth 훅은 어디서 정의되고 어떻게 동작해?"              "/bams:q high"
-route_case "코드 질문(영) → q high"            "How does the session refresh logic work in this codebase?" "/bams:q high"
-route_case "디자인 가이드 → design-import"     "HTML 디자인 가이드를 Next.js로 이식해줘"                  "/bams:design-import high"
-route_case "CI 프리플라이트 → verify high"     "빌드랑 린트 타입체크 돌려서 확인해줘"                     "/bams:verify high"
-route_case "회고 → retro high"                 "이번 파이프라인 회고 진행해줘"                            "/bams:retro high"
-route_case "브라우저 QA → qa high"             "브라우저로 사이트 QA 돌려줘"                              "/bams:qa high"
-route_case "PR 생성(짧은 명령) → ship high"    "PR 만들어줘"                                              "/bams:ship high"
+route_case "버그 1건(한) → hotfix high"        "로그인 페이지에서 500 에러 나는 거 고쳐줘"                "/bams-plugin:bams:hotfix high"
+route_case "버그 1건(영) → hotfix high"        "Fix the crash on the checkout page when cart is empty"   "/bams-plugin:bams:hotfix high"
+route_case "버그 다건 → dev high"              "결제 화면에서 버그 3개 있는데 한꺼번에 고쳐줘"            "/bams-plugin:bams:dev high"
+route_case "신규 기능(한) → feature high"      "알림 설정 기능 새로 만들어줘"                             "/bams-plugin:bams:feature high"
+route_case "신규 기능(영) → feature high"      "Implement a new feature for exporting CSV reports"       "/bams-plugin:bams:feature high"
+route_case "계획만 → plan high"                "결제 플로우 PRD랑 설계 문서만 작성해줘, 구현 없이"        "/bams-plugin:bams:plan high"
+route_case "리뷰(게이트) → review high"        "이 브랜치 코드 리뷰 해줘"                                 "/bams-plugin:bams:review high"
+route_case "심층 리뷰 → deep-review high"      "codex 세컨드 오피니언 포함해서 심층 리뷰 해줘"            "/bams-plugin:bams:deep-review high"
+route_case "배포 → deploy high"                "프로덕션에 배포해줘 이제"                                 "/bams-plugin:bams:deploy high"
+route_case "성능 → performance high"           "메인 페이지 로딩이 너무 느려 성능 개선해줘"               "/bams-plugin:bams:performance high"
+route_case "보안 → security high"              "보안 취약점 점검해줘 OWASP 기준으로"                      "/bams-plugin:bams:security high"
+route_case "코드 질문(한) → q high"            "useAuth 훅은 어디서 정의되고 어떻게 동작해?"              "/bams-plugin:bams:q high"
+route_case "코드 질문(영) → q high"            "How does the session refresh logic work in this codebase?" "/bams-plugin:bams:q high"
+route_case "디자인 가이드 → design-import"     "HTML 디자인 가이드를 Next.js로 이식해줘"                  "/bams-plugin:bams:design-import high"
+route_case "CI 프리플라이트 → verify high"     "빌드랑 린트 타입체크 돌려서 확인해줘"                     "/bams-plugin:bams:verify high"
+route_case "회고 → retro high"                 "이번 파이프라인 회고 진행해줘"                            "/bams-plugin:bams:retro high"
+route_case "브라우저 QA → qa high"             "브라우저로 사이트 QA 돌려줘"                              "/bams-plugin:bams:qa high"
+route_case "PR 생성(짧은 명령) → ship high"    "PR 만들어줘"                                              "/bams-plugin:bams:ship high"
 route_case "스킬: 브랜치 최신화 → git-sync"    "main 브랜치 최신화해줘 rebase로"                          "bams-plugin:git-sync high"
 route_case "스킬: 커밋 되돌리기 → git-rollback" "마지막 커밋 되돌려줘"                                    "bams-plugin:git-rollback high"
 route_case "스킬: 원인 분석 → investigate"     "왜 이 테스트가 계속 실패하는지 원인 분석해줘"             "bams-plugin:investigate high"
 route_case "스킬: 연구노트 → research-note"    "연구노트 작성해줘 오늘 작업 내용으로"                     "bams-plugin:research-note high"
-route_case "모호: 성능 단어만 → med"           "요즘 좀 느려진 것 같은데 최적화 여지 있어?"               "/bams:performance med"
+route_case "모호: 성능 단어만 → med"           "요즘 좀 느려진 것 같은데 최적화 여지 있어?"               "/bams-plugin:bams:performance med"
 route_case "잡담 → 출력 없음"                  "오늘 날씨 어때? 그냥 궁금해서"                            none
 route_case "짧은 응답(응) → 없음"              "응"                                                       none
 route_case "선택 응답(2번으로 진행해) → 없음"  "2번으로 진행해"                                           none
@@ -252,7 +252,7 @@ route_case "task-notification → 없음"         "$(printf '<task-notification>
 route_case "다른 세션 메시지 → 없음"           "$(printf '<cross-session-message from="api-worker">\n결제 버그 3개 고쳐줘\n</cross-session-message>')" none
 route_case "팀원 메시지 → 없음"                "$(printf '<teammate-message teammate_id="x">\n코드 리뷰 해줘 지금\n</teammate-message>')" none
 route_case "붙여넣기 블록만 + 짧은 본문 → 없음" "$(printf '<pasted_content id="p1">\nTypeError: x is undefined — 버그 고쳐줘, 배포해줘\n</pasted_content id="p1">\n이거 봐')" none
-route_case "붙여넣기 내부 단어 무시 → 본문 기준" "$(printf '<pasted_content id="p1">\n코드 리뷰 해줘. PR 만들어줘. 프로덕션에 배포해줘\n</pasted_content id="p1">\n위 로그 보고 로그인 에러 고쳐줘')" "/bams:hotfix high"
+route_case "붙여넣기 내부 단어 무시 → 본문 기준" "$(printf '<pasted_content id="p1">\n코드 리뷰 해줘. PR 만들어줘. 프로덕션에 배포해줘\n</pasted_content id="p1">\n위 로그 보고 로그인 에러 고쳐줘')" "/bams-plugin:bams:hotfix high"
 route_case "BAMS_ROUTER=off → 없음"            "로그인 페이지에서 500 에러 나는 거 고쳐줘"                none BAMS_ROUTER=off
 route_case "route-table 부재 → fail-open"      "로그인 페이지에서 500 에러 나는 거 고쳐줘"                none BAMS_ROUTE_TABLE=/nonexistent.json
 ctx_case "suggest 모드 → 추천만"              "로그인 페이지에서 500 에러 나는 거 고쳐줘" has "행동(suggest)" BAMS_ROUTER=suggest
@@ -260,10 +260,10 @@ ctx_case "기본(미설정) 모드 = suggest"         "로그인 페이지에서
 ctx_case "기본 모드 → Skill 실행 지시 없음"    "로그인 페이지에서 500 에러 나는 거 고쳐줘" lacks "Skill tool로 실행"
 ctx_case "알 수 없는 값 → suggest 로 폴백"     "로그인 페이지에서 500 에러 나는 거 고쳐줘" has "행동(suggest)" BAMS_ROUTER=bogus
 ctx_case "auto 는 명시할 때만 → 실행 지시"     "로그인 페이지에서 500 에러 나는 거 고쳐줘" has "행동(high)" BAMS_ROUTER=auto
-ctx_case ".crew 있음 → init 체인 없음"         "로그인 페이지에서 500 에러 나는 거 고쳐줘" lacks "/bams:init"
-ctx_case ".crew 없음 → init 체인"              "로그인 페이지에서 500 에러 나는 거 고쳐줘" has "체인: /bams:init → /bams:hotfix" CLAUDE_PROJECT_DIR="$TMP/proj-nocrew"
-ctx_case ".crew 없음 + 질문(q) → init 없음"    "useAuth 훅은 어디서 정의되고 어떻게 동작해?" lacks "/bams:init" CLAUDE_PROJECT_DIR="$TMP/proj-nocrew"
-ctx_case ".crew 없음 + 스킬 → init 없음"       "main 브랜치 최신화해줘 rebase로"          lacks "/bams:init" CLAUDE_PROJECT_DIR="$TMP/proj-nocrew"
+ctx_case ".crew 있음 → init 체인 없음"         "로그인 페이지에서 500 에러 나는 거 고쳐줘" lacks "bams:init"
+ctx_case ".crew 없음 → init 체인"              "로그인 페이지에서 500 에러 나는 거 고쳐줘" has "체인: /bams-plugin:bams:init → /bams-plugin:bams:hotfix" CLAUDE_PROJECT_DIR="$TMP/proj-nocrew"
+ctx_case ".crew 없음 + 질문(q) → init 없음"    "useAuth 훅은 어디서 정의되고 어떻게 동작해?" lacks "bams:init" CLAUDE_PROJECT_DIR="$TMP/proj-nocrew"
+ctx_case ".crew 없음 + 스킬 → init 없음"       "main 브랜치 최신화해줘 rebase로"          lacks "bams:init" CLAUDE_PROJECT_DIR="$TMP/proj-nocrew"
 # 리뷰 M1: 명사 단독·문서 산출 의도는 high 금지 (재현 입력 15건) + m1 4건
 for p in "여행 계획 짜줘" "새 기능 출시 공지문 써줘" "the array stride is wrong here" "what does the weekly cron job do" \
          "취약점 관련 기사 요약해줘" "KPT 템플릿 만들어줘" "we need to lock down the scope first" "핫픽스 절차 문서로 정리해줘" \
@@ -272,25 +272,36 @@ for p in "여행 계획 짜줘" "새 기능 출시 공지문 써줘" "the array 
          "테스트 통과하게 고쳐줘" "에러 메시지 문구 수정해줘" "lint 에러 고쳐줘"; do
   route_case "M1/m1 오탐 방지: $p → 없음" "$p" none
 done
-route_case "m1: review this PR and fix bugs → review/dev 경합 med" "review this PR and fix bugs" "/bams:review med"
-route_case "정상: 로그인 버그 고쳐줘 → hotfix high"   "로그인 버그 고쳐줘"         "/bams:hotfix high"
-route_case "정상: 결제 기능 새로 만들어줘 → feature"   "결제 기능 새로 만들어줘"    "/bams:feature high"
-route_case "정상: 이 PR 리뷰해줘 → review high"        "이 PR 리뷰해줘"             "/bams:review high"
-route_case "정상: 이 함수 어디서 호출돼? → q high"     "이 함수 어디서 호출돼?"     "/bams:q high"
+route_case "m1: review this PR and fix bugs → review/dev 경합 med" "review this PR and fix bugs" "/bams-plugin:bams:review med"
+route_case "정상: 로그인 버그 고쳐줘 → hotfix high"   "로그인 버그 고쳐줘"         "/bams-plugin:bams:hotfix high"
+route_case "정상: 결제 기능 새로 만들어줘 → feature"   "결제 기능 새로 만들어줘"    "/bams-plugin:bams:feature high"
+route_case "정상: 이 PR 리뷰해줘 → review high"        "이 PR 리뷰해줘"             "/bams-plugin:bams:review high"
+route_case "정상: 이 함수 어디서 호출돼? → q high"     "이 함수 어디서 호출돼?"     "/bams-plugin:bams:q high"
 route_case "정상: main 최신으로 맞춰줘 → git-sync"     "main 최신으로 맞춰줘"       "bams-plugin:git-sync high"
 route_case "정상: 브랜치 최신화해줘 → git-sync"        "브랜치 최신화해줘"          "bams-plugin:git-sync high"
 route_case "정상: 변경사항 stash 해줘 → git-stash"     "변경사항 stash 해줘"        "bams-plugin:git-stash high"
-route_case "체인에 /bams:init 포함 → 항상 med"         "로그인 버그 고쳐줘"         "/bams:hotfix med" CLAUDE_PROJECT_DIR="$TMP/proj-nocrew"
-ctx_case "init 체인 med → init 후 실행 선택 질문(auto)" "로그인 버그 고쳐줘" has '"/bams:init 후 /bams:hotfix"' CLAUDE_PROJECT_DIR="$TMP/proj-nocrew" BAMS_ROUTER=auto
+route_case "체인에 /bams:init 포함 → 항상 med"         "로그인 버그 고쳐줘"         "/bams-plugin:bams:hotfix med" CLAUDE_PROJECT_DIR="$TMP/proj-nocrew"
+ctx_case "init 체인 med → init 후 실행 선택 질문(auto)" "로그인 버그 고쳐줘" has '"/bams-plugin:bams:init 후 /bams-plugin:bams:hotfix"' CLAUDE_PROJECT_DIR="$TMP/proj-nocrew" BAMS_ROUTER=auto
 # 리뷰 M2: 입력 cwd 기준 상위 탐색(.git·$HOME 정지) → CLAUDE_PROJECT_DIR
 W="$TMP/ws"; mkdir -p "$W/app/.git" "$W/app/.crew" "$W/app/src/pages" "$W/app/vendor/sub/.git" "$W/other/.git"; : > "$W/app/.crew/config.md"
-RCWD="$W/app/src/pages" route_case "M2-A: 하위 디렉터리 시작(.crew는 repo 루트) → init 없이 high" "로그인 버그 고쳐줘" "/bams:hotfix high" CLAUDE_PROJECT_DIR="$TMP/proj-nocrew"
+RCWD="$W/app/src/pages" route_case "M2-A: 하위 디렉터리 시작(.crew는 repo 루트) → init 없이 high" "로그인 버그 고쳐줘" "/bams-plugin:bams:hotfix high" CLAUDE_PROJECT_DIR="$TMP/proj-nocrew"
 RCWD="$W/app/src/pages" ctx_case  "M2-A: .crew 위치 1줄 안내" "로그인 버그 고쳐줘" has ".crew 위치: $W/app " CLAUDE_PROJECT_DIR="$TMP/proj-nocrew"
-RCWD="$W/app/vendor/sub" ctx_case "M2-B: 중첩 .git 경계에서 정지 → init 체인" "로그인 버그 고쳐줘" has "체인: /bams:init → /bams:hotfix" CLAUDE_PROJECT_DIR="$TMP/proj-nocrew"
-RCWD="$W/other" route_case "M2-C: cwd에 .crew 없음 → CLAUDE_PROJECT_DIR(.crew 있음) 폴백" "로그인 버그 고쳐줘" "/bams:hotfix high"
+RCWD="$W/app/vendor/sub" ctx_case "M2-B: 중첩 .git 경계에서 정지 → init 체인" "로그인 버그 고쳐줘" has "체인: /bams-plugin:bams:init → /bams-plugin:bams:hotfix" CLAUDE_PROJECT_DIR="$TMP/proj-nocrew"
+RCWD="$W/other" route_case "M2-C: cwd에 .crew 없음 → CLAUDE_PROJECT_DIR(.crew 있음) 폴백" "로그인 버그 고쳐줘" "/bams-plugin:bams:hotfix high"
 RCWD="$W/app" ctx_case "M2: cwd가 곧 .crew 루트 → 위치 줄 없음" "로그인 버그 고쳐줘" lacks ".crew 위치" CLAUDE_PROJECT_DIR="$TMP/proj-nocrew"
-ctx_case "계획+구현 → plan→dev 체인"           "결제 플로우 계획 세우고 구현까지 해줘"    has "체인: /bams:plan → /bams:dev"
+ctx_case "계획+구현 → plan→dev 체인"           "결제 플로우 계획 세우고 구현까지 해줘"    has "체인: /bams-plugin:bams:plan → /bams-plugin:bams:dev"
 ctx_case "high → Skill 이름 안내(auto)"        "로그인 페이지에서 500 에러 나는 거 고쳐줘" has 'bams-plugin:bams:hotfix(args=' BAMS_ROUTER=auto
+# 실제 등록 이름: 공식 "plugin skills are namespaced as /plugin-name:skill-name" — 짧은 /bams:<cmd> 는 출력 금지
+ctx_case "suggest 추천 = 전체 이름"            "로그인 페이지에서 500 에러 나는 거 고쳐줘" has '추천: /bams-plugin:bams:hotfix"'
+ctx_case "auto 고지 = 전체 이름"               "로그인 페이지에서 500 에러 나는 거 고쳐줘" has '"→ /bams-plugin:bams:hotfix 로 진행' BAMS_ROUTER=auto
+ctx_case "auto 스킬 실행 = bams-plugin:<skill>" "main 브랜치 최신화해줘 rebase로"         has 'Skill tool로 실행: bams-plugin:git-sync(args=' BAMS_ROUTER=auto
+ctx_case "auto 체인 Skill 이름 = / 없는 전체 이름" "결제 플로우 계획 세우고 구현까지 해줘" has '실행: bams-plugin:bams:plan(args=사용자 요청 원문) → bams-plugin:bams:dev.' BAMS_ROUTER=auto
+ctx_case "init 체인 Skill 이름(auto, med)"     "로그인 버그 고쳐줘" has '"/bams-plugin:bams:init 후 /bams-plugin:bams:hotfix"' CLAUDE_PROJECT_DIR="$TMP/proj-nocrew" BAMS_ROUTER=auto
+for m in suggest auto; do for pd in "$TMP/proj-crew" "$TMP/proj-nocrew"; do
+  for p in "로그인 페이지에서 500 에러 나는 거 고쳐줘" "결제 플로우 계획 세우고 구현까지 해줘" "review this PR and fix bugs" "마지막 커밋 되돌려줘"; do
+    ctx_case "짧은 /bams: 이름 미출력($m, ${pd##*/}): $p" "$p" lacks "/bams:" BAMS_ROUTER=$m CLAUDE_PROJECT_DIR="$pd"
+  done
+done; done
 for bad in "$FX/broken.json" /dev/null; do
   out=$(CLAUDE_PLUGIN_ROOT="$PROOT" bash "$HOOKS/prompt-router.sh" < "$bad" 2>/dev/null); code=$?
   if [ "$code" = 0 ] && [ -z "$out" ]; then PASS=$((PASS + 1)); echo "  PASS  ${bad##*/} 입력 → fail-open"
@@ -317,11 +328,27 @@ kout=$(BAMS_KEEP_LIST="$TMP/kl-bad.txt" BAMS_CREW_DIR="$TMP/no-crew" bash "$HERE
 if [ "$kcode" = 1 ] && printf '%s' "$kout" | grep -q "keep-list: 'agents/platform-devops.md' 에 '이 문구는 없다 ZZZ' 0건"; then
   PASS=$((PASS + 1)); echo "  PASS  keep-list 패턴 0건 → FAIL"
 else FAIL=$((FAIL + 1)); echo "  FAIL  keep-list 0건 미검출 (exit=$kcode)"; fi
-jq '.routes[0].target = "/bams:nope" | .routes[1].patterns.high += ["(unclosed"]' "$PROOT/references/route-table.json" > "$TMP/rt-bad.json"
+jq '.routes[0].target = "/bams-plugin:bams:nope" | .routes[1].patterns.high += ["(unclosed"]' "$PROOT/references/route-table.json" > "$TMP/rt-bad.json"
 rout=$(BAMS_ROUTE_TABLE="$TMP/rt-bad.json" BAMS_CREW_DIR="$TMP/no-crew" bash "$HERE/../../scripts/validate-harness.sh" --quiet 2>&1); rcode=$?
-if [ "$rcode" = 1 ] && printf '%s' "$rout" | grep -q "target '/bams:nope'" && printf '%s' "$rout" | grep -q '정규식 컴파일 실패: (unclosed'; then
+if [ "$rcode" = 1 ] && printf '%s' "$rout" | grep -q "target '/bams-plugin:bams:nope': commands/bams/nope.md 없음" && printf '%s' "$rout" | grep -q '정규식 컴파일 실패: (unclosed'; then
   PASS=$((PASS + 1)); echo "  PASS  route-table 없는 target·깨진 정규식 → FAIL"
 else FAIL=$((FAIL + 1)); echo "  FAIL  route-table 위반 미검출 (exit=$rcode): $(printf '%s' "$rout" | grep FAIL | head -3)"; fi
+# 실제 등록 이름 규칙: 짧은 /bams:<cmd>·접두사 없는 스킬·다른 플러그인 접두사·스킬에 :bams: 없는 커맨드 → FAIL
+jq '.routes[0].target = "/bams:hotfix" | .routes[1].chain = ["/bams-plugin:bams:plan", "/bams:dev"] | (.routes[] | select(.id == "git-sync") | .target) = "git-sync"
+    | (.routes[] | select(.id == "codex") | .target) = "other-plugin:codex" | (.routes[] | select(.id == "verify") | .target) = "/bams-plugin:verify"' \
+  "$PROOT/references/route-table.json" > "$TMP/rt-short.json"
+rout=$(BAMS_ROUTE_TABLE="$TMP/rt-short.json" BAMS_CREW_DIR="$TMP/no-crew" bash "$HERE/../../scripts/validate-harness.sh" --quiet 2>&1); rcode=$?
+rn=0; for t in "/bams:hotfix" "/bams:dev" "git-sync" "other-plugin:codex" "/bams-plugin:verify"; do
+  printf '%s' "$rout" | grep -qF "FAIL  route-table target '$t': 실제 등록 이름 아님" && rn=$((rn + 1))
+done
+if [ "$rcode" = 1 ] && [ "$rn" = 5 ]; then PASS=$((PASS + 1)); echo "  PASS  route-table 짧은/잘못된 이름 5종(target·chain) → FAIL"
+else FAIL=$((FAIL + 1)); echo "  FAIL  route-table 이름 규칙 미검출 ${rn}/5 (exit=$rcode): $(printf '%s' "$rout" | grep FAIL | head -3)"; fi
+jq '.name = "renamed-plugin"' "$PJ" > "$TMP/pj-renamed.json"
+rout=$(BAMS_HARNESS_PJ="$TMP/pj-renamed.json" BAMS_CREW_DIR="$TMP/no-crew" bash "$HERE/../../scripts/validate-harness.sh" --quiet 2>&1)
+if printf '%s' "$rout" | grep -qF "route-table plugin 'bams-plugin' ≠ plugin.json name 'renamed-plugin'" \
+   && printf '%s' "$rout" | grep -qF "FAIL  route-table target '/bams-plugin:bams:hotfix': 실제 등록 이름 아님"; then
+  PASS=$((PASS + 1)); echo "  PASS  플러그인 이름은 plugin.json name 기준(이름 변경 시 target FAIL)"
+else FAIL=$((FAIL + 1)); echo "  FAIL  plugin.json name 기준 검사 아님: $(printf '%s' "$rout" | grep 'route-table' | head -2)"; fi
 
 echo "== sync-cache.sh --prune-stale (리뷰 M3, 가짜 HOME) =="
 FH="$TMP/fakehome"; CB="$FH/.claude/plugins/cache/my-claude/bams-plugin"; SV=$(jq -r .version "$PJ")
@@ -409,6 +436,17 @@ mcheck "history.md Write(originalFile 대비) → 1줄 형식 새 행 파싱(실
 mrun post-skill-hotfix.json; mrun post-skill-nested.json; mrun post-skill-engine.json
 mcheck "Skill tool bams:hotfix → pipeline_start(skill_tool), 열린 파이프라인 안 Skill·엔진 스킬은 무시" \
   "$(ev_of pipeline_start) | map(select(.session_id == \"m-sess-3\")) | length == 1 and .[0].command == \"hotfix\" and .[0].source == \"skill_tool\""
+# 실제 등록 이름(/bams-plugin:bams:<cmd>, Skill bams-plugin:bams:<cmd>)과 짧은 이름(bams:<cmd>) 모두 pipeline_start, 일반 스킬은 무시
+mrun ups-slash-full-dev.json
+mcheck "UserPromptSubmit '/bams-plugin:bams:dev …'(전체 이름) → pipeline_start(dev, prompt_submit)" \
+  "$(ev_of pipeline_start) | map(select(.session_id == \"m-sess-4\")) | length == 1 and .[0].command == \"dev\" and .[0].source == \"prompt_submit\" and .[0].args == \"결제 버그 묶음\""
+mrun post-skill-short-qa.json; mrun upe-short-verify.json
+mcheck "짧은 이름 Skill 'bams:qa'·Expansion 'bams:verify' → pipeline_start" \
+  "($(ev_of pipeline_start) | map(select(.session_id == \"m-sess-5\")) | length == 1 and .[0].command == \"qa\" and .[0].source == \"skill_tool\")
+   and ($(ev_of pipeline_start) | map(select(.session_id == \"m-sess-6\")) | length == 1 and .[0].command == \"verify\" and .[0].source == \"expansion\")"
+mrun post-skill-plain.json; mrun ups-slash-plain-skill.json
+mcheck "일반 스킬 bams-plugin:git-sync(Skill·슬래시) → pipeline_start 없음" \
+  "$(ev_of pipeline_start) | map(select(.session_id == \"m-sess-7\")) | length == 0"
 mcheck "모든 줄 공통 필드 + 자리표시자 잔존 0" \
   'all(.[]; .v == 1 and (.ts | test("Z$")) and (.ev | type) == "string" and (.project | type) == "string") and ([.[] | tostring | select(test("__(PROJ|PCMD|PTS|DUR)__"))] | length == 0)'
 n0=$(wc -l < "$MD/events.jsonl")

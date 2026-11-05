@@ -6,7 +6,7 @@
 #       plugin.json hook 스크립트 부재·비실행·상대경로, plugin.json agents ↔ agents/*.md 불일치,
 #       SubagentStart/Stop matcher가 플러그인 에이전트를 '^<plugin>:(...)$' 없이 지목하거나 없는 이름 나열,
 #       verify-before-stop.sh TARGET_AGENTS ≠ SubagentStop matcher 이름 집합,
-#       [6] keep-list.txt 패턴이 대상 파일에 0건, [7] route-table.json 형식·정규식·target 실재 위반.
+#       [6] keep-list.txt 패턴이 대상 파일에 0건, [7] route-table.json 형식·정규식·target 실재 위반, target이 실제 등록 이름(/<plugin>:bams:<cmd>·<plugin>:<skill>) 아님.
 # INFO: route-table에 없는 /bams: 커맨드(--quiet에서 생략).
 # WARN: 에이전트 본문 10,000자 초과(plugin-dev 가이드), SKILL.md 500줄 초과(skill-creator 가이드),
 #       references/*.md 300줄 초과인데 목차 없음, .crew/memory/*/improvements/ 잔존·MEMORY.md 구형식 헤더.
@@ -252,18 +252,30 @@ else
     (((.skip.patterns // []) + (.global_negative // []))[] as $p | try (("" | test($p; "i")) | empty) catch bad("skip/global_negative: 정규식 컴파일 실패: \($p)"))
   ' "$RT" 2>/dev/null > "$T/rt"
   flush "$T/rt"
+  # target·chain = 실제 등록 이름(공식: plugin skills are namespaced as /plugin-name:skill-name).
+  #   커맨드 /<plugin.json name>:bams:<commands/bams/*.md>, 스킬 <plugin.json name>:<skills 디렉터리>. 짧은 /bams:<cmd> 는 FAIL.
+  PN=$(jq -r '.name // ""' "$PJ" 2>/dev/null)
+  if [ -z "$PN" ]; then fail "route-table target 검사 불가: plugin.json name 없음"; else
+  rtp=$(jq -r '.plugin // ""' "$RT" 2>/dev/null)
+  [ "$rtp" = "$PN" ] || fail "route-table plugin '$rtp' ≠ plugin.json name '$PN'"
   jq -r '.routes[] | (.target, (.chain // [])[])' "$RT" 2>/dev/null | sort -u > "$T/rt_targets"
   while IFS= read -r t; do
     case "$t" in
-      /bams:*) [ -f "$PLUGIN_DIR/commands/bams/${t#/bams:}.md" ] || fail "route-table target '$t': commands/bams/${t#/bams:}.md 없음" ;;
-      *)       [ -f "$PLUGIN_DIR/skills/$t/SKILL.md" ] || fail "route-table target '$t': skills/$t/SKILL.md 없음" ;;
+      "/$PN:bams:"*) c=${t#"/$PN:bams:"}
+        case "$c" in ""|*[!a-z0-9-]*) fail "route-table target '$t': 커맨드 이름 형식 오류" ;;
+          *) [ -f "$PLUGIN_DIR/commands/bams/$c.md" ] || fail "route-table target '$t': commands/bams/$c.md 없음" ;; esac ;;
+      "$PN:"*) s=${t#"$PN:"}
+        case "$s" in ""|*[!a-z0-9-]*) fail "route-table target '$t': 스킬 이름 형식 오류" ;;
+          *) [ -f "$PLUGIN_DIR/skills/$s/SKILL.md" ] || fail "route-table target '$t': skills/$s/SKILL.md 없음" ;; esac ;;
+      *) fail "route-table target '$t': 실제 등록 이름 아님(커맨드 /$PN:bams:<cmd>, 스킬 $PN:<skill>)" ;;
     esac
   done < "$T/rt_targets"
+  fi
   missing=""
   for f in "$PLUGIN_DIR"/commands/bams/*.md; do
     b=$(basename "$f" .md)
     case "$b" in _*|README) continue ;; esac
-    grep -qx "/bams:$b" "$T/rt_targets" || missing="$missing$b "
+    grep -qx "/${PN:-bams-plugin}:bams:$b" "$T/rt_targets" 2>/dev/null || missing="$missing$b "
   done
   [ -z "$missing" ] || info "  INFO  route-table 미포함 /bams: 커맨드(허브·유틸 등 의도적 제외 가능): ${missing% }"
 fi

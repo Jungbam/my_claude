@@ -3,24 +3,235 @@
   "file": "PLAN.md",
   "min_words": 200,
   "rubric": [
-    {"id": "problem-goal", "weight": 2, "any": ["(problem|goal|objective|background|목표|문제|배경)"]},
-    {"id": "success-metric", "weight": 2, "any": ["(success metric|metric|KPI|지표)", "(reduce|decrease|감소|줄).{0,60}(ticket|complaint|티켓|불만|문의)"]},
-    {"id": "non-goals", "weight": 2, "any": ["non-?goals?", "out of scope", "not in scope", "비목표", "범위 밖|범위에서 제외|제외 범위"]},
-    {"id": "requirements-per-category-channel", "weight": 3, "any": ["per[- ]?(category|channel)", "(category|카테고리).{0,80}(channel|채널)", "(channel|채널).{0,80}(category|카테고리)"]},
-    {"id": "acceptance-criteria", "weight": 3, "any": ["acceptance criteria", "given .{0,80}when .{0,80}then", "수용 기준|인수 기준|완료 조건"]},
-    {"id": "unsubscribe-legal", "weight": 3, "any": ["unsubscribe", "구독 ?취소|수신 ?거부", "CAN-?SPAM|GDPR"]},
-    {"id": "mandatory-reminder-carveout", "weight": 2, "any": ["(reminder|security|transactional|보안|필수).{0,100}(cannot|can.t|must not|always|mandatory|required|비활성화.{0,10}(불가|못)|항상|필수)", "(cannot|can.t|always|mandatory|항상|필수).{0,100}(reminder|security|transactional|보안)"]},
-    {"id": "quiet-hours-timezone", "weight": 2, "any": ["time ?zone|timezone|시간대|IANA", "quiet hours|방해 ?금지|조용한 ?시간"]},
-    {"id": "data-model-migration", "weight": 3, "any": ["migration", "마이그레이션", "schema|스키마", "(table|테이블|column|컬럼).{0,60}(preference|설정)"]},
-    {"id": "existing-code-reference", "weight": 2, "any": ["notify\\.ts", "src/notify", "flags\\.ts", "mailer\\.ts"]},
-    {"id": "feature-flag-rollout", "weight": 2, "any": ["feature[- ]?flag", "flags\\.ts", "rollout|roll out|단계적|점진", "canary|dark launch"]},
-    {"id": "default-backward-compat", "weight": 2, "any": ["default.{0,80}(on|enabled|opt|existing users|all)", "backward|기존 사용자|기본값"]},
-    {"id": "testing", "weight": 2, "any": ["unit test", "integration test", "e2e|end-to-end", "테스트"]},
-    {"id": "risks", "weight": 2, "any": ["risks?\\b", "리스크|위험"]},
-    {"id": "dependencies-order", "weight": 2, "any": ["depends on", "dependency|dependencies", "blocked by", "before .{0,40}can", "의존|선행|순서"]},
-    {"id": "estimate-timeline", "weight": 2, "any": ["estimate", "\\b\\d+(\\.\\d+)? ?(d|days?|h|hours?|pt|points?|sp)\\b", "\\bday ?\\d+", "week ?[12]", "일정|견적|[0-9]+일|[0-9]+주"]},
-    {"id": "later-channels-sms", "weight": 1, "any": ["SMS", "push"]},
-    {"id": "open-questions", "weight": 1, "any": ["open questions?", "assumptions?", "미정|가정|열린 질문|확인 필요"]},
-    {"id": "task-count", "weight": 4, "count_regex": "^\\s*(?:[-*]\\s*\\[[ xX]?\\]|[-*]|\\d+[.)]|\\|\\s*T?\\d+)\\s*\\S", "min": 14}
+    {
+      "id": "problem-goal",
+      "weight": 2,
+      "any": [
+        "(problem|goal|objective|background|목표|문제|배경)"
+      ]
+    },
+    {
+      "id": "success-metric",
+      "weight": 2,
+      "any": [
+        "(success metric|metric|KPI|지표)",
+        "(reduce|decrease|감소|줄).{0,60}(ticket|complaint|티켓|불만|문의)",
+        "성공 ?(지표|기준)",
+        "(지표|KPI)",
+        "불만.{0,30}(감소|줄)",
+        "티켓.{0,30}(감소|줄)",
+        "unsubscribe rate|구독 ?취소율|수신 ?거부율"
+      ]
+    },
+    {
+      "id": "non-goals",
+      "weight": 2,
+      "any": [
+        "non-?goals?",
+        "out of scope",
+        "not in scope",
+        "비목표",
+        "범위 밖|범위에서 제외|제외 범위",
+        "범위 ?(외|밖)",
+        "하지 않(는|을)",
+        "제외",
+        "이번.{0,10}(제외|아님)",
+        "not (included|doing)|won.t (do|build)|deferred"
+      ]
+    },
+    {
+      "id": "requirements-per-category-channel",
+      "weight": 3,
+      "any": [
+        "per[- ]?(category|channel)",
+        "(category|카테고리).{0,80}(channel|채널)",
+        "(channel|채널).{0,80}(category|카테고리)",
+        "카테고리.{0,80}(채널|이메일|푸시)",
+        "(채널|이메일|푸시).{0,80}카테고리",
+        "reminder.{0,60}(digest|marketing)",
+        "(digest|marketing).{0,60}reminder"
+      ]
+    },
+    {
+      "id": "acceptance-criteria",
+      "weight": 3,
+      "any": [
+        "acceptance criteria",
+        "given .{0,80}when .{0,80}then",
+        "수용 기준|인수 기준|완료 조건",
+        "AC ?\\d|AC-\\d",
+        "수용 ?(조건|기준)|인수 ?(조건|기준)|완료 ?(기준|조건)|검증 ?기준",
+        "should (be able to|allow|not)"
+      ]
+    },
+    {
+      "id": "unsubscribe-legal",
+      "weight": 3,
+      "any": [
+        "unsubscribe",
+        "구독 ?취소|수신 ?거부",
+        "CAN-?SPAM|GDPR",
+        "수신 ?(거부|동의)",
+        "구독 ?(해지|취소|중지)",
+        "법(적|규)",
+        "opt-?out|opt-?in",
+        "원클릭|one-?click",
+        "List-Unsubscribe"
+      ]
+    },
+    {
+      "id": "mandatory-reminder-carveout",
+      "weight": 2,
+      "any": [
+        "(reminder|security|transactional|보안|필수).{0,100}(cannot|can.t|must not|always|mandatory|required|비활성화.{0,10}(불가|못)|항상|필수)",
+        "(cannot|can.t|always|mandatory|항상|필수).{0,100}(reminder|security|transactional|보안)"
+      ]
+    },
+    {
+      "id": "quiet-hours-timezone",
+      "weight": 2,
+      "any": [
+        "time ?zone|timezone|시간대|IANA",
+        "quiet hours|방해 ?금지|조용한 ?시간",
+        "방해 ?금지",
+        "조용한 ?시간",
+        "야간",
+        "DND|do not disturb",
+        "타임존|시간대|tz",
+        "DST|서머타임"
+      ]
+    },
+    {
+      "id": "data-model-migration",
+      "weight": 3,
+      "any": [
+        "migration",
+        "마이그레이션",
+        "schema|스키마",
+        "(table|테이블|column|컬럼).{0,60}(preference|설정)",
+        "DB ?(스키마|변경)",
+        "테이블",
+        "컬럼",
+        "preferences? ?(table|테이블)",
+        "ALTER TABLE|CREATE TABLE",
+        "백필|backfill"
+      ]
+    },
+    {
+      "id": "existing-code-reference",
+      "weight": 2,
+      "any": [
+        "notify\\.ts",
+        "src/notify",
+        "flags\\.ts",
+        "mailer\\.ts"
+      ]
+    },
+    {
+      "id": "feature-flag-rollout",
+      "weight": 2,
+      "any": [
+        "feature[- ]?flag",
+        "flags\\.ts",
+        "rollout|roll out|단계적|점진",
+        "canary|dark launch",
+        "플래그",
+        "롤아웃",
+        "단계적 ?(배포|출시)",
+        "점진적",
+        "카나리|스테이징 ?먼저|내부 ?(직원|사용자) ?먼저"
+      ]
+    },
+    {
+      "id": "default-backward-compat",
+      "weight": 2,
+      "any": [
+        "default.{0,80}(on|enabled|opt|existing users|all)",
+        "backward|기존 사용자|기본값"
+      ]
+    },
+    {
+      "id": "testing",
+      "weight": 2,
+      "any": [
+        "unit test",
+        "integration test",
+        "e2e|end-to-end",
+        "테스트",
+        "테스트",
+        "QA",
+        "검증"
+      ]
+    },
+    {
+      "id": "risks",
+      "weight": 2,
+      "any": [
+        "risks?\\b",
+        "리스크|위험",
+        "리스크",
+        "위험(요소)?",
+        "우려",
+        "완화|mitigation"
+      ]
+    },
+    {
+      "id": "dependencies-order",
+      "weight": 2,
+      "any": [
+        "depends on",
+        "dependency|dependencies",
+        "blocked by",
+        "before .{0,40}can",
+        "의존|선행|순서",
+        "선행",
+        "후행",
+        "의존(성|관계)?",
+        "순서",
+        "blocked|blocker|블로커",
+        "→|->|=>",
+        "after (task|T?\\d)",
+        "T\\d+\\s*(→|->|depends)"
+      ]
+    },
+    {
+      "id": "estimate-timeline",
+      "weight": 2,
+      "any": [
+        "estimate",
+        "\\b\\d+(\\.\\d+)? ?(d|days?|h|hours?|pt|points?|sp)\\b",
+        "\\bday ?\\d+",
+        "week ?[12]",
+        "일정|견적|[0-9]+일|[0-9]+주",
+        "공수",
+        "M[DM]\\b|man-?days?|인일|인-일",
+        "\\d+(\\.\\d+)? ?(일|주|시간|d\\b|w\\b)",
+        "스프린트|sprint",
+        "day \\d|week \\d|\\d+주차"
+      ]
+    },
+    {
+      "id": "later-channels-sms",
+      "weight": 1,
+      "any": [
+        "SMS",
+        "push"
+      ]
+    },
+    {
+      "id": "open-questions",
+      "weight": 1,
+      "any": [
+        "open questions?",
+        "assumptions?",
+        "미정|가정|열린 질문|확인 필요"
+      ]
+    },
+    {
+      "id": "task-count",
+      "weight": 4,
+      "count_regex": "^\\s*(?:[-*]\\s*\\[[ xX]?\\]|[-*]|\\d+[.)]|\\|\\s*T?\\d+)\\s*\\S",
+      "min": 14
+    }
   ]
 }

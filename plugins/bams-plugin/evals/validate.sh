@@ -4,7 +4,7 @@
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"; fail=0
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/eval-validate-XXXXXX")"; trap 'rm -rf "$TMP"' EXIT
-printf '%-26s %-18s %8s %8s %8s %8s %8s  %s\n' task type original solution +test editAssert delTest structure
+printf '%-26s %-18s %8s %8s %8s %8s %8s %6s %6s %6s  %s\n' task type original solution +test editAssert delTest msgOnly newMd junk structure
 for tdir in "$HERE"/tasks/*/; do
   t="$(basename "$tdir")"; type=$(jq -r .type "$tdir/task.json")
   # 구조
@@ -35,13 +35,26 @@ for tdir in "$HERE"/tasks/*/; do
     cp "$tdir/repo/$tf" "$TMP/w/$tf"; sed -i '' -e '/^test(/,/^});/d' "$TMP/w/$tf"
     del=$("$tdir/grade.sh" "$TMP/w" | jq -r .score)
   fi
+  # 리뷰/계획: 입력 경로 다양성 - (a) 최종 메시지만, (b) 엉뚱한 위치의 새 .md, (c) 무관한 장문 텍스트(<=0.3)
+  fm="n/a"; nm="n/a"; junk="n/a"
+  if [ "${type%%-*}" = review ] || [ "$type" = plan ]; then
+    sf=$(ls "$tdir"/solution/*.md | head -1)
+    rm -rf "$TMP/e" "$TMP/n"; mkdir -p "$TMP/e" "$TMP/n/docs"
+    fm=$(EVAL_FINAL_MESSAGE_FILE="$sf" "$tdir/grade.sh" "$TMP/e" | jq -r .score)
+    cp "$sf" "$TMP/n/docs/my-notes.md"; nm=$("$tdir/grade.sh" "$TMP/n" | jq -r .score)
+    yes 'We will build the feature and the goal is good, first design then implement then test and ship it.' | head -30 > "$TMP/junk.txt"
+    junk=$(EVAL_FINAL_MESSAGE_FILE="$TMP/junk.txt" "$tdir/grade.sh" "$TMP/e" | jq -r .score)
+  fi
   ok=1
+  if [ "$fm" != n/a ]; then
+    awk -v a="$fm" -v b="$nm" -v j="$junk" 'BEGIN{exit !(a>=0.9999 && b>=0.9999 && j<=0.3)}' || ok=0
+  fi
   awk -v s="$sol" 'BEGIN{exit !(s>=0.9999)}' || ok=0
   awk -v o="$orig" 'BEGIN{exit !(o<=0.5)}' || ok=0
   { [ "$tam" = "n/a" ] || { [ "$tam" = "0.0000" ] && [ "$del" = "0.0000" ] && [ "$add" = "1.0000" ]; }; } || ok=0
   [ "$st" = ok ] || ok=0
   [ "$ok" = 1 ] || fail=1
-  printf '%-26s %-18s %8s %8s %8s %8s %8s  %s %s\n' "$t" "$type" "$orig" "$sol" "$add" "$tam" "$del" "$st" "$([ $ok = 1 ] && echo PASS || echo FAIL)"
+  printf '%-26s %-18s %8s %8s %8s %8s %8s %6s %6s %6s  %s %s\n' "$t" "$type" "$orig" "$sol" "$add" "$tam" "$del" "$fm" "$nm" "$junk" "$st" "$([ $ok = 1 ] && echo PASS || echo FAIL)"
 done
 for c in bams single; do
   if "$HERE/run.sh" --config $c --task all --dry-run >"$TMP/dry-$c.txt" 2>&1; then
@@ -53,5 +66,7 @@ grep -q -- "--plugin-dir" "$TMP/dry-bams.txt" && ! grep -q -- "--plugin-dir" "$T
 # config.md 중립성: 과제 제약 문구가 .crew/config.md 에 들어가지 않았는지
 cfg=$(sed -n '/^write_crew_config()/,/^}/p' "$HERE/run.sh")
 if printf '%s' "$cfg" | grep -qE '수정하지|금지|의존성'; then echo "config.md neutrality: FAIL"; fail=1; else echo "config.md neutrality: OK"; fi
-grep -q '/bams:' "$TMP/dry-bams.txt" && ! grep -q "'/bams:" "$TMP/dry-single.txt" && echo "prompt diff: OK" || { echo "prompt diff: FAIL"; fail=1; }
+# bams 프롬프트는 전부 '/bams-plugin:bams:<cmd> ' 로 시작(--plugin-dir 로드 시 실측 등록명), single 은 슬래시 커맨드 없음
+nb=$(grep -c "^(cd .* claude '-p' '/bams-plugin:bams:" "$TMP/dry-bams.txt"); nall=$(grep -c '^---' "$TMP/dry-bams.txt")
+if [ "$nb" = "$nall" ] && ! grep -q "'/bams" "$TMP/dry-single.txt" && ! grep -q "claude '-p' '/bams:" "$TMP/dry-bams.txt"; then echo "prompt diff: OK ($nb/$nall bams prompts start with /bams-plugin:bams:)"; else echo "prompt diff: FAIL ($nb/$nall)"; fail=1; fi
 [ "$fail" = 0 ] && echo "ALL OK" || { echo "VALIDATION FAILED"; exit 1; }

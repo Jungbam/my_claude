@@ -1,0 +1,1 @@
+{"session_id":"m-sess-5","prompt_id":"t-1","transcript_path":"__D__/main5.jsonl","cwd":"__D__/proj","hook_event_name":"PostToolUse","tool_name":"Skill","tool_input":{"skill":"bams:qa","args":"브라우저 QA"},"tool_response":{"success":true}}
