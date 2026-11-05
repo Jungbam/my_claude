@@ -1,0 +1,26 @@
+{
+  "session_id": "REDACTED",
+  "transcript_path": "REDACTED",
+  "cwd": "/REDACTED/repo",
+  "prompt_id": "dc35dfcc-dc8b-44ef-b5d9-18feb0cab63c",
+  "permission_mode": "acceptEdits",
+  "agent_id": "a581bcb31fdd8cb4c",
+  "agent_type": "bams-plugin:frontend-engineering",
+  "effort": {
+    "level": "high"
+  },
+  "hook_event_name": "SubagentStop",
+  "stop_hook_active": false,
+  "agent_transcript_path": "REDACTED",
+  "last_assistant_message": "`/tmp/bams-smoke/probe.ts` 파일을 `export const y = 2;` 내용으로 만들었습니다. 요청하신 대로 다른 작업이나 검증은 하지 않았습니다.\n\n```yaml\nstatus: DONE\nchanged_files: [/tmp/bams-smoke/probe.ts]\nverification: \"실행 안 함 — 지시에 따라 검증 생략 (tsc/lint 미실행)\"\nconcerns: []\nreport: 작성 안 함 (지시에 따라 바로 종료)\n```",
+  "background_tasks": [
+    {
+      "id": "a581bcb31fdd8cb4c",
+      "type": "subagent",
+      "status": "running",
+      "description": "Write probe file",
+      "agent_type": "bams-plugin:frontend-engineering"
+    }
+  ],
+  "session_crons": []
+}

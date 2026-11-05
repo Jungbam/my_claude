@@ -1,0 +1,17 @@
+{
+  "session_id": "REDACTED",
+  "transcript_path": "REDACTED",
+  "cwd": "/REDACTED/repo",
+  "prompt_id": "dc35dfcc-dc8b-44ef-b5d9-18feb0cab63c",
+  "permission_mode": "acceptEdits",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Write",
+  "tool_input": {
+    "file_path": "/HOME/.cache/bams-smoke-repo/bams-smoke-probe.ts",
+    "content": "export const x = 1;\n"
+  },
+  "tool_use_id": "toolu_01WpwGABvjP148boMSfnGXd4"
+}

@@ -1,0 +1,19 @@
+{
+  "session_id": "REDACTED",
+  "transcript_path": "REDACTED",
+  "cwd": "/REDACTED/repo",
+  "prompt_id": "dc35dfcc-dc8b-44ef-b5d9-18feb0cab63c",
+  "permission_mode": "acceptEdits",
+  "agent_id": "a581bcb31fdd8cb4c",
+  "agent_type": "bams-plugin:frontend-engineering",
+  "effort": {
+    "level": "high"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Write",
+  "tool_input": {
+    "file_path": "/tmp/bams-smoke/probe.ts",
+    "content": "export const y = 2;\n"
+  },
+  "tool_use_id": "toolu_01UmPh6TURoupwvPEzq9fZ1R"
+}
