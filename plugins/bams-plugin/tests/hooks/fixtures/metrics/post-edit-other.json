@@ -1,0 +1,1 @@
+{"session_id":"m-sess-1","transcript_path":"__D__/main.jsonl","cwd":"__D__/proj/sub","hook_event_name":"PostToolUse","tool_name":"Edit","tool_input":{"file_path":"__D__/proj/src/app.ts","old_string":"a","new_string":"b"},"tool_response":{}}

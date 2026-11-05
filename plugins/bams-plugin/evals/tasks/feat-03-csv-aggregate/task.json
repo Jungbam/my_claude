@@ -1,0 +1,1 @@
+{"id":"feat-03-csv-aggregate","type":"feature-data","command":"/bams:feature","summary":"주문 CSV 고객별 집계(금액 파싱·검증·skip 리포트)","budget_usd":3,"timeout_s":1200}

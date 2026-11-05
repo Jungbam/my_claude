@@ -1,0 +1,6 @@
+{
+  "name": "review-02-cache-repo",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "bun test" }
+}

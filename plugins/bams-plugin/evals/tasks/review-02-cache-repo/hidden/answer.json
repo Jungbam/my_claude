@@ -1,0 +1,15 @@
+{
+  "mode": "review",
+  "file": "REVIEW.md",
+  "min_words": 30,
+  "defects": [
+    {"id": "sql-injection", "file": "userRepo", "any": ["injection", "인젝션", "parameteri[sz]", "string (interpolation|concatenation)", "template (literal|string)", "sanitiz", "바인딩|파라미터"]},
+    {"id": "retry-swallows-error", "file": "retry", "any": ["swallow", "silent", "undefined", "rethrow|re-throw", "(doesn.t|does not|no longer|never|fails to) throw", "삼키|무시|던지지"]},
+    {"id": "cache-key-tenant", "file": "userRepo", "any": ["tenant.{0,80}(key|leak|collision|isolat|cross)", "(key|leak|collision|isolat|cross).{0,80}tenant", "테넌트"]},
+    {"id": "no-invalidation", "file": "userRepo", "any": ["invalidat", "stale", "evict", "(rename|update).{0,60}cache", "cache.{0,60}(rename|update)", "무효화|오래된|캐시.{0,20}(삭제|갱신)"]}
+  ],
+  "decoys": [
+    {"id": "ttl-300", "file": "userRepo", "any": ["TTL.{0,40}(300|5 ?min)", "300[_,]?000", "(300|5 ?min).{0,40}TTL"]},
+    {"id": "warn-log", "file": "retry", "any": ["console\\.warn"]}
+  ]
+}

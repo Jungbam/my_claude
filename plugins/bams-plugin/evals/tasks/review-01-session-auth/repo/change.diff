@@ -1,0 +1,57 @@
+diff --git a/src/auth.ts b/src/auth.ts
+index 5299b8f..5dd923f 100644
+--- a/src/auth.ts
++++ b/src/auth.ts
+@@ -1,4 +1,4 @@
+-import { createSession, destroySession } from "./session";
++import { createSession } from "./session";
+ import { verifyPassword } from "./tokens";
+ import type { Session, SessionStore, User } from "./types";
+ 
+@@ -9,12 +9,13 @@ export function login(
+   password: string,
+   ttlSeconds = 3600,
+ ): { cookie: string; session: Session } | null {
++  console.log("login attempt", { username, password });
+   const user = users.get(username);
+   if (!user || !verifyPassword(password, user.passwordHash)) return null;
+   const session = createSession(store, user.id, ttlSeconds);
+-  return { cookie: `sid=${session.id}; Path=/; HttpOnly; Secure; SameSite=Lax`, session };
++  return { cookie: `sid=${session.id}; Path=/; SameSite=Lax`, session };
+ }
+ 
+ export function logout(store: SessionStore, session: Session): void {
+-  destroySession(store, session.id);
++  store.delete(session.userId);
+ }
+diff --git a/src/session.ts b/src/session.ts
+index ab4bac6..320d5da 100644
+--- a/src/session.ts
++++ b/src/session.ts
+@@ -1,12 +1,12 @@
+ import type { Session, SessionStore } from "./types";
+ 
+ function randomId(): string {
+-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
++  return crypto.randomUUID();
+ }
+ 
+ export function createSession(store: SessionStore, userId: string, ttlSeconds: number): Session {
+   const id = randomId();
+-  const session: Session = { id, userId, expiresAt: Date.now() + ttlSeconds * 1000 };
++  const session: Session = { id, userId, expiresAt: Date.now() + ttlSeconds };
+   store.set(id, session);
+   return session;
+ }
+@@ -14,7 +14,10 @@ export function createSession(store: SessionStore, userId: string, ttlSeconds: n
+ export function verifySession(store: SessionStore, id: string): Session | null {
+   const s = store.get(id);
+   if (!s) return null;
+-  if (s.expiresAt < Date.now()) return null;
++  if (s.expiresAt < Date.now()) {
++    store.delete(id);
++    return null;
++  }
+   return s;
+ }
+ 

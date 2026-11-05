@@ -1,0 +1,1 @@
+{"id":"review-01-session-auth","type":"review","command":"/bams:review","summary":"세션/인증 diff 리뷰: 결함 4개(비번 로깅·TTL 단위·로그아웃 키·쿠키 플래그)+무해 변경 2개","budget_usd":3,"timeout_s":1200}

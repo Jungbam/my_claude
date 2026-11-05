@@ -1,0 +1,69 @@
+diff --git a/src/retry.ts b/src/retry.ts
+index f1bd9ab..b039a7d 100644
+--- a/src/retry.ts
++++ b/src/retry.ts
+@@ -1,12 +1,11 @@
+-export async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3, delayMs = 50): Promise<T> {
+-  let lastError: unknown;
++export async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3, delayMs = 50): Promise<T | undefined> {
+   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+     try {
+       return await fn();
+     } catch (err) {
+-      lastError = err;
++      console.warn(`attempt ${attempt} failed`, err);
+       if (attempt < maxAttempts) await new Promise((r) => setTimeout(r, delayMs * attempt));
+     }
+   }
+-  throw lastError;
++  return undefined;
+ }
+diff --git a/src/userRepo.ts b/src/userRepo.ts
+index 6d57cb1..d42aa41 100644
+--- a/src/userRepo.ts
++++ b/src/userRepo.ts
+@@ -2,38 +2,36 @@ import { TtlCache } from "./cache";
+ import { withRetry } from "./retry";
+ import type { Db, User } from "./types";
+ 
+-const TTL_MS = 60_000;
++const TTL_MS = 300_000; // raised from 60s: user rows change rarely, cuts DB load
+ 
+ export class UserRepo {
+   private cache = new TtlCache<User>(TTL_MS);
+   constructor(private db: Db) {}
+ 
+-  private key(tenantId: string, id: string): string {
+-    return `tenant:${tenantId}:user:${id}`;
++  private key(id: string): string {
++    return `user:${id}`;
+   }
+ 
+   async getById(tenantId: string, id: string): Promise<User | undefined> {
+-    const k = this.key(tenantId, id);
++    const k = this.key(id);
+     const hit = this.cache.get(k);
+     if (hit) return hit;
+     const rows = await withRetry(() =>
+       this.db.query<User>("SELECT * FROM users WHERE tenant_id = ? AND id = ?", [tenantId, id]),
+     );
+-    const user = rows[0];
++    const user = rows?.[0];
+     if (user) this.cache.set(k, user);
+     return user;
+   }
+ 
+   async findByEmail(tenantId: string, email: string): Promise<User | undefined> {
+     const rows = await this.db.query<User>(
+-      "SELECT * FROM users WHERE tenant_id = ? AND email = ?",
+-      [tenantId, email],
++      `SELECT * FROM users WHERE tenant_id = '${tenantId}' AND email = '${email}'`,
+     );
+     return rows[0];
+   }
+ 
+   async rename(tenantId: string, id: string, name: string): Promise<void> {
+     await this.db.exec("UPDATE users SET name = ? WHERE tenant_id = ? AND id = ?", [name, tenantId, id]);
+-    this.cache.delete(this.key(tenantId, id));
+   }
+ }

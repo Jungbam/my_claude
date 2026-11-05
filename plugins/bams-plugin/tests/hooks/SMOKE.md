@@ -2,12 +2,12 @@
 
 `run-hook-tests.sh`는 스크립트와 matcher 에뮬레이션까지만 검증한다. 이 절차는 하네스가 plugin.json 등록대로 hook을 실제로 부르는지 확인한다.
 
-**규칙**: `hooks/**`·plugin.json `hooks`를 바꾼 파이프라인은 아래 4단계의 trace 증거(hook 4종)가 없으면 history.md에 COMPLETED가 아니라 **DONE_WITH_CONCERNS**로 기록하고, board.md에 smoke 미실행 항목을 등록한다.
+**규칙**: `hooks/**`·plugin.json `hooks`를 바꾼 파이프라인은 아래 4단계의 trace 증거(hook 5종)가 없으면 history.md에 COMPLETED가 아니라 **DONE_WITH_CONCERNS**로 기록하고, board.md에 smoke 미실행 항목을 등록한다.
 
 ## 1. cache sync + 새 세션
 ```bash
 bash plugins/bams-plugin/sync-cache.sh && bash plugins/bams-plugin/scripts/validate-agent-sync.sh
-grep -l bams_hook_trace "$(bash plugins/bams-plugin/scripts/resolve-cache.sh)"/hooks/*.sh   # 4개 출력
+grep -l bams_hook_trace "$(bash plugins/bams-plugin/scripts/resolve-cache.sh)"/hooks/*.sh   # 5개 출력(metrics.sh 포함)
 rm -rf /tmp/bams-hook-trace.log /tmp/bams-hook-capture
 BAMS_HOOK_TRACE=/tmp/bams-hook-trace.log BAMS_HOOK_CAPTURE_DIR=/tmp/bams-hook-capture BAMS_ROUTER=suggest claude   # 반드시 새 세션. prompt-router는 매 입력마다 발화(suggest=자동 실행 없음)
 ```
@@ -20,7 +20,8 @@ BAMS_HOOK_TRACE=/tmp/bams-hook-trace.log BAMS_HOOK_CAPTURE_DIR=/tmp/bams-hook-ca
 
 ## 3. 증거 확인
 ```bash
-cut -f2 /tmp/bams-hook-trace.log | sort -u       # claude-md-guard / delegation-guard / prompt-router / verify-before-stop
+cut -f2 /tmp/bams-hook-trace.log | sort -u       # claude-md-guard / delegation-guard / metrics / prompt-router / verify-before-stop
+awk -F'\t' '$2=="metrics"{print $3}' /tmp/bams-hook-trace.log | sort | uniq -c   # UserPromptSubmit·PostToolUse·SubagentStart·SubagentStop·Stop (+ /bams: 입력 시 UserPromptExpansion)
 awk -F'\t' '$2=="verify-before-stop"{print $3, $4}' /tmp/bams-hook-trace.log   # SubagentStop bams-plugin:frontend-engineering
 ```
 줄 형식: `epoch<TAB>hook<TAB>hook_event_name<TAB>agent_type<TAB>tool_name`. 네 이름 중 하나라도 없으면 해당 hook의 등록(matcher/command)이 실패한 것이다.

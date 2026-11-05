@@ -7,18 +7,18 @@
 
 - 슬래시 없는 입력을 route-table 패턴과 대조해 최고 점수 라우트와 신뢰도(high/med)를 컨텍스트에 주입한다. 매칭이 없으면 아무것도 출력하지 않는다.
 - 건너뜀: `/`로 시작하는 입력, 빈·짧은 응답형 입력(응/네/ok/진행해/1 등), `<task-notification>`·`<system-reminder>`·다른 세션 메시지, 붙여넣기 블록 내부(분류 근거에서 제외).
-- 주입 형식: `[bams router] 후보: /bams:hotfix (high, 근거: "...") | 체인: /bams:init → /bams:hotfix | 모드: auto` + 행동 규칙 1~2줄.
+- 주입 형식: `[bams router] 후보: /bams:hotfix (high, 근거: "...") | 체인: /bams:init → /bams:hotfix | 모드: suggest` + 행동 규칙 1~2줄.
 - hook은 프롬프트를 바꾸지 못한다. 실행 여부는 항상 메인이 판단한다.
 
 ## 2. 모드 (`BAMS_ROUTER` 환경변수)
 
 | 값 | 동작 |
 |----|------|
-| `auto` (기본) | 신뢰도별 행동(§3)대로 실행까지 진행 |
-| `suggest` | 실행하지 않고 후보만 추천 |
+| `suggest` (기본) | 실행하지 않고 일반 응답 끝에 `추천: /bams:X` 한 줄만 덧붙인다 |
+| `auto` | 신뢰도별 행동(§3)대로 실행까지 진행 — `BAMS_ROUTER=auto`를 명시했을 때만 |
 | `off` | hook이 아무것도 출력하지 않음 |
 
-## 3. 신뢰도별 메인 행동
+## 3. 신뢰도별 메인 행동 (`auto` 모드에서만)
 
 | 신뢰도 | 행동 |
 |--------|------|
@@ -39,7 +39,7 @@
 
 - 사용자가 "아니"·"그거 말고" 등으로 거부하면 즉시 중단하고 일반 응답으로 처리한다. 같은 입력을 재라우팅하지 않는다.
 - 반복 오판 패턴은 route-table의 `negative` 패턴 추가로 고친다(§6).
-- 일시 해제는 `BAMS_ROUTER=off`, 추천만 받으려면 `BAMS_ROUTER=suggest`.
+- 일시 해제는 `BAMS_ROUTER=off`, 자동 실행까지 원하면 `BAMS_ROUTER=auto`(기본은 추천만 하는 `suggest`).
 
 ## 6. route-table 수정 방법
 

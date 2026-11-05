@@ -1,0 +1,6 @@
+{
+  "name": "feat-01-items-api",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "bun test" }
+}

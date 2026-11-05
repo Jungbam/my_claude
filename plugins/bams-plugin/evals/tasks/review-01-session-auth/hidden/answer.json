@@ -1,0 +1,15 @@
+{
+  "mode": "review",
+  "file": "REVIEW.md",
+  "min_words": 30,
+  "defects": [
+    {"id": "password-logged", "file": "auth\\.ts", "any": ["password.{0,60}(log|print|plain)", "(log|console).{0,60}password", "평문|비밀번호.{0,20}(로그|출력)"]},
+    {"id": "ttl-unit", "file": "session\\.ts", "any": ["(second|초).{0,80}(millisecond|ms|밀리초|1000)", "(millisecond|ms|밀리초).{0,80}(second|초)", "\\* ?1000", "unit|단위"]},
+    {"id": "logout-wrong-key", "file": "auth\\.ts", "any": ["userId.{0,80}(session ?id|sessionId|key|키)", "(session ?id|sessionId).{0,80}userId", "(not|never|doesn.t|fails?).{0,40}(invalidat|destroy|delet|remov)", "세션.{0,20}(삭제|무효).{0,20}(안|않|못)"]},
+    {"id": "cookie-flags", "file": "auth\\.ts", "any": ["httponly", "secure"]}
+  ],
+  "decoys": [
+    {"id": "expired-delete", "file": "session\\.ts", "any": ["delet.{0,40}expired", "expired.{0,60}delet", "side.?effect", "만료.{0,20}삭제"]},
+    {"id": "randomUUID", "file": "session\\.ts", "any": ["randomUUID"]}
+  ]
+}

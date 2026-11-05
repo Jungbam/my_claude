@@ -1,0 +1,6 @@
+{
+  "name": "bug-02-money-cents",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "bun test" }
+}

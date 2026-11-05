@@ -1,0 +1,6 @@
+{
+  "name": "feat-02-todo-selectors",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "bun test" }
+}

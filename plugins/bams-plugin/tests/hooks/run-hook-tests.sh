@@ -256,6 +256,10 @@ route_case "붙여넣기 내부 단어 무시 → 본문 기준" "$(printf '<pas
 route_case "BAMS_ROUTER=off → 없음"            "로그인 페이지에서 500 에러 나는 거 고쳐줘"                none BAMS_ROUTER=off
 route_case "route-table 부재 → fail-open"      "로그인 페이지에서 500 에러 나는 거 고쳐줘"                none BAMS_ROUTE_TABLE=/nonexistent.json
 ctx_case "suggest 모드 → 추천만"              "로그인 페이지에서 500 에러 나는 거 고쳐줘" has "행동(suggest)" BAMS_ROUTER=suggest
+ctx_case "기본(미설정) 모드 = suggest"         "로그인 페이지에서 500 에러 나는 거 고쳐줘" has "| 모드: suggest"
+ctx_case "기본 모드 → Skill 실행 지시 없음"    "로그인 페이지에서 500 에러 나는 거 고쳐줘" lacks "Skill tool로 실행"
+ctx_case "알 수 없는 값 → suggest 로 폴백"     "로그인 페이지에서 500 에러 나는 거 고쳐줘" has "행동(suggest)" BAMS_ROUTER=bogus
+ctx_case "auto 는 명시할 때만 → 실행 지시"     "로그인 페이지에서 500 에러 나는 거 고쳐줘" has "행동(high)" BAMS_ROUTER=auto
 ctx_case ".crew 있음 → init 체인 없음"         "로그인 페이지에서 500 에러 나는 거 고쳐줘" lacks "/bams:init"
 ctx_case ".crew 없음 → init 체인"              "로그인 페이지에서 500 에러 나는 거 고쳐줘" has "체인: /bams:init → /bams:hotfix" CLAUDE_PROJECT_DIR="$TMP/proj-nocrew"
 ctx_case ".crew 없음 + 질문(q) → init 없음"    "useAuth 훅은 어디서 정의되고 어떻게 동작해?" lacks "/bams:init" CLAUDE_PROJECT_DIR="$TMP/proj-nocrew"
@@ -277,7 +281,7 @@ route_case "정상: main 최신으로 맞춰줘 → git-sync"     "main 최신�
 route_case "정상: 브랜치 최신화해줘 → git-sync"        "브랜치 최신화해줘"          "bams-plugin:git-sync high"
 route_case "정상: 변경사항 stash 해줘 → git-stash"     "변경사항 stash 해줘"        "bams-plugin:git-stash high"
 route_case "체인에 /bams:init 포함 → 항상 med"         "로그인 버그 고쳐줘"         "/bams:hotfix med" CLAUDE_PROJECT_DIR="$TMP/proj-nocrew"
-ctx_case "init 체인 med → init 후 실행 선택 질문"      "로그인 버그 고쳐줘" has '"/bams:init 후 /bams:hotfix"' CLAUDE_PROJECT_DIR="$TMP/proj-nocrew"
+ctx_case "init 체인 med → init 후 실행 선택 질문(auto)" "로그인 버그 고쳐줘" has '"/bams:init 후 /bams:hotfix"' CLAUDE_PROJECT_DIR="$TMP/proj-nocrew" BAMS_ROUTER=auto
 # 리뷰 M2: 입력 cwd 기준 상위 탐색(.git·$HOME 정지) → CLAUDE_PROJECT_DIR
 W="$TMP/ws"; mkdir -p "$W/app/.git" "$W/app/.crew" "$W/app/src/pages" "$W/app/vendor/sub/.git" "$W/other/.git"; : > "$W/app/.crew/config.md"
 RCWD="$W/app/src/pages" route_case "M2-A: 하위 디렉터리 시작(.crew는 repo 루트) → init 없이 high" "로그인 버그 고쳐줘" "/bams:hotfix high" CLAUDE_PROJECT_DIR="$TMP/proj-nocrew"
@@ -286,7 +290,7 @@ RCWD="$W/app/vendor/sub" ctx_case "M2-B: 중첩 .git 경계에서 정지 → ini
 RCWD="$W/other" route_case "M2-C: cwd에 .crew 없음 → CLAUDE_PROJECT_DIR(.crew 있음) 폴백" "로그인 버그 고쳐줘" "/bams:hotfix high"
 RCWD="$W/app" ctx_case "M2: cwd가 곧 .crew 루트 → 위치 줄 없음" "로그인 버그 고쳐줘" lacks ".crew 위치" CLAUDE_PROJECT_DIR="$TMP/proj-nocrew"
 ctx_case "계획+구현 → plan→dev 체인"           "결제 플로우 계획 세우고 구현까지 해줘"    has "체인: /bams:plan → /bams:dev"
-ctx_case "high → Skill 이름 안내"              "로그인 페이지에서 500 에러 나는 거 고쳐줘" has 'bams-plugin:bams:hotfix(args='
+ctx_case "high → Skill 이름 안내(auto)"        "로그인 페이지에서 500 에러 나는 거 고쳐줘" has 'bams-plugin:bams:hotfix(args=' BAMS_ROUTER=auto
 for bad in "$FX/broken.json" /dev/null; do
   out=$(CLAUDE_PLUGIN_ROOT="$PROOT" bash "$HOOKS/prompt-router.sh" < "$bad" 2>/dev/null); code=$?
   if [ "$code" = 0 ] && [ -z "$out" ]; then PASS=$((PASS + 1)); echo "  PASS  ${bad##*/} 입력 → fail-open"
@@ -327,6 +331,163 @@ sout=$(HOME="$FH" bash "$HERE/../../sync-cache.sh" --prune-stale 2>&1); left=$(c
 if [ "$left" = "0.0.1 0.0.3 $SV" ] && printf '%s' "$sout" | grep -q "cache 폴더명(0.0.1) ≠ plugin.json version($SV)"; then
   PASS=$((PASS + 1)); echo "  PASS  .orphaned_at 폴더만 삭제, installPath·현재 버전·관리 중 폴더 보존 + 버전 WARN"
 else FAIL=$((FAIL + 1)); echo "  FAIL  prune 결과: [$left] (기대: 0.0.1 0.0.3 $SV)"; fi
+
+echo "== metrics.sh (계측 → events.jsonl) =="
+MD="$TMP/metrics"; MW="$TMP/mw"; MFX="$FX/metrics"; MBAD=0
+mkdir -p "$MW/proj/.git" "$MW/proj/sub" "$MW/proj/.crew"
+cp "$MFX/transcript-main-head.jsonl" "$MW/main.jsonl"; cp "$MFX/transcript-agent.jsonl" "$MW/agent-ag-1.jsonl"
+# mrun <fixture> [env...] — __D__ 를 작업 디렉터리로 치환해 stdin 으로 넣는다. stdout 출력·exit≠0 은 위반(MBAD)
+mrun() {
+  local f="$1" out code; shift
+  sed "s|__D__|$MW|g" "$MFX/$f" > "$TMP/mfx.json"
+  out=$(env -u BAMS_METRICS -u BAMS_HOOK_TRACE -u BAMS_HOOK_CAPTURE_DIR BAMS_METRICS_DIR="$MD" "$@" bash "$HOOKS/metrics.sh" < "$TMP/mfx.json" 2>&1); code=$?
+  [ "$code" = 0 ] && [ -z "$out" ] || { MBAD=$((MBAD + 1)); echo "    (위반: $f exit=$code out=$out)"; }
+}
+# mcheck <label> <jq 조건: 입력 = events.jsonl 전체 배열>
+mcheck() {
+  if jq -se "$2" "$MD/events.jsonl" >/dev/null 2>&1; then PASS=$((PASS + 1)); echo "  PASS  $1"
+  else FAIL=$((FAIL + 1)); echo "  FAIL  $1 — 조건: $2"; fi
+}
+# 파이프라인 시작 시각을 <초> 만큼 과거로 — 시작 직후 3초 내 입력 무시 규칙을 우회
+age_state() { local f="$MD/state/$1.open" a b c e; IFS=$'\x1f' read -r a b c e < "$f"; printf '%s\x1f%s\x1f%s\x1f%s\n' "$a" "$b" "$c" "$((e - $2))" > "$f"; }
+ev_of() { printf 'map(select(.ev == "%s"))' "$1"; }
+
+mrun upe-dev.json
+mcheck "UserPromptExpansion → pipeline_start(dev, git 루트 이름, source=expansion)" \
+  "$(ev_of pipeline_start) | length == 1 and (.[0] | .command == \"dev\" and .project == \"proj\" and .source == \"expansion\" and .pipeline == \"dev\" and .pipeline_ts == .ts and .session_id == \"m-sess-1\")"
+mcheck "args 앞 80자만 저장" "$(ev_of pipeline_start) | .[0].args | length == 80"
+mrun ups-slash-dev-same-prompt.json
+mcheck "같은 prompt_id 의 UserPromptSubmit 슬래시 → 중복 기록 없음" "$(ev_of pipeline_start) | length == 1"
+mrun ups-human.json
+mcheck "시작 직후(3초 내) 입력 → human_turn 아님" "$(ev_of human_turn) | length == 0"
+age_state m-sess-1 60
+mrun ups-human.json
+mrun ups-task-notification.json; mrun ups-other-slash.json
+mcheck "파이프라인 중 사람 입력 1건만 human_turn(task-notification·/compact 제외)" \
+  "$(ev_of human_turn) | length == 1 and .[0].pipeline == \"dev\" and .[0].pipeline_ts != null"
+if grep -q 'SECRET-PROMPT-BODY\|비밀 메모: 0123456789012345678901234567890123456789012345678901234567890' "$MD/events.jsonl"; then
+  FAIL=$((FAIL + 1)); echo "  FAIL  프롬프트 본문/80자 초과 args 가 저장됨"
+else PASS=$((PASS + 1)); echo "  PASS  프롬프트 본문 미저장(args 80자 외 없음)"; fi
+mrun sub-start.json
+mrun sub-stop.json
+mcheck "SubagentStop → agent_end usage 합(message.id 중복 제거·깨진 줄·<synthetic> 무시)" \
+  "$(ev_of agent_end) | map(select(.agent_id == \"ag-1\")) | length == 1 and (.[0] | .agent_type == \"bams-plugin:backend-engineering\" and .pipeline == \"dev\"
+     and .usage.input == 15 and .usage.output == 150 and .usage.cache_read == 3000 and .usage.cache_creation == 500 and .usage.messages == 2
+     and (.usage.by_model | keys) == [\"claude-haiku-5-5\", \"claude-opus-5-5\"])"
+mcheck "SubagentStart 짝 → dur_ms(start_pair) + transcript 첫/끝 시각" \
+  "$(ev_of agent_end) | .[0] | (.dur_ms | type) == \"number\" and .dur_ms >= 0 and .dur_src == \"start_pair\" and .t_first == \"2026-11-05T01:00:00.000Z\" and .t_last == \"2026-11-05T01:02:00.000Z\""
+mrun sub-stop-no-transcript.json
+mcheck "transcript 부재 → agent_end 기록, usage=null·dur_ms=null" \
+  "$(ev_of agent_end) | map(select(.agent_id == \"ag-9\")) | length == 1 and .[0].usage == null and .[0].dur_ms == null"
+mrun sub-stop-internal.json
+mcheck "agent_type 빈 내부 에이전트(SubagentStop) → 기록 안 함" "$(ev_of agent_end) | length == 2"
+cat "$MFX/transcript-main-tail.jsonl" >> "$MW/main.jsonl"
+mrun stop.json; mrun stop.json
+mcheck "Stop → session_usage = 시작 이후 증분만(중복 id 1회), 새 줄 없으면 미기록" \
+  "$(ev_of session_usage) | length == 1 and (.[0].usage | .input == 4 and .output == 320 and .cache_read == 82000 and .cache_creation == 2000 and .cache_creation_1h == 2000 and .messages == 2)"
+mrun post-edit-other.json
+mcheck "history.md 아닌 Edit → 기록 없음" "$(ev_of pipeline_end) | length == 0"
+mrun post-history-edit.json; mrun post-history-edit.json
+mcheck "history.md Edit → pipeline_end(새 헤더 slug·status·result), 같은 블록 재편집은 1회" \
+  "$(ev_of pipeline_end) | length == 1 and (.[0] | .slug == \"dev_결제버그묶음\" and .status == \"DONE_WITH_CONCERNS\" and .result == \"concerns\" and .command == \"dev\" and .pipeline == \"dev\" and .project == \"proj\" and .parse == \"diff\")"
+age_state_closing() { [ -f "$MD/state/m-sess-1.closing" ]; }
+if age_state_closing; then PASS=$((PASS + 1)); echo "  PASS  pipeline_end → 세션 상태 closing(마지막 Stop usage 대기)"
+else FAIL=$((FAIL + 1)); echo "  FAIL  pipeline_end 후 closing 상태 없음"; fi
+mrun ups-human.json
+mcheck "파이프라인 종료 후 입력 → human_turn 아님" "$(ev_of human_turn) | length == 1"
+jq -cn '{type:"assistant",timestamp:"2026-11-05T01:05:00.000Z",message:{id:"msg_m3",model:"claude-opus-5-5",usage:{input_tokens:2,output_tokens:7}}}' >> "$MW/main.jsonl"
+mrun stop.json; mrun stop.json
+mcheck "종료 직후 Stop 1회 usage 기록 후 상태 정리" "$(ev_of session_usage) | length == 2 and .[1].usage.output == 7 and .[1].pipeline == \"dev\""
+if [ ! -e "$MD/state/m-sess-1.closing" ] && [ ! -e "$MD/state/m-sess-1.open" ]; then PASS=$((PASS + 1)); echo "  PASS  세션 상태 파일 정리됨"
+else FAIL=$((FAIL + 1)); echo "  FAIL  세션 상태 파일 잔존"; fi
+mrun ups-slash-hotfix.json
+mcheck "UserPromptSubmit '/bams:hotfix …' → pipeline_start(source=prompt_submit)" \
+  "$(ev_of pipeline_start) | map(select(.session_id == \"m-sess-2\")) | length == 1 and .[0].command == \"hotfix\" and .[0].source == \"prompt_submit\" and .[0].args == \"로그인 500 에러\""
+mrun post-history-write.json
+mcheck "history.md Write(originalFile 대비) → 1줄 형식 새 행 파싱(실패=failed)" \
+  "$(ev_of pipeline_end) | map(select(.session_id == \"m-sess-2\")) | length == 1 and (.[0] | .slug == \"hotfix_로그인500\" and .command == \"hotfix\" and .status == \"실패\" and .result == \"failed\" and .pipeline == \"hotfix\")"
+mrun post-skill-hotfix.json; mrun post-skill-nested.json; mrun post-skill-engine.json
+mcheck "Skill tool bams:hotfix → pipeline_start(skill_tool), 열린 파이프라인 안 Skill·엔진 스킬은 무시" \
+  "$(ev_of pipeline_start) | map(select(.session_id == \"m-sess-3\")) | length == 1 and .[0].command == \"hotfix\" and .[0].source == \"skill_tool\""
+mcheck "모든 줄 공통 필드 + 자리표시자 잔존 0" \
+  'all(.[]; .v == 1 and (.ts | test("Z$")) and (.ev | type) == "string" and (.project | type) == "string") and ([.[] | tostring | select(test("__(PROJ|PCMD|PTS|DUR)__"))] | length == 0)'
+n0=$(wc -l < "$MD/events.jsonl")
+mrun upe-dev.json BAMS_METRICS_DIR="$TMP/moff" BAMS_METRICS=off
+if [ ! -e "$TMP/moff" ]; then PASS=$((PASS + 1)); echo "  PASS  BAMS_METRICS=off → 디렉터리·기록 없음"
+else FAIL=$((FAIL + 1)); echo "  FAIL  BAMS_METRICS=off 인데 기록됨"; fi
+for bad in "$FX/broken.json" /dev/null; do
+  out=$(BAMS_METRICS_DIR="$MD" bash "$HOOKS/metrics.sh" < "$bad" 2>&1); code=$?
+  if [ "$code" = 0 ] && [ -z "$out" ]; then PASS=$((PASS + 1)); echo "  PASS  ${bad##*/} 입력 → fail-open"
+  else FAIL=$((FAIL + 1)); echo "  FAIL  ${bad##*/} 입력 (exit=$code out=$out)"; fi
+done
+printf '{"hook_event_name":"UserPromptExpansion","session_id":"x","command_name":"bams:dev","command_args":' > "$TMP/trunc.json"
+mrun upe-dev.json BAMS_METRICS_DIR=/nonexistent-root/metrics
+out=$(BAMS_METRICS_DIR="$MD" bash "$HOOKS/metrics.sh" < "$TMP/trunc.json" 2>&1); code=$?
+if [ "$code" = 0 ] && [ -z "$out" ] && [ "$(wc -l < "$MD/events.jsonl")" = "$n0" ]; then PASS=$((PASS + 1)); echo "  PASS  잘린 JSON·쓰기 불가 디렉터리 → fail-open, 기록 없음"
+else FAIL=$((FAIL + 1)); echo "  FAIL  잘린 JSON/쓰기 불가 처리 (exit=$code out=$out)"; fi
+if [ "$MBAD" = 0 ]; then PASS=$((PASS + 1)); echo "  PASS  모든 실행 exit 0·stdout 없음(컨텍스트 주입 없음)"
+else FAIL=$((FAIL + 1)); echo "  FAIL  exit≠0 또는 stdout 출력 ${MBAD}건"; fi
+
+echo "== metrics.sh: plugin.json 등록 =="
+for e in UserPromptExpansion UserPromptSubmit PostToolUse SubagentStart SubagentStop Stop; do
+  if jq -e --arg e "$e" '[.hooks[$e][]?.hooks[]?.command | select(test("hooks/metrics\\.sh"))] | length == 1' "$PJ" >/dev/null 2>&1; then
+    PASS=$((PASS + 1)); echo "  PASS  $e → metrics.sh 1회 등록"
+  else FAIL=$((FAIL + 1)); echo "  FAIL  $e 에 metrics.sh 등록 없음/중복"; fi
+done
+MPM=$(jq -r '[.hooks.PostToolUse[]? | select(any(.hooks[]?; .command | test("metrics"))) | .matcher // ""][0]' "$PJ")
+for t in Edit Write Skill; do matcher_case "PostToolUse matcher '$MPM' → $t" "$MPM" "$t" match; done
+for t in Bash Read NotebookEdit; do matcher_case "PostToolUse matcher '$MPM' ↛ $t" "$MPM" "$t" nomatch; done
+MSM=$(jq -r '[.hooks.SubagentStop[]? | select(any(.hooks[]?; .command | test("metrics"))) | .matcher // ""][0]' "$PJ")
+for a in bams-plugin:qa-strategy Explore general-purpose; do matcher_case "SubagentStop(metrics) 전체 매칭 → $a" "$MSM" "$a" match; done
+if jq -e '[(.hooks.SubagentStop, .hooks.Stop)[]?.hooks[]? | select(.command | test("metrics")) | .async] == [true, true]' "$PJ" >/dev/null; then
+  PASS=$((PASS + 1)); echo "  PASS  SubagentStop·Stop metrics = async(transcript 파싱이 종료를 막지 않음)"
+else FAIL=$((FAIL + 1)); echo "  FAIL  SubagentStop/Stop metrics async 아님"; fi
+
+echo "== metrics.sh: 실행 시간 (10회 평균) =="
+# mtime <label> <fixture> <상한ms> [env...]
+mtime() {
+  local label="$1" f="$2" lim="$3" t0 t1 avg i=0; shift 3
+  sed "s|__D__|$MW|g" "$MFX/$f" > "$TMP/mt.json"
+  t0=$(now_ms)
+  while [ $i -lt 10 ]; do env BAMS_METRICS_DIR="$TMP/mtime" "$@" bash "$HOOKS/metrics.sh" < "$TMP/mt.json" >/dev/null 2>&1; i=$((i + 1)); done
+  t1=$(now_ms); avg=$(( (t1 - t0) / 10 ))
+  if [ "$avg" -le "$lim" ]; then PASS=$((PASS + 1)); echo "  PASS  $label 평균 ${avg}ms ≤ ${lim}ms"
+  else FAIL=$((FAIL + 1)); echo "  FAIL  $label 평균 ${avg}ms > ${lim}ms"; fi
+}
+mtime "Stop(파이프라인 없음, jq 0회)"           stop.json            50
+mtime "PostToolUse 일반 Edit(jq 0회)"           post-edit-other.json 50
+mtime "UserPromptSubmit 일반 입력(jq 0회)"      ups-human.json       50
+mtime "UserPromptExpansion 시작(jq 1회)"        upe-dev.json         100
+mtime "SubagentStop transcript 파싱(jq 2회)"    sub-stop.json        100
+
+echo "== metrics-report.sh =="
+RPT="$HERE/../../scripts/metrics-report.sh"; RNOW=$(jq -n '"2026-10-25T00:00:00Z" | fromdate')
+rout=$(BAMS_METRICS_NOW="$RNOW" bash "$RPT" --file "$MFX/events-sample.jsonl" 2>&1); rcode=$?
+# rcase <label> <has|lacks> <고정 문자열> (대상: $rout)
+rcase() {
+  local ok=0; printf '%s' "$rout" | grep -qF -- "$3" && ok=1
+  if { [ "$2" = has ] && [ $ok = 1 ]; } || { [ "$2" = lacks ] && [ $ok = 0 ]; }; then PASS=$((PASS + 1)); echo "  PASS  $1"
+  else FAIL=$((FAIL + 1)); echo "  FAIL  $1 ($2 '$3')"; fi
+}
+rcase "exit 0 + 30일 창(9월 이벤트 제외)·깨진 줄 무시" has "## 파이프라인 (4건)"; [ "$rcode" = 0 ] || { FAIL=$((FAIL + 1)); echo "  FAIL  report exit=$rcode"; }
+rcase "dev 행: 리드타임·에이전트(agent_id 중복 제거)·토큰·비용·개입·결과" has \
+  '| 2026-10-20 01:00 | dev | shop | dev_결제버그 | 1h05m | 2 (usage 없음 1) | 1M | $2.80 | 2 | COMPLETED |'
+rcase "단가표 없는 모델 → 비용 '*' 표시" has '| 2026-10-22 03:00 | hotfix | shop | hotfix_결제500 | 45m | 1 | 2k | $0.00* | 0 | FAILED |'
+rcase "시작 없는 pipeline_end → 별도 행" has '| (시작 미기록) | plan | blog | plan_댓글설계 | - | - | - | - | - | 완료 |'
+rcase "커맨드별 집계: 성공률·실패" has '| hotfix | 1 | 1 | 0% | 1 | 45m | 2k |'
+rcase "커맨드별 집계: 중앙값" has '| dev | 1 | 1 | 100% | 0 | 1h05m | 1M | $2.80 | 2 |'
+rcase "결함 유출 후보: hotfix 직전 7일 같은 프로젝트" has '- hotfix hotfix_결제500 (2026-10-22, shop) ← 후보: dev dev_결제버그 [COMPLETED]'
+rout=$(BAMS_METRICS_NOW="$RNOW" bash "$RPT" --file "$MFX/events-sample.jsonl" --project blog 2>&1)
+rcase "--project blog → 2건, shop 없음" has "## 파이프라인 (2건)"; rcase "--project 필터" lacks "| shop |"
+rout=$(BAMS_METRICS_NOW="$RNOW" bash "$RPT" --file "$MFX/events-sample.jsonl" --since 1d 2>&1)
+rcase "--since 1d → 0건" has "(해당 기간 파이프라인 없음)"
+rout=$(bash "$RPT" --file "$MD/events.jsonl" --since all 2>&1)
+rcase "hook 이 쓴 events → 리포트 end-to-end(dev)" has "| dev | proj | dev_결제버그묶음 | "
+rcase "hook 이 쓴 events → 리포트 end-to-end(hotfix 실패)" has "| hotfix | proj | hotfix_로그인500 | "
+rout=$(bash "$RPT" --file "$TMP/none.jsonl" 2>&1); rcode=$?
+[ "$rcode" = 0 ] && rcase "events 파일 없음 → 안내 후 exit 0" has "이벤트 없음" || { FAIL=$((FAIL + 1)); echo "  FAIL  파일 없음 exit=$rcode"; }
+bash "$RPT" --since 3x --file "$MFX/events-sample.jsonl" >/dev/null 2>&1; rcode=$?
+if [ "$rcode" = 2 ]; then PASS=$((PASS + 1)); echo "  PASS  잘못된 --since → exit 2"; else FAIL=$((FAIL + 1)); echo "  FAIL  잘못된 --since exit=$rcode"; fi
 
 echo ""
 echo "hook tests: PASS=$PASS FAIL=$FAIL"

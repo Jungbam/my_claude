@@ -1,0 +1,6 @@
+{
+  "name": "bug-01-pagination",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "bun test" }
+}

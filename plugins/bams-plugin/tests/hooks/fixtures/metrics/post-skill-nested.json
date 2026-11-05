@@ -1,0 +1,1 @@
+{"session_id":"m-sess-3","prompt_id":"r-1","transcript_path":"__D__/main3.jsonl","cwd":"__D__/proj","hook_event_name":"PostToolUse","tool_name":"Skill","tool_input":{"skill":"bams-plugin:bams:verify"},"tool_response":{"success":true}}

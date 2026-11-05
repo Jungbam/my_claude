@@ -1,0 +1,1 @@
+{"id":"bug-02-money-cents","type":"bug","command":"/bams:hotfix","summary":"할인을 라인별 floor로 계산해 센트 오차 누적","budget_usd":2,"timeout_s":900}

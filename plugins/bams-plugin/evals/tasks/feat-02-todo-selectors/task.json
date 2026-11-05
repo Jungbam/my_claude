@@ -1,0 +1,1 @@
+{"id":"feat-02-todo-selectors","type":"feature-ui-logic","command":"/bams:feature","summary":"할 일 목록 검색·정렬 셀렉터 + 탭 카운트","budget_usd":3,"timeout_s":1200}

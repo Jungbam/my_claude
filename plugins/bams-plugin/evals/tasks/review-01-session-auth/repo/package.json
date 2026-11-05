@@ -1,0 +1,6 @@
+{
+  "name": "review-01-session-auth",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "bun test" }
+}

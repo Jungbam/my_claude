@@ -1,0 +1,6 @@
+{
+  "name": "plan-01-notification-prefs",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "bun test" }
+}

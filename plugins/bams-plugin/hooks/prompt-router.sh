@@ -4,7 +4,7 @@
 # 공식 사실(https://code.claude.com/docs/en/hooks#userpromptsubmit): matcher 미지원(모든 프롬프트에서 실행),
 #   예약 작업·/loop·백그라운드 서브에이전트 보고·다른 세션 메시지에도 발화, 슬래시 입력은 원문 그대로,
 #   붙여넣기는 <pasted_content id="…"> … </pasted_content id="…"> 줄 사이로 온다. 기본 timeout 30초(초과 시 출력 폐기).
-# 모드: BAMS_ROUTER=off|auto|suggest (기본 auto). 표: ${CLAUDE_PLUGIN_ROOT}/references/route-table.json
+# 모드: BAMS_ROUTER=off|suggest|auto (기본 suggest — 실행 없이 추천만. 자동 실행은 BAMS_ROUTER=auto 로만). 표: ${CLAUDE_PLUGIN_ROOT}/references/route-table.json
 #   (BAMS_ROUTE_TABLE=<경로>로 대체 — 테스트용). 외부 프로세스: cat 1 + jq 2. 모든 자기 오류는 fail-open(exit 0).
 # .crew 판정: 입력 cwd에서 상위로 .crew/config.md 탐색(.git이 있는 디렉터리 또는 $HOME에서 정지) → $CLAUDE_PROJECT_DIR.
 set +e
@@ -12,8 +12,8 @@ set +e
 INPUT=$(cat 2>/dev/null)
 [ -n "${BAMS_HOOK_TRACE:-}${BAMS_HOOK_CAPTURE_DIR:-}" ] && . "${0%/*}/lib/trace.sh" 2>/dev/null && bams_hook_trace prompt-router "$INPUT"
 
-MODE="${BAMS_ROUTER:-auto}"
-case "$MODE" in off) exit 0 ;; auto|suggest) ;; *) MODE=auto ;; esac
+MODE="${BAMS_ROUTER:-suggest}"
+case "$MODE" in off) exit 0 ;; auto|suggest) ;; *) MODE=suggest ;; esac
 [ -z "$INPUT" ] && exit 0
 command -v jq >/dev/null 2>&1 || exit 0
 ROOT="${CLAUDE_PLUGIN_ROOT:-${0%/*}/..}"

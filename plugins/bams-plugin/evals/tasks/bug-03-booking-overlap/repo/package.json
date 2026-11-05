@@ -1,0 +1,6 @@
+{
+  "name": "bug-03-booking-overlap",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "bun test" }
+}

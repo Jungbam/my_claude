@@ -1,0 +1,1 @@
+{"id":"bug-01-pagination","type":"bug","command":"/bams:hotfix","summary":"페이지 수 계산이 floor라 마지막 부분 페이지가 사라짐","budget_usd":2,"timeout_s":900}

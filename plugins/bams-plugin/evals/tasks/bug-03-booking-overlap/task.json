@@ -1,0 +1,1 @@
+{"id":"bug-03-booking-overlap","type":"bug","command":"/bams:hotfix","summary":"구간 겹침: 끝점 포함·포함관계 누락·UTC 오프셋 문자열 비교(경계값)","budget_usd":2,"timeout_s":900}

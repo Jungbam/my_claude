@@ -1,0 +1,1 @@
+{"id":"feat-01-items-api","type":"feature-api","command":"/bams:feature","summary":"아이템 API에 POST/GET-by-id/검증/중복/405 추가","budget_usd":3,"timeout_s":1200}

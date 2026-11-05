@@ -1,0 +1,1 @@
+{"id":"review-02-cache-repo","type":"review","command":"/bams:review","summary":"저장소/캐시 diff 리뷰: 결함 4개(SQL 인젝션·재시도 에러 삼킴·테넌트 키 누락·캐시 무효화 누락)+무해 변경 2개","budget_usd":3,"timeout_s":1200}
