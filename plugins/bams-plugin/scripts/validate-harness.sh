@@ -4,14 +4,16 @@
 #   --quiet: FAIL/WARN 줄과 요약만 출력. Exit: 0=FAIL 없음(WARN 허용), 1=FAIL 있음.
 # FAIL: model/effort 허용값 이외(gpt 명 등), name≠파일명, description 부재·1024자 초과,
 #       plugin.json hook 스크립트 부재·비실행·상대경로, plugin.json agents ↔ agents/*.md 불일치,
-#       SubagentStart/Stop matcher가 플러그인 에이전트를 '^<plugin>:(...)$' 없이 지목하거나 없는 이름 나열.
+#       SubagentStart/Stop matcher가 플러그인 에이전트를 '^<plugin>:(...)$' 없이 지목하거나 없는 이름 나열,
+#       verify-before-stop.sh TARGET_AGENTS ≠ SubagentStop matcher 이름 집합.
 # WARN: 에이전트 본문 10,000자 초과(plugin-dev 가이드), SKILL.md 500줄 초과(skill-creator 가이드),
-#       references/*.md 300줄 초과인데 목차 없음.
+#       references/*.md 300줄 초과인데 목차 없음, .crew/memory/*/improvements/ 잔존·MEMORY.md 구형식 헤더.
+# env: BAMS_HARNESS_PJ=<plugin.json 대체 경로>(테스트용), BAMS_CREW_DIR=<.crew>(기본: git 루트의 .crew, 없으면 [5] skip).
 # macOS 기본 bash 3.2 / BSD awk 호환. timeout·GNU 전용 옵션 사용 금지.
 set -u
 
 PLUGIN_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-PJ="$PLUGIN_DIR/.claude-plugin/plugin.json"
+PJ="${BAMS_HARNESS_PJ:-$PLUGIN_DIR/.claude-plugin/plugin.json}"
 QUIET=0; [ "${1:-}" = "--quiet" ] && QUIET=1
 FAILS=0; WARNS=0
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
@@ -159,6 +161,18 @@ else
           fi
         done > "$T/matcher"
       flush "$T/matcher"
+
+      # verify-before-stop.sh TARGET_AGENTS ↔ 그 스크립트를 부르는 SubagentStop matcher 이름 집합 (drift 방지)
+      sm=$(jq -r "[$hq | .SubagentStop[]? | select(any(.hooks[]?; .command? // \"\" | test(\"verify-before-stop\"))) | .matcher // \"\"][0] // \"\"" "$hsrc" 2>/dev/null)
+      sed -n 's/^TARGET_AGENTS="\(.*\)"$/\1/p' "$PLUGIN_DIR/hooks/verify-before-stop.sh" | tr ' ' '\n' | grep -v '^$' | sort -u > "$T/ta"
+      case "$sm" in
+        ''|'*') [ -s "$T/ta" ] && [ -z "$sm" ] && fail "SubagentStop: verify-before-stop 항목 matcher 없음 — TARGET_AGENTS 대조 불가" ;;
+        *) printf '%s' "$sm" | sed -e "s|^\\^$pname:||" -e 's|\$$||' -e 's|^(\(.*\))$|\1|' | tr '|' '\n' | grep -v '^$' | sort -u > "$T/tm"
+           comm -3 "$T/ta" "$T/tm" | tr -d '\t' | while IFS= read -r n; do
+             echo "  FAIL  TARGET_AGENTS↔matcher drift: $n"
+           done > "$T/drift"
+           flush "$T/drift" ;;
+      esac
     fi
   fi
 fi
@@ -180,6 +194,23 @@ find "$PLUGIN_DIR/references" -name '*.md' -type f 2>/dev/null | sort | while IF
     || echo "  WARN  ${r#$PLUGIN_DIR/}: ${n}줄 > ${REF_LINES_TOC}, 목차 없음"
 done > "$T/toc"
 flush "$T/toc"
+
+# ── 5. 프로젝트 .crew/memory 형식 (agent-memory.md SSOT) — WARN만 ──
+CREW="${BAMS_CREW_DIR:-}"
+if [ -z "$CREW" ]; then gr=$(git -C "$PLUGIN_DIR" rev-parse --show-toplevel 2>/dev/null) && CREW="$gr/.crew"; fi
+if [ -n "$CREW" ] && [ -d "$CREW/memory" ]; then
+  info "[5] .crew/memory format ($CREW)"
+  imp=$(cd "$CREW/memory" && for d in */improvements; do [ -d "$d" ] && printf '%s ' "${d%/improvements}"; done)
+  [ -z "$imp" ] || warn ".crew/memory/*/improvements/ 잔존(폐지 경로 — MEMORY.md로 이관): ${imp% }"
+  NEW_HDR='^## [^ ].* · conf: (low|med|high) · seen: [0-9]+ · last: [0-9]{4}-[0-9]{2}-[0-9]{2}[[:space:]]*$'
+  for m in "$CREW"/memory/*/MEMORY.md; do
+    [ -f "$m" ] || continue
+    n=$(grep '^## ' "$m" | grep -Evc "$NEW_HDR")
+    [ "$n" -eq 0 ] || warn "${m#$CREW/}: 신형식 아닌 항목 헤더 ${n}개 (형식: references/agent-memory.md)"
+  done
+else
+  info "[5] .crew/memory format — skip (.crew/memory 없음)"
+fi
 
 echo ""
 echo "=== validate-harness: FAIL=$FAILS WARN=$WARNS ==="

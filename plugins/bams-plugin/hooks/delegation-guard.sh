@@ -6,13 +6,15 @@
 # 감사 로그 없음. 모든 자기 오류는 fail-open(exit 0).
 set +e
 
+INPUT=$(cat 2>/dev/null)
+[ -n "${BAMS_HOOK_TRACE:-}${BAMS_HOOK_CAPTURE_DIR:-}" ] && . "$(dirname "$0")/lib/trace.sh" 2>/dev/null && bams_hook_trace delegation-guard "$INPUT"
+
 main() {
   local level="${BAMS_DELEGATION_GUARD:-warn}"
   case "$level" in off) return 0 ;; warn|strict) ;; *) level=warn ;; esac
   command -v jq >/dev/null 2>&1 || return 0
 
-  local input agent_id file_path scratch
-  input=$(cat 2>/dev/null)
+  local input="$INPUT" agent_id file_path scratch
   [ -z "$input" ] && return 0
   agent_id=$(printf '%s' "$input" | jq -r '.agent_id // ""' 2>/dev/null) || return 0
   [ -n "$agent_id" ] && return 0   # 서브에이전트 내 수정 → 통과

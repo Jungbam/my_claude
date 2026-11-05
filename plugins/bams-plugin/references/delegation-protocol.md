@@ -110,7 +110,7 @@ report: .crew/artifacts/{report|review|design}/{slug}-{agent}.md
 
 - NEEDS_CONTEXT·BLOCKED는 막힌 지점·시도한 것·필요한 도움을 최종 메시지 본문에 쓴다. 확신 없는 결과를 DONE으로 내지 않는다.
 - 보고 파일: 품질 기준별 충족 여부, 실행한 명령과 출력, 결정 근거, 후속 권고.
-- 구 스키마 호환: `quality_status` PASS/CONDITIONAL/FAIL은 각각 DONE/DONE_WITH_CONCERNS/BLOCKED로 읽는다. 커맨드 고유 확장 상태(design-import `PENDING_FE`)는 해당 커맨드 규약을 따른다.
+- 커맨드 고유 확장 상태(design-import `PENDING_FE`)는 해당 커맨드 규약을 따른다.
 
 ### 2-6. 보고 검증 (메인, 게이트 전 필수)
 

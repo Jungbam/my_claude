@@ -29,10 +29,12 @@ _V_PY='python3?[[:space:]]+-m[[:space:]]+(pytest|py_compile|mypy)'"$_END"
 VERIFY_RE="${_CP}(${_V_PM}|${_V_NPX}|${_V_BARE}|${_V_GO}|${_V_CARGO}|${_V_MAKE}|${_V_SHSCRIPT}|${_V_DIRECT}|${_V_SYNTAX}|${_V_PY})"
 ESCAPE_RE='검증 ?불가|검증할 수 없|검증하지 못|unable to verify|could not verify|cannot verify'
 
+INPUT=$(cat 2>/dev/null)
+[ -n "${BAMS_HOOK_TRACE:-}${BAMS_HOOK_CAPTURE_DIR:-}" ] && . "$(dirname "$0")/lib/trace.sh" 2>/dev/null && bams_hook_trace verify-before-stop "$INPUT"
+
 main() {
   command -v jq >/dev/null 2>&1 || return 0
-  local input active agent last transcript
-  input=$(cat 2>/dev/null)
+  local input="$INPUT" active agent last transcript
   [ -z "$input" ] && return 0
   active=$(printf '%s' "$input" | jq -r '.stop_hook_active // false' 2>/dev/null) || return 0
   [ "$active" = "true" ] && return 0

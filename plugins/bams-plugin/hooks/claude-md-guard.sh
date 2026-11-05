@@ -6,6 +6,7 @@
 set +e
 
 INPUT=$(cat 2>/dev/null)
+[ -n "${BAMS_HOOK_TRACE:-}${BAMS_HOOK_CAPTURE_DIR:-}" ] && . "$(dirname "$0")/lib/trace.sh" 2>/dev/null && bams_hook_trace claude-md-guard "$INPUT"
 [ -z "$INPUT" ] && exit 0
 
 # file_path 추출 (jq 우선, 실패 시 grep/sed fallback)

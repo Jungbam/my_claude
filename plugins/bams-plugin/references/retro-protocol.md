@@ -66,7 +66,7 @@ product-analytics가 `.crew/history.md`, `.crew/artifacts/{prd,design,review,rep
 | TTL | `last`가 90일 지난 항목 삭제 |
 | 상한 | 10항목·3,000자. 초과 시 conf 낮은 순 → `last` 오래된 순으로 삭제 |
 | 승인 | MEMORY.md 반영 전 사용자 확인. Write 불가 에이전트 몫은 hr-agent가 대행 |
-| 구형식 | `## [YYYY-MM-DD] {slug}` 항목은 conf low·seen 1·last=헤더 날짜로 간주, 그 파일을 쓸 때 새 형식으로 전환(일괄 변환 금지) |
+| 구형식 | `## [YYYY-MM-DD] {slug}` 항목은 conf low·seen 1·last=헤더 날짜로 간주. TTL 경과분은 즉시 삭제, 유효분만 쓸 때 전환 |
 
 ### 5-3. 반영
 
