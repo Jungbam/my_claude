@@ -3,11 +3,8 @@ name: review
 preamble-tier: 4
 version: 1.0.0
 description: |
-  Pre-landing PR diff 기반 구조적 리뷰. /bams:review 커맨드의 내부 엔진으로 사용됨.
-  Analyzes diff against the base branch for SQL safety, LLM trust
-  boundary violations, conditional side effects, and other structural issues. Use when
-  asked to "review this PR", "code review", "pre-landing review", or "check my diff".
-  Proactively suggest when the user is about to merge or land code changes.
+  bams 커맨드 내부 엔진 — 직접 쓰지 말고 `/bams:review`·`/bams:deep-review` 사용.
+  base 브랜치 대비 diff 구조적 리뷰(SQL 안전성, LLM 신뢰 경계, 조건부 부수효과).
 allowed-tools:
   - Bash
   - Read

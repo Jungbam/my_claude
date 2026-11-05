@@ -1,0 +1,446 @@
+{
+  "version": 2,
+  "plugin": "bams-plugin",
+  "note": "hooks/prompt-router.sh SSOT. 점수 = high 3 + med 1 + priority. high는 동작 동사(해줘·돌려·만들어 등)가 결합된 패턴만 — 명사 단독은 med. 최고점 high 단독 → high, 동점 high 경쟁·체인에 /bams:init 포함 → med, 합계 2 미만 → 출력 없음. negative 매칭 라우트 제외. global_negative(문서 산출 의도) 매칭 시 doc_ok 라우트 외 전부 제외. 정규식은 jq(Oniguruma) + i 플래그, 영어 단어 뒤쪽 경계는 (?![a-z]).",
+  "skip": {
+    "min_chars": 6,
+    "max_scan_chars": 1500,
+    "patterns": [
+      "^\\s*([0-9]+|[a-d])\\s*(번|안)?\\s*(으로|로)?\\s*(진행|선택|가자|갈게|할게|해|해줘|ok|okay|go)?[\\s.!~]*$",
+      "^\\s*(응|어|네|넵|예|웅|ㅇㅇ|ㄴㄴ|ㅇㅋ|아니(요|오)?|좋아(요)?|그래(요)?|오케이|ok(ay)?|yes|no|yep|nope|sure|lgtm|go|continue|proceed)[\\s.!~,]*$",
+      "^\\s*(응|네|넵|예|ㅇㅇ|좋아(요)?|그래(요)?|ok(ay)?|yes|sure)[\\s.!~,]+.{0,10}$",
+      "^\\s*(그대로|계속|이어서|다음)\\s*(진행|해|하자|해줘|가자)",
+      "^\\s*(진행|계속)\\s*(해|하자|해줘|해주세요)?[\\s.!~]*$",
+      "(커맨드|명령어|스킬|라우터|라우팅|command|skill).{0,20}(차이|뭐야|뭐지|설명해|어떻게 (써|쓰|사용))"
+    ]
+  },
+  "global_negative": [
+    "정리|요약|설명|번역|초안|공지|템플릿|표로|html로|마크다운으로|슬라이드|기사",
+    "\\bsummar(y|i[sz]e)|\\btranslat|\\bdraft(?![a-z])|\\btemplate|\\bannouncement|\\barticle|\\bexplain(?![a-z])|\\bin a table"
+  ],
+  "routes": [
+    {
+      "id": "hotfix", "target": "/bams:hotfix", "kind": "pipeline", "needs_crew": true,
+      "patterns": {
+        "high": [
+          "(버그|에러|오류|크래시|장애|예외|exception).{0,20}(고쳐|수정해|해결해|잡아|픽스)",
+          "(고쳐|수정해|해결해).{0,10}(버그|에러|오류)",
+          "(안 ?(돼|됨|되)|깨져|깨짐|터져|터짐|죽어|죽음).{0,20}(고쳐|수정해|해결해)",
+          "(핫픽스|\\bhotfix(?![a-z])).{0,10}(해|하자|진행|돌려|처리)",
+          "\\bfix (the |this |that |a )?(bug|error|crash|issue|exception)(?![a-z])"
+        ],
+        "med": ["버그|에러|오류|크래시|\\bbug|\\berror|\\bcrash|broken|깨져|안 ?돼|핫픽스|\\bhotfix", "고쳐|\\bfix(?![a-z])"]
+      },
+      "negative": [
+        "(버그|이슈|에러|오류)(들|\\s*[0-9]+\\s*(개|건))",
+        "여러\\s*(개의?\\s*)?(버그|이슈|에러|오류)",
+        "(multiple|several|these|all) (bugs|issues|errors)|\\bbugs(?![a-z])",
+        "(문구|메시지|텍스트|오타|카피).{0,10}(수정|고쳐|바꿔)",
+        "(lint|린트|eslint|prettier|포맷|타입|type).{0,10}(에러|오류|경고|error|warning)",
+        "테스트.{0,10}통과(하게|되게)?\\s*(고쳐|수정)"
+      ],
+      "note": "재현 가능한 실패 1건 수정 (다건은 dev, 린트·문구는 일반 응답)"
+    },
+    {
+      "id": "dev", "target": "/bams:dev", "kind": "pipeline", "needs_crew": true,
+      "patterns": {
+        "high": [
+          "(버그|이슈|에러|오류)(들|\\s*[0-9]+\\s*(개|건)).{0,20}(고쳐|수정|해결|처리)",
+          "여러\\s*(개의?\\s*)?(버그|이슈|에러|오류|태스크|작업).{0,20}(고쳐|수정|해결|처리|구현)",
+          "(multiple|several|these|all) (bugs|issues|tasks).{0,20}(fix|implement|resolve)",
+          "\\bfix (the |all |these |those |some )?bugs(?![a-z])|\\bbugs(?![a-z]).{0,10}(fix|고쳐)",
+          "(태스크|task)s?.{0,10}(전부|모두|다|all).{0,10}(구현|처리|implement)",
+          "계획(대로|한 대로|된 대로).{0,15}(구현|개발)(해|하자|진행)"
+        ],
+        "med": ["멀티 ?에이전트|풀 ?개발|일괄 (수정|처리)|bams:dev"]
+      },
+      "negative": [],
+      "note": "다건 버그 묶음 / 계획된 태스크 구현"
+    },
+    {
+      "id": "feature", "target": "/bams:feature", "kind": "pipeline", "needs_crew": true,
+      "patterns": {
+        "high": [
+          "(기능|피처).{0,20}(만들어|구현해|추가해|개발해|붙여)",
+          "(만들어|구현해|추가해|개발해).{0,15}(기능|피처)",
+          "\\b(build|implement|add|create)(?![a-z]).{0,30}\\bfeature"
+        ],
+        "med": ["신규 기능|새 기능|새로운 기능|\\bnew feature", "구현해|만들어 ?줘|추가해 ?줘|\\bimplement(?![a-z])"]
+      },
+      "negative": [
+        "계획만|문서만|구현 없이|plan only|without implement",
+        "(계획|기획|prd|설계|스펙|spec).{0,30}(구현|개발)(까지|도)",
+        "(버그|에러|오류).{0,20}(고쳐|수정)",
+        "(출시|공지|홍보|마케팅|보도|소개).{0,5}(문|글|자료|메일|페이지)"
+      ],
+      "note": "신규 기능 즉시 풀 사이클 (계획만이면 plan)"
+    },
+    {
+      "id": "plan", "target": "/bams:plan", "kind": "pipeline", "needs_crew": true,
+      "patterns": {
+        "high": [
+          "(prd|스펙|기술 ?설계|설계 ?문서|태스크 ?분해|구현 ?계획|개발 ?계획|(기능|피처|서비스|api|화면).{0,10}(계획|기획|설계)).{0,15}(세워|짜|수립|작성|만들어|써)",
+          "구현 없이|without implement",
+          "\\bwrite (a |the )?(prd|spec|design doc)(?![a-z])"
+        ],
+        "med": ["(계획|플랜|기획).{0,15}(세워|짜|수립|작성|만들어|써)|계획만|문서만"]
+      },
+      "negative": [
+        "(구현|개발)(까지|도)|(and|then) (implement|build)",
+        "스프린트|\\bsprint",
+        "테스트 ?계획|test plan",
+        "여행|휴가|식단|운동|공부|일정표|가계부|이사|결혼"
+      ],
+      "note": "구현 없이 PRD/설계/태스크 문서만"
+    },
+    {
+      "id": "plan-then-dev", "target": "/bams:plan", "kind": "pipeline", "needs_crew": true, "priority": 1,
+      "chain": ["/bams:plan", "/bams:dev"],
+      "patterns": {
+        "high": [
+          "(계획|기획|prd|설계|스펙|spec).{0,30}(구현|개발)(까지|도)",
+          "(plan|spec).{0,40}(and|then).{0,10}(implement|build)"
+        ],
+        "med": []
+      },
+      "negative": [],
+      "note": "계획 수립 후 구현까지 (plan → dev 체인)"
+    },
+    {
+      "id": "review", "target": "/bams:review", "kind": "pipeline", "needs_crew": true,
+      "patterns": {
+        "high": [
+          "(\\bpr(?![a-z])|diff|변경 ?사항|코드|브랜치|커밋|풀 ?리퀘).{0,15}(리뷰|검토)\\s*(해|부탁|좀|하자|진행)",
+          "리뷰.{0,10}(게이트|판정)",
+          "\\bcode review (this|my|the)|\\breview (this|my|the) (pr|diff|code|changes|branch)(?![a-z])"
+        ],
+        "med": ["리뷰|검토|\\breview(?![a-z])"]
+      },
+      "negative": [
+        "심층|딥 ?리뷰|깊게|깊이|\\bdeep|구조적|codex|코덱스|세컨드 ?오피니언|second opinion",
+        "(디자인|플랜|계획|기획|아키텍처) ?리뷰|plan review|design review|eng review",
+        "(영화|책|식당|상품|제품|앱스토어|후기)"
+      ],
+      "note": "5관점 리뷰 + 릴리스 게이트"
+    },
+    {
+      "id": "deep-review", "target": "/bams:deep-review", "kind": "pipeline", "needs_crew": true,
+      "patterns": {
+        "high": [
+          "(심층|딥|깊게|깊이|구조적).{0,10}(리뷰|검토)\\s*(해|부탁|좀|하자|진행)",
+          "\\bdeep[- ]?review (this|my|the)(?![a-z])",
+          "(codex|코덱스|세컨드 ?오피니언|second opinion).{0,20}(리뷰|검토|review)"
+        ],
+        "med": ["꼼꼼(히|하게).{0,10}(리뷰|검토)|thorough(ly)? review|in-depth review|deep[- ]?review"]
+      },
+      "negative": [],
+      "note": "구조적 리뷰 + Codex 세컨드 오피니언 (게이트 없음)"
+    },
+    {
+      "id": "deploy", "target": "/bams:deploy", "kind": "pipeline", "needs_crew": true,
+      "patterns": {
+        "high": [
+          "배포\\s*(해|하자|진행|부탁|해줘)",
+          "(프로덕션|운영)(에|으로)?\\s*(올려|반영|배포)",
+          "\\bdeploy (it|this|to)(?![a-z])|land (and|&) deploy|ship (it )?to prod"
+        ],
+        "med": ["배포|릴리스|릴리즈|\\bdeploy|\\brelease(?![a-z])"]
+      },
+      "negative": ["배포\\s*(설정|환경|셋업)|setup.?deploy|configure deploy", "카나리|canary|배포 ?(후|이후) ?(모니터|감시)", "(배포|deploy).{0,10}(롤백|rollback)"],
+      "note": "출시 검증 + Land & Deploy"
+    },
+    {
+      "id": "ship", "target": "/bams:ship", "kind": "pipeline", "needs_crew": true,
+      "patterns": {
+        "high": [
+          "(\\bpr|풀 ?리퀘|pull request).{0,10}(만들어|생성|올려|열어)",
+          "\\b(create|open) (a |the )?(pr|pull request)(?![a-z])",
+          "머지해|merge (this|it|the pr)"
+        ],
+        "med": ["\\bship( it)?(?![a-z])|출시 준비"]
+      },
+      "negative": [],
+      "note": "PR 생성 + 머지"
+    },
+    {
+      "id": "performance", "target": "/bams:performance", "kind": "pipeline", "needs_crew": true,
+      "patterns": {
+        "high": [
+          "성능.{0,10}(측정|개선|최적화|분석|점검)\\s*(해|하자|좀|진행|부탁)",
+          "(벤치마크|benchmark|lighthouse).{0,10}(돌려|측정해|실행해|run)",
+          "\\b(measure|improve|optimi[sz]e) (the )?(performance|web vitals|bundle size)"
+        ],
+        "med": ["성능|느려|느림|\\bslow|벤치마크|benchmark|web vitals|lighthouse|번들 ?사이즈|bundle size", "최적화|optimi[sz]e"]
+      },
+      "negative": [],
+      "note": "benchmark 기반 성능 측정/최적화"
+    },
+    {
+      "id": "security", "target": "/bams:security", "kind": "pipeline", "needs_crew": true,
+      "patterns": {
+        "high": [
+          "(보안|취약점).{0,10}(감사|점검|검사|스캔|리뷰|확인)\\s*(해|하자|좀|진행|부탁|돌려)",
+          "\\b(run|do|perform) (a |an )?security (audit|review|scan)|\\baudit (the )?security",
+          "시크릿.{0,10}(유출|노출)?.{0,5}(체크|스캔|검사)\\s*(해|좀|돌려)"
+        ],
+        "med": ["보안|\\bsecurity|credential|시크릿|취약점|vulnerabilit|\\bowasp"]
+      },
+      "negative": [],
+      "note": "시크릿 체크 + OWASP/STRIDE"
+    },
+    {
+      "id": "q", "target": "/bams:q", "kind": "question", "needs_crew": false, "doc_ok": true,
+      "patterns": {
+        "high": [
+          "(어디(서|에)|어떻게).{0,30}(정의|구현|호출|처리|동작|작동|사용)\\s*(돼|되|하|해|됨)",
+          "(코드베이스|코드|함수|모듈|파일|컴포넌트|api|엔드포인트|훅|hook).{0,30}(설명해|알려줘|뭐야|뭐지|어떻게 돼)",
+          "\\b(where|how) (is|does|are|do)(?![a-z]).{0,40}\\b(defined|implemented|work|handled|called|used)(?![a-z])",
+          "\\bexplain (how|what) (this|the|our) (code|function|module|hook|component|api)"
+        ],
+        "med": ["\\?\\s*$|뭐야|알려줘|설명해|어떻게|how does|what is|where is"]
+      },
+      "negative": ["고쳐|수정해|구현해|만들어|\\bfix(?![a-z])|\\bimplement(?![a-z])"],
+      "note": "코드베이스 질문 (init 불필요)"
+    },
+    {
+      "id": "design-import", "target": "/bams:design-import", "kind": "pipeline", "needs_crew": true,
+      "patterns": {
+        "high": [
+          "(디자인|ui) ?가이드.{0,20}(이식|적용|가져|옮겨|반영|구현)",
+          "(jsx|html|zip|피그마|figma).{0,20}(가이드|시안).{0,20}(이식|적용|옮겨|구현)",
+          "(port|import|apply) (the |this |a )?design guide"
+        ],
+        "med": ["디자인 ?가이드|시안.{0,10}(적용|구현)|design guide|design[- ]?import"]
+      },
+      "negative": [],
+      "note": "외부 디자인 가이드(JSX/HTML/ZIP) → Next.js 이식"
+    },
+    {
+      "id": "verify", "target": "/bams:verify", "kind": "pipeline", "needs_crew": true,
+      "patterns": {
+        "high": [
+          "(빌드|린트|lint|타입 ?체크|typecheck|tsc|테스트).{0,20}(돌려|실행해|확인해|검증해)",
+          "\\bci(?![a-z]).{0,15}(돌려|확인해|검증해|check)",
+          "\\brun (the )?(build|lint|tests|typecheck|preflight)(?![a-z])"
+        ],
+        "med": ["빌드|린트|타입 ?체크|프리플라이트|preflight|\\bverify(?![a-z])"]
+      },
+      "negative": [
+        "테스트 ?(코드|케이스)?\\s*(작성|추가|짜)|write tests?|add tests?",
+        "브라우저|e2e|\\bqa(?![a-z])",
+        "통과(하게|되게)?\\s*(고쳐|수정)|(고쳐|수정해|fix)"
+      ],
+      "note": "CI 프리플라이트 (검사 전용 — 수정 요청은 제외)"
+    },
+    {
+      "id": "retro", "target": "/bams:retro", "kind": "pipeline", "needs_crew": true,
+      "patterns": {
+        "high": ["회고\\s*(해|하자|진행|돌려|시작)|(run|do) (a |the )?retro(spective)?(?![a-z])"],
+        "med": ["회고|돌아보|\\bretro(spective)?(?![a-z])|\\bkpt(?![a-z])"]
+      },
+      "negative": ["주간|\\bweekly|이번 ?주", "엔지니어링 회고|커밋 (이력|히스토리)"],
+      "note": "파이프라인 회고 + 에이전트 평가"
+    },
+    {
+      "id": "weekly", "target": "/bams:weekly", "kind": "pipeline", "needs_crew": true,
+      "patterns": {
+        "high": [
+          "(주간\\s*(루틴|회고|마무리)|이번 ?주\\s*(마무리|회고)|스프린트\\s*마무리).{0,5}(해|하자|진행|돌려|시작)",
+          "\\b(run|do|start) (the |my )?weekly( routine| retro)?(?![a-z])"
+        ],
+        "med": ["주간\\s*(루틴|회고|마무리)|\\bweekly (routine|retro)"]
+      },
+      "negative": [],
+      "note": "스프린트 마무리 + 회고 + 다음 계획"
+    },
+    {
+      "id": "sprint", "target": "/bams:sprint", "kind": "pipeline", "needs_crew": true,
+      "patterns": {
+        "high": [
+          "스프린트.{0,15}(계획|플래닝).{0,5}(세워|짜|해|하자|시작)",
+          "스프린트.{0,10}(시작|현황|진행 ?상황).{0,5}(해|하자|보여|알려|확인)",
+          "\\b(plan|start) (the |a |next )?sprint(?![a-z])|sprint (status|board) (please|now)"
+        ],
+        "med": ["스프린트|\\bsprint|백로그|backlog"]
+      },
+      "negative": ["스프린트\\s*마무리"],
+      "note": "스프린트 플래닝/관리"
+    },
+    {
+      "id": "qa", "target": "/bams:qa", "kind": "pipeline", "needs_crew": false,
+      "patterns": {
+        "high": [
+          "브라우저.{0,15}(qa|테스트|검증).{0,5}(해|돌려|진행|좀)",
+          "\\bqa(?![a-z]).{0,15}(해|돌려|진행)",
+          "(사이트|페이지|화면).{0,15}(qa|테스트|검증)\\s*(해|돌려|좀)",
+          "\\btest (the|this|my) (site|app|page)(?![a-z])"
+        ],
+        "med": ["\\bqa(?![a-z])|\\be2e(?![a-z])|dogfood"]
+      },
+      "negative": [],
+      "note": "브라우저 QA"
+    },
+    {
+      "id": "browse", "target": "/bams:browse", "kind": "skill", "needs_crew": false,
+      "patterns": {
+        "high": [
+          "스크린샷.{0,10}(찍|캡처|떠)",
+          "(페이지|url|사이트|localhost).{0,15}(열어|접속해|들어가 ?봐)",
+          "open .{0,30}in (the |a )?browser|take a screenshot"
+        ],
+        "med": ["스크린샷|screenshot|브라우저(로|에서)|헤드리스"]
+      },
+      "negative": [],
+      "note": "헤드리스 브라우저 탐색/스크린샷"
+    },
+    {
+      "id": "init", "target": "/bams:init", "kind": "pipeline", "needs_crew": false,
+      "patterns": {
+        "high": [
+          "(프로젝트|워크스페이스|\\.crew|bams).{0,10}(초기화|세팅|셋업)\\s*(해|하자|진행|좀)",
+          "\\binitiali[sz]e (the )?(project|crew|bams)(?![a-z])"
+        ],
+        "med": ["bams ?init"]
+      },
+      "negative": [],
+      "note": "프로젝트 .crew 초기화"
+    },
+    {
+      "id": "investigate", "target": "investigate", "kind": "skill", "needs_crew": false,
+      "patterns": {
+        "high": [
+          "원인.{0,5}(분석|조사|파악|찾아|추적)\\s*(해|좀|하자)?",
+          "왜.{0,30}(안 ?(돼|되|됨)|깨지|실패|에러|오류|터지)",
+          "\\bwhy (is|does|did)(?![a-z]).{0,40}(fail|break|broken|crash|error)",
+          "\\binvestigate (this|the|why)(?![a-z])|디버깅\\s*(해|하자|좀)"
+        ],
+        "med": ["근본 ?원인|root cause|\\bdebug(?![a-z])|디버그|디버깅|왜 이래"]
+      },
+      "negative": ["(고쳐|수정해|해결해)\\s*(줘|주세요|라)?[\\s.!]*$"],
+      "note": "근본 원인 조사 (수정 요청이면 hotfix)"
+    },
+    {
+      "id": "git-sync", "target": "git-sync", "kind": "skill", "needs_crew": false,
+      "patterns": {
+        "high": [
+          "(브랜치|branch).{0,15}(최신화|동기화|싱크|sync)",
+          "(main|master|develop|베이스|브랜치).{0,15}(받아|당겨|따라잡|리베이스|rebase|pull|최신(으로|화|버전))",
+          "\\bgit pull(?![a-z])|\\bsync (my |the |this )?branch|rebase onto"
+        ],
+        "med": ["최신화|최신으로|\\bpull(?![a-z])|리베이스|\\brebase(?![a-z])"]
+      },
+      "negative": ["pull request|풀 ?리퀘"],
+      "note": "base 브랜치 최신화 (auto-stash)"
+    },
+    {
+      "id": "git-branch", "target": "git-branch", "kind": "skill", "needs_crew": false,
+      "patterns": {
+        "high": [
+          "브랜치.{0,10}(만들어|생성해|파 ?줘|삭제해|지워|이름 ?바꿔|목록 ?(보여|알려))",
+          "\\b(create|delete|rename|list) (a |the |new )?branch"
+        ],
+        "med": ["새 브랜치"]
+      },
+      "negative": ["최신화|동기화|\\bsync(?![a-z])"],
+      "note": "브랜치 list/create/rename/delete"
+    },
+    {
+      "id": "git-rollback", "target": "git-rollback", "kind": "skill", "needs_crew": false,
+      "patterns": {
+        "high": [
+          "(커밋|commit).{0,15}(되돌려|롤백해|취소해|revert|undo)",
+          "\\brevert (the |this |last )?commit|\\bundo (the |my |last )?commit",
+          "파일.{0,10}(되돌려|원복해)"
+        ],
+        "med": ["롤백|rollback|\\brevert(?![a-z])|되돌려|원복"]
+      },
+      "negative": ["(배포|deploy|마이그레이션|migration).{0,10}(롤백|rollback)"],
+      "note": "커밋/파일 롤백 (dry-run + --yes)"
+    },
+    {
+      "id": "git-stash", "target": "git-stash", "kind": "skill", "needs_crew": false,
+      "patterns": {
+        "high": [
+          "(stash|스태시)\\s*(해|하자|좀|pop|push|drop|list)",
+          "\\bgit stash(?![a-z])|\\bstash (my|the|these|this|changes)(?![a-z])",
+          "(변경 ?사항|작업).{0,10}(임시\\s*저장|잠깐 치워|보관)\\s*(해|좀)"
+        ],
+        "med": ["\\bstash(?![a-z])|스태시"]
+      },
+      "negative": [],
+      "note": "작업 임시 저장"
+    },
+    {
+      "id": "codex", "target": "codex", "kind": "skill", "needs_crew": false,
+      "patterns": {
+        "high": [
+          "(codex|코덱스).{0,15}(리뷰|검토|물어|상담|돌려|챌린지|review|ask|challenge|consult)",
+          "세컨드 ?오피니언.{0,10}(받아|구해|줘|부탁)|\\b(get|ask for) a second opinion"
+        ],
+        "med": ["\\bcodex(?![a-z])|코덱스|세컨드 ?오피니언|second opinion"]
+      },
+      "negative": [],
+      "note": "Codex 리뷰/챌린지/상담"
+    },
+    {
+      "id": "careful", "target": "careful", "kind": "skill", "needs_crew": false,
+      "patterns": {
+        "high": ["(careful|safety|안전|조심|신중) ?(mode|모드).{0,10}(켜|on|활성|걸어|enable)|\\b(turn on|enable) (careful|safety) mode"],
+        "med": ["(careful|safety|안전|조심|신중) ?(mode|모드)"]
+      },
+      "negative": ["가드|guard"],
+      "note": "파괴 명령 경고 모드"
+    },
+    {
+      "id": "guard", "target": "guard", "kind": "skill", "needs_crew": false,
+      "patterns": {
+        "high": ["(guard|가드) ?(mode|모드).{0,10}(켜|on|활성|걸어|enable)|\\b(turn on|enable) guard mode"],
+        "med": ["(guard|가드) ?(mode|모드)|full safety|최대 ?안전"]
+      },
+      "negative": [],
+      "note": "careful + freeze"
+    },
+    {
+      "id": "freeze", "target": "freeze", "kind": "skill", "needs_crew": false,
+      "patterns": {
+        "high": [
+          "(편집|수정|edit).{0,15}(제한|잠금).{0,5}(걸어|해|켜)|(편집|수정|edit).{0,15}(막아|잠가)",
+          "(폴더|디렉터리|디렉토리|directory|folder).{0,5}(만|only).{0,15}(수정|편집|edit)",
+          "\\bfreeze (edits|this|the|to)(?![a-z])"
+        ],
+        "med": ["\\bfreeze(?![a-z])|프리즈"]
+      },
+      "negative": ["unfreeze|해제|풀어", "(code|feature|코드|기능) ?freeze|(코드|기능) ?프리즈"],
+      "note": "편집 범위 디렉터리 제한"
+    },
+    {
+      "id": "unfreeze", "target": "unfreeze", "kind": "skill", "needs_crew": false,
+      "patterns": {
+        "high": ["(편집|수정|프리즈|freeze).{0,10}(제한 ?)?(해제|풀어)"],
+        "med": ["unfreeze"]
+      },
+      "negative": [],
+      "note": "freeze 해제"
+    },
+    {
+      "id": "document-release", "target": "document-release", "kind": "skill", "needs_crew": false, "doc_ok": true,
+      "patterns": {
+        "high": [
+          "(문서|docs?|readme|changelog|체인지로그).{0,15}(업데이트|갱신|동기화|최신화)\\s*(해|하자|좀)|(update|sync) (the )?(docs|readme|changelog)(?![a-z])"
+        ],
+        "med": ["readme|changelog|체인지로그|post-ship docs|document release"]
+      },
+      "negative": ["\\bprd|기획|스펙|\\bspec|설계"],
+      "note": "출시 후 문서 동기화"
+    },
+    {
+      "id": "research-note", "target": "research-note", "kind": "skill", "needs_crew": false, "doc_ok": true,
+      "patterns": {
+        "high": ["(연구 ?노트|research note).{0,10}(작성|써|기록|남겨|정리해|write)"],
+        "med": ["연구 ?노트|research note"]
+      },
+      "negative": [],
+      "note": "R&D 연구노트 작성"
+    }
+  ]
+}

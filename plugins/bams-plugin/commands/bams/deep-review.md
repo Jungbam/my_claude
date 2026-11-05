@@ -24,6 +24,7 @@ argument-hint: [파일/디렉토리/pr] [--aspect <spec|functional|performance|c
 ```bash
 _REVIEW_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/review/SKILL.md" 2>/dev/null | head -1)
 _CODEX_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/codex/SKILL.md" 2>/dev/null | head -1)
+codex --version >/dev/null 2>&1 && _CODEX_OK=1 || _CODEX_OK=0  # mcp__codex__* 도구가 있어도 1
 ```
 
 진행 추적 파일: `templates/deep-review-report.md` 기반으로 생성.
@@ -41,13 +42,11 @@ _CODEX_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/codex/
 - **5관점만** — 5관점 병렬 리뷰만 실행
 - **5관점 + 구조적** — 5관점 + 구조적 리뷰 (Codex 제외)
 
-(스킬 미설치 시 해당 옵션 비활성. Codex CLI 미설치 시 해당 옵션 비활성.)
+(스킬 미설치 시 해당 옵션 비활성. `_CODEX_OK=0`이면 Codex 옵션을 빼고 리포트에 "세컨드 오피니언 생략 — codex 미가용"을 명시한 뒤 진행.)
 
 ### 실행
 
 config.md의 컨벤션 + 관련 gotchas + 이전 미해결 이슈를 리뷰 에이전트에 전달.
-
-**선택에 따라 모든 리뷰를 최대한 병렬로 실행합니다:**
 
 **Step 1 — 5개 qa-strategy 에이전트** (항상 병렬):
 SSOT §qa-strategy 위임 메시지 템플릿(code aspect) — 5관점 정의와 지적 형식·confidence·false positive 기준 포함.

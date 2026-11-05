@@ -13,7 +13,7 @@ disallowedTools: []
 
 > **이번 릴리스의 주력**: Figma 접근 없이도 목업-코드 싱크가 가능한 **목업 → 토큰 추출 파이프라인**이다. Figma Variables 연동은 Optional 섹션으로 운영된다 (하단 §Figma Variables 변환 참조).
 
-프로젝트 토큰 네이밍·테마 컨벤션은 `.crew/config.md`의 해당 절만 §지목 Read한다(전체 로드 금지).
+토큰 네이밍·테마 컨벤션은 `.crew/config.md` 해당 절만 §지목 Read한다. [L2]
 
 ## 역할
 

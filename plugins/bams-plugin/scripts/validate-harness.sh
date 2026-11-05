@@ -5,10 +5,13 @@
 # FAIL: model/effort 허용값 이외(gpt 명 등), name≠파일명, description 부재·1024자 초과,
 #       plugin.json hook 스크립트 부재·비실행·상대경로, plugin.json agents ↔ agents/*.md 불일치,
 #       SubagentStart/Stop matcher가 플러그인 에이전트를 '^<plugin>:(...)$' 없이 지목하거나 없는 이름 나열,
-#       verify-before-stop.sh TARGET_AGENTS ≠ SubagentStop matcher 이름 집합.
+#       verify-before-stop.sh TARGET_AGENTS ≠ SubagentStop matcher 이름 집합,
+#       [6] keep-list.txt 패턴이 대상 파일에 0건, [7] route-table.json 형식·정규식·target 실재 위반.
+# INFO: route-table에 없는 /bams: 커맨드(--quiet에서 생략).
 # WARN: 에이전트 본문 10,000자 초과(plugin-dev 가이드), SKILL.md 500줄 초과(skill-creator 가이드),
 #       references/*.md 300줄 초과인데 목차 없음, .crew/memory/*/improvements/ 잔존·MEMORY.md 구형식 헤더.
-# env: BAMS_HARNESS_PJ=<plugin.json 대체 경로>(테스트용), BAMS_CREW_DIR=<.crew>(기본: git 루트의 .crew, 없으면 [5] skip).
+# env: BAMS_HARNESS_PJ=<plugin.json 대체 경로>(테스트용), BAMS_CREW_DIR=<.crew>(기본: git 루트의 .crew, 없으면 [5] skip),
+#      BAMS_KEEP_LIST=<keep-list 대체>, BAMS_ROUTE_TABLE=<route-table 대체>(테스트용).
 # macOS 기본 bash 3.2 / BSD awk 호환. timeout·GNU 전용 옵션 사용 금지.
 set -u
 
@@ -210,6 +213,59 @@ if [ -n "$CREW" ] && [ -d "$CREW/memory" ]; then
   done
 else
   info "[5] .crew/memory format — skip (.crew/memory 없음)"
+fi
+
+# ── 6. keep-list: 사라지면 안 되는 규칙 문구 (scripts/keep-list.txt) ──
+KL="${BAMS_KEEP_LIST:-$PLUGIN_DIR/scripts/keep-list.txt}"
+info "[6] keep-list"
+if [ -f "$KL" ]; then
+  while IFS=$'\t' read -r pat glob; do
+    case "$pat" in ''|'#'*) continue ;; esac
+    [ -n "$glob" ] || { fail "keep-list: 탭 구분 대상 glob 없음: $pat"; continue; }
+    n=0
+    for f in "$PLUGIN_DIR"/$glob; do
+      [ -f "$f" ] || continue; n=$((n + 1))
+      grep -Eq -e "$pat" "$f" || fail "keep-list: '${f#$PLUGIN_DIR/}' 에 '$pat' 0건"
+    done
+    [ "$n" -gt 0 ] || fail "keep-list: 대상 파일 없음: $glob"
+  done < "$KL"
+else
+  fail "keep-list 파일 부재: ${KL#$PLUGIN_DIR/}"
+fi
+
+# ── 7. route-table.json (hooks/prompt-router.sh SSOT) ──────────────
+RT="${BAMS_ROUTE_TABLE:-$PLUGIN_DIR/references/route-table.json}"
+info "[7] route-table"
+if ! command -v jq >/dev/null 2>&1; then :
+elif ! jq -e '.routes | type == "array" and length > 0' "$RT" >/dev/null 2>&1; then
+  fail "route-table.json 파싱 실패 또는 routes 배열 없음: ${RT#$PLUGIN_DIR/}"
+else
+  jq -r '
+    def bad($w): "  FAIL  route-table \($w)";
+    ([.routes[].id] | group_by(.) | map(select(length > 1) | bad("id 중복: \(.[0])")) | .[]),
+    (.routes[] | . as $r
+      | (if ((.id | type) == "string") and ((.target | type) == "string") and ((.needs_crew | type) == "boolean")
+              and ((.kind // "") | IN("pipeline", "skill", "question")) and ((.patterns.high | type) == "array")
+         then empty else bad("\(.id // "?"): 필수 필드(id,target,kind,needs_crew,patterns.high) 누락·형식 오류") end),
+        ([.patterns.high[]?, .patterns.med[]?, .negative[]?][] as $p
+          | try (("" | test($p; "i")) | empty) catch bad("\($r.id): 정규식 컴파일 실패: \($p)"))),
+    (((.skip.patterns // []) + (.global_negative // []))[] as $p | try (("" | test($p; "i")) | empty) catch bad("skip/global_negative: 정규식 컴파일 실패: \($p)"))
+  ' "$RT" 2>/dev/null > "$T/rt"
+  flush "$T/rt"
+  jq -r '.routes[] | (.target, (.chain // [])[])' "$RT" 2>/dev/null | sort -u > "$T/rt_targets"
+  while IFS= read -r t; do
+    case "$t" in
+      /bams:*) [ -f "$PLUGIN_DIR/commands/bams/${t#/bams:}.md" ] || fail "route-table target '$t': commands/bams/${t#/bams:}.md 없음" ;;
+      *)       [ -f "$PLUGIN_DIR/skills/$t/SKILL.md" ] || fail "route-table target '$t': skills/$t/SKILL.md 없음" ;;
+    esac
+  done < "$T/rt_targets"
+  missing=""
+  for f in "$PLUGIN_DIR"/commands/bams/*.md; do
+    b=$(basename "$f" .md)
+    case "$b" in _*|README) continue ;; esac
+    grep -qx "/bams:$b" "$T/rt_targets" || missing="$missing$b "
+  done
+  [ -z "$missing" ] || info "  INFO  route-table 미포함 /bams: 커맨드(허브·유틸 등 의도적 제외 가능): ${missing% }"
 fi
 
 echo ""

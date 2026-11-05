@@ -3,8 +3,8 @@ name: ship
 preamble-tier: 4
 version: 1.0.0
 description: |
-  Ship workflow: detect + merge base branch, run tests, review diff, bump VERSION, update CHANGELOG, commit, push, create PR. Use when asked to "ship", "deploy", "push to main", "create a PR", or "merge and push".
-  Proactively suggest when the user says code is ready or asks about deploying.
+  bams 커맨드 내부 엔진 — 직접 쓰지 말고 `/bams:ship` 사용.
+  base 머지, 테스트, diff 리뷰, VERSION/CHANGELOG, 커밋, push, PR 생성.
 allowed-tools:
   - Bash
   - Read

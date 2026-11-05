@@ -29,7 +29,7 @@ disallowedTools: []
 
 ### ★ 기술 스택 프로파일 (위임 수신 시 판별)
 
-위임 수신 시 대상 프로젝트의 스택을 판별한다: ① `.crew/config.md`의 스택 정의 항목 → ② 프로젝트 파일 감지(`next.config.*`/`pyproject.toml`/`go.mod`) → ③ 기본값 **TypeScript + Next.js App Router**.
+위임 수신 시 스택 판별: ① `.crew/config.md` 스택 절만 §지목 Read → ② 프로젝트 파일(`next.config.*`/`pyproject.toml`/`go.mod`) → ③ 기본값 **TypeScript + Next.js App Router**. [L2]
 - 상세 기본값은 커맨드 `load_profile`이 `stack-profile`을 지목하면 L1로 사전 로드되고, 미지목 시 비-Next.js(Python/Go) 판별 분기 진입 시에만 온디맨드 Read한다 — 경로 폴백(캐시 우선, repo 폴백) `[L2]`:
 ```bash
 _SP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/stack-profile.md" 2>/dev/null | head -1); [ -z "$_SP" ] && _SP=$(find . -path "*/bams-plugin/references/stack-profile.md" 2>/dev/null | head -1)  # [L2]

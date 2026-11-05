@@ -1,0 +1,15 @@
+# keep-list.txt — validate-harness [6]: 정리·축소 작업 중 사라지면 안 되는 규칙 문구.
+# 형식: <ERE 패턴><TAB><플러그인 루트 기준 파일 glob>. 매칭 파일마다 패턴 0건이면 FAIL, glob 매칭 파일 0개도 FAIL.
+# 코드 수정 5개 에이전트(verify-before-stop TARGET_AGENTS)의 "실제 검증" 완료 규칙
+무엇을 왜 못 돌렸는지	agents/frontend-engineering.md
+무엇을 왜 못 돌렸는지	agents/backend-engineering.md
+무엇을 왜 못 돌렸는지	agents/platform-devops.md
+무엇을 왜 못 돌렸는지	agents/data-integration.md
+무엇을 왜 못 돌렸는지	agents/automation-qa.md
+# 파괴 git 스킬의 --yes 게이트 (git-sync는 비파괴라 제외)
+--yes	skills/git-rollback/SKILL.md*
+--yes	skills/git-stash/SKILL.md*
+--yes	skills/git-branch/SKILL.md*
+# codex 호출 모델 규약 (정본: references/model-config.md)
+model="gpt-6\.1-sol"	skills/codex/SKILL.md*
+gpt-6\.1-sol	references/model-config.md

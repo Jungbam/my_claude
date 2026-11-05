@@ -3,11 +3,8 @@ name: benchmark
 preamble-tier: 1
 version: 1.0.0
 description: |
-  Performance regression detection using the browse daemon. Establishes
-  baselines for page load times, Core Web Vitals, and resource sizes.
-  Compares before/after on every PR. Tracks performance trends over time.
-  Use when: "performance", "benchmark", "page speed", "lighthouse", "web vitals",
-  "bundle size", "load time".
+  bams 커맨드 내부 엔진 — 직접 쓰지 말고 `/bams:performance` 사용.
+  browse 데몬 기반 성능 회귀 감지(로드 시간, Core Web Vitals, 번들 크기).
 allowed-tools:
   - Bash
   - Read

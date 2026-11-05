@@ -3,11 +3,8 @@ name: qa-only
 preamble-tier: 4
 version: 1.0.0
 description: |
-  Report-only QA testing. Systematically tests a web application and produces a
-  structured report with health score, screenshots, and repro steps — but never
-  fixes anything. Use when asked to "just report bugs", "qa report only", or
-  "test but don't fix". For the full test-fix-verify loop, use /qa instead.
-  Proactively suggest when the user wants a bug report without any code changes.
+  bams 커맨드 내부 엔진 — 직접 쓰지 말고 `/bams:qa` 사용.
+  웹앱 QA 보고 전용(수정 없음): health score, 스크린샷, 재현 절차.
 allowed-tools:
   - Bash
   - Read

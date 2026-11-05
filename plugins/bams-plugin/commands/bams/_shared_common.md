@@ -1,15 +1,16 @@
 # 공통 규칙 (모든 파이프라인 공유)
 
-> 모든 `/bams:*` 파이프라인의 `_common.md`가 이 파일을 Read한다.
+> 모든 `/bams:*` 파이프라인의 `_common.md`가 이 파일을 Read한다. `[bams router]` 컨텍스트 처리: `references/prompt-routing.md` [L2]
 
 ---
 
 ## ★ 위임 원칙 — 2단 위임 + Orchestrator 조언자 모드 (Canonical)
 
-**이 커맨드에서 직접 Edit/Write로 코드를 수정하지 않는다.** 모든 코드 수정은 `커맨드(메인) → 부서장 → (선택적) specialist` 2단 위임으로 한다. harness는 서브에이전트의 중첩 spawn을 막으므로 pipeline-orchestrator는 계획·게이트·라우팅만 반환하는 조언자다. 상세: `references/delegation-protocol.md`.
+모든 코드 수정은 `커맨드(메인) → 부서장 → (선택적) specialist` 2단 위임으로 한다. harness가 중첩 spawn을 막으므로 pipeline-orchestrator는 계획·게이트·라우팅만 반환하는 조언자다. 상세: `references/delegation-protocol.md`.
 
-- 허용: Bash/Glob/Grep/Read 상태 확인, AskUserQuestion, orchestrator 조언 호출, 메인에서 부서장 직접 spawn(병렬 트랙은 단일 메시지 복수 호출). 부서장은 도메인 specialist를 최대 1회 spawn.
+- 허용: Bash/Glob/Grep/Read 상태 확인, AskUserQuestion, orchestrator 조언 호출, 메인의 부서장 직접 spawn(병렬은 단일 메시지). 부서장은 specialist를 최대 1회 spawn.
 - 금지: 메인의 소스 코드 Edit/Write, 서브에이전트 내부 중첩 spawn, "직접 하면 더 빠르다"는 이유의 위임 생략.
+- 조언 생략: 참여 부서장·라우팅이 history·파일 패턴으로 결정적이면 orchestrator 조언 호출을 생략할 수 있고 생략 사실을 history에 남긴다. Phase 게이트 Go/No-Go 판정은 생략하지 않는다.
 - **CHAIN_VIOLATION**: orchestrator 응답 상단에 이 경고가 있거나 메인이 위임을 건너뛴 정황이면 해당 Phase를 즉시 중단하고 에스컬레이션한다(재시도 금지).
 
 ### 부서장 spawn·보고 처리 (계약 SSOT: `delegation-protocol.md` §2-2·§2-5·§2-6)
@@ -42,7 +43,7 @@
 ```
 
 - 태스크 상태는 `.crew/board.md`, 파이프라인 이력은 `.crew/history.md`로 이원화한다.
-- **board.md 아카이브**: Done 태스크는 같은 단계에서 `.crew/board-archive.md`(`## Done ({slug} — YYYY-MM-DD)`)로 이관하고, board.md에는 활성 섹션과 최근 1개 파이프라인 Done만 남긴다. 상세: `references/completion-protocol.md` Step 4.6.
+- **board.md 아카이브**: Done 태스크는 `.crew/board-archive.md`로 이관한다 — `references/completion-protocol.md` Step 4.6.
 - 회고 입력은 history.md + 대상 산출물 + 사용자 관찰뿐이다.
 
 ---
@@ -84,7 +85,7 @@ _RETRO_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/retro/
 
 ## Commit 분리 정책
 
-squash 머지 PR은 머지 전 branch를 카테고리/hunk 그룹별 commit으로 나누고, PR description에 boundary를 남긴다(squash 후 추적 불가).
+squash 머지 PR은 머지 전 카테고리별 commit으로 나누고 PR description에 boundary를 남긴다.
 
 ```
 ## Commit Map (squash 시 boundary)

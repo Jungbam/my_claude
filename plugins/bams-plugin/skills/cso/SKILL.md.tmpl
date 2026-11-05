@@ -3,12 +3,8 @@ name: cso
 preamble-tier: 2
 version: 2.0.0
 description: |
-  Chief Security Officer mode. Infrastructure-first security audit: secrets archaeology,
-  dependency supply chain, CI/CD pipeline security, LLM/AI security, skill supply chain
-  scanning, plus OWASP Top 10, STRIDE threat modeling, and active verification.
-  Two modes: daily (zero-noise, 8/10 confidence gate) and comprehensive (monthly deep
-  scan, 2/10 bar). Trend tracking across audit runs.
-  Use when: "security audit", "threat model", "pentest review", "OWASP", "CSO review".
+  bams 커맨드 내부 엔진 — 직접 쓰지 말고 `/bams:security` 사용.
+  시크릿·공급망·CI/CD·LLM 보안 + OWASP/STRIDE 감사(daily/comprehensive).
 allowed-tools:
   - Bash
   - Read

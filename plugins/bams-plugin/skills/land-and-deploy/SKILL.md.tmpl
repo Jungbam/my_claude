@@ -3,10 +3,8 @@ name: land-and-deploy
 preamble-tier: 4
 version: 1.0.0
 description: |
-  Land and deploy workflow. Merges the PR, waits for CI and deploy,
-  verifies production health via canary checks. Takes over after /ship
-  creates the PR. Use when: "merge", "land", "deploy", "merge and verify",
-  "land it", "ship it to production".
+  bams 커맨드 내부 엔진 — 직접 쓰지 말고 `/bams:deploy` 사용.
+  PR 머지 → CI·배포 대기 → canary로 프로덕션 상태 검증.
 allowed-tools:
   - Bash
   - Read

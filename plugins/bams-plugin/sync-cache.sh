@@ -13,6 +13,7 @@ PLUGIN_DIR="$(cd "$(dirname "$0")" && pwd)"
 # ─── 플래그 파싱 ─────────────────────────────────────────────────────────────
 DRY_RUN=false
 VERBOSE=false
+PRUNE_STALE=false
 
 usage() {
   cat <<'USAGE'
@@ -23,6 +24,7 @@ Source → Cache 단방향 동기화 (rsync 기반)
 Options:
   -n, --dry-run    변경사항만 표시, 실제 동기화 안 함
   -v, --verbose    상세 로그 출력
+      --prune-stale  .orphaned_at 표시된 구 버전 캐시 폴더 삭제 (기본: 목록만 출력)
   -h, --help       이 도움말 출력
 USAGE
   exit 0
@@ -32,6 +34,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     -n|--dry-run) DRY_RUN=true; shift ;;
     -v|--verbose) VERBOSE=true; shift ;;
+    --prune-stale) PRUNE_STALE=true; shift ;;
     -h|--help)    usage ;;
     *)            echo "Unknown option: $1" >&2; usage ;;
   esac
@@ -181,4 +184,35 @@ else
   else
     echo "동기화 완료: ${CHANGE_COUNT}건 변경됨"
   fi
+fi
+
+# ─── 버전 드리프트 / 구 버전 폴더 점검 ──────────────────────────────────────
+# installed_plugins.json installPath가 SSOT — 폴더 rename은 하지 않는다(경고만).
+SRC_VER=$(sed -n 's/^[[:space:]]*"version":[[:space:]]*"\([^"]*\)".*/\1/p' "$PLUGIN_DIR/.claude-plugin/plugin.json" | head -1)
+CACHE_DIR="${VERSION_DIR%/}"
+CACHE_NAME="${CACHE_DIR##*/}"
+if [ -n "$SRC_VER" ] && [ "$CACHE_NAME" != "$SRC_VER" ]; then
+  echo "WARN: cache 폴더명($CACHE_NAME) ≠ plugin.json version($SRC_VER) — installPath(installed_plugins.json) 기준으로 동기화함, rename 안 함"
+fi
+# 삭제 후보: installPath·plugin.json version 폴더가 아니고 Claude Code가 고아로 표시(.orphaned_at)한 폴더만.
+# .orphaned_at 없는 폴더는 Claude Code가 관리 중일 수 있어 목록만 출력한다.
+STALE=(); MANAGED=()
+for d in "${CACHE_DIR%/*}"/*/; do
+  d="${d%/}"
+  [ -d "$d" ] || continue
+  [ "$d" = "$CACHE_DIR" ] && continue
+  case "${d##*/}" in "$SRC_VER") continue ;; [0-9]*.[0-9]*) ;; *) continue ;; esac
+  if [ -e "$d/.orphaned_at" ]; then STALE+=("$d"); else MANAGED+=("$d"); fi
+done
+if [ "${#STALE[@]}" -gt 0 ]; then
+  if $PRUNE_STALE && ! $DRY_RUN; then
+    for d in "${STALE[@]}"; do rm -rf "$d" && echo "Pruned orphaned cache: $d"; done
+  else
+    echo "고아 캐시 폴더 ${#STALE[@]}개 (.orphaned_at 있음, 삭제는 --prune-stale):"
+    printf '  %s\n' "${STALE[@]}"
+  fi
+fi
+if [ "${#MANAGED[@]}" -gt 0 ]; then
+  echo "기타 버전 폴더 ${#MANAGED[@]}개 (.orphaned_at 없음 — Claude Code 관리 중일 수 있어 삭제 안 함):"
+  printf '  %s\n' "${MANAGED[@]}"
 fi
