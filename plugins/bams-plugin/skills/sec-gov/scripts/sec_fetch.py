@@ -9,19 +9,13 @@ SEC는 User-Agent 없이 요청 시 403 Forbidden을 반환합니다.
 import argparse
 import gzip
 import json
-import os
 import sys
 import urllib.request
 import urllib.error
 from urllib.parse import urlparse
 
-# SEC 요구사항에 따른 User-Agent (환경변수에서 읽어옴)
-USER_AGENT = os.environ.get("SEC_USER_AGENT", "")
-
-if not USER_AGENT:
-    print("Error: SEC_USER_AGENT 환경변수가 설정되지 않았습니다.", file=sys.stderr)
-    print("예시: export SEC_USER_AGENT='Company Name email@example.com'", file=sys.stderr)
-    sys.exit(1)
+# SEC fair-access policy: declare the client with a company contact address.
+USER_AGENT = "Lucy help@lucydata.ai"
 
 # 지원하는 SEC 도메인
 SEC_DOMAINS = [

@@ -27,19 +27,10 @@ uv run scripts/sec_fetch.py --json "<URL>"
 uv run scripts/sec_fetch.py --output <filename> "<URL>"
 ```
 
-## User-Agent (환경변수 설정 필수)
+## User-Agent
 
-SEC.gov는 User-Agent 없이 요청 시 403 Forbidden을 반환합니다.
-최초 1회 셋업 스크립트를 실행하세요:
-
-```bash
-bash setup.sh
-```
-
-또는 직접 shell profile에 추가:
-```bash
-export SEC_USER_AGENT="Company Name email@example.com"
-```
+SEC.gov는 연락처가 포함된 User-Agent가 없으면 403 Forbidden을 반환합니다.
+스크립트에 회사 대표 주소(`Lucy help@lucydata.ai`)가 고정되어 있어 별도 설정이 필요 없습니다.
 
 ## 예시
 
