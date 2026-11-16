@@ -30,7 +30,7 @@ F1→F4 파이프라인의 최종 품질 게이트. 가이드 충실도를 픽�
 ### codex 추론 위임 (gpt-6.1-sol via MCP)
 
 핵심 추론(스크린샷 diff·WCAG 대비 측정·미스매치 분류)을 codex(gpt-6.1-sol)에 위임한다. 공통 절차·run_codex() 정본·이중구조·via 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md` [L2]
-경로 폴백: `find ~/.claude/plugins/cache -path "*/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
+경로 폴백: `_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; ls "$_BAMS/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
 - codex sandbox: `read-only` · 컨트롤러 모델: `claude-sonnet-5-5` · harness tier: `sonnet`
 - 위임 지점: 픽셀 diff 분석·WCAG 계산·미스매치 분류 초안 → codex; Claude 컨트롤러는 검증·통합 후 verdict.json 정리
 - codex 미가용 시: design-director 에스컬레이션 후 대기
@@ -41,7 +41,7 @@ F1→F4 파이프라인의 최종 품질 게이트. 가이드 충실도를 픽�
 - browse 결과 스크린샷에 사용자 개인정보(이름, 이메일, 주소) 포함 시 제거 후 저장.
 - **bams:browse SKILL 미설치 시 명시적 에러 + 사용자 보고 후 중단** (OQ10=b fallback):
   ```bash
-  _BROWSE_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/browse/SKILL.md" 2>/dev/null | head -1)
+  _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BROWSE_SKILL="$_BAMS/skills/browse/SKILL.md"; [ -e "$_BROWSE_SKILL" ] || _BROWSE_SKILL=""
   if [ -z "$_BROWSE_SKILL" ]; then
     echo "[ERROR] bams-plugin:bams:browse SKILL 미설치 — F5 실행 불가" >&2
     # H-D3: 디렉터리 부재 시 cat redirect 실패 방지
@@ -157,5 +157,5 @@ input_artifacts:
 ## BP 온디맨드 참조 (L2)
 
 placeholder BP(추후 작성)이므로 무조건 로드하지 않는다. 해당 Responsibility 착수 분기에서 파일이 실재할 때만 온디맨드 Read(없으면 생략): [L2]
-`_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/visual-fidelity-verifier.md" 2>/dev/null | head -1)` [L2]
+`_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BP="$_BAMS/references/best-practices/visual-fidelity-verifier.md"; [ -e "$_BP" ] || _BP=""` [L2]
 `[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/visual-fidelity-verifier.md" 2>/dev/null | head -1)` [L2]

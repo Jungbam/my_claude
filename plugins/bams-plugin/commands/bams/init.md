@@ -7,6 +7,24 @@ argument-hint: [프로젝트 설명]
 
 Bams 오케스트레이터로서 프로젝트의 `.crew/` 워크스페이스를 초기화하고 배포 환경을 점검합니다.
 
+## Steps
+
+> 시작 즉시 아래 목록을 **원문 그대로** TodoWrite에 복사한다. 건너뛰는 step은 지우지 않고 `— skip: <사유>`로 남긴다 (`references/step-status.md` §Steps 체크리스트 규약).
+
+1. Step 0 코드 최신화
+2. Step 1 기존 상태 확인 (유지 / 부분 재초기화 / 전체 재초기화)
+3. Step 2 언어 선택
+4. Step 3 프로젝트 컨텍스트 수집
+5. Step 4 Git 저장소 확인
+6. Step 5 / 5.2 / 5.3 디렉토리 + 에이전트 memory + references 복사
+7. Step 5.7 Claude Code 권한 설정
+8. Step 6-7 코드베이스 분석 + 배포 환경 점검 (병렬)
+9. Step 8 config.md 생성
+10. Step 9-10 board.md + gotchas.md 생성
+11. Step 11 CLAUDE.md 업데이트
+12. Step 11.5 프로젝트 검증 스킬 생성 + 1회 실증 (draft/proven 기록)
+13. Step 12 결과 보고 (skip 목록 포함)
+
 ## Step 0: 코드 최신화
 
 Bash로 `git rev-parse --is-inside-work-tree 2>/dev/null`를 실행하여 git 저장소인지 확인합니다.
@@ -45,6 +63,7 @@ Options:
 - Step 6~8 (분석 + config 갱신)
 - **Step 9 (board.md 보존 — 기존 파일 있으면 스킵)**
 - **Step 10 (gotchas.md 보존 — 기존 파일 있으면 스킵)**
+- **Step 11.5 (검증 스킬 — 기존 `.claude/skills/verify-*` 있으면 유지보수 모드: drift 수정 + 재실증)**
 
 board.md/.crew/history.md/.crew/memory/ 모두 **보존**한다.
 **전체 재초기화** 선택 시: **두 번째 AskUserQuestion**으로 데이터 손실 사전 동의를 받는다.
@@ -121,7 +140,7 @@ touch .crew/history.md
 ```bash
 # bams-plugin agents 디렉토리 탐색 (소스 → 캐시 순)
 _AGENTS_DIR=$(find . -path "*/bams-plugin/agents" -not -path "*/node_modules/*" 2>/dev/null | head -1)
-[ -z "$_AGENTS_DIR" ] && _AGENTS_DIR=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/agents" 2>/dev/null | head -1)
+[ -z "$_AGENTS_DIR" ] && { _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _AGENTS_DIR="$_BAMS/agents"; [ -e "$_AGENTS_DIR" ] || _AGENTS_DIR=""; }
 
 if [ -n "$_AGENTS_DIR" ]; then
   for _MD in "$_AGENTS_DIR"/*.md; do
@@ -205,7 +224,7 @@ bams-plugin의 공용 reference 문서를 프로젝트 `.crew/references/`로 �
 ```bash
 # bams-plugin references 디렉토리 탐색 (소스 → 캐시 순)
 _REFS_DIR=$(find . -path "*/bams-plugin/references" -not -path "*/node_modules/*" 2>/dev/null | head -1)
-[ -z "$_REFS_DIR" ] && _REFS_DIR=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references" 2>/dev/null | head -1)
+[ -z "$_REFS_DIR" ] && { _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _REFS_DIR="$_BAMS/references"; [ -e "$_REFS_DIR" ] || _REFS_DIR=""; }
 
 if [ -n "$_REFS_DIR" ]; then
   mkdir -p .crew/references
@@ -614,6 +633,49 @@ CLAUDE.md에 Bams 조직 운영 규칙을 추가합니다. 이 규칙은 Claude�
 | `/bams:sprint` | 스프린트 플래닝 및 관리 |
 ````
 
+## Step 11.5: 프로젝트 검증 스킬 생성 (verify-<app>)
+
+이 앱을 띄우고 기능을 직접 조작해 증거를 남기는 프로젝트 로컬 스킬 `.claude/skills/verify-<app>/`를 만든다. 생성 규칙 SSOT: **`references/verification-skill-protocol.md`** (Launch · Doctor · Drive · Evidence · Cleanup + feature map, draft → proven).
+
+**실행 조건** (아니면 Steps 12를 `— skip: <사유>`로 남김):
+- Step 6이 실행됨(소스 코드 존재). 실행 가능한 surface가 없는 순수 라이브러리면 skip.
+- `.claude/skills/verify-*/SKILL.md`가 이미 있으면 **유지보수 모드**(protocol §8): 새로 만들지 않고 drift 수정 + 재실증.
+
+**1) 사전 판별 (메인, 읽기 전용)**
+
+```bash
+ls -d .claude/skills/verify-*/ 2>/dev/null                       # 기존 스킬 → 유지보수 모드
+_TPL=$(find . -path "*/bams-plugin/templates/verify-skill" -type d -not -path "*/node_modules/*" 2>/dev/null | head -1)
+[ -z "$_TPL" ] && { _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _TPL="$_BAMS/templates/verify-skill"; [ -d "$_TPL" ] || _TPL=""; }
+echo "template: ${_TPL:-NOT_FOUND}"
+git remote get-url origin 2>/dev/null
+```
+
+ezar 서비스 여부: `references/ezar-infra-deploy.md` §1(MCP 가용 + repo → 서비스 매핑, 추측 금지)을 읽기 도구로만 판별한다. 매핑이 확정된 경우에만 서비스명을 위임 메시지에 넣는다. 미가용·후보 0건이면 ezar Doctor 없이 진행.
+
+**2) 생성 + 실증 위임**
+
+서브에이전트 실행 (Task tool, subagent_type: **"bams-plugin:automation-qa"**):
+<!-- load_profile:exempt non-department-lead spawn -->
+
+> **검증 스킬 생성 모드** — `references/verification-skill-protocol.md`를 Read하고 그대로 따른다.
+>
+> - 모드: {신규 | 유지보수(기존 경로)}
+> - 템플릿: `{_TPL}` (`SKILL.template.md`, `features/README.template.md`, `features/_feature.template.md`)
+> - 리포 인터뷰 입력: `.crew/artifacts/review/init-review.md`(Step 6-7 결과), `.crew/config.md`, package.json scripts, docker-compose*, Makefile, `.env.example`, 라우트 디렉토리
+> - ezar-infra 서비스: {service | 없음} — 있으면 Doctor에 읽기 전용 `dev_deploy_status`·`dev_pods`만 추가 (변경 도구 금지)
+>
+> 수행:
+> 1. `.claude/skills/verify-<app>/SKILL.md` + `features/README.md` + 기능 파일 3~5개 작성 (플레이스홀더 0개)
+> 2. 스킬 자신의 지시만으로 1회 실증: Launch → Doctor → 기능 1개 Drive → Evidence → Cleanup → 증거 잔존 확인. 실패 시 스킬 수정 후 최대 2회 재시도, 매 실패 후 Cleanup 실행
+> 3. 성공 → Status 블록 `status: proven` + proven_at/commit/feature/evidence 기록. 실패·실행 불가 → `status: draft` + `blocked_by`에 구체 전제
+> 4. 실행 로그 요약을 `.crew/artifacts/report/verify-skill-{YYYY-MM-DD}.md`에 저장
+> 5. 공유 dev/staging/prod 자원에 쓰기 금지 (protocol §3 안전 규칙)
+>
+> 반환: 스킬 경로, status(proven/draft), proven_feature 또는 blocked_by, 증거 경로, 생성한 기능 목록.
+
+**3) 결과 기록 (메인)**: `.crew/config.md`에 `## 검증 스킬` 섹션을 추가/갱신한다 — 경로, status, proven_at, blocked_by, 유지보수 규칙 1줄("이번 diff가 건드리지 않은 기능에서 실패하면 스킬을 고치고 제품 코드는 고치지 않는다 — protocol §8"). 에이전트가 error를 반환해도 init은 중단하지 않고 `draft` + 사유로 기록한다.
+
 ## Step 12: 결과 보고
 
 ```
@@ -626,6 +688,8 @@ Git: [초기화/기존]
 코드베이스 분석: [완료/스킵]
 Memory: [에이전트 {N}개 디렉토리 생성 / 이미 존재]
 권한 설정: [와일드카드 규칙 적용됨 / 이미 설정됨]
+검증 스킬: [.claude/skills/verify-<app>/ proven (기능: X) / draft (blocked_by: …) / skip (사유)]
+Skip된 step: [Steps 체크리스트의 skip 항목과 사유 / 없음]
 
 다음: /bams:plan <feature> | /bams:sprint plan
 ```

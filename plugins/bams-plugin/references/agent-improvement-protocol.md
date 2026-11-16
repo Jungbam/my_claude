@@ -92,7 +92,7 @@ MEMORY.md 상한·TTL은 `retro-protocol.md` §5-2를 따른다.
 
 ### 8.4 codex 위임 stub (헤딩 + 본문 ≤8줄)
 
-- 헤딩 `## codex 추론 위임 (gpt-6.1-sol via MCP)`(레벨 `##`/`###` 허용, 문자열 "codex 추론 위임" 불변) + 본문 ≤8줄(위임 문장 · `references/codex-delegation.md` 경로 폴백 · `codex sandbox:` 값 줄 · 위임 지점 · 미가용 폴백). 절차 본문은 `references/codex-delegation.md`(SSOT)에만 두고, stub은 `find ~/.claude/plugins/cache … || find .` 폴백으로 참조한다(bare 경로 금지).
+- 헤딩 `## codex 추론 위임 (gpt-6.1-sol via MCP)`(레벨 `##`/`###` 허용, 문자열 "codex 추론 위임" 불변) + 본문 ≤8줄(위임 문장 · `references/codex-delegation.md` 경로 폴백 · `codex sandbox:` 값 줄 · 위임 지점 · 미가용 폴백). 절차 본문은 `references/codex-delegation.md`(SSOT)에만 두고, stub은 installPath 리졸버(`references/plugin-cache-sync.md` §런타임 경로 해석) + `|| find .` repo 폴백으로 참조한다(bare 경로 금지, 캐시 루트 전체 `find` 금지 — `scripts/check-cache-resolver.sh`가 FAIL).
 - 리터럴 "codex 추론 위임"과 `codex sandbox:` 값 줄은 게이트 판정 소스이므로 삭제 금지.
 - 검증: `bash scripts/codex-block-lines.sh` → `FILES=16`, 파일당 블록(헤딩 포함) ≤9줄.
 

@@ -1,6 +1,6 @@
 ---
 description: PRD + 기술 설계 + 태스크 분해 (구현 없이 문서만)
-argument-hint: <피처 또는 이슈 설명>
+argument-hint: <피처 또는 이슈 설명> [--design-twice]
 ---
 
 # Bams Plan
@@ -10,6 +10,22 @@ Bams 오케스트레이터로서 product-strategy, business-analysis, design-dir
 기획할 피처/이슈: $ARGUMENTS
 
 $ARGUMENTS가 비어있으면, 사용자에게 어떤 피처를 기획할지 물어보고 중단합니다.
+
+`$ARGUMENTS`에 `--design-twice`가 있으면 플래그를 떼어 내고 `_DESIGN_TWICE=1`로 기억한다(기본 off). 상세는 Phase 2-c.
+
+## Steps
+
+> 시작 즉시 아래 목록을 **원문 그대로** TodoWrite에 복사한다. 건너뛰는 step은 지우지 않고 `— skip: <사유>`로 남긴다 (`references/step-status.md` §Steps 체크리스트 규약).
+
+1. 코드 최신화 + 사전 조건 + 공통 규칙 로드
+2. Phase 1 PRD 작성 + 미결 질문 해소
+3. Phase 2-a pipeline-orchestrator 조언 (라우팅 + 게이트)
+4. Phase 2-b 4트랙 설계 병렬 spawn + Codex FE/디자인 리뷰 게이트
+5. Phase 2-c 두 번 설계 비교·접목 (`--design-twice` 미지정 시 skip)
+6. Phase 3 태스크 분해
+7. Phase 4 아티팩트 저장 + 보드 업데이트
+8. Phase 5 사용자에게 계획 제시 (skip 목록 포함)
+9. Phase 7 `.crew/history.md` 1줄 기록
 
 ## 코드 최신화
 
@@ -88,6 +104,8 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 > ```
 >
 > **요청:** 메인이 병렬 spawn할 부서장 목록과 위임 메시지 템플릿(기능 명세는 product-strategy, 디자인 기술 설계는 design-director, FE/BE 기술 설계는 frontend-engineering / backend-engineering), 산출물 경로, 게이트 조건을 Advisor Response로 반환하세요. 직접 spawn 금지(harness 깊이 2 제약).
+>
+> **(`_DESIGN_TWICE=1`일 때만 추가 요청)** Phase 2-c 판정을 위해 다음도 반환하세요: ① 이 PRD에서 **선례 없는 설계 결정**(코드베이스·기존 설계 문서·ADR에 같은 형태가 없는 것) 1개와 그 소유 트랙(BE/FE/디자인 중 1개), 없으면 `none` + 근거 ② 그 결정의 **구조적으로 다른 축** 2개(후보 A/B 방향) ③ 후보 비교용 **루브릭 3~6항목**(구체적·채점 가능) ④ 코드 프로토타입 필요 여부.
 
 반환 후 Advisor Response 파싱 + CHAIN_VIOLATION 체크:
 
@@ -210,6 +228,43 @@ fi
 
 **기대 산출물**: 기능 명세, 디자인(UI/UX) 기술 설계, FE 기술 설계, BE 기술 설계, Codex FE/디자인 리뷰 리포트 (4트랙 + gpt-6.1-sol)
 
+### Phase 2-c. 두 번 설계 (`--design-twice`, opt-in · 기본 off)
+
+> **비용 경고**: 대상 트랙의 설계 비용이 약 2배 + 비교 1회 + 접목 1회 spawn이 추가된다(worktree 프로토타입이면 더 큼). **선례 없는 설계 결정에만** 쓴다 — 기존 패턴을 따르는 CRUD·화면 추가에는 쓰지 않는다.
+
+**실행 조건**: `_DESIGN_TWICE=1` **그리고** 2-a Advisor Response의 선례 없는 결정이 `none`이 아님. 아니면 Steps 5를 `— skip: <--design-twice 미지정 | 선례 없는 결정 none: 근거>`로 남기고 Phase 3로 간다.
+
+**1) 후보 2개 fan-out** — 2-b와 같은 메시지에서, 대상 트랙의 부서장 Task 블록을 **두 번** 발행한다(같은 subagent_type·load_profile, 대상 트랙의 기본 1회 spawn을 대체). 두 위임 메시지는 과제·입력이 동일하고 차이는 아래뿐이다:
+- 후보 A는 2-a의 축 A, 후보 B는 축 B를 **구조 전체**로 채택하도록 지시 (한 구조 안의 국소 변형 금지)
+- 각자 근거에 "검토했으나 버린 대안과 이유"를 포함
+- 산출물: `.crew/artifacts/design/{slug}-design-{track}-cand-a.md` / `-cand-b.md`
+- 루브릭은 후보에게 **보여주지 않는다** (판정자 전용)
+- 2-a가 코드 프로토타입 필요로 판정했으면 두 Task 모두 `isolation: "worktree"`로 spawn — 프로토타입 코드는 각 worktree에 두고 메인 트리 소스는 건드리지 않는다. 후보 설계 문서는 메인 트리 `.crew/artifacts/design/`의 **절대 경로**로 쓰게 하고, 프로토타입 worktree 경로를 문서에 적게 한다
+- 한 후보가 산출물 없이 끝나면 남은 1개로 진행하고 dropout을 기록
+
+**2) 비교 판정** — 두 후보 반환 후 메인이 pipeline-orchestrator를 조언자 모드로 1회 호출:
+
+Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언자 모드**:
+
+<!-- load_profile:exempt non-department-lead spawn -->
+
+> **Plan Phase 2-c — 두 번 설계 비교 판정**
+> ```
+> candidates: [.crew/artifacts/design/{slug}-design-{track}-cand-a.md, ...-cand-b.md]
+> rubric: {2-a에서 받은 3~6항목}
+> prd: .crew/artifacts/prd/{slug}-prd.md
+> ```
+> 두 후보를 끝까지 읽고 **루브릭 항목별로** 점수와 근거를 매긴 뒤(총평 금지) base 1개를 고르세요. 동점이면 다음 기여자가 불변식을 깨지 않고 확장하기 쉬운 쪽, 더 작은 공개 인터페이스 쪽. 진 후보에서 접목할 요소는 **최대 1~2개**(각각 출처 섹션 + 이유). 두 후보가 같은 형태로 수렴했으면 `converged`로 접목 없이 종료. 크게 발산해 루브릭으로 가를 수 없으면 `reframe`을 반환(평균 내기 금지). 직접 spawn·파일 수정 금지.
+
+`codex` CLI가 가용하면(2-b 인증 ping 통과) 같은 루브릭으로 Codex 채점을 1회 받아 보조 의견으로 붙일 수 있다(advisory, 필수 아님). base가 orchestrator와 다르면 두 근거를 모두 기록하고 orchestrator 판정을 따른다.
+
+**3) 접목 + 기록**
+- `reframe` → 사용자에게 두 후보 요약과 함께 AskUserQuestion(방향 선택 / 재프레이밍 후 재실행 / 2-b 결과 단일안 사용).
+- 그 외 → base 후보를 쓴 트랙의 부서장을 1회 더 spawn(2-b 해당 트랙 블록 재사용)해, base에 접목 요소만 직접 통합한 최종본을 원래 경로 `.crew/artifacts/design/{slug}-design-{track}.md`에 작성 — 기계적 붙여넣기 금지, 한 설계로 일관되게.
+- 대상 트랙이 FE 또는 디자인이면 2-b의 Codex 리뷰 게이트는 이 최종본이 나온 뒤에 실행한다(후보 파일이 아니라 최종본을 리뷰).
+- 판정 기록: `.crew/artifacts/design/{slug}-design-twice.md` — 대상 결정, 축 A/B, 루브릭·항목별 점수, base와 이유, 접목 요소(출처 포함), 버린 것과 이유, dropout/수렴 여부, Codex 보조 의견(있으면).
+- worktree 프로토타입은 판정 후 base 쪽 경로만 판정 기록에 남기고 나머지는 정리 대상으로 표시한다(자동 삭제는 Agent 도구의 worktree 정리 규칙을 따른다).
+
 ## Phase 3: 태스크 분해
 
 pipeline-orchestrator가 반환한 Phase 2 결과를 종합하여 구체적인 태스크로 분해합니다:
@@ -279,6 +334,7 @@ PRD: .crew/artifacts/prd/[slug]-prd.md
 설계: .crew/artifacts/design/[slug]-design.md
 디자인(UI/UX) 설계: .crew/artifacts/design/[slug]-design-ui.md
 Codex FE/디자인 리뷰: .crew/artifacts/review/[slug]-design-fe-codex-review.md
+두 번 설계 판정: .crew/artifacts/design/[slug]-design-twice.md (--design-twice 실행 시만)
 
 태스크 ([N]개 총):
   [의존성 트리 보여주는 정렬된 목록]

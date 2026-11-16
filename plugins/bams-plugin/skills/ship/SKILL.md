@@ -2,6 +2,7 @@
 name: ship
 preamble-tier: 4
 version: 1.0.0
+disable-model-invocation: true
 description: |
   bams 커맨드 내부 엔진 — 직접 쓰지 말고 `/bams:ship` 사용.
   base 머지, 테스트, diff 리뷰, VERSION/CHANGELOG, 커밋, push, PR 생성.
@@ -23,7 +24,7 @@ allowed-tools:
 
 ```bash
 _GSTACK_BIN="${CLAUDE_SKILL_DIR}/../../bin"
-[ -x "$_GSTACK_BIN/gstack-config" ] || { _P=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/bin/gstack-config" -type f 2>/dev/null | head -1); _GSTACK_BIN=${_P%/gstack-config}; }
+[ -x "$_GSTACK_BIN/gstack-config" ] || { _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _GSTACK_BIN="$_BAMS/bin"; }
 echo "GSTACK_BIN: ${_GSTACK_BIN:-NOT_FOUND}"
 echo "BRANCH: $(git branch --show-current 2>/dev/null || echo unknown)"
 ```

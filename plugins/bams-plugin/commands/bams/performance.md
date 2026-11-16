@@ -21,7 +21,7 @@ bams benchmark 스킬을 활용한 성능 측정, 비교, 트렌드 분석입니
 스킬 로딩:
 
 ```bash
-_BENCHMARK_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/benchmark/SKILL.md" 2>/dev/null | head -1)
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BENCHMARK_SKILL="$_BAMS/skills/benchmark/SKILL.md"; [ -e "$_BENCHMARK_SKILL" ] || _BENCHMARK_SKILL=""
 ```
 
 `bams-plugin:performance-evaluation` 에이전트를 분석에 활용합니다.

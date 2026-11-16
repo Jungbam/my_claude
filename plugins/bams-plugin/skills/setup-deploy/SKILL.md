@@ -25,7 +25,7 @@ allowed-tools:
 
 ```bash
 _GSTACK_BIN="${CLAUDE_SKILL_DIR}/../../bin"
-[ -x "$_GSTACK_BIN/gstack-config" ] || { _P=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/bin/gstack-config" -type f 2>/dev/null | head -1); _GSTACK_BIN=${_P%/gstack-config}; }
+[ -x "$_GSTACK_BIN/gstack-config" ] || { _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _GSTACK_BIN="$_BAMS/bin"; }
 echo "GSTACK_BIN: ${_GSTACK_BIN:-NOT_FOUND}"
 echo "BRANCH: $(git branch --show-current 2>/dev/null || echo unknown)"
 ```
@@ -103,11 +103,36 @@ done
 # Project type
 [ -f package.json ] && grep -q '"bin"' package.json 2>/dev/null && echo "PROJECT_TYPE:cli"
 ls *.gemspec 2>/dev/null && echo "PROJECT_TYPE:library"
+
+# ezar-infra hint (Bitbucket Pipelines + ArgoCD)
+[ -f bitbucket-pipelines.yml ] && echo "PLATFORM_HINT:bitbucket-pipelines"
+git remote get-url origin 2>/dev/null
 ```
+
+**ezar-infra detection (check first):** run `ToolSearch("+ezar-infra")`. If `mcp__ezar-infra__*`
+tools load and `common_whoami` succeeds, call `common_service_list` and match the repo name from
+`git remote get-url origin`; confirm with `dev_service_catalog` (repo → pipeline → image → deploy
+repo → ArgoCD app → cluster/ns). Never guess the service name — if several match, ask the user.
+On a match, the platform is **ezar-infra**: go to the "ezar-infra" section in Step 3. If the MCP is
+unavailable or nothing matches, continue with the detection results above.
 
 ### Step 3: Platform-specific setup
 
 Based on what was detected, guide the user through platform-specific configuration.
+
+#### ezar-infra
+
+If the repo maps to an ezar-infra service:
+
+1. Record the service name and environments (`staging` runs immediately, `master` = prod needs approval for mutating tools).
+2. Deploy trigger: automatic on PR merge (Bitbucket Pipelines `build-deploy-<env>` → deploy repo values → ArgoCD).
+3. Deploy status: `dev_build_status` → `dev_deploy_status` (Synced + Healthy, deployed tag == latest build tag).
+4. Health check: `dev_pods` (+ production URL if the user provides one).
+5. Verify read-only now: `dev_deploy_status` for the service. Do not call mutating tools.
+
+In Step 4 write `- Platform: ezar-infra` and add `- ezar-infra service: {service}` and
+`- ezar-infra envs: {staging, master}` under it. Never write tokens or secret values.
+Tool map and safety rules: `references/ezar-infra-deploy.md` in bams-plugin.
 
 #### Fly.io
 

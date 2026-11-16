@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # verify-before-stop.sh — SubagentStop: 코드 수정 에이전트가 마지막 코드 편집 이후 검증 명령을
-#   한 번도 실행하지 않고 종료하면 decision:block으로 1회 되돌린다.
+#   한 번도 실행하지 않았거나, 편집 이후 "마지막" 검증 명령이 실패(exit≠0)한 채 종료하면 decision:block으로 1회 되돌린다.
+#   종료 상태: tool_use.id ↔ tool_result.tool_use_id 짝의 is_error==true 또는 내용 "Exit code N"(N≠0) = 실패.
+#   짝/필드를 못 찾으면(형식 변경·백그라운드 실행) 성공으로 간주(fail-open).
 # 입력(https://code.claude.com/docs/en/hooks#subagentstop-input): stop_hook_active, agent_type
 #   (플러그인 에이전트는 "bams-plugin:<name>"), agent_transcript_path, last_assistant_message.
 # 통과: stop_hook_active=true / 대상 외 agent_type / 보고에 "검증 불가" 사유 / 코드 편집 없음.
@@ -55,22 +57,36 @@ main() {
 
   . "$(dirname "$0")/lib/source-path.sh" 2>/dev/null || return 0
 
-  # tool_use를 순서대로 "name<TAB>arg" 로 평탄화. 깨진 줄은 fromjson? 로 건너뛴다.
+  # 순서대로 평탄화(\x1f 구분 — 빈 필드 보존): tool_use → "U name id arg", tool_result → "R - id 0|1"(1=실패).
+  # 필드마다 @tsv 이스케이프(줄바꿈→리터럴 \n)라 한 항목 = 한 줄. 깨진 줄은 fromjson? 로 건너뛴다.
   local uses
-  uses=$(jq -rR 'fromjson? | select(.type=="assistant") | .message.content[]?
-      | select(type=="object" and .type=="tool_use")
-      | [.name, ((.input.file_path // .input.notebook_path // .input.command // .input.message // "") | tostring)] | @tsv' \
+  uses=$(jq -rR 'fromjson? | select(.type=="assistant" or .type=="user") | .type as $t | .message.content[]?
+      | select(type=="object")
+      | if $t == "assistant" and .type == "tool_use" then
+          ["U", .name, (.id // ""), ((.input.file_path // .input.notebook_path // .input.command // .input.message // "") | tostring)]
+        elif $t == "user" and .type == "tool_result" then
+          ["R", "-", (.tool_use_id // ""),
+           (if .is_error == true then "1"
+            elif ((.content | if type == "array" then (map(.text? // "") | join("\n")) else tostring end) | test("^Exit code [1-9]")) then "1"
+            else "0" end)]
+        else empty end
+      | map(tostring | [.] | @tsv) | join("\u001f")' \
       "$transcript" 2>/dev/null) || return 0
   [ -z "$uses" ] && return 0
 
-  local i=0 last_edit=0 last_verify=0 edited="" name arg
-  while IFS=$'\t' read -r name arg; do
+  local i=0 last_edit=0 last_verify=0 edited="" kind name id arg vid="" vcmd="" vfail=0
+  while IFS=$'\x1f' read -r kind name id arg; do
+    if [ "$kind" = "R" ]; then
+      # 편집 이후 마지막 검증 명령의 결과만 본다(이전 검증의 실패는 이후 재검증 성공으로 덮인다)
+      [ -n "$vid" ] && [ "$id" = "$vid" ] && vfail="$arg"
+      continue
+    fi
     i=$((i + 1))
     case "$name" in
       Edit|Write|MultiEdit|NotebookEdit)
         if bams_is_source_path "$arg"; then last_edit=$i; edited="$arg"; fi ;;
       Bash)
-        [[ $arg =~ $VERIFY_RE ]] && last_verify=$i ;;
+        if [[ $arg =~ $VERIFY_RE ]]; then last_verify=$i; vid="$id"; vcmd="$arg"; vfail=0; fi ;;
       SubagentHandback)
         [[ $arg =~ $ESCAPE_RE ]] && return 0 ;;
     esac
@@ -79,7 +95,12 @@ $uses
 EOF
 
   [ "$last_edit" -gt 0 ] || return 0
-  [ "$last_verify" -gt "$last_edit" ] && return 0
+  if [ "$last_verify" -gt "$last_edit" ]; then
+    [ "$vfail" = "1" ] || return 0
+    jq -cn --arg r "[bams verify-before-stop] 마지막 코드 편집(${edited}) 이후 마지막 검증 명령이 실패(exit≠0)했다: ${vcmd:0:160}. 실패를 고친 뒤 재검증해 통과시키거나, 이번 변경과 무관한 기존 실패 등으로 통과시킬 수 없으면 보고에 '검증 불가: <사유>'로 명시하라." \
+      '{decision:"block",reason:$r}'
+    return 0
+  fi
 
   jq -cn --arg r "[bams verify-before-stop] 마지막 코드 편집(${edited}) 이후 검증 명령이 실행되지 않았다. 변경을 검증하는 명령(test/tsc/lint/build 등)을 실행하거나, 실행할 수 없으면 그 이유를 보고에 '검증 불가: <사유>'로 명시하라." \
     '{decision:"block",reason:$r}'

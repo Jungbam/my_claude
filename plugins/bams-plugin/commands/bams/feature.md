@@ -32,6 +32,25 @@ feature.md (메인) ─ advise ─▶ pipeline-orchestrator (Advisor)
 
 $ARGUMENTS가 비어있으면, 사용자에게 무엇을 개발할지 물어보고 중단합니다.
 
+## Steps
+
+> 시작 즉시 아래 목록을 **원문 그대로** TodoWrite에 복사한다. 건너뛰는 step은 지우지 않고 `— skip: <사유>`로 남긴다 (`references/step-status.md` §Steps 체크리스트 규약).
+
+1. 코드 최신화 + 사전 조건 + 공통 규칙 로드 + 작업 범위 결정
+2. Phase 0 파이프라인 초기화 — resource-optimizer 전략
+3. Phase 1 기획 — PRD + 기술 설계 + 태스크 분해 (Step 1-3)
+4. Phase 1.5 Git 체크포인트
+5. Phase 2 멀티에이전트 구현 (Step 4)
+6. Phase 3 Step 5 5관점 코드 리뷰
+7. Phase 3 Step 6-8 QA + 성능 + 보안
+8. Phase 3 Step 9 CI/CD 프리플라이트 + 검증→배포 핸드오프
+9. Phase 4 Step 10 Ship
+10. Phase 4 Step 11 Land & Deploy (선택)
+11. Phase 5 Step 12 문서 갱신
+12. Phase 5 Step 13 스프린트 종료
+13. Phase 5 Step 14 자동 회고
+14. `.crew/history.md` 1줄 기록 + 최종 요약 (skip 목록 포함)
+
 ## 코드 최신화
 
 **`references/preflight-protocol.md` §배치 0(코드 최신화) 참조.** 표준 프로토콜을 따릅니다.

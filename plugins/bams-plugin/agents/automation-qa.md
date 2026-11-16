@@ -35,7 +35,7 @@ disallowedTools: []
 
 > 위임 수신 시 대상 프로젝트의 스택을 판별한다: ① `.crew/config.md` 스택 정의 → ② 프로젝트 파일 감지(`next.config.*`/`pyproject.toml`/`go.mod`) → ③ 기본값 **TypeScript + Next.js App Router**. 상세 기본값은 `references/stack-profile.md`를 조건부(온디맨드) Read한다: [L2]
 > ```bash
-> _SP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/stack-profile.md" 2>/dev/null | head -1); [ -z "$_SP" ] && _SP=$(find . -path "*/bams-plugin/references/stack-profile.md" 2>/dev/null | head -1)  # [L2]
+> _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _SP="$_BAMS/references/stack-profile.md"; [ -e "$_SP" ] || _SP=""; [ -z "$_SP" ] && _SP=$(find . -path "*/bams-plugin/references/stack-profile.md" 2>/dev/null | head -1)  # [L2]
 > ```
 
 - E2E 도구 기본값: **Playwright** (전문 영역의 "Playwright, Cypress 등" 문구는 유지하되, Next.js 프로젝트 기본은 Playwright임을 명시)
@@ -48,7 +48,7 @@ disallowedTools: []
 세부 행동 규칙은 agent-rules로 이관됨. 아래 stub이 참조하는 `$_AR` 경로 폴백: [L2]
 
 ```bash
-_AR=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/agent-rules/automation-qa-rules.md" 2>/dev/null | head -1); [ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/automation-qa-rules.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _AR="$_BAMS/references/agent-rules/automation-qa-rules.md"; [ -e "$_AR" ] || _AR=""; [ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/automation-qa-rules.md" 2>/dev/null | head -1)  # [L2]
 ```
 
 - IMP-AQA-1: qa-strategy 위임 수신 시 변경 파일 수(git diff)로 Full Path(N≥3)/Fast Path 판정 체크리스트 출력, hotfix는 Fast Path 강제, 30초 내 위임 미수신 시 에스컬레이션. 상세: $_AR §"Full Path 자동 위임 트리거"
@@ -106,5 +106,5 @@ _AR=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/agent-rules
 AQA-BP: 복잡 판단·신규 패턴 필요 시에만(무조건 아님 — L2 조건부) 아래 find 폴백으로 `best-practices/automation-qa.md`를 탐색 후 Read한다. 발견 시 Responsibility별 협업 대상·절차·주의사항을 확인하고, 없으면 생략한다. [L2]
 
 ```bash
-_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/automation-qa.md" 2>/dev/null | head -1); [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/automation-qa.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BP="$_BAMS/references/best-practices/automation-qa.md"; [ -e "$_BP" ] || _BP=""; [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/automation-qa.md" 2>/dev/null | head -1)  # [L2]
 ```

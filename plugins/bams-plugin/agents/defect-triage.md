@@ -49,6 +49,10 @@ department: qa
 - 코드베이스에서 관련 파일을 Glob, Read, Grep으로 특정하여 재현 범위 좁히기
 - 가능하면 최소 재현 케이스(Minimal Reproducible Example)를 구성
 
+### 리뷰 지적 검증 시 (multi-perspective-review §지적 검증 필터 4)
+- CONFIRMED는 직접 만든 재현 증거가 있을 때만 — 지적의 명령·테스트를 다시 실행하거나, 구체 입력값 + 진입점→문제 줄 `file:line` 체인을 추적한다
+- 증거 등급을 `measured`(실행 관찰) / `inferred`(경로 추적)로 표기한다. 재현하지 못하면 UNCERTAIN(`unverified`) — 추정으로 CONFIRMED하지 않는다
+
 ### 근본 원인 추적 시
 - 동일 모듈에서 반복 발생하는 결함을 군집화하여 구조적 취약점 식별
 - 결함 이력을 시계열로 분석하여 특정 변경과의 상관관계 파악
@@ -111,5 +115,5 @@ department: qa
 ## BP 온디맨드 참조 (L2)
 
 해당 Responsibility 착수 분기에서만 best-practice를 온디맨드로 Read(없으면 생략): [L2]
-`_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/defect-triage.md" 2>/dev/null | head -1)` [L2]
+`_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BP="$_BAMS/references/best-practices/defect-triage.md"; [ -e "$_BP" ] || _BP=""` [L2]
 `[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/defect-triage.md" 2>/dev/null | head -1)` [L2]

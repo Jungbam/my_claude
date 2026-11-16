@@ -25,13 +25,14 @@ department: qa
 3. **기준별 상태**: 수용 기준·게이트 항목마다 VERIFIED(증거 있고 통과) / PARTIAL(증거가 범위 일부만 덮음) / MISSING(증거 없음 또는 실패).
 4. **종합**: PASS = 전 기준 VERIFIED이고 `references/issue-severity.md` §Release Gate 임계값 통과 → GO. FAIL = 실행한 검증 실패 또는 임계값 FAIL → NO-GO. INCOMPLETE = PARTIAL/MISSING 존재 → GO 불가, 최대 CONDITIONAL-GO + 채워야 할 증거 목록.
 5. 보고서 맨 위에 `증거 판정: PASS|FAIL|INCOMPLETE`와 표(기준 | 상태 | 명령/출처 | 결과)를 두고, 그 아래 `references/rqg-templates.md` 템플릿을 잇는다.
+6. **verdict 파일 기록 (RQG-VERDICT, 필수)**: 판정이 PASS 또는 FAIL이면 Bash로 `hooks/lib/verdict.sh write`를 실행해 `.crew/artifacts/review/verdict-<shortsha>.json`을 남긴다(Write 도구 없이 Bash로 작성). `--evidence "<exit>:<cmd>"`에는 이번 HEAD 기준으로 **직접 실행한** 명령만 넣고, `--author-agents`에는 위임 메시지의 구현 에이전트를 넣는다. 자신이 구현자 목록에 있으면 판정하지 말고 concerns로 반환한다. INCOMPLETE는 파일을 쓰지 않는다(ship·deploy 게이트가 "verdict 없음"으로 본다). Codex 연결 시 독립 판정 후 둘 다 PASS일 때만 PASS로 쓰고, 불가하면 `--judge-model`에 실제 모델을 기록해 same-family를 남긴다 — 규약: `references/verdict-protocol.md` §3. 보고서에 verdict 파일 경로와 `same_family` 값을 적는다.
 
 ## 행동 규칙
 
 세부 행동 규칙은 agent-rules로 이관됨(FR-9 ID화). 아래 stub이 참조하는 `$_AR` 경로 폴백: [L2]
 
 ```bash
-_AR=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/agent-rules/release-quality-gate-rules.md" 2>/dev/null | head -1); [ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/release-quality-gate-rules.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _AR="$_BAMS/references/agent-rules/release-quality-gate-rules.md"; [ -e "$_AR" ] || _AR=""; [ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/release-quality-gate-rules.md" 2>/dev/null | head -1)  # [L2]
 ```
 
 - RQG-READINESS: GO 판단 전 P0/P1 완료·Critical/Major 0건·회귀 통과·성능·모니터링·롤백 6항 확인; 상류 증거(automation-qa/defect-triage) 부재 시 최대 CONDITIONAL-GO 상한, 자산 변경 시 전후 스크린샷 시각검증 게이트. 상세: $_AR §"출시 준비 상태 검토 시"
@@ -47,7 +48,7 @@ _AR=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/agent-rules
 ## 도구 사용
 
 - **Read/Glob/Grep**: diff, 설정, 롤백 스크립트, 테스트 결과, 로그 확인
-- **Bash**: 테스트·타입체크·빌드 직접 실행, 배포 상태 조회
+- **Bash**: 테스트·타입체크·빌드 직접 실행, 배포 상태 조회, verdict 기록(`hooks/lib/verdict.sh write|check` — 경로 폴백은 `references/verdict-protocol.md` §3)
 - 코드를 수정하지 않는다. 다른 에이전트를 spawn하지 않는다 — 추가 검증이 필요하면 보고서에 요청으로 남긴다.
 
 ## 메모리
@@ -59,5 +60,5 @@ _AR=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/agent-rules
 RQG-BP: 복잡 판단·신규 패턴 필요 시에만(무조건 아님 — L2 조건부) 아래 find 폴백으로 `best-practices/release-quality-gate.md`를 탐색 후 Read한다. 발견 시 Responsibility별 협업 대상·절차·주의사항을 확인하고, 없으면 생략한다. [L2]
 
 ```bash
-_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/release-quality-gate.md" 2>/dev/null | head -1); [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/release-quality-gate.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BP="$_BAMS/references/best-practices/release-quality-gate.md"; [ -e "$_BP" ] || _BP=""; [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/release-quality-gate.md" 2>/dev/null | head -1)  # [L2]
 ```

@@ -22,7 +22,7 @@ argument-hint: [--comprehensive]
 스킬 로딩:
 
 ```bash
-_CSO_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/cso/SKILL.md" 2>/dev/null | head -1)
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _CSO_SKILL="$_BAMS/skills/cso/SKILL.md"; [ -e "$_CSO_SKILL" ] || _CSO_SKILL=""
 ```
 
 진행 추적 파일: `templates/security-audit.md` 기반으로 생성.

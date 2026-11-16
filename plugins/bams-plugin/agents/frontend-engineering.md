@@ -20,7 +20,7 @@ disallowedTools: []
 ## codex 추론 위임 (gpt-6.1-sol via MCP)
 
 핵심 추론(UI 구현·클라이언트 플로우)을 codex(gpt-6.1-sol)에 위임한다. 공통 절차·run_codex() 정본·이중구조·via 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md`
-경로 폴백: `find ~/.claude/plugins/cache -path "*/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
+경로 폴백: `_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; ls "$_BAMS/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
 - codex sandbox: `workspace-write` · 컨트롤러 모델: `claude-opus-5-5` · harness tier: `opus`
 - 위임 지점: 컴포넌트/플로우 구현 코드 초안, 리팩토링 설계·성능 병목 분석. Claude 컨트롤러는 스택 판별·디자인 게이트·tsc/lint 자체검증·최종 Edit/Write만 담당
 - codex 미가용 시: Claude 컨트롤러(opus) 직접처리
@@ -36,7 +36,7 @@ UI 변경이 있으면 ui-designer 스펙, UX 플로우 변경이 있으면 ux-d
 ① `.crew/config.md` 스택 정의 절 → ② 프로젝트 파일(`next.config.*`/`pyproject.toml`/`go.mod`) → ③ 기본값 **TypeScript + Next.js App Router**.
 상세 기본값이 필요할 때만 `references/stack-profile.md`를 Read한다 [L2]:
 ```bash
-_SP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/stack-profile.md" 2>/dev/null | head -1); [ -z "$_SP" ] && _SP=$(find . -path "*/bams-plugin/references/stack-profile.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _SP="$_BAMS/references/stack-profile.md"; [ -e "$_SP" ] || _SP=""; [ -z "$_SP" ] && _SP=$(find . -path "*/bams-plugin/references/stack-profile.md" 2>/dev/null | head -1)  # [L2]
 ```
 
 - Server Component 기본, `'use client'`는 상호작용 leaf에만. 경계가 애매하면 서버 우선, `ssr-csr-decider`의 rendering-strategy.json이 있으면 그것을 따른다
@@ -125,5 +125,5 @@ report: .crew/artifacts/report/{slug}-frontend-engineering.md
 FE-BP: 복잡 판단·신규 패턴 필요 시에만(무조건 아님 — L2 조건부) 아래 find 폴백으로 `best-practices/frontend-engineering.md`를 탐색 후 Read한다. 발견 시 Responsibility별 협업 대상·절차·주의사항을 확인하고, 없으면 생략한다. [L2]
 
 ```bash
-_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/frontend-engineering.md" 2>/dev/null | head -1); [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/frontend-engineering.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BP="$_BAMS/references/best-practices/frontend-engineering.md"; [ -e "$_BP" ] || _BP=""; [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/frontend-engineering.md" 2>/dev/null | head -1)  # [L2]
 ```

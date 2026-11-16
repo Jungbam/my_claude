@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2088 # transcript_path 가 리터럴 "~/" 로 올 수 있어 직접 확장한다(의도)
 # metrics.sh — bams 파이프라인 성과 자동 계측. 기본 on(BAMS_METRICS=off|0|false|no 로 끔). stdout 출력 없음·차단 없음·전부 fail-open.
 # 저장: ${BAMS_METRICS_DIR:-$HOME/.claude/bams-metrics}/events.jsonl (1줄 JSON), 세션 상태: <dir>/state/
 # 입력 필드 근거(공식): https://code.claude.com/docs/en/hooks — UserPromptExpansion(command_name/command_args/prompt),
@@ -10,6 +11,7 @@
 #   human_turn      UserPromptSubmit — 같은 session에 열린 파이프라인이 있을 때. 슬래시·<태그> 시스템 입력 제외. 본문 미저장
 #   agent_end       SubagentStop — SubagentStart 짝(state/a_<agent_id>)으로 dur_ms, agent transcript usage 합(message.id 중복 제거)
 #   pipeline_end    PostToolUse Edit|Write — */.crew/history.md 에 새로 생긴 첫 헤더 줄의 slug·status
+#                   + 열린 파이프라인 기준 dur_ms(시작→기록, 초 정밀도)·agent_spawns(SubagentStart 수)
 #   session_usage   Stop — 열린(또는 방금 끝난) 파이프라인이 있을 때만, 메인 transcript 증분(줄 offset) usage
 # 성능: 대상이 아님이 확실한 입력(Stop·PostToolUse·일반 프롬프트)은 jq 없이 종료. 그 외 jq 1회(+transcript 파싱 1회).
 set +e
@@ -82,7 +84,7 @@ RES=$(printf '%s' "$INPUT" | jq -r '
             $hs[0] as $h | ($h.st | gsub("[*`]"; "") | clean | .[0:40]) as $st | ($fp | sub("/\\.crew/history\\.md$"; "")) as $pd
             | out("end"; "\($h.slug)|\($st)"; $pd; ($pd | key);
                 $base + {ev: "pipeline_end", slug: ($h.slug | clean), command: ($h.cmd // ($h.slug | split("_")[0]) | clean),
-                         status: $st, result: ($st | cls), date: $h.d,
+                         status: $st, result: ($st | cls), date: $h.d, dur_ms: "__PDUR__", agent_spawns: "__SPAWN__",
                          parse: (if $tn == "Write" and $old == null then "write_head" else "diff" end)})
           end
         end
@@ -134,7 +136,7 @@ fill() {
   LINE=${LINE/'"__PROJ__"'/"$p"}; LINE=${LINE/'"__PCMD__"'/"$c"}; LINE=${LINE/'"__PTS__"'/"$t"}
 }
 emit() { [ -n "$LINE" ] && printf '%s\n' "$LINE" >> "$OUT" 2>/dev/null; return 0; }
-OPEN="$ST/$SK.open"; CLOSING="$ST/$SK.closing"; LINES="$ST/$SK.lines"
+OPEN="$ST/$SK.open"; CLOSING="$ST/$SK.closing"; LINES="$ST/$SK.lines"; SPAWNS="$ST/$SK.spawns"
 D="${CWD:-$PWD}"
 
 case "$KIND" in
@@ -146,7 +148,7 @@ case "$KIND" in
     fi
     fill "$D" "" ""; emit
     printf '%s\n' "$TS$US$X1$US$X2$US$NOWS" > "$OPEN" 2>/dev/null
-    rm -f "$CLOSING" 2>/dev/null
+    rm -f "$CLOSING" "$SPAWNS" 2>/dev/null
     TP="$X3"; case "$TP" in '~/'*) TP="$HOME/${TP#\~/}" ;; esac
     if [ -n "$TP" ] && [ -r "$TP" ]; then n=$(wc -l < "$TP" 2>/dev/null); echo $((${n:-0} + 0)) > "$LINES" 2>/dev/null
     else rm -f "$LINES" 2>/dev/null; fi
@@ -162,13 +164,23 @@ case "$KIND" in
     HK="$ST/h_$X3"; LAST=""
     [ -f "$HK" ] && IFS= read -r LAST < "$HK"
     [ "$LAST" = "$X1" ] && exit 0
-    if read_state "$OPEN"; then fill "$X2" "$OCMD" "$OTS"; else fill "$X2" "" ""; fi
+    PDUR=null; SPN=null
+    if read_state "$OPEN"; then
+      fill "$X2" "$OCMD" "$OTS"
+      [ "$NOWS" -ge "$OEP" ] && PDUR=$(( (NOWS - OEP) * 1000 ))
+      SPN=0; [ -f "$SPAWNS" ] && IFS= read -r SPN < "$SPAWNS"; case "$SPN" in ''|*[!0-9]*) SPN=0 ;; esac
+    else fill "$X2" "" ""; fi
+    LINE=${LINE/'"__PDUR__"'/"$PDUR"}; LINE=${LINE/'"__SPAWN__"'/"$SPN"}
     emit
     printf '%s\n' "$X1" > "$HK" 2>/dev/null
     [ -n "$OCMD" ] && mv -f "$OPEN" "$CLOSING" 2>/dev/null   # Stop 1회분 usage를 더 받은 뒤 닫는다
     ;;
   astart)
     printf '%s\n' "$NOWMS" > "$ST/a_$X1" 2>/dev/null
+    if read_state "$OPEN"; then   # 열린 파이프라인 안의 spawn 수 → pipeline_end.agent_spawns
+      N=0; [ -f "$SPAWNS" ] && IFS= read -r N < "$SPAWNS"; case "$N" in ''|*[!0-9]*) N=0 ;; esac
+      echo $((N + 1)) > "$SPAWNS" 2>/dev/null
+    fi
     ;;
   astop)
     DUR=null; S0=""
@@ -225,7 +237,7 @@ case "$KIND" in
         echo "$TOT" > "$LINES" 2>/dev/null
       fi
     fi
-    [ "$STATEF" = "$CLOSING" ] && rm -f "$CLOSING" "$LINES" 2>/dev/null
+    [ "$STATEF" = "$CLOSING" ] && rm -f "$CLOSING" "$LINES" "$SPAWNS" 2>/dev/null
     ;;
 esac
 exit 0

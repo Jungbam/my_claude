@@ -120,7 +120,7 @@ department: planning
 작업이 도메인 프랙티스를 요구할 때만(조건부) 아래 find로 best-practice 파일을 로드한다 — 무조건 Read 아님 `[L2]`:
 
 ```bash
-_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/business-analysis.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BP="$_BAMS/references/best-practices/business-analysis.md"; [ -e "$_BP" ] || _BP=""  # [L2]
 [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/business-analysis.md" 2>/dev/null | head -1)  # [L2]
 ```
 

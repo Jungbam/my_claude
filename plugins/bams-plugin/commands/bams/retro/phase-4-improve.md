@@ -86,6 +86,7 @@ phase2-kpt-consolidated.md에서 **"단일 프로젝트 한정"으로 분류된 
 >   path: .crew/artifacts/retro/{slug}/phase4-improvement-{에이전트명}.md
 > quality_criteria:
 >   - 개선안 형식 준수 (아래 형식 사용)
+>   - 강제 수준 체크 + (증명 | doc 사유) 필수 — 둘 다 비면 반려
 >   - 정의 파일 승격 시 "삭제/대체할 기존 문장"에 현재 정의 원문 인용 (비면 승격 불가)
 > ```
 >
@@ -101,8 +102,14 @@ phase2-kpt-consolidated.md에서 **"단일 프로젝트 한정"으로 분류된 
 > [ ] 단일 프로젝트 한정
 > 근거: {1-2줄. 단일이면 한정 차원(스택/도메인/외부 서비스/브라우저·OS·디바이스 등) 명시}
 >
+> ### 강제 수준 (필수, 1개 체크 — `references/retro-protocol.md` §3-1-a, 작동하는 가장 높은 수준)
+> [ ] architecture  [ ] type  [ ] hook/lint/CI  [ ] test  [ ] doc
+> 증명 (architecture~test): {대상 Problem의 과거 커밋·산출물에 적용해 실패하는 명령 + 기대 출력}
+> doc 사유 (doc 체크 시): {상위 수준이 불가한 이유 — 판단이 필요한 경우만. 증명 실패 시 "미증명"}
+>
 > ### 적용 범위
-> [ ] MEMORY.md 항목 갱신 (기본 — `references/agent-memory.md` 형식, 같은 lesson-id면 seen+1)
+> [ ] 구조 (경로 E — 강제 architecture~test 체크 시. 코드·타입·hook·lint·CI·test 변경을 해당 부서장에 위임, 적용 후 같은 교훈의 MEMORY.md·gotchas 항목 삭제/`enforced-by` 갱신)
+> [ ] MEMORY.md 항목 갱신 (강제 doc일 때만 — `references/agent-memory.md` 형식, 같은 lesson-id면 seen+1)
 > [ ] 정의 파일 승격 (`references/agent-improvement-protocol.md` §5 게이트 충족 + "다중" 체크 시만)
 > [ ] .crew/gotchas.md 후보 ("단일" 체크 시 권장 — Step 2-2에서 사용자 확인)
 >
@@ -113,11 +120,13 @@ phase2-kpt-consolidated.md에서 **"단일 프로젝트 한정"으로 분류된 
 > - 바이트 증감: {after − before} (≤ 0)
 > ```
 >
-> **NF1 호환성 안내**: 구 `phase4-improvement-*.md`에 `### 일반화 가능성`이 없으면 "분류 미상", 승격 필드가 없으면 승격 불가(MEMORY.md 갱신만)로 간주합니다.
+> **NF1 호환성 안내**: 구 `phase4-improvement-*.md`에 `### 일반화 가능성`이 없으면 "분류 미상", 승격 필드가 없으면 승격 불가(MEMORY.md 갱신만), `### 강제 수준`이 없으면 `doc`(doc 사유: 미기재)으로 간주합니다.
 >
 > **orchestrator 종합 작업:**
 > - 모든 phase4-improvement-*.md 수집
 > - 중복/충돌 개선안 식별 및 조정
+> - `doc` 개선안의 doc 사유가 상위 수준을 실제로 배제하는지 확인 — 아니면 상위 수준으로 되돌려 재작성 요청 (retro-protocol.md §3-2)
+> - 강제 수준별 개선안 수 집계 (`try_by_enforcement`, retro-protocol.md §6-2)
 > - 우선순위 결정: KPT Problem 우선순위 높은 순 > 지목 빈도 높은 순
 > - `.crew/artifacts/retro/{slug}/phase4-improvements-summary.md` 생성 (전체 목록)
 >
@@ -139,7 +148,8 @@ AskUserQuestion으로 사용자에게 제시합니다.
 개선 대상 에이전트 ({N}개):
 1. {에이전트명} — {주요 문제 1줄 요약}
    일반화 가능성: {다중 프로젝트 재현 가능 / 단일 프로젝트 한정}
-   적용 범위: {MEMORY.md 항목 갱신 / 정의 파일 승격(바이트 증감) / .crew/gotchas.md 후보}
+   강제 수준: {architecture / type / hook/lint/CI / test / doc} — {증명 명령 1줄 | doc 사유}
+   적용 범위: {구조(부서장 위임) / MEMORY.md 항목 갱신 / 정의 파일 승격(바이트 증감) / .crew/gotchas.md 후보}
 2. ...
 
 선택지:
@@ -214,6 +224,8 @@ C) 승격 안 함 — 개선안 파일만 보존하고 .crew/gotchas.md는 수�
 
 Step 2에서 승인(전체 또는 선택)된 개선안이 있을 경우에만 실행합니다.
 
+**구조 개선안 (강제 architecture~test, 경로 E)**: hr-agent가 아니라 변경 대상 파일의 부서장(CLAUDE.md 위임 라우팅 — hook/CI·스크립트는 platform-devops, 테스트는 qa-strategy 경유 automation-qa 등)을 메인이 직접 spawn해 구현한다. 위임 메시지에 개선안의 `증명` 명령을 quality_criteria로 넣고, 부서장은 그 명령이 과거 사고에서 실패·현재 코드에서 통과함을 보고한다. 적용 후 같은 교훈의 MEMORY.md·gotchas 항목 삭제/`enforced-by` 갱신만 아래 hr-agent 위임에 포함한다.
+
 **2단 위임 — 루프 A**: orchestrator 조언 → 메인이 hr-agent 직접 spawn.
 
 **Step 3a: Advisor 호출** — Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"**, 조언자 모드. 컨텍스트: 승인된 phase4-improvement-*.md 경로 목록, agents 정의 디렉터리, retro-protocol.md. Advisor Response: hr-agent 태스크 초안, 승격 게이트(§5) 충족 여부, gotcha 승격 후보 목록. spawn 지시 금지.
@@ -264,6 +276,7 @@ Step 2에서 승인(전체 또는 선택)된 개선안이 있을 경우에만 �
 
 **조건부 (선택 승인/전체 승인 시 추가 확인):**
 - 승인된 개선안별 MEMORY.md 또는 정의 파일 반영을 diff·grep으로 확인 (`delegation-protocol.md` §2-6)
+- 승인된 구조 개선안(경로 E)별 `증명` 명령을 메인이 재실행해 현재 코드에서 통과(exit 0)함을 확인 — 실행 못 하면 그 항목은 CONDITIONAL로 보고서에 남긴다
 
 **결과 처리:**
 - **GO**: 필수 조건 통과 → Phase 3로 진행

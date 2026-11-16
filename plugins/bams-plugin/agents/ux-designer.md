@@ -45,7 +45,7 @@ UX 디자이너로서 사용자 여정과 인터랙션 플로우를 제품 화�
 ### codex 추론 위임 (gpt-6.1-sol via MCP)
 
 핵심 추론(와이어프레임·플로우·접근성)을 codex(gpt-6.1-sol)에 위임한다. 공통 절차·run_codex() 정본·이중구조·via 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md` [L2]
-경로 폴백: `find ~/.claude/plugins/cache -path "*/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
+경로 폴백: `_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; ls "$_BAMS/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
 - codex sandbox: `read-only` · 컨트롤러 모델: `claude-sonnet-5-5` · harness tier: `sonnet`
 - 위임 지점: 와이어프레임 구조·인터랙션 플로우·HTML 골격 → codex; Claude 컨트롤러는 접근성/사용성 검증·프로토타입 Write
 - codex 미가용 시: design-director 에스컬레이션 후 대기(자동 sonnet fallback 금지, OQ10=b)
@@ -218,5 +218,5 @@ screen-id 명명 규칙은 §파일 명명 규칙을 따른다 (kebab-case, 영�
 ## BP 온디맨드 참조 (L2)
 
 해당 Responsibility 착수 분기에서만 best-practice를 온디맨드로 Read(없으면 생략): [L2]
-`_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/ux-designer.md" 2>/dev/null | head -1)` [L2]
+`_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BP="$_BAMS/references/best-practices/ux-designer.md"; [ -e "$_BP" ] || _BP=""` [L2]
 `[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/ux-designer.md" 2>/dev/null | head -1)` [L2]

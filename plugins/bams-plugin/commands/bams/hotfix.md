@@ -10,6 +10,19 @@ argument-hint: <버그 설명 또는 에러 메시지> [--minimal]
 입력: $ARGUMENTS
 $ARGUMENTS가 비어있으면 AskUserQuestion으로 버그 설명 받기.
 
+## Steps
+
+> 시작 즉시 아래 목록을 **원문 그대로** TodoWrite에 복사한다. 건너뛰는 step은 지우지 않고 `— skip: <사유>`로 남긴다 (`references/step-status.md` §Steps 체크리스트 규약).
+
+1. Pre-flight + 파이프라인 타입 검증 (`hotfix/preflight.md`)
+2. Step 1 버그 재현 + 진단 + 수정 (`hotfix/step-1-diagnose.md`)
+3. Step 2 QA 검증 — 브라우저 재현 (`hotfix/step-2-qa.md`, 선택)
+4. Step 3 CI/CD 프리플라이트 `/bams:verify` (`hotfix/step-3-4-cicd.md`)
+5. Step 4 출시 준비 검토 — release-quality-gate (`hotfix/step-3-4-cicd.md`)
+6. Step 5 배포 (`hotfix/step-5-deploy.md`, 선택)
+7. 개선점 수집 + 자동 회고 (`hotfix/step-finalization.md`)
+8. `.crew/history.md` 1줄 기록 + 결과 보고 (skip 목록 포함)
+
 ## 경량 경로 (`--minimal`)
 
 `$ARGUMENTS`에 `--minimal`이 포함되어 있는지, 또는 자동 규모 감지 제안을 사용자가 수락했는지에 따라 `--minimal` 축약 모드 여부가 결정됩니다.

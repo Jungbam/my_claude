@@ -11,3 +11,4 @@
 
 - **읽기**: 세션 시작 시 파일이 있으면 Read, 없으면 생략(생성하지 않음). `conf: low`는 참고만 한다.
 - **쓰기·유지**(회고 전용 — 신뢰도·10항목/3,000자 상한·90일 TTL·구형식 전환): `references/retro-protocol.md` §5-2. 정의 파일 승격: `references/agent-improvement-protocol.md` §5.
+- **구조가 메모리다**: MEMORY.md는 판단이 필요한 교훈만 둔다. 교훈이 architecture·type·hook/lint/CI·test로 강제되면(`retro-protocol.md` §3-1-a 증명 통과) 항목을 삭제한다. 상한은 그대로다.

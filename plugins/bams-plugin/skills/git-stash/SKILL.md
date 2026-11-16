@@ -64,7 +64,7 @@ case "$SUB" in
         if [ "$YES" != 1 ]; then echo "삭제하려면 --yes 재실행"; exit 1; fi
         # 파괴 명령 직전: careful hook 내재화 (M-2)
         DESTRUCTIVE_CMD="git stash drop stash@{$IDX}"
-        _CH=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/careful/bin/check-careful.sh" 2>/dev/null | head -1)
+        _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _CH="$_BAMS/skills/careful/bin/check-careful.sh"; [ -e "$_CH" ] || _CH=""
         [ -n "$_CH" ] && [ -x "$_CH" ] && CLAUDE_HOOK_TOOL_INPUT="{\"command\": \"$DESTRUCTIVE_CMD\"}" bash "$_CH" 2>&1 | head -5
         git stash drop "stash@{$IDX}" && echo "stash@{$IDX} 삭제됨" ;;
   *) echo "사용법: push|pop|list|drop"; exit 2 ;;

@@ -20,7 +20,7 @@ argument-hint:
 스킬 로딩:
 
 ```bash
-_RETRO_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/retro/SKILL.md" 2>/dev/null | head -1)
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _RETRO_SKILL="$_BAMS/skills/retro/SKILL.md"; [ -e "$_RETRO_SKILL" ] || _RETRO_SKILL=""
 ```
 
 `bams-plugin:project-governance` 에이전트를 거버넌스에 활용.

@@ -29,7 +29,7 @@ disallowedTools: []
 3. **스킬 정의**: 신규 에이전트에 필요한 스킬의 purpose, inputs, process, artifacts, completion_criteria를 설계
 4. **협업 플로우 설계**: 신규 에이전트와 기존 에이전트 간 agent_calls 관계를 정의하고, delegation-protocol.md에 반영
 5. **에이전트 평가**: 회고 KPT·산출물 품질 근거로 에이전트별 강점·개선점과 등급(A~F) 소견 작성
-6. **회고 개선안 반영**: 부서장 개선안을 대상 MEMORY.md 항목으로 기록하고, `agent-improvement-protocol.md` §5 게이트 통과분만 정의에 승격
+6. **회고 개선안 반영**: 부서장 개선안을 대상 MEMORY.md 항목으로 기록하고, `agent-improvement-protocol.md` §5 게이트 통과분만 정의에 승격. 개선안마다 강제 수준(`retro-protocol.md` §3-1-a)을 확인해 `doc` 수준은 `doc 사유`가 상위 수준을 배제할 때만 텍스트로 반영하고, 구조(1~4)로 강제된 교훈은 MEMORY.md에서 삭제한다
 
 ## 행동 규칙
 
@@ -146,7 +146,7 @@ disallowedTools: []
 
 `disallowedTools: Write, Edit` 에이전트(pipeline-orchestrator·product-strategy·qa-strategy 등)의 MEMORY.md 기록을 대행한다. 위임 입력: task_description "개선 교훈 우회 기록" + 대상 slug + 항목 본문(`references/agent-memory.md` 형식).
 
-1. `.crew/memory/{slug}/MEMORY.md`가 없으면 생성
+1. `.crew/memory/{slug}/MEMORY.md`가 없으면 생성. 교훈이 이미 구조(hook/lint/CI·test·type·architecture)로 강제되면 기록하지 않고 같은 lesson-id 항목을 삭제한다
 2. 같은 lesson-id가 있으면 새 항목 대신 seen+1(다른 pipeline-slug일 때만)·`last`·evidence 갱신, 없으면 추가
 3. `references/retro-protocol.md` §5-2 적용 — 90일 미확인 삭제, 10항목·3,000자 초과 시 conf 낮은 순 → `last` 오래된 순 삭제, 구형식 항목은 이 파일을 쓸 때 새 형식으로 전환
 
@@ -231,7 +231,7 @@ disallowedTools: []
 **작업 시작 시 (조건부) 참조 — 복잡 판단·신규 패턴 필요 시에만 Read:** [L2]
 Bash로 best-practice 파일을 찾아 Read합니다:
 ```bash
-_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/hr-agent.md" 2>/dev/null | head -1)
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BP="$_BAMS/references/best-practices/hr-agent.md"; [ -e "$_BP" ] || _BP=""
 [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/hr-agent.md" 2>/dev/null | head -1)
 [ -n "$_BP" ] && echo "참조: $_BP"
 ```

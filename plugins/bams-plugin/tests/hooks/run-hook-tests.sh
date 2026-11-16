@@ -15,7 +15,7 @@ run_case() {
   local label="$1" hook="$2" in="$3" want_exit="$4" want="$5"; shift 5
   local out="" code=0 got
   [ "$hook" = "-" ] || { out=$(env -u BAMS_DELEGATION_GUARD -u CLAUDE_MD_EDIT_ALLOWED -u CLAUDE_MD_STEP3 -u CLAUDE_MD_INIT \
-    -u BAMS_HOOK_TRACE -u BAMS_HOOK_CAPTURE_DIR -u BAMS_GUARD_EXTRA_PATHS "$@" bash "$HOOKS/$hook" < "$in" 2>/dev/null); code=$?; }
+    -u BAMS_HOOK_TRACE -u BAMS_HOOK_CAPTURE_DIR -u BAMS_GUARD_EXTRA_PATHS -u BAMS_VERDICT_GATE -u BAMS_VERDICT_GH "$@" bash "$HOOKS/$hook" < "$in" 2>/dev/null); code=$?; }
   if [ -z "$out" ]; then got=none
   elif printf '%s' "$out" | jq -e '.hookSpecificOutput.permissionDecision == "deny"' >/dev/null 2>&1; then got=deny
   elif printf '%s' "$out" | jq -e '.decision == "block" and (.reason | length > 0)' >/dev/null 2>&1; then got=block
@@ -119,6 +119,36 @@ for cmd in 'bun test' 'npm run build' 'cd app && npx tsc --noEmit' 'bash scripts
   n=$((n + 1))
   stop_case "검증: $cmd → 통과" "$(stop_input v$n false $FE "$(edit_then_bash v$n "$cmd")" '완료')" 0 none
 done
+
+echo "== verify-before-stop.sh: 마지막 검증 명령의 종료 상태 (tool_use.id ↔ tool_result) =="
+# vt <name> <spec...> — spec: E(소스 편집) | V:<id>:<0|1|x>(bun test, 결과 is_error 0/1, x=결과 없음) | X:<id>(결과 "Exit code 1", is_error 없음)
+vt() {
+  local t="$TMP/$1.jsonl" sp id r; shift; : > "$t"
+  for sp in "$@"; do
+    case "$sp" in
+      E) jq -cn '{type:"assistant",message:{content:[{type:"tool_use",id:"te",name:"Edit",input:{file_path:"/repo/src/app/page.tsx",old_string:"a",new_string:"b"}}]}}' >> "$t" ;;
+      V:*) id=$(echo "$sp" | cut -d: -f2); r=$(echo "$sp" | cut -d: -f3)
+           jq -cn --arg id "$id" '{type:"assistant",message:{content:[{type:"tool_use",id:$id,name:"Bash",input:{command:"bun test"}}]}}' >> "$t"
+           [ "$r" = x ] || jq -cn --arg id "$id" --argjson e "$([ "$r" = 1 ] && echo true || echo false)" \
+             '{type:"user",message:{content:[{type:"tool_result",tool_use_id:$id,is_error:$e,content:(if $e then "Exit code 1\nFAIL x" else "ok" end)}]}}' >> "$t" ;;
+      X:*) id=${sp#X:}
+           jq -cn --arg id "$id" '{type:"assistant",message:{content:[{type:"tool_use",id:$id,name:"Bash",input:{command:"npx tsc --noEmit"}}]}}' >> "$t"
+           jq -cn --arg id "$id" '{type:"user",message:{content:[{type:"tool_result",tool_use_id:$id,content:[{type:"text",text:"Exit code 2\nerror TS2304"}]}]}}' >> "$t" ;;
+    esac
+  done
+  echo "$t"
+}
+stop_case "편집 후 마지막 검증 실패(is_error) → block"            "$(stop_input xs1 false $FE "$(vt xs1 E V:t1:1)" '완료')" 0 block
+stop_case "편집 후 실패 → 재검증 성공 → 통과"                      "$(stop_input xs2 false $FE "$(vt xs2 E V:t1:1 V:t2:0)" '완료')" 0 none
+stop_case "편집 후 성공 → 마지막 재검증 실패 → block"              "$(stop_input xs3 false $FE "$(vt xs3 E V:t1:0 V:t2:1)" '완료')" 0 block
+stop_case "content 배열 'Exit code 2'(is_error 없음) → 실패로 block" "$(stop_input xs4 false $FE "$(vt xs4 E X:t1)" '완료')" 0 block
+stop_case "검증 결과 줄 없음(형식 불명) → fail-open 통과"           "$(stop_input xs5 false $FE "$(vt xs5 E V:t1:x)" '완료')" 0 none
+stop_case "검증 실패 후 편집 → 재검증 없음 → block(기존 규칙)"       "$(stop_input xs6 false $FE "$(vt xs6 V:t1:1 E)" '완료')" 0 block
+stop_case "검증 실패여도 '검증 불가: 사유' 보고 → 통과"             "$(stop_input xs7 false $FE "$(vt xs7 E V:t1:1)" '검증 불가: 기존 실패 3건, 이번 변경 무관')" 0 none
+stop_case "편집 전 실패 + 편집 후 성공 → 통과"                      "$(stop_input xs8 false $FE "$(vt xs8 V:t0:1 E V:t1:0)" '완료')" 0 none
+xo=$(bash "$HOOKS/verify-before-stop.sh" < "$(stop_input xs9 false $FE "$(vt xs9 E V:t1:1)" '완료')" 2>/dev/null)
+if printf '%s' "$xo" | jq -e '.reason | test("실패\\(exit≠0\\)")' >/dev/null 2>&1; then PASS=$((PASS + 1)); echo "  PASS  실패 block 사유는 '미실행'과 구분(실패(exit≠0) 명시)"
+else FAIL=$((FAIL + 1)); echo "  FAIL  실패 block 사유 문구: $xo"; fi
 
 echo "== plugin.json SubagentStop matcher ($(command -v node >/dev/null 2>&1 && echo node RegExp || echo bash ERE)) =="
 if [ -z "$SM" ]; then
@@ -355,9 +385,84 @@ FH="$TMP/fakehome"; CB="$FH/.claude/plugins/cache/my-claude/bams-plugin"; SV=$(j
 mkdir -p "$CB/0.0.1" "$CB/0.0.2" "$CB/0.0.3" "$CB/$SV"; : > "$CB/0.0.2/.orphaned_at"; : > "$CB/$SV/.orphaned_at"
 jq -n --arg p "$CB/0.0.1" '{plugins:{"bams-plugin@my-claude":[{installPath:$p}]}}' > "$FH/.claude/plugins/installed_plugins.json"
 sout=$(HOME="$FH" bash "$HERE/../../sync-cache.sh" --prune-stale 2>&1); left=$(cd "$CB" && ls | paste -sd' ' -)
-if [ "$left" = "0.0.1 0.0.3 $SV" ] && printf '%s' "$sout" | grep -q "cache 폴더명(0.0.1) ≠ plugin.json version($SV)"; then
-  PASS=$((PASS + 1)); echo "  PASS  .orphaned_at 폴더만 삭제, installPath·현재 버전·관리 중 폴더 보존 + 버전 WARN"
+if [ "$left" = "0.0.1 0.0.3 $SV" ] && printf '%s' "$sout" | grep -qF "INFO: installPath 폴더 = 0.0.1" && printf '%s' "$sout" | grep -qF "source plugin.json version = $SV" && ! printf '%s' "$sout" | grep -q "^WARN"; then
+  PASS=$((PASS + 1)); echo "  PASS  .orphaned_at 폴더만 삭제, installPath·현재 버전·관리 중 폴더 보존 + installPath/version INFO(WARN 아님)"
 else FAIL=$((FAIL + 1)); echo "  FAIL  prune 결과: [$left] (기대: 0.0.1 0.0.3 $SV)"; fi
+
+echo "== 런타임 캐시 리졸버 스니펫 (plugin-cache-sync.md §런타임 경로 해석) =="
+RS=$(grep -m1 -F '_BAMS=$(sed' "$HERE/../../references/plugin-cache-sync.md")
+touch "$CB/0.0.3"   # installPath(0.0.1)보다 최신 mtime 폴더가 있어도 installPath 우선
+r1=$(HOME="$FH" bash -c "$RS; echo \"\$_BAMS\"")
+mv "$FH/.claude/plugins/installed_plugins.json" "$FH/.claude/plugins/ip.bak"; touch "$CB/0.0.3"
+r2=$(HOME="$FH" bash -c "$RS; echo \"\$_BAMS\"")
+mv "$FH/.claude/plugins/ip.bak" "$FH/.claude/plugins/installed_plugins.json"
+if [ "$r1" = "$CB/0.0.1" ] && [ "$r2" = "$CB/0.0.3" ]; then PASS=$((PASS + 1)); echo "  PASS  installPath 우선, 없으면 mtime 최신 폴더"
+else FAIL=$((FAIL + 1)); echo "  FAIL  리졸버: installPath=[$r1] (기대 $CB/0.0.1), fallback=[$r2] (기대 $CB/0.0.3)"; fi
+printf '%s\n' '_S=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/ship/SKILL.md" 2>/dev/null | head -1)' > "$TMP/cr-bad.md"
+if ! bash "$HERE/../../scripts/check-cache-resolver.sh" "$TMP/cr-bad.md" >/dev/null 2>&1 && bash "$HERE/../../scripts/check-cache-resolver.sh" >/dev/null 2>&1; then
+  PASS=$((PASS + 1)); echo "  PASS  check-cache-resolver: 캐시 루트 find|head -1 재등장 → FAIL, 현 저장소 → OK"
+else FAIL=$((FAIL + 1)); echo "  FAIL  check-cache-resolver 판정 오류"; fi
+
+echo "== verdict-gate.sh (PreToolUse Bash — SHA 결합 verdict) =="
+VR="$TMP/vrepo"; VL="$HOOKS/lib/verdict.sh"
+vgit() { git -C "$VR" -c user.email=t@t -c user.name=t -c commit.gpgsign=false "$@"; }
+mkdir -p "$VR" && git -C "$VR" init -q && vgit checkout -q -b main && echo a > "$VR/a.txt" && vgit add a.txt && vgit commit -qm base \
+  && vgit checkout -q -b feat && echo b >> "$VR/a.txt" && vgit commit -qam change && mkdir -p "$VR/.crew"
+# vin <name> <command> [cwd] → PreToolUse Bash 입력 파일
+vin() { jq -cn --arg c "$2" --arg d "${3:-$VR}" '{session_id:"v",hook_event_name:"PreToolUse",tool_name:"Bash",cwd:$d,tool_input:{command:$c}}' > "$TMP/$1.json"; echo "$TMP/$1.json"; }
+VS="BAMS_VERDICT_GATE=strict"; VG="BAMS_VERDICT_GH=off"
+run_case "verdict 없음 + gh pr merge (기본 warn) → context"          verdict-gate.sh "$(vin g1 'gh pr merge --squash')" 0 context $VG
+run_case "verdict 없음 + gh pr merge (strict) → deny"                verdict-gate.sh "$(vin g2 'gh pr merge --squash')" 0 deny $VS $VG
+run_case "BAMS_VERDICT_GATE=off → 통과"                               verdict-gate.sh "$(vin g3 'gh pr merge')" 0 none BAMS_VERDICT_GATE=off $VG
+run_case "git push origin feat(base 아님) → 대상 아님"                verdict-gate.sh "$(vin g4 'git push -u origin feat')" 0 none $VS $VG
+run_case "git push origin HEAD:main → strict deny"                    verdict-gate.sh "$(vin g5 'git push origin HEAD:main')" 0 deny $VS $VG
+run_case "git push --dry-run origin main → 대상 아님"                 verdict-gate.sh "$(vin g6 'git push --dry-run origin main')" 0 none $VS $VG
+run_case "echo/grep 인자 속 'git push origin main' → 대상 아님"       verdict-gate.sh "$(vin g7 'echo git push origin main; grep -r "gh pr merge" .')" 0 none $VS $VG
+run_case "npx vercel deploy --prod → strict deny"                     verdict-gate.sh "$(vin g8 'npx vercel deploy --prod')" 0 deny $VS $VG
+run_case "vercel(프리뷰, --prod 없음) → 대상 아님"                    verdict-gate.sh "$(vin g9 'vercel deploy')" 0 none $VS $VG
+run_case ".crew 없는 저장소 → 대상 아님(fail-open)"                   verdict-gate.sh "$(vin g10 'gh pr merge' "$TMP")" 0 none $VS $VG
+run_case "Bash 아닌 tool → 통과"                                       verdict-gate.sh "$FX/pre-main-source.json" 0 none $VS $VG
+run_case "깨진 입력 → fail-open"                                       verdict-gate.sh "$FX/broken.json" 0 none $VS $VG
+vw=$(cd "$VR" && bash "$VL" write --verdict PASS --judge-agent bams-plugin:frontend-engineering --judge-model claude-opus-5-5 \
+     --author-agents frontend-engineering --evidence "0:bun test" --base main 2>&1); vc=$?
+if [ "$vc" = 2 ] && [ -z "$(ls "$VR/.crew/artifacts/review" 2>/dev/null)" ]; then PASS=$((PASS + 1)); echo "  PASS  write: 판정자 = 구현자 → 거부(exit 2, 파일 없음)"
+else FAIL=$((FAIL + 1)); echo "  FAIL  판정자=구현자 거부 안 됨 (exit=$vc): $vw"; fi
+vw=$(cd "$VR" && bash "$VL" write --verdict PASS --judge-agent release-quality-gate --judge-model claude-sonnet-5-5 \
+     --author-agents frontend-engineering --evidence "0:bun test" --evidence "1:npx tsc --noEmit" --base main 2>&1); vc=$?
+if [ "$vc" = 2 ]; then PASS=$((PASS + 1)); echo "  PASS  write: PASS 인데 exit≠0 evidence → 거부"
+else FAIL=$((FAIL + 1)); echo "  FAIL  exit≠0 evidence PASS 허용 (exit=$vc): $vw"; fi
+vf=$(cd "$VR" && bash "$VL" write --verdict PASS --judge-agent release-quality-gate --judge-model claude-sonnet-5-5 \
+     --author-agents bams-plugin:frontend-engineering --author-models claude-opus-5-5 --evidence "0:bun test" --base main 2>/dev/null)
+if [ -f "$vf" ] && jq -e --arg h "$(vgit rev-parse HEAD)" '.sha == $h and .verdict == "PASS" and (.patch_id | length) == 40 and .base == "main"
+     and .judge.agent == "release-quality-gate" and .judge.family == "claude" and .author_agents == ["frontend-engineering"]
+     and .same_family == true and .evidence == [{cmd: "bun test", exit_code: 0}] and .dirty == false' "$vf" >/dev/null; then
+  PASS=$((PASS + 1)); echo "  PASS  write: verdict-<shortsha>.json 스키마(sha·patch_id·judge·author·evidence·same_family)"
+else FAIL=$((FAIL + 1)); echo "  FAIL  verdict 파일 스키마: $vf $(cat "$vf" 2>/dev/null | head -c 300)"; fi
+run_case "PASS verdict(sha 일치) + gh pr merge (strict) → 통과"       verdict-gate.sh "$(vin g11 'gh pr merge --squash')" 0 none $VS $VG
+run_case "PASS verdict + cd <repo> && git push origin feat:main → 통과" verdict-gate.sh "$(vin g12 "cd $VR && git push origin feat:main" "$TMP")" 0 none $VS $VG
+vgit commit -q --amend -m "change (reworded)"
+run_case "amend(내용 동일, sha 변경) → patch-id 일치로 통과"          verdict-gate.sh "$(vin g13 'gh pr merge')" 0 none $VS $VG
+echo c >> "$VR/a.txt"; vgit commit -qam more
+run_case "내용 추가 커밋(sha·patch-id 불일치) → strict deny"          verdict-gate.sh "$(vin g14 'gh pr merge')" 0 deny $VS $VG
+echo d >> "$VR/a.txt"
+(cd "$VR" && bash "$VL" write --verdict FAIL --judge-agent qa-strategy --judge-model gpt-6.1-codex --author-agents backend-engineering \
+   --author-models claude-opus-5-5 --evidence "1:bun test" --base main >/dev/null 2>&1)
+vgit commit -qam wip
+run_case "미커밋 기준 FAIL verdict → 커밋 후 patch-id 일치 → strict deny" verdict-gate.sh "$(vin g15 'gh pr merge')" 0 deny $VS $VG
+vo=$(BAMS_VERDICT_GATE=warn BAMS_VERDICT_GH=off bash "$HOOKS/verdict-gate.sh" < "$TMP/g15.json" 2>/dev/null)
+if printf '%s' "$vo" | jq -e '.hookSpecificOutput.additionalContext | test("FAIL 이다")' >/dev/null 2>&1; then PASS=$((PASS + 1)); echo "  PASS  FAIL verdict 일치 → warn 문구는 'FAIL' 명시"
+else FAIL=$((FAIL + 1)); echo "  FAIL  FAIL verdict warn 문구: $vo"; fi
+if jq -e '.same_family == false and .judge.family == "openai" and .dirty == true' "$VR"/.crew/artifacts/review/verdict-*.json 2>/dev/null | grep -q true; then
+  PASS=$((PASS + 1)); echo "  PASS  다른 계열 판정자(Codex/GPT) → same_family=false, 미커밋 판정 dirty=true"
+else FAIL=$((FAIL + 1)); echo "  FAIL  same_family/dirty 기록"; fi
+vc=0; (cd "$VR" && bash "$VL" check >/dev/null 2>&1) || vc=$?
+if [ "$vc" = 3 ]; then PASS=$((PASS + 1)); echo "  PASS  verdict.sh check → FAIL 일치 exit 3"; else FAIL=$((FAIL + 1)); echo "  FAIL  check exit=$vc (기대 3)"; fi
+if jq -e '[.hooks.PreToolUse[]? | select(.matcher == "Bash") | .hooks[]?.command | select(test("hooks/verdict-gate\\.sh"))] | length == 1' "$PJ" >/dev/null 2>&1; then
+  PASS=$((PASS + 1)); echo "  PASS  plugin.json PreToolUse(Bash) → verdict-gate.sh 1회 등록"
+else FAIL=$((FAIL + 1)); echo "  FAIL  plugin.json 에 verdict-gate.sh(Bash matcher) 등록 없음/중복"; fi
+vgp=$(vin gp 'ls -la src'); vt0=$(now_ms); i=0; while [ $i -lt 10 ]; do bash "$HOOKS/verdict-gate.sh" < "$vgp" >/dev/null 2>&1; i=$((i + 1)); done; vt1=$(now_ms)
+if [ $(( (vt1 - vt0) / 10 )) -le 50 ]; then PASS=$((PASS + 1)); echo "  PASS  대상 아닌 Bash 평균 $(( (vt1 - vt0) / 10 ))ms ≤ 50ms(jq 0회)"
+else FAIL=$((FAIL + 1)); echo "  FAIL  대상 아닌 Bash 평균 $(( (vt1 - vt0) / 10 ))ms > 50ms"; fi
 
 echo "== metrics.sh (계측 → events.jsonl) =="
 MD="$TMP/metrics"; MW="$TMP/mw"; MFX="$FX/metrics"; MBAD=0
@@ -417,6 +522,8 @@ mcheck "history.md 아닌 Edit → 기록 없음" "$(ev_of pipeline_end) | lengt
 mrun post-history-edit.json; mrun post-history-edit.json
 mcheck "history.md Edit → pipeline_end(새 헤더 slug·status·result), 같은 블록 재편집은 1회" \
   "$(ev_of pipeline_end) | length == 1 and (.[0] | .slug == \"dev_결제버그묶음\" and .status == \"DONE_WITH_CONCERNS\" and .result == \"concerns\" and .command == \"dev\" and .pipeline == \"dev\" and .project == \"proj\" and .parse == \"diff\")"
+mcheck "pipeline_end.dur_ms(시작→기록, age 60초) · agent_spawns(열린 파이프라인 중 SubagentStart 1회)" \
+  "$(ev_of pipeline_end) | .[0] | (.dur_ms | type) == \"number\" and .dur_ms >= 60000 and .dur_ms < 120000 and .agent_spawns == 1"
 age_state_closing() { [ -f "$MD/state/m-sess-1.closing" ]; }
 if age_state_closing; then PASS=$((PASS + 1)); echo "  PASS  pipeline_end → 세션 상태 closing(마지막 Stop usage 대기)"
 else FAIL=$((FAIL + 1)); echo "  FAIL  pipeline_end 후 closing 상태 없음"; fi
@@ -433,6 +540,11 @@ mcheck "UserPromptSubmit '/bams:hotfix …' → pipeline_start(source=prompt_sub
 mrun post-history-write.json
 mcheck "history.md Write(originalFile 대비) → 1줄 형식 새 행 파싱(실패=failed)" \
   "$(ev_of pipeline_end) | map(select(.session_id == \"m-sess-2\")) | length == 1 and (.[0] | .slug == \"hotfix_로그인500\" and .command == \"hotfix\" and .status == \"실패\" and .result == \"failed\" and .pipeline == \"hotfix\")"
+mcheck "spawn 없는 파이프라인 → agent_spawns 0" \
+  "$(ev_of pipeline_end) | map(select(.session_id == \"m-sess-2\")) | .[0] | .agent_spawns == 0 and (.dur_ms | type) == \"number\""
+mrun post-history-noopen.json
+mcheck "열린 파이프라인 없이 history 기록 → pipeline_end(dur_ms·agent_spawns = null)" \
+  "$(ev_of pipeline_end) | map(select(.session_id == \"m-sess-8\")) | length == 1 and (.[0] | .slug == \"plan_알림설정\" and .result == \"success\" and .dur_ms == null and .agent_spawns == null and .pipeline == null)"
 mrun post-skill-hotfix.json; mrun post-skill-nested.json; mrun post-skill-engine.json
 mcheck "Skill tool bams:hotfix → pipeline_start(skill_tool), 열린 파이프라인 안 Skill·엔진 스킬은 무시" \
   "$(ev_of pipeline_start) | map(select(.session_id == \"m-sess-3\")) | length == 1 and .[0].command == \"hotfix\" and .[0].source == \"skill_tool\""
@@ -448,7 +560,7 @@ mrun post-skill-plain.json; mrun ups-slash-plain-skill.json
 mcheck "일반 스킬 bams-plugin:git-sync(Skill·슬래시) → pipeline_start 없음" \
   "$(ev_of pipeline_start) | map(select(.session_id == \"m-sess-7\")) | length == 0"
 mcheck "모든 줄 공통 필드 + 자리표시자 잔존 0" \
-  'all(.[]; .v == 1 and (.ts | test("Z$")) and (.ev | type) == "string" and (.project | type) == "string") and ([.[] | tostring | select(test("__(PROJ|PCMD|PTS|DUR)__"))] | length == 0)'
+  'all(.[]; .v == 1 and (.ts | test("Z$")) and (.ev | type) == "string" and (.project | type) == "string") and ([.[] | tostring | select(test("__(PROJ|PCMD|PTS|DUR|PDUR|SPAWN)__"))] | length == 0)'
 n0=$(wc -l < "$MD/events.jsonl")
 mrun upe-dev.json BAMS_METRICS_DIR="$TMP/moff" BAMS_METRICS=off
 if [ ! -e "$TMP/moff" ]; then PASS=$((PASS + 1)); echo "  PASS  BAMS_METRICS=off → 디렉터리·기록 없음"

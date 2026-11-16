@@ -79,5 +79,5 @@ AskUserQuestion — "PR 생성됨. 즉시 배포?"
 
 ### Step 11. Land & Deploy (선택)
 
-배포 전 체크리스트 확인: (1) PR 머지 완료, (2) CI 통과, (3) Step 5-9 검증 통과.
-모두 통과 시 `_DEPLOY_SKILL` 실행.
+배포 전 체크리스트 확인: (1) PR 머지 완료, (2) CI 통과, (3) Step 5-9 검증 통과, (4) PR head 커밋에 PASS verdict — `bash "$_VD" check --sha <PR head sha>`(`gh pr view <N> --json headRefOid`) exit 0 (`references/verdict-protocol.md` §3-4; 머지 후 base HEAD는 PR과 매칭되지 않으므로 `--sha` 필수).
+모두 통과 시 `_DEPLOY_SKILL` 실행. (4)가 exit 3이면 중단, exit 1·4면 release-quality-gate에 이번 head 기준 판정·기록을 요청한 뒤 재확인한다.

@@ -5,7 +5,7 @@
 
 **경로 폴백** (본 파일 참조 시 — 캐시 우선, repo 폴백) `[L2]`:
 ```bash
-_AR=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/agent-rules/platform-devops-rules.md" 2>/dev/null | head -1); [ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/platform-devops-rules.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _AR="$_BAMS/references/agent-rules/platform-devops-rules.md"; [ -e "$_AR" ] || _AR=""; [ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/platform-devops-rules.md" 2>/dev/null | head -1)  # [L2]
 ```
 
 ### ★ Post-Merge Auto Verification SOP (PD-T2)
@@ -68,7 +68,7 @@ PR 머지 완료(`.crew/history.md`에 완료 기록) 직후 다음을 실행한
 **작업 프랙티스 요구 분기 진입 시에만 Read (무조건 아님):** `[L2]`
 Bash로 best-practice 파일을 찾아 Read합니다 `[L2]`:
 ```bash
-_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/platform-devops.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BP="$_BAMS/references/best-practices/platform-devops.md"; [ -e "$_BP" ] || _BP=""  # [L2]
 [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/platform-devops.md" 2>/dev/null | head -1)  # [L2]
 [ -n "$_BP" ] && echo "참조: $_BP"  # [L2]
 ```

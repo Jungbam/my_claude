@@ -35,13 +35,16 @@ Task tool, subagent_type: **"bams-plugin:platform-devops"** — 메인이 직접
 
 AskUserQuestion — "즉시 배포할까요?"
 - **나중에 (Recommended)**
-- **배포** — `_DEPLOY_SKILL` 실행
+- **배포** — verdict 확인 후 `_DEPLOY_SKILL` 실행
+
+**verdict 확인 (배포 선택 시)**: `_DEPLOY_SKILL`을 직접 실행하는 경로라 `/bams:deploy`의 확인을 거치지 않는다. 배포 직전 `bash "$_VD" check`(`_VD` 경로 폴백·exit 규약: `references/verdict-protocol.md` §3-4)를 실행해 exit 0일 때만 배포한다. exit 3(FAIL) = 중단, exit 1·4 = Step 4 release-quality-gate의 판정 기록 누락 → 기록 재요청 1회 후에도 exit≠0이면 배포하지 않고 "나중에"로 처리.
 
 ---
 
 ## Step 5 게이트 조건
 
 - [ ] 배포 환경 점검 완료
+- [ ] 배포 실행 시 `verdict.sh check` exit 0 확인
 - [ ] 배포 실행 완료 (또는 나중에 처리)
 
 Step 5 완료 → 엔트리포인트가 Finalization을 라우팅합니다.

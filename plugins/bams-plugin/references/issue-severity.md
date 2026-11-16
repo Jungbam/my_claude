@@ -60,6 +60,18 @@
 
 **80 이상만 보고한다.** 필터·독립 검증 절차는 `references/multi-perspective-review.md` §지적 검증 필터.
 
+## 증거 등급
+
+지적마다 confidence 점수와 함께 증거 등급 라벨을 붙인다.
+
+| 라벨 | 의미 | 허용 심각도 |
+|------|------|-------------|
+| `measured` | 실행해서 관찰함 — 명령+출력, 실패 테스트 | 전부 |
+| `inferred` | 실행하지 않았지만 구체 입력값 + `file:line` 경로 추적으로 도출 | 전부 |
+| `guess` | 추정 — 재현 경로 없음 | Minor 이하 |
+
+**Major 이상은 재현 증거(명령+출력 / 실패 테스트 / 입력값+코드 경로 추적)가 필수다.** 없으면 `unverified`로 보고하고 심각도 집계와 §Release Gate 판정에서 제외한다. 형식: `multi-perspective-review.md` §지적 검증 필터 1.
+
 ## Release Gate 임계값 (SSOT)
 
 모든 릴리스 게이트 판정(review / dev QG / feature Phase 3 / hotfix / ship / deploy / qa)은 아래 임계값을 쓴다. 파이프라인별 조정은 §파이프라인별 Override.

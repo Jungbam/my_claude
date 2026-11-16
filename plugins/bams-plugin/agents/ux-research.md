@@ -154,7 +154,7 @@ ux-research → 페르소나/여정맵/리서치 리포트 → ux-designer → �
 **작업 시작 시 (조건부) 참조 — 복잡 판단·신규 패턴 필요 시에만 Read:** [L2]
 Bash로 best-practice 파일을 찾아 Read합니다:
 ```bash
-_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/ux-research.md" 2>/dev/null | head -1)
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BP="$_BAMS/references/best-practices/ux-research.md"; [ -e "$_BP" ] || _BP=""
 [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/ux-research.md" 2>/dev/null | head -1)
 [ -n "$_BP" ] && echo "참조: $_BP"
 ```

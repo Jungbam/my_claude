@@ -144,11 +144,16 @@ Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호
 >   차이점: 본 파이프라인 N값 = **2** (기본값 — SSOT §파이프라인별 Override 확인).
 >   (다중 aspect 시) `references/issue-severity.md` §aspect별 Override와 worst-case 원칙을 함께 적용.
 >   판정 절차는 `agents/release-quality-gate.md` §증거 기반 판정 — 리뷰어·부서장 보고는 미검증 주장, diff·테스트 출력으로 확인.
+>   verdict 기록: PASS/FAIL 판정 시 `references/verdict-protocol.md` §3대로 `hooks/lib/verdict.sh write` 실행 — author_agents: [이번 변경 구현 에이전트 목록, 메인 직접 수정이면 main], pipeline: {slug}. 판정자는 구현자가 아니어야 하며, Codex 연결 시 독립 판정 병행.
 > ```
 >
-> QA부장은 release-quality-gate specialist를 **최대 1회** 추가 spawn 가능(harness 깊이 2 한도). spawn할 수 없으면 위 판정 절차를 직접 적용한다.
+> QA부장은 release-quality-gate specialist를 **최대 1회** 추가 spawn 가능(harness 깊이 2 한도). spawn할 수 없으면 위 판정 절차를 직접 적용하고 verdict도 `--judge-agent qa-strategy`로 직접 기록한다.
 
-**기대 산출물**: 판정 결과, 기준별 증거, 필수 수정 사항, 권장 수정 사항
+**판정 모델 분리**: 메인은 이 spawn에 구현 에이전트와 다른 `model`을 지정한다(구현자 opus → `model: "sonnet"`, 구현자 sonnet → `"opus"`). Codex가 연결돼 있으면 Codex 판정이 우선이다(SSOT §3).
+
+**verdict 확인 (Phase 4 종료 조건)**: 반환 후 메인이 `bash "$_VD" check`(경로 폴백 SSOT §3)를 실행한다. exit 0/3 = 판정 기록 완료, exit 1 = 판정자가 파일을 남기지 않음 → 같은 판정자에게 기록만 재요청(1회), exit 4 = 판정자=구현자 → 다른 에이전트로 재판정. 미커밋 변경을 리뷰한 경우 `dirty: true`로 기록되며 커밋 후 patch-id로 매칭된다.
+
+**기대 산출물**: 판정 결과, 기준별 증거, 필수 수정 사항, 권장 수정 사항, verdict 파일 경로
 
 ## Phase 5: 리포트 저장
 
@@ -171,6 +176,7 @@ Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호
   제외:     [N]건 (confidence 미달/false positive/검증 탈락)
 
 릴리스 게이트: [PASS/CONDITIONAL/FAIL]
+verdict: .crew/artifacts/review/verdict-<shortsha>.json (판정자 [agent/model], same_family [true/false/unknown])
 ```
 
 그 다음 모든 Critical 및 Major 이슈를 상세와 함께 나열합니다.

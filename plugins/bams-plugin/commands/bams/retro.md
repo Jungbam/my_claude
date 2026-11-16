@@ -66,7 +66,9 @@ echo "[retro] slug: $SLUG"
 
 공통 준수:
 - spawn 프롬프트에는 이전 Phase 산출물 **경로**만 넘긴다(요약 붙여넣기 금지). 부서장 반환은 `delegation-protocol.md` §2-5 보고 계약.
-- 교훈은 MEMORY.md 항목 갱신(`retro-protocol.md` §5-2: 신뢰도·seen·90일 TTL·10항목 상한)으로만 남긴다.
+- Try마다 강제 수준(`architecture|type|hook/lint/CI|test|doc`)과 증명(과거 사고에서 실패하는 명령+출력) 또는 doc 사유를 단다 — `retro-protocol.md` §3-1·§3-1-a. 1~4 수준 Try는 §6-1 경로 E(부서장 위임)로 적용한다.
+- 보고서에 "hook 승격 후보" 섹션을 둔다 — `.crew/gotchas.md`의 `enforced-by: doc` 항목 중 발생 ≥3 또는 등록 후 재발 ≥1(`retro-protocol.md` §3-1-b).
+- 교훈은 MEMORY.md 항목 갱신(`retro-protocol.md` §5-2: 신뢰도·seen·90일 TTL·10항목 상한)으로만 남긴다. 구조로 강제된 교훈은 MEMORY.md에서 삭제한다(§5-2 구조 승격).
 - 정의 파일 개선안은 `agent-improvement-protocol.md` §5 게이트(seen ≥3 + high + 순증가 0)와 형식(**삭제/대체할 기존 문장** 필드 필수)을 따른다. 게이트 미달 개선안은 MEMORY.md 갱신으로 대체한다.
 
 ## 마무리

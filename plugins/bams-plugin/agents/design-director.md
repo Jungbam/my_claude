@@ -20,7 +20,7 @@ disallowedTools: []
 ## codex 추론 위임 (gpt-6.1-sol via MCP)
 
 핵심 추론(크리에이티브 디렉션·2026 트렌드 전략·specialist 품질 판정)을 gpt-6.1-sol에 위임한다. 공통 절차·`run_codex()` 정본·이중구조·via 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md` `[L2]`
-경로 폴백 `[L2]`: `find ~/.claude/plugins/cache -path "*/references/codex-delegation.md" 2>/dev/null || find . -path "*/references/codex-delegation.md" 2>/dev/null`
+경로 폴백 `[L2]`: `_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; ls "$_BAMS/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md" 2>/dev/null`
 - codex sandbox: `read-only` · 컨트롤러 모델: `claude-opus-5-5` · harness tier: `opus`
 - 위임 지점: 크리에이티브 브리프·무드보드 방향, 트렌드 선별 전략, specialist 품질 게이트 판정 근거
 - codex 미가용 시: Claude 컨트롤러(opus) 직접처리 (fallback_policy: direct)
@@ -127,7 +127,7 @@ fe_handoff: .crew/artifacts/design/{pipeline_slug}/fe-handoff.md          # desi
 해당 상황에서만 `$_AR` 섹션을 Read한다 `[L2]`:
 
 ```bash
-_AR=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/agent-rules/design-director-rules.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _AR="$_BAMS/references/agent-rules/design-director-rules.md"; [ -e "$_AR" ] || _AR=""  # [L2]
 [ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/design-director-rules.md" 2>/dev/null | head -1)  # [L2]
 ```
 
@@ -153,6 +153,6 @@ frontend-engineering(핸드오프·충실도), product-strategy(방향 정렬), 
 루프 운영 절차·browse 렌더 예시가 필요할 때만 `references/best-practices/design-director.md`를 찾아 Read한다(없으면 생략) `[L2]`:
 
 ```bash
-_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/design-director.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BP="$_BAMS/references/best-practices/design-director.md"; [ -e "$_BP" ] || _BP=""  # [L2]
 [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/design-director.md" 2>/dev/null | head -1)  # [L2]
 ```

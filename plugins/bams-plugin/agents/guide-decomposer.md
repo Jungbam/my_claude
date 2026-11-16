@@ -18,7 +18,7 @@ disallowedTools: []
 ## codex 추론 위임 (gpt-6.1-sol via MCP)
 
 핵심 추론(JSX/HTML 분해·토큰/팔레트 추출)을 codex(gpt-6.1-sol)에 위임한다. 공통 절차·run_codex() 정본·이중구조·실행 로그 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md` [L2]
-경로 폴백: `find ~/.claude/plugins/cache -path "*/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
+경로 폴백: `_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; ls "$_BAMS/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
 - codex sandbox: `read-only` · 컨트롤러 모델: `claude-sonnet-5-5` · harness tier: `sonnet`
 - 위임 지점: 복잡한 AST 분석·토큰 추출 → codex; Claude 컨트롤러는 입력 전처리·검증·구조화·산출물 Write
 - codex 미가용 시: design-director 에스컬레이션 후 대기(자동 sonnet fallback 금지, OQ10=b)
@@ -49,7 +49,7 @@ disallowedTools: []
 세부 행동 규칙은 agent-rules로 이관됨(FR-9 ID화). 아래 stub이 참조하는 `$_AR` 경로 폴백: [L2]
 
 ```bash
-_AR=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/agent-rules/guide-decomposer-rules.md" 2>/dev/null | head -1); [ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/guide-decomposer-rules.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _AR="$_BAMS/references/agent-rules/guide-decomposer-rules.md"; [ -e "$_AR" ] || _AR=""; [ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/guide-decomposer-rules.md" 2>/dev/null | head -1)  # [L2]
 ```
 
 - GD-FIELD: DOM 파싱 시 v1.1 신규 6필드(html_tag·inline_styles·css_classes·layout_type·parent_component·section_id) 의무 추출, 실패 시 null/기본값(omit 금지). 상세: $_AR §"신규 필드 의무 추출 (v1.1 스키마)"

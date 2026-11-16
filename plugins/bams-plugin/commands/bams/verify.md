@@ -16,6 +16,32 @@ argument-hint: [test command override]
 
 > **위임 체계 (Canonical)**: 이 커맨드는 `_shared_common.md` §위임 원칙 + 부록 **루프 A**(Simple, 단일 도메인)를 따른다. 메인(커맨드)이 automation-qa와 release-quality-gate 에이전트를 **직접** Task tool로 spawn한다. orchestrator를 경유한 중첩 spawn 금지(harness 깊이 2 제약).
 
+## Phase 0: 프로젝트 검증 스킬 (있으면 먼저)
+
+규칙 SSOT: `references/verification-skill-protocol.md` §7-8.
+
+```bash
+ls .claude/skills/verify-*/SKILL.md 2>/dev/null
+grep -hE '^(status|proven_at|proven_commit|blocked_by):' .claude/skills/verify-*/SKILL.md 2>/dev/null
+git diff --name-only HEAD 2>/dev/null; git diff --name-only --cached 2>/dev/null
+```
+
+- **스킬 없음** → Phase 0 skip(사유: 검증 스킬 없음 — `/bams:init` Step 11.5로 생성 가능), Phase 1로.
+- **스킬 있음** → automation-qa를 Phase 0 모드로 spawn한다 (Task tool, subagent_type: **"bams-plugin:automation-qa"**):
+<!-- load_profile:exempt non-department-lead spawn -->
+
+> **프로젝트 검증 스킬 실행 모드** — `.claude/skills/verify-<app>/SKILL.md`와 `features/README.md`를 Read하고 그 지시대로 실행한다.
+>
+> - 변경 파일: [위 git diff 결과] → feature map에서 영향받는 기능을 고른다. 매칭 0건이면 map 첫 기능 1개를 smoke로.
+> - 순서: Launch → Doctor → 선택 기능 Drive → Evidence(`.crew/artifacts/test/verify-<app>/<run-id>/`) → Cleanup → 증거 잔존 확인.
+> - 스킬 `status: draft`이면: 성공 시 Status 블록을 proven으로 갱신, 실패 시 결과를 `inconclusive (draft)`로 반환(제품 FAIL 아님).
+> - **실패 귀속**: 이번 diff가 건드리지 않은 기능에서 실패하면 스킬 drift로 보고 `.claude/skills/verify-<app>/`만 고쳐 재drive한다. 제품 코드는 수정하지 않는다. 앱 동작이 실제로 깨진 것이면 map을 약화하지 말고 결함으로 보고.
+> - 공유·운영 인스턴스에는 Doctor(읽기)만. Drive는 이 실행이 띄운 로컬 인스턴스에만.
+>
+> 반환: 기능별 PASS/FAIL/inconclusive, 증거 경로, 스킬 drift 수정 여부(수정 파일 목록), 결함 후보.
+
+Phase 0 결과와 관계없이 Phase 1(정적 검증)은 항상 실행한다. Phase 0의 FAIL(proven 스킬, 이번 diff가 건드린 기능)은 Phase 2 게이트에서 NO-GO 사유가 된다.
+
 ## Phase 1: 자동화 QA 검증
 
 Task tool을 사용하여 서브에이전트를 실행합니다 (subagent_type: **"bams-plugin:automation-qa"**):
@@ -64,6 +90,7 @@ Task tool (subagent_type: **"bams-plugin:release-quality-gate"**):
 
 **프리플라이트 게이트 모드**로 CI 결과를 검토합니다.
 
+**검증 스킬 결과**: [Phase 0 결과 삽입 — 없으면 "skip: 검증 스킬 없음"]
 **CI 결과**: [Phase 1 결과 삽입]
 **변경된 파일**: `git diff --stat` 결과
 **미해결 이슈**: `.crew/board.md`의 In Progress 항목
@@ -77,6 +104,7 @@ Task tool (subagent_type: **"bams-plugin:release-quality-gate"**):
 ```
 Verify 결과
 ────────────────────
+검증 스킬: PASS/FAIL/inconclusive(draft)/skip — [기능 목록, 증거 경로]
 빌드:     PASS/FAIL
 린트:     PASS/FAIL
 타입체크: PASS/FAIL

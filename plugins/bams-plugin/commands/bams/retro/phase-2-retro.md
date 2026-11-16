@@ -60,6 +60,7 @@ Advisor Response에서 반환된 참여 부서장 목록을 파싱 후, 메인�
 >    quality_criteria:
 >      - Keep/Problem/Try 각 섹션 존재
 >      - 모든 Problem에 최소 1개의 Try 연결
+>      - 모든 Try에 [강제: …] + (증명 | doc 사유) 표기 (retro-protocol.md §3-1-a)
 >      - 구체적 사례·산출물 근거 포함 (해당 파이프라인/산출물 인용)
 >    ```
 >
@@ -90,7 +91,10 @@ Advisor Response에서 반환된 참여 부서장 목록을 파싱 후, 메인�
 > - [항목] 내용 (영향: 재작업, 품질 저하, 지연 등 정성 서술) [일반화 가능성: 다중 프로젝트 재현 가능 / 단일 프로젝트 한정]
 > ### Try
 > - [항목] 내용 (대상 Problem: #N, 예상 효과: ...) [일반화 가능성: 대상 Problem의 분류 상속]
+>   [강제: architecture|type|hook/lint/CI|test|doc] (증명: {과거 사고에 적용하면 실패하는 명령+기대 출력} | doc 사유: {상위 수준이 불가한 이유})
 > ```
+>
+> **강제 수준 (필수, retro-protocol.md §3-1-a 사다리)**: Try마다 위에서부터 검토해 작동하는 가장 높은 수준을 고른다 — architecture(잘못된 경로 제거) > type > hook/lint/CI > test > doc(판단이 필요한 경우만). 1~4는 `증명`(대상 Problem의 과거 커밋·산출물에 적용해 실패하는 명령+출력) 필수, 증명 못 하면 `[강제: doc]` + `doc 사유: 미증명`. doc은 `doc 사유` 없이 제출 불가.
 >
 > **일반화 가능성 분류 (필수, retro-protocol.md §3-0/3-1 준수)**:
 > 각 Problem에는 다음 중 하나를 반드시 분류 표시한다.
@@ -148,11 +152,15 @@ Advisor가 product-analytics 등을 지목한 경우 해당 에이전트를 메�
 > 2. Problem 우선순위 정렬: 영향도(재작업/품질 저하/지연) 기반 정성 산출
 > 3. 각 Try에 담당 부서장 및 적용 시점 지정
 > 4. 부서 간 교차 검증 — 한 부서의 Problem이 다른 부서의 Keep과 모순되지 않는지 확인
-> 5. 액션 아이템 목록 확정 (담당자 + 시점 포함)
+> 5. `[강제: doc]` Try는 `doc 사유`가 상위 수준(architecture~test)을 실제로 배제하는지 확인하고, 아니면 상위 수준으로 되돌린다 (retro-protocol.md §3-2)
+> 6. `.crew/gotchas.md`의 `enforced-by: doc` 항목 중 발생 ≥3 또는 등록 후 재발 ≥1 → "hook 승격 후보" 섹션 + 강제 ≥3 Try 제안 (§3-1-b)
+> 7. 액션 아이템 목록 확정 (담당자 + 시점 + 강제 수준 포함)
 > ```
 > expected_output: .crew/artifacts/retro/{slug}/phase2-kpt-consolidated.md
 > quality_criteria:
 >   - 모든 Problem에 최소 1개의 Try + 담당자 연결
+>   - 모든 Try에 강제 수준 + (증명 | doc 사유), 강제 수준별 Try 수 집계
+>   - hook 승격 후보 섹션 (해당 0건이면 "없음")
 >   - 우선순위 1-3위 Problem 명시
 >   - 교차 검증 결과 포함
 > ```
@@ -172,9 +180,10 @@ pipeline-orchestrator가 다음 조건을 확인합니다:
 - [ ] 참여 부서장 50% 이상 KPT 제출 (`phase2-kpt-*.md` 파일 수 기준)
 - [ ] `.crew/artifacts/retro/{slug}/phase2-kpt-consolidated.md` 생성 완료
 - [ ] 모든 Problem에 Try 1개 이상 연결
+- [ ] 모든 Try에 강제 수준 + (증명 | doc 사유) 표기
 - [ ] 액션 아이템 목록 확정 (담당자 + 적용 시점)
 
 **결과 처리**:
 - **GO**: 모든 조건 통과 → Phase 2 진행
 - **CONDITIONAL-GO**: 50% 이상 제출, consolidated 생성 — 미제출 부서 "N/A" 기록 후 진행
-- **NO-GO**: consolidated 미생성 또는 Problem에 Try 미연결 → 재작업 지시
+- **NO-GO**: consolidated 미생성, Problem에 Try 미연결, 또는 강제 수준·증명/doc 사유 누락 Try 존재 → 재작업 지시

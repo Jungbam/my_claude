@@ -138,7 +138,7 @@ tokens.json(Style Dictionary 호환)·tokens.ts(`as const`)·CSS 출력 예시·
 ### codex 추론 위임 (gpt-6.1-sol via MCP)
 
 핵심 추론(토큰 추출·var 치환·시맨틱 명명)을 codex(gpt-6.1-sol)에 위임한다. 공통 절차·run_codex() 정본·이중구조(frontmatter `model`은 Claude 컨트롤러 ≠ 실행 위임 모델)·실행 로그 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md`
-경로 폴백: `find ~/.claude/plugins/cache -path "*/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
+경로 폴백: `_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; ls "$_BAMS/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
 - codex sandbox: `workspace-write` · 컨트롤러 모델: `claude-sonnet-5-5` · harness tier: `sonnet`
 - 위임 지점: 토큰 추출·정규화, Figma Variables → CSS 변수/TS 상수 변환, 컴포넌트 문서화 초안. Claude 컨트롤러는 토큰 네이밍 규약·스키마 검증·최종 Write만 담당.
 - codex 미가용 시: design-director 에스컬레이션 후 대기.
@@ -148,7 +148,7 @@ tokens.json(Style Dictionary 호환)·tokens.ts(`as const`)·CSS 출력 예시·
 세부 행동 규칙은 agent-rules로 이관됨. 아래 stub이 참조하는 `$_AR` 경로 폴백: [L2]
 
 ```bash
-_AR=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/agent-rules/design-system-agent-rules.md" 2>/dev/null | head -1); [ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/design-system-agent-rules.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _AR="$_BAMS/references/agent-rules/design-system-agent-rules.md"; [ -e "$_AR" ] || _AR=""; [ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/design-system-agent-rules.md" 2>/dev/null | head -1)  # [L2]
 ```
 
 - DSA-TOKEN: 토큰명 `{category}-{property}-{variant}-{state}` 패턴, 다크모드 동일 시맨틱 토큰에 값 매핑, 절대값은 Primitive만, 신규 토큰 design-director 승인 후 등록. 상세: $_AR §"토큰 정의 시"
@@ -210,5 +210,5 @@ _AR=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/agent-rules
 DSA-BP: 복잡 판단·신규 패턴 필요 시에만(무조건 아님 — L2 조건부) 아래 find 폴백으로 `best-practices/design-system-agent.md`를 탐색 후 Read한다. 발견 시 Responsibility별 협업 대상·절차·주의사항을 확인하고, 없으면 생략한다. [L2]
 
 ```bash
-_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/design-system-agent.md" 2>/dev/null | head -1); [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/design-system-agent.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BP="$_BAMS/references/best-practices/design-system-agent.md"; [ -e "$_BP" ] || _BP=""; [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/design-system-agent.md" 2>/dev/null | head -1)  # [L2]
 ```

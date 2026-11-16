@@ -14,10 +14,19 @@ PR 생성과 머지를 관리하는 Ship 워크플로우입니다.
 bams-plugin ship 스킬 로딩:
 
 ```bash
-_SHIP_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/ship/SKILL.md" 2>/dev/null | head -1)
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _SHIP_SKILL="$_BAMS/skills/ship/SKILL.md"; [ -e "$_SHIP_SKILL" ] || _SHIP_SKILL=""
 ```
 
 스킬 파일이 없으면 에러 메시지 후 중단.
+
+### Verdict 확인 (SHA 결합 판정)
+
+```bash
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _VD="$_BAMS/hooks/lib/verdict.sh"; [ -e "$_VD" ] || _VD=""; [ -z "$_VD" ] && _VD=$(find . -path "*/bams-plugin/hooks/lib/verdict.sh" 2>/dev/null | head -1)
+[ -n "$_VD" ] && bash "$_VD" check; echo "verdict_exit=$?"
+```
+
+규약: `references/verdict-protocol.md` §4. exit 0 = HEAD(sha 또는 patch-id)에 맞는 PASS → Step 1에 근거로 전달. exit 3(FAIL) = 즉시 중단·실패 기록. exit 1(없음)·4(판정자=구현자) = Step 1에서 release-quality-gate가 이번 HEAD 기준으로 판정하고 verdict 파일을 남겨야 GO 가능(구현 에이전트와 다른 `model`로 spawn, Codex 연결 시 Codex 판정 우선). `_VD`를 못 찾으면 "verdict 확인 불가"를 Step 1 위임 메시지와 PR 본문에 명시한다. 머지·base push 직전에는 `hooks/verdict-gate.sh`가 같은 확인을 반복한다(`BAMS_VERDICT_GATE`).
 
 ## Step 1: 출시 준비 검토
 
@@ -36,7 +45,7 @@ release-quality-gate 반환에서 GO/CONDITIONAL GO/NO-GO 판정을 파싱합니
 
 차이점: 본 파이프라인 N값 = **2** (기본값 — SSOT §파이프라인별 Override 확인).
 
-- **GO**: Step 2로 진행.
+- **GO**: `bash "$_VD" check`가 exit 0일 때만 Step 2로 진행(GO인데 verdict 없음 = 판정 미기록 → release-quality-gate에 기록만 재요청 1회, 그래도 없으면 CONDITIONAL GO로 강등).
 - **NO-GO**: 즉시 중단. 사유를 사용자에게 보고하고 `.crew/history.md`에 실패로 기록 후 종료.
 - **CONDITIONAL GO**: 조건 목록을 사용자에게 제시하고 AskUserQuestion으로 진행 여부를 확인합니다. 진행 시 조건을 PR 본문 "## Quality Gate 조건" 섹션에 이행 주체·기한과 함께 기록합니다.
 

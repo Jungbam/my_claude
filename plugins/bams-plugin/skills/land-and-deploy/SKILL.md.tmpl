@@ -2,6 +2,7 @@
 name: land-and-deploy
 preamble-tier: 4
 version: 1.0.0
+disable-model-invocation: true
 description: |
   bams 커맨드 내부 엔진 — 직접 쓰지 말고 `/bams:deploy` 사용.
   PR 머지 → CI·배포 대기 → canary로 프로덕션 상태 검증.
@@ -52,6 +53,29 @@ readiness first.
 **Never stop for:**
 - Choosing merge method (auto-detect from repo settings)
 - Timeout warnings (warn and continue gracefully)
+
+---
+
+## ezar-infra platform (Bitbucket Pipelines + ArgoCD)
+
+If CLAUDE.md `## Deploy Configuration` says `Platform: ezar-infra`, or the ezar-infra MCP is
+available (`ToolSearch("+ezar-infra")` loads `mcp__ezar-infra__*`) and the repo name from
+`git remote get-url origin` matches a service in `common_service_list`, use **EZAR mode**.
+Tool map + safety rules (SSOT):
+
+```bash
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _EZ_REF="$_BAMS/references/ezar-infra-deploy.md"; [ -e "$_EZ_REF" ] || _EZ_REF=""; [ -z "$_EZ_REF" ] && _EZ_REF=$(find . -path "*/bams-plugin/references/ezar-infra-deploy.md" 2>/dev/null | head -1)
+```
+
+In EZAR mode, Read `$_EZ_REF` and apply these overrides (everything else unchanged):
+- **Step 1-2**: if the remote is not GitHub (Bitbucket), skip `gh` checks — use `dev_pr_list` for PR state and `dev_build_status` for CI.
+- **Step 4**: merge only after the Step 3.5 gate. Non-GitHub: merge via Bitbucket (UI or bitbucket MCP) after user confirmation.
+- **Step 6**: use Strategy E below instead of A-D.
+- **Step 7**: `dev_deploy_status` + `dev_pods` are the primary health signal; run browse canary too if a production URL exists.
+- **Step 8**: prefer `dev_rollback` (ask the user first; `to_tag` from `dev_deploy_history`). Prod creates an approval Operation — track with `common_operation_get`.
+- **Never** call mutating ezar-infra tools without explicit user confirmation, never call `dev_approval_decide` with `confirm_code` before showing the preview and getting user OK, never handle secret values.
+
+If the MCP is unavailable or no service matches, ignore this section.
 
 ---
 
@@ -179,6 +203,7 @@ fi
 [ -f netlify.toml ] && echo "PLATFORM:netlify"
 [ -f Procfile ] && echo "PLATFORM:heroku"
 ([ -f railway.json ] || [ -f railway.toml ]) && echo "PLATFORM:railway"
+[ -f bitbucket-pipelines.yml ] && echo "PLATFORM_HINT:bitbucket-pipelines (check ezar-infra)"
 
 # Detect deploy workflows
 for f in .github/workflows/*.yml .github/workflows/*.yaml; do
@@ -201,6 +226,8 @@ echo "FRONTEND=$SCOPE_FRONTEND BACKEND=$SCOPE_BACKEND DOCS=$SCOPE_DOCS CONFIG=$S
 ```
 
 **Decision tree (evaluate in order):**
+
+0. If EZAR mode is active (see "ezar-infra platform" above): poll with Strategy E in Step 6, then verify in Step 7. Docs-only changes (rule 3) still skip verification.
 
 1. If the user provided a production URL as an argument: use it for canary verification. Also check for deploy workflows.
 
@@ -267,6 +294,14 @@ Vercel and Netlify deploy automatically on merge. No explicit deploy trigger nee
 ### Strategy D: Custom deploy hooks
 
 If CLAUDE.md has a custom deploy status command in the "Custom deploy hooks" section, run that command and check its exit code.
+
+### Strategy E: ezar-infra (EZAR mode)
+
+Poll every 30 seconds with read-only tools:
+1. `dev_build_status` until the `build-deploy-<env>` pipeline for the merge commit succeeds. On failure: `dev_build_log` + `dev_analyze_deploy_failure`, then the failure prompt below.
+2. `dev_deploy_status` until ArgoCD is **Synced + Healthy** and the deployed image tag **equals** the latest build tag.
+
+`dev_build_trigger` (re-run) only when the user explicitly asks for a re-deploy and confirms.
 
 ### Common: Timing and failure handling
 

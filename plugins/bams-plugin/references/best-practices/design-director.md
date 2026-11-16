@@ -17,7 +17,7 @@
 **절차**: design-loop-protocol §Preflight → Phase A → B → C. Render는 browse로 두 뷰포트를 찍는다.
 
 ```bash
-_BROWSE_BIN=$(find ~/.claude/plugins/cache -name "browse-cli" -path "*/browse/*" 2>/dev/null | head -1)
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BROWSE_BIN="$_BAMS/skills/browse/bin/browse"
 PREVIEW_PATH="$(pwd)/.crew/artifacts/design/{pipeline_slug}/preview/index.html"
 SHOT_DIR="$(pwd)/.crew/artifacts/design/{pipeline_slug}/iterations"
 $_BROWSE_BIN screenshot --url "file://$PREVIEW_PATH" --viewport 360x800  --out "$SHOT_DIR/iter-{N}-mobile.png"

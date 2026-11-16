@@ -93,7 +93,7 @@ department: executive
 해당 상황에서만 `$_AR`의 섹션을 Read한다 `[L2]`:
 
 ```bash
-_AR=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/agent-rules/pipeline-orchestrator-rules.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _AR="$_BAMS/references/agent-rules/pipeline-orchestrator-rules.md"; [ -e "$_AR" ] || _AR=""  # [L2]
 [ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/pipeline-orchestrator-rules.md" 2>/dev/null | head -1)  # [L2]
 ```
 
@@ -134,6 +134,6 @@ _AR=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/agent-rules
 도메인 프랙티스가 필요할 때만 `references/best-practices/pipeline-orchestrator.md`를 찾아 Read한다(없으면 생략) `[L2]`:
 
 ```bash
-_BP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/best-practices/pipeline-orchestrator.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BP="$_BAMS/references/best-practices/pipeline-orchestrator.md"; [ -e "$_BP" ] || _BP=""  # [L2]
 [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/pipeline-orchestrator.md" 2>/dev/null | head -1)  # [L2]
 ```

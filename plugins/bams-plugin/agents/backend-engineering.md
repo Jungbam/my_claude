@@ -32,7 +32,7 @@ disallowedTools: []
 위임 수신 시 스택 판별: ① `.crew/config.md` 스택 절만 §지목 Read → ② 프로젝트 파일(`next.config.*`/`pyproject.toml`/`go.mod`) → ③ 기본값 **TypeScript + Next.js App Router**. [L2]
 - 상세 기본값은 커맨드 `load_profile`이 `stack-profile`을 지목하면 L1로 사전 로드되고, 미지목 시 비-Next.js(Python/Go) 판별 분기 진입 시에만 온디맨드 Read한다 — 경로 폴백(캐시 우선, repo 폴백) `[L2]`:
 ```bash
-_SP=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/references/stack-profile.md" 2>/dev/null | head -1); [ -z "$_SP" ] && _SP=$(find . -path "*/bams-plugin/references/stack-profile.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _SP="$_BAMS/references/stack-profile.md"; [ -e "$_SP" ] || _SP=""; [ -z "$_SP" ] && _SP=$(find . -path "*/bams-plugin/references/stack-profile.md" 2>/dev/null | head -1)  # [L2]
 ```
 
 - 변이 구현 선택 기준: 폼/내부 변이 → Server Action, 외부 노출·웹훅·비폼 API → Route Handler(`app/api/**/route.ts`)
@@ -199,4 +199,4 @@ delegation-protocol.md의 "부서장 → 에이전트" 위임 형식에 따라 �
 `.crew/memory/backend-engineering/MEMORY.md`가 존재하면 세션 시작 시 Read한다(없으면 생략, 새로 만들지 않는다). 기록은 회고 파이프라인이 수행한다 — 상세 규칙은 `references/agent-memory.md`.
 
 ## 참조 문서 (온디맨드 L2) → 이관됨
-BE-BP: 작업 프랙티스 요구 분기 진입 시에만 cache find 패턴으로 best-practices/backend-engineering.md 탐색 후 Read. 상세: `references/agent-rules/backend-engineering-rules.md` §"참조 문서 (온디맨드 L2)" `[L2]`
+BE-BP: 작업 프랙티스 요구 분기 진입 시에만 installPath 리졸버(`references/plugin-cache-sync.md` §런타임 경로 해석)로 best-practices/backend-engineering.md 탐색 후 Read. 상세: `references/agent-rules/backend-engineering-rules.md` §"참조 문서 (온디맨드 L2)" `[L2]`

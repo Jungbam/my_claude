@@ -191,8 +191,10 @@ fi
 SRC_VER=$(sed -n 's/^[[:space:]]*"version":[[:space:]]*"\([^"]*\)".*/\1/p' "$PLUGIN_DIR/.claude-plugin/plugin.json" | head -1)
 CACHE_DIR="${VERSION_DIR%/}"
 CACHE_NAME="${CACHE_DIR##*/}"
+CACHE_VER=$(sed -n 's/^[[:space:]]*"version":[[:space:]]*"\([^"]*\)".*/\1/p' "$CACHE_DIR/.claude-plugin/plugin.json" 2>/dev/null | head -1 || true)
+echo "INFO: installPath 폴더 = $CACHE_NAME (installed_plugins.json — Claude Code가 실제 로드하는 경로) | 캐시 plugin.json version = ${CACHE_VER:-?} | source plugin.json version = ${SRC_VER:-?}"
 if [ -n "$SRC_VER" ] && [ "$CACHE_NAME" != "$SRC_VER" ]; then
-  echo "WARN: cache 폴더명($CACHE_NAME) ≠ plugin.json version($SRC_VER) — installPath(installed_plugins.json) 기준으로 동기화함, rename 안 함"
+  echo "INFO: 폴더명($CACHE_NAME) ≠ version($SRC_VER)은 오류가 아니다 — 동기화는 installPath에 하고 폴더 rename은 하지 않는다. 내용 버전은 위 '캐시 plugin.json version'으로 확인"
 fi
 # 삭제 후보: installPath·plugin.json version 폴더가 아니고 Claude Code가 고아로 표시(.orphaned_at)한 폴더만.
 # .orphaned_at 없는 폴더는 Claude Code가 관리 중일 수 있어 목록만 출력한다.
@@ -208,8 +210,9 @@ if [ "${#STALE[@]}" -gt 0 ]; then
   if $PRUNE_STALE && ! $DRY_RUN; then
     for d in "${STALE[@]}"; do rm -rf "$d" && echo "Pruned orphaned cache: $d"; done
   else
-    echo "고아 캐시 폴더 ${#STALE[@]}개 (.orphaned_at 있음, 삭제는 --prune-stale):"
+    echo "고아 캐시 폴더 ${#STALE[@]}개 (.orphaned_at 있음 — find 기반 경로 탐색이 구 버전 사본을 집을 수 있음):"
     printf '  %s\n' "${STALE[@]}"
+    echo "  삭제: bash \"$PLUGIN_DIR/sync-cache.sh\" --prune-stale"
   fi
 fi
 if [ "${#MANAGED[@]}" -gt 0 ]; then

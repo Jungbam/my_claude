@@ -28,6 +28,21 @@ dev.md (메인) ─ advise ─▶ pipeline-orchestrator (Advisor)
 
 $ARGUMENTS가 비어있으면, 사용자에게 무엇을 개발할지 물어보고 중단합니다.
 
+## Steps
+
+> 시작 즉시 아래 목록을 **원문 그대로** TodoWrite에 복사한다. 건너뛰는 step은 지우지 않고 `— skip: <사유>`로 남긴다 (`references/step-status.md` §Steps 체크리스트 규약).
+
+1. 코드 최신화 + 사전 조건 + 공통 규칙 로드 + 작업 범위 결정
+2. Phase 0 파이프라인 초기화 (dev-hotfix면 `mode-hotfix-init.md` 포함)
+3. Phase 1 기획 (dev-hotfix 모드면 skip)
+4. Phase 1.5 Git 체크포인트
+5. Phase 2 구현 — 부서장 병렬 spawn
+6. Phase 2.5 테스트 코드 생성
+7. Phase 3 검증 — 리뷰 + 성과 평가
+8. Phase 3.5 Quality Gate (최대 3회)
+9. Phase 4 마무리 + 자동 회고
+10. Phase 5 상태 기록 + `.crew/history.md` 1줄 + 최종 요약 (skip 목록 포함)
+
 ## 코드 최신화
 
 **`references/preflight-protocol.md` §배치 0(코드 최신화) 참조.** 표준 프로토콜을 따릅니다.

@@ -10,14 +10,14 @@ bams-plugin 스킬을 실행합니다. 아래 순서를 따르세요:
 ## 1. 스킬 파일 찾기
 
 ```bash
-_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/browse/SKILL.md" 2>/dev/null | head -1)
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _SKILL="$_BAMS/skills/browse/SKILL.md"; [ -e "$_SKILL" ] || _SKILL=""
 echo "SKILL: $_SKILL"
 ```
 
 스킬 파일을 찾지 못한 경우, gstack-plugin의 browse 스킬을 대체로 검색합니다:
 
 ```bash
-_SKILL=$(find ~/.claude/plugins/cache -path "*/gstack-plugin/*/skills/browse/SKILL.md" 2>/dev/null | head -1)
+_SKILL=$(ls -dt ~/.claude/plugins/cache/*/gstack-plugin/*/skills/browse/SKILL.md 2>/dev/null | head -1)
 echo "FALLBACK SKILL: $_SKILL"
 ```
 

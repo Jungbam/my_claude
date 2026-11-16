@@ -19,12 +19,14 @@
 | `pipeline_start` | UserPromptExpansion(`command_name`이 `…bams:<cmd>`), UserPromptSubmit(`/bams:<cmd> …`), PostToolUse `Skill`(열린 파이프라인이 없을 때만) | `command`, `args`(80자), `source`(expansion/prompt_submit/skill_tool) |
 | `human_turn` | UserPromptSubmit — 같은 세션에 열린 파이프라인이 있을 때. 슬래시 입력, `<task-notification>` 등 시스템 태그, 시작 3초 안의 입력은 제외 | — |
 | `agent_end` | SubagentStop(async). `agent_type`이 빈 내부 에이전트는 제외 | `agent_type`, `agent_id`, `dur_ms`, `dur_src`(start_pair/transcript), `usage`, `t_first`, `t_last` |
-| `pipeline_end` | PostToolUse `Edit`/`Write` — 대상이 `*/.crew/history.md`. 새로 생긴 첫 헤더 줄을 파싱 | `slug`, `command`(slug 앞부분), `status`(원문), `result`(success/concerns/failed/aborted/blocked/other), `date`, `parse` |
+| `pipeline_end` | PostToolUse `Edit`/`Write` — 대상이 `*/.crew/history.md`. 새로 생긴 첫 헤더 줄을 파싱 | `slug`, `command`(slug 앞부분), `status`(원문), `result`(success/concerns/failed/aborted/blocked/other), `date`, `dur_ms`(같은 세션 `pipeline_start`→기록, 초 정밀도), `agent_spawns`(그 사이 SubagentStart 수), `parse` |
 | `session_usage` | Stop(async) — 열린(또는 방금 끝난) 파이프라인이 있을 때만. 메인 transcript의 직전 기록 이후 줄만 합산 | `usage` |
 
 - `usage` = `{input, output, cache_read, cache_creation, cache_creation_1h, messages, by_model}`. transcript의 `message.usage`를 `message.id`별로 1번만 센다(content block마다 같은 usage가 반복되기 때문). transcript를 못 읽으면 `null`.
 - 같은 입력이 UserPromptExpansion과 UserPromptSubmit에서 모두 오면 `prompt_id`(없으면 10초 안의 같은 커맨드)로 1건만 남긴다.
 - 파이프라인은 `pipeline_end`가 기록되면 닫히고, 그 직후 Stop 1회분 usage까지 같은 파이프라인에 붙는다. 12시간이 지나도록 닫히지 않으면 무효로 본다.
+- `pipeline_end.dur_ms`·`agent_spawns`는 같은 세션에 열린 파이프라인이 있을 때만 숫자, 없으면 `null`(시작 미기록). `agent_spawns`는 내부 에이전트(Explore 등)를 포함한 SubagentStart 전체 수 — 부서장 위임 수만 보려면 `agent_end.agent_type`으로 거른다. 리포트 없이 1줄 요약:
+  `jq -c 'select(.ev=="pipeline_end") | {slug, result, dur_min: (if .dur_ms then (.dur_ms/60000|floor) else null end), agent_spawns}' ~/.claude/bams-metrics/events.jsonl`
 - history.md 헤더 형식: `## YYYY-MM-DD | {slug} | {STATUS}` 또는 1줄 `YYYY-MM-DD | {slug} | {command} | {status} | {요약}`.
 
 ## 3. 리포트

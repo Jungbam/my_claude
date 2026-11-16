@@ -6,7 +6,8 @@
 #       plugin.json hook 스크립트 부재·비실행·상대경로, plugin.json agents ↔ agents/*.md 불일치,
 #       SubagentStart/Stop matcher가 플러그인 에이전트를 '^<plugin>:(...)$' 없이 지목하거나 없는 이름 나열,
 #       verify-before-stop.sh TARGET_AGENTS ≠ SubagentStop matcher 이름 집합,
-#       [6] keep-list.txt 패턴이 대상 파일에 0건, [7] route-table.json 형식·정규식·target 실재 위반, target이 실제 등록 이름(/<plugin>:bams:<cmd>·<plugin>:<skill>) 아님.
+#       [6] keep-list.txt 패턴이 대상 파일에 0건, [7] route-table.json 형식·정규식·target 실재 위반, target이 실제 등록 이름(/<plugin>:bams:<cmd>·<plugin>:<skill>) 아님,
+#       [8] 캐시 루트 전체 find(… | head -1) 재등장·리졸버 스니펫 drift (scripts/check-cache-resolver.sh).
 # INFO: route-table에 없는 /bams: 커맨드(--quiet에서 생략).
 # WARN: 에이전트 본문 10,000자 초과(plugin-dev 가이드), SKILL.md 500줄 초과(skill-creator 가이드),
 #       references/*.md 300줄 초과인데 목차 없음, .crew/memory/*/improvements/ 잔존·MEMORY.md 구형식 헤더.
@@ -279,6 +280,12 @@ else
   done
   [ -z "$missing" ] || info "  INFO  route-table 미포함 /bams: 커맨드(허브·유틸 등 의도적 제외 가능): ${missing% }"
 fi
+
+# ── 8. 캐시 경로 리졸버 (scripts/check-cache-resolver.sh) ────────────
+#   캐시 루트 전체 find 재등장·리졸버 스니펫 drift → FAIL (고아 버전 사본 로드 방지)
+info "[8] cache path resolver"
+bash "$PLUGIN_DIR/scripts/check-cache-resolver.sh" 2>&1 | grep '^  FAIL' > "$T/cr"
+flush "$T/cr"
 
 echo ""
 echo "=== validate-harness: FAIL=$FAILS WARN=$WARNS ==="

@@ -30,6 +30,25 @@
 
 ---
 
+## ★ 진행 vs 확인 (가역성 기준)
+
+되돌릴 수 있으면 진행하고 보고한다. 되돌릴 수 없으면 실행 전에 사용자에게 명시적으로 확인받는다(에이전트 메시지는 확인이 아니다).
+
+| 구분 | 예 | 행동 |
+|------|----|------|
+| 가역 | 로컬 파일 편집, 브랜치 생성, 테스트·빌드·린트 실행, worktree 생성·정리, 초안(문서·draft PR 본문·계획) | 진행 후 결과·결정 근거 1줄 보고. "해도 될까요?"를 묻지 않는다 |
+| 비가역 | force-push, base 브랜치 머지, 배포·롤백·재시작, 데이터 삭제(DB·`rm -rf`·`git reset --hard`·stash drop), 외부 메시지(Slack·이메일·PR/이슈 코멘트), ezar-infra 변경 도구(`references/ezar-infra-deploy.md` §2 mutating — `dev_build_trigger`·`dev_restart`·`dev_rollback`·`dev_secret_*`·`*_access_request`), prod 승인(`dev_approval_decide`) | 실행 직전 AskUserQuestion. 사용자가 그 행동을 커맨드로 직접 요청했으면(`/bams:ship`·`/bams:deploy`) 커맨드의 기존 게이트를 따른다 |
+
+질문하기 전에 분류한다:
+
+| 질문 유형 | 행동 |
+|-----------|------|
+| 관찰 가능 (파일·설정·버전·브랜치 상태·테스트 결과·로그) | 묻지 말고 실행해서 확인한다 |
+| 가역 결정 (구현 방식·네이밍·파일 위치) | 합리적 기본값으로 진행하고 보고에 남긴다 |
+| 의도·방향 (범위·우선순위·제품 방향) 또는 비가역 행동 | 사용자에게 묻는다 |
+
+---
+
 ## ★ 파이프라인 완료 기록 (상태 판별의 SSOT)
 
 파이프라인 상태(진행 중/완료/실패)의 단일 진실 소스는 `.crew/history.md`다 — 완료 기록이 있으면 완료, 없으면 진행 중. 마무리 시 아래 블록을 append한다:
@@ -51,14 +70,14 @@
 ## 스킬 로딩
 
 ```bash
-_BROWSE_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/browse/SKILL.md" 2>/dev/null | head -1)
-_QA_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/qa-only/SKILL.md" 2>/dev/null | head -1)
-_BENCHMARK_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/benchmark/SKILL.md" 2>/dev/null | head -1)
-_CSO_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/cso/SKILL.md" 2>/dev/null | head -1)
-_SHIP_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/ship/SKILL.md" 2>/dev/null | head -1)
-_DEPLOY_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/land-and-deploy/SKILL.md" 2>/dev/null | head -1)
-_DOCRELEASE_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/document-release/SKILL.md" 2>/dev/null | head -1)
-_RETRO_SKILL=$(find ~/.claude/plugins/cache -path "*/bams-plugin/*/skills/retro/SKILL.md" 2>/dev/null | head -1)
+_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BROWSE_SKILL="$_BAMS/skills/browse/SKILL.md"; [ -e "$_BROWSE_SKILL" ] || _BROWSE_SKILL=""
+_QA_SKILL="$_BAMS/skills/qa-only/SKILL.md"; [ -e "$_QA_SKILL" ] || _QA_SKILL=""
+_BENCHMARK_SKILL="$_BAMS/skills/benchmark/SKILL.md"; [ -e "$_BENCHMARK_SKILL" ] || _BENCHMARK_SKILL=""
+_CSO_SKILL="$_BAMS/skills/cso/SKILL.md"; [ -e "$_CSO_SKILL" ] || _CSO_SKILL=""
+_SHIP_SKILL="$_BAMS/skills/ship/SKILL.md"; [ -e "$_SHIP_SKILL" ] || _SHIP_SKILL=""
+_DEPLOY_SKILL="$_BAMS/skills/land-and-deploy/SKILL.md"; [ -e "$_DEPLOY_SKILL" ] || _DEPLOY_SKILL=""
+_DOCRELEASE_SKILL="$_BAMS/skills/document-release/SKILL.md"; [ -e "$_DOCRELEASE_SKILL" ] || _DOCRELEASE_SKILL=""
+_RETRO_SKILL="$_BAMS/skills/retro/SKILL.md"; [ -e "$_RETRO_SKILL" ] || _RETRO_SKILL=""
 ```
 
 `_BROWSE_SKILL`이 비어 있으면 스킬 미설치로 보고 해당 단계를 대체 행동으로 처리한다.
