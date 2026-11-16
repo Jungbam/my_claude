@@ -23,17 +23,27 @@
 **전체 평균 점수가 하락하지 않을 때만** 머지한다(과제별 하락이 있으면 사유 기재). 점수 동률이면 시간·비용이 늘지 않았는지 본다.
 결과 jsonl은 PR에 첨부. 과제/채점기 수정은 하네스 변경과 별도 PR로 하고 baseline을 다시 측정한다.
 
-## Baseline 상태 (2026-11-16 기준: 미측정)
-위 머지 규칙의 비교 기준(baseline)은 **아직 없다**. `results/`에는 `bug-01-pagination` 1과제 × trial 1회(bams·single 각 1줄, 20261105-140322)만 있어 과제별·전체 평균으로 쓸 수 없다.
-그 전까지 하네스 변경 PR은 "baseline 미측정"을 명시하고, 아래 명령으로 baseline을 먼저 만든다(실제 비용 발생 — 사람이 예산을 확인한 뒤 실행, 에이전트가 임의 실행 금지):
+## Baseline (v2.8.x)
+출처: `results/*2026110[56]-*-{bams,single}.jsonl` (2026-11-05~06, 로컬 untracked). 계획·리뷰 n에는 `regrade-*`(최종 메시지만 재채점) 행이 포함된다. 칸 = 평균 score / 시도당 cost USD (n).
+
+| task | bams | single |
+|------|------|--------|
+| bug-01 | 1.00 / 0.26 (5) | 0.75 / 0.12 (4, tampered_tests 1) |
+| bug-02 | 1.00 / 0.33 (4) | 1.00 / 0.18 (3) |
+| bug-03 | 0.80 / 0.24 (5, no_result_event 1) | 1.00 / 0.20 (3) |
+| feat-01..04 | 1.00 / 0.34·0.38·0.44·0.48 (4) | 1.00 / 0.20·0.16·0.23·0.24 (3) |
+| plan-01 | 0.83 / 0.63 (7) | 0.90 / 0.25 (6) |
+| review-01 | 0.70 / 0.17 (7) | 0.98 / 0.08 (6) |
+| review-02 | 0.81 / 0.19 (7) | 0.63 / 0.09 (6) |
+
+해석: 버그·기능은 bams ≈ single 점수에 비용 약 2배. bams는 review-01·plan-01에서 약하고 review-02에서 강하다.
+v2.9.0의 리뷰 근거 규칙은 리뷰 오탐을 겨냥하므로 review-01/02부터 재측정한다(실제 비용 발생 — 사람이 예산 확인 후 실행):
 ```bash
 cd plugins/bams-plugin/evals
-./validate.sh                                                             # 무료 사전 점검
-./run.sh --config bams   --task all --trials 3 --total-budget-usd 40      # baseline(bams)
-./run.sh --config single --task all --trials 3 --total-budget-usd 20      # 대조군(single)
-./compare.sh results/<ts>-single.jsonl results/<ts>-bams.jsonl
+cat results/*2026110[56]-*-bams.jsonl > results/baseline-v2.8-bams.jsonl
+./run.sh --config bams --task "review-01-session-auth review-02-cache-repo" --trials 3 --total-budget-usd 10
+./compare.sh results/baseline-v2.8-bams.jsonl results/<새 ts>-bams.jsonl   # d.score = v2.9.0 - v2.8.x
 ```
-생성된 두 jsonl 경로를 이 절에 baseline으로 기록한다.
 
 ## 구성 차이 (유일한 변수)
 - bams: `--plugin-dir <evals 제외 스냅샷>` + 프롬프트 `"/bams-plugin:bams:<cmd> <요청>"`(`--plugin-dir` 로드 시 실측 등록명; `/bams:<cmd>`는 인식 안 됨) + 작업 디렉터리에 중립적인 최소 `.crew/config.md`(과제 제약은 두 구성 공통으로 prompt.md에만 둠).
