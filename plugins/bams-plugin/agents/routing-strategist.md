@@ -36,7 +36,7 @@ F6 nextjs-convention-mapper가 단일 페이지 컴포넌트 배치를 담당한
 ### codex 추론 위임 (gpt-6.1-sol via MCP)
 
 핵심 추론(다중페이지 라우트 트리 설계·충돌 분석)을 codex(gpt-6.1-sol)에 위임한다. 공통 절차·run_codex() 정본·이중구조·via 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md` [L2]
-경로 폴백: `_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; ls "$_BAMS/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
+경로 폴백: `_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); ls "$_BAMS/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
 - codex sandbox: `read-only` · 컨트롤러 모델: `claude-sonnet-5-5` · harness tier: `sonnet`
 - 위임 지점: 라우팅 그래프 설계·충돌 분석 초안 → codex; Claude 컨트롤러는 검증·통합·산출물 Write
 - codex 미가용 시: design-director 에스컬레이션 후 대기
@@ -178,7 +178,7 @@ input_artifacts:
 ## BP 온디맨드 참조 (L2)
 
 해당 Responsibility 착수 분기에서만 best-practice를 온디맨드로 Read(없으면 생략), §1~§4(호출 컨텍스트/실수 3건/권장 패턴/체크리스트) 확인: [L2]
-`_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BP="$_BAMS/references/best-practices/routing-strategist.md"; [ -e "$_BP" ] || _BP=""` [L2]
+`_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _BP="$_BAMS/references/best-practices/routing-strategist.md"; [ -e "$_BP" ] || _BP=""` [L2]
 `[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/routing-strategist.md" 2>/dev/null | head -1)` [L2]
 
 ## 메모리

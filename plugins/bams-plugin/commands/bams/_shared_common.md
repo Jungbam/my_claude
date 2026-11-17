@@ -37,7 +37,7 @@
 | 구분 | 예 | 행동 |
 |------|----|------|
 | 가역 | 로컬 파일 편집, 브랜치 생성, 테스트·빌드·린트 실행, worktree 생성·정리, 초안(문서·draft PR 본문·계획) | 진행 후 결과·결정 근거 1줄 보고. "해도 될까요?"를 묻지 않는다 |
-| 비가역 | force-push, base 브랜치 머지, 배포·롤백·재시작, 데이터 삭제(DB·`rm -rf`·`git reset --hard`·stash drop), 외부 메시지(Slack·이메일·PR/이슈 코멘트), ezar-infra 변경 도구(`references/ezar-infra-deploy.md` §2 mutating — `dev_build_trigger`·`dev_restart`·`dev_rollback`·`dev_secret_*`·`*_access_request`), prod 승인(`dev_approval_decide`) | 실행 직전 AskUserQuestion. 사용자가 그 행동을 커맨드로 직접 요청했으면(`/bams:ship`·`/bams:deploy`) 커맨드의 기존 게이트를 따른다 |
+| 비가역 | force-push, base 브랜치 머지, 배포·롤백·재시작, 데이터 삭제(DB·`rm -rf`·`git reset --hard`·stash drop), 외부 메시지(Slack·이메일·PR/이슈 코멘트), ezar-infra 변경 도구 — `references/ezar-infra-deploy.md` §2 mutating + §4·§5 **[M]** 표시 도구 전부(예: `dev_rollback`·`dev_secret_set`·`dev_approval_decide`; 목록은 그 문서가 SSOT) | 실행 직전 AskUserQuestion. 사용자가 그 행동을 커맨드로 직접 요청했으면(`/bams:ship`·`/bams:deploy`) 커맨드의 기존 게이트를 따른다 |
 
 질문하기 전에 분류한다:
 
@@ -70,7 +70,7 @@
 ## 스킬 로딩
 
 ```bash
-_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BROWSE_SKILL="$_BAMS/skills/browse/SKILL.md"; [ -e "$_BROWSE_SKILL" ] || _BROWSE_SKILL=""
+_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _BROWSE_SKILL="$_BAMS/skills/browse/SKILL.md"; [ -e "$_BROWSE_SKILL" ] || _BROWSE_SKILL=""
 _QA_SKILL="$_BAMS/skills/qa-only/SKILL.md"; [ -e "$_QA_SKILL" ] || _QA_SKILL=""
 _BENCHMARK_SKILL="$_BAMS/skills/benchmark/SKILL.md"; [ -e "$_BENCHMARK_SKILL" ] || _BENCHMARK_SKILL=""
 _CSO_SKILL="$_BAMS/skills/cso/SKILL.md"; [ -e "$_CSO_SKILL" ] || _CSO_SKILL=""

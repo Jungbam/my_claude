@@ -10,7 +10,7 @@ bams-plugin 스킬을 실행합니다. 아래 순서를 따르세요:
 ## 1. 스킬 파일 찾기
 
 ```bash
-_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _SKILL="$_BAMS/skills/browse/SKILL.md"; [ -e "$_SKILL" ] || _SKILL=""
+_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _SKILL="$_BAMS/skills/browse/SKILL.md"; [ -e "$_SKILL" ] || _SKILL=""
 echo "SKILL: $_SKILL"
 ```
 

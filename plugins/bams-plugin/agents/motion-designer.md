@@ -36,7 +36,7 @@ disallowedTools: []
 ### codex 추론 위임 (gpt-6.1-sol via MCP)
 
 핵심 추론(모션·트랜지션·마이크로인터랙션)을 codex(gpt-6.1-sol)에 위임한다. 공통 절차·run_codex() 정본·이중구조·via 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md` [L2]
-경로 폴백: `_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; ls "$_BAMS/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
+경로 폴백: `_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); ls "$_BAMS/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
 - codex sandbox: `read-only` · 컨트롤러 모델: `claude-sonnet-5-5` · harness tier: `sonnet`
 - 위임 지점: 모션 스펙·타이밍·이징·스크롤 구조 → codex; Claude 컨트롤러는 Rive/핸드오프 저장·60fps 검증
 - codex 미가용 시: design-director 에스컬레이션 후 대기(자동 sonnet fallback 금지, OQ10=b)
@@ -289,5 +289,5 @@ transition: transform var(--motion-duration-slow) var(--motion-easing-default);
 ## BP 온디맨드 참조 (L2)
 
 해당 Responsibility 착수 분기에서만 best-practice를 온디맨드로 Read(없으면 생략): [L2]
-`_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BP="$_BAMS/references/best-practices/motion-designer.md"; [ -e "$_BP" ] || _BP=""` [L2]
+`_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _BP="$_BAMS/references/best-practices/motion-designer.md"; [ -e "$_BP" ] || _BP=""` [L2]
 `[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/motion-designer.md" 2>/dev/null | head -1)` [L2]

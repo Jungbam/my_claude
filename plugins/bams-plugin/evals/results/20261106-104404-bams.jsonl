@@ -1,0 +1,1 @@
+{"task":"review-01-session-auth","config":"bams","trial":1,"score":0.9,"duration_s":42,"tokens":192239,"out_tokens":3948,"cost_usd":0.3315072,"turns":5,"agent_spawns":0,"skill_calls":0,"tool_calls":4,"cmd_resolved":true,"error":"","tampered":false,"passed":0,"total":0}

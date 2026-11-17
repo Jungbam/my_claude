@@ -72,6 +72,8 @@
 
 **Major 이상은 재현 증거(명령+출력 / 실패 테스트 / 입력값+코드 경로 추적)가 필수다.** 없으면 `unverified`로 보고하고 심각도 집계와 §Release Gate 판정에서 제외한다. 형식: `multi-perspective-review.md` §지적 검증 필터 1.
 
+**예외 — 고위험 미검증(`unverified-risk`)**: 증거 없는 **Critical(카테고리 무관)** 과 **보안 관련 Major**는 제외하지 않고 독립 검증자에게 보낸다. 검증자가 재현하면 CONFIRMED로 집계되고, 반박(REFUTED)하면 제외되며, 재현도 반박도 못 하면(UNCERTAIN) `unverified-risk`로 남는다. `unverified-risk`는 Critical/Major 건수에 넣지 않지만 게이트를 **PASS로 둘 수 없다**(§기본 임계값 CONDITIONAL 행). 절차: `multi-perspective-review.md` §지적 검증 필터 3~5.
+
 ## Release Gate 임계값 (SSOT)
 
 모든 릴리스 게이트 판정(review / dev QG / feature Phase 3 / hotfix / ship / deploy / qa)은 아래 임계값을 쓴다. 파이프라인별 조정은 §파이프라인별 Override.
@@ -81,7 +83,7 @@
 | 판정 | Critical | Major | Minor | 조치 |
 |------|----------|-------|-------|------|
 | **PASS (GO)** | 0건 | ≤ 2건 | 자유 | 릴리스 진행 |
-| **CONDITIONAL** | 0건 | 3~5건 또는 테스트 커버리지 미흡 | 자유 | 조건부 진행 (사용자 확인) |
+| **CONDITIONAL** | 0건 | 3~5건 또는 테스트 커버리지 미흡 또는 `unverified-risk` ≥ 1건 | 자유 | 조건부 진행 (사용자 확인 — `unverified-risk`는 지적 원문을 보여준다) |
 | **FAIL (NO-GO)** | ≥ 1건 | ≥ 6건 | 자유 | 릴리스 차단, 수정 필수 |
 
 ### 파이프라인별 Override

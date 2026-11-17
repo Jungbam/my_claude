@@ -33,7 +33,7 @@
 
 ## 3. 생성 규칙 — SKILL.md 섹션
 
-frontmatter `name: verify-<app>`, `description`(앱 이름 + surface + 언제 쓰는지)이 없으면 스킬이 등록되지 않는다. 모든 섹션은 인터뷰에서 실제로 찾은 값으로 채운다 — 플레이스홀더(`{...}`)가 남으면 생성 실패.
+frontmatter `name: verify-<app>`, `description`(앱 이름 + surface + 언제 쓰는지)이 없으면 스킬이 등록되지 않는다. 모든 섹션은 인터뷰에서 실제로 찾은 값으로 채운다 — 플레이스홀더(`{...}`)가 남으면 생성 실패. 구조·플레이스홀더·proven 주장은 `scripts/check-verify-skill.sh`가 기계 검사한다(§5-1).
 
 - **Launch**: 검증용 기동 정확한 명령 + 준비 판정(로그 라인, health URL 200 + 실제 화면 렌더). 빈 데이터 디렉토리에서 마이그레이션·시드까지 포함해 "사용 가능한" 상태까지 도달해야 한다. 프로세스가 응답한다 ≠ 준비됨. 단명 CLI는 빌드/의존성 설치 1회 후 drive마다 새로 실행. **안전**: DB·큐·스토리지 접속 대상이 localhost/로컬 컨테이너가 아니면(공유 dev·staging·prod) 마이그레이션·시드·쓰기 drive를 하지 않는다 — 로컬 대체(docker-compose 등)가 없으면 `draft` + `blocked_by`로 남긴다.
 - **Doctor**: 읽기 전용 상태 점검 1세트 — 프로세스 기동, 포트 소유(우리가 띄운 것), 빌드/버전, 인증 유효. 이상해 보이면 언제든 먼저 실행. 변경 동작 금지.
@@ -71,9 +71,28 @@ frontmatter `name: verify-<app>`, `description`(앱 이름 + surface + 언제 �
   proven_feature: <feature-id>
   evidence: .crew/artifacts/test/verify-<app>/<run-id>/
   ```
+- **기계 검사 (§5-1) 통과 전에는 proven이 아니다.** Status 블록을 proven으로 쓴 직후 검사를 돌리고, 통과하지 못하면 proven을 남기지 않는다.
 - 끝내 실패하거나 실행 불가(시크릿·외부 접근·사용자 계정 필요)면 `status: draft` 유지 + `blocked_by:`에 구체 전제(필요한 env 키, 접근 권한, 시도한 명령)를 기록한다. 실행되지 않은 스킬은 산출물이 아니라 초안이다.
 - 대체 환경(로컬 docker로 원격 대체 등)에서 증명했다면 대체 환경만 해 준 셋업 단계를 `unverified_on_target:`에 나열한다.
-- 결과 기록: `.crew/config.md`의 `## 검증 스킬` 섹션(경로, status, proven_at, blocked_by)과 `.crew/artifacts/report/verify-skill-{YYYY-MM-DD}.md`(실행 로그 요약).
+- 결과 기록: `.crew/config.md`의 `## 검증 스킬` 섹션(경로, status, proven_at, blocked_by)과 `.crew/artifacts/report/verify-skill-{YYYY-MM-DD}.md`(실행 로그 요약 + §5-1 검사 출력).
+
+### 5-1. 기계 검사 — `scripts/check-verify-skill.sh` (생성 에이전트 필수)
+
+`status: proven`은 생성 에이전트의 자기 기록이므로 그대로 믿지 않는다. 생성·유지보수·proven 승격 직후 반드시 실행한다(`$_BAMS` = `references/plugin-cache-sync.md` §런타임 경로 해석으로 얻은 플러그인 루트):
+
+```bash
+bash "$_BAMS/scripts/check-verify-skill.sh" .claude/skills/verify-<app>   # [repo-root] 생략 시 git toplevel
+```
+
+| 검사 | 실패 조건 |
+|------|----------|
+| 구조 | frontmatter `name: verify-*`·`description` 없음, `## Launch`/`## Doctor`/`## Drive`/`## Evidence`/`## Cleanup` 중 하나라도 없음, `status:` 없음·값 오류, `features/README.md` 없음 |
+| 플레이스홀더 | SKILL.md·`features/**/*.md`에 템플릿 `{…}` 1개 이상 (HTML 주석, `${…}`·`%{…}`, 공백으로 시작하는 `{ cmd; }`, 따옴표·`$`가 든 JSON/awk, `{a,b}` 확장은 제외) |
+| proven 주장 | `proven_commit`이 `git cat-file -e <sha>^{commit}`로 해석되지 않음, `evidence` 디렉터리 없음 또는 크기 > 0 파일 0개, `proven_at`(YYYY-MM-DD)·`proven_feature` 비어 있음 |
+
+- **exit 0 + `RESULT: proven`일 때만 proven이다.** exit 0 + `RESULT: draft`는 구조가 온전한 초안.
+- exit 1 → 출력의 `FAIL:` 줄을 고치고 재실행한다. 고칠 수 없으면(증거 유실 등) `status: draft`로 되돌리고 `blocked_by:`에 검사 출력을 적는다.
+- 반환·보고서에 검사 출력 마지막 줄(`RESULT: …`)을 그대로 첨부한다. 회귀 테스트: `bash tests/verify-skill/run.sh`.
 
 ## 6. ezar 서비스 Doctor (선택)
 
@@ -87,8 +106,9 @@ frontmatter `name: verify-<app>`, `description`(앱 이름 + surface + 언제 �
 ## 7. 사용 규칙 (`/bams:verify`, 파이프라인 검증 단계)
 
 - `.claude/skills/verify-*/SKILL.md`가 있으면 build/lint/typecheck/test보다 먼저 사용한다.
+- **신뢰 전에 §5-1 검사를 돌린다.** exit ≠ 0, `RESULT: draft`, 또는 스크립트를 찾지 못하면 Status 블록의 표기와 무관하게 **draft로 취급**한다.
 - 변경 파일 → feature map 매칭으로 drive 대상 기능을 고른다(매칭 0건이면 map 첫 기능 1개를 smoke로).
-- `status: draft` 스킬은 실행 결과를 product 판정에 쓰지 않는다 — 실행해서 성공하면 §5대로 proven 승격, 실패하면 `inconclusive (draft)`로 기록하고 build/lint/typecheck/test 결과로 판정한다.
+- `status: draft`(또는 위 검사로 draft 취급된) 스킬은 실행 결과를 product 판정에 쓰지 않는다 — 실행해서 성공하면 §5대로 proven 승격(§5-1 검사 통과 필수), 실패하면 `inconclusive (draft)`로 기록하고 build/lint/typecheck/test 결과로 판정한다.
 - Drive는 이 실행이 띄운 로컬 인스턴스에만 한다. 공유·운영 인스턴스는 Doctor(읽기)만 허용.
 
 ## 8. 유지보수 (drift)

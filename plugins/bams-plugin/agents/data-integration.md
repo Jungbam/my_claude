@@ -35,7 +35,7 @@ disallowedTools: []
 
 > 위임 수신 시 대상 프로젝트의 스택을 판별한다: ① `.crew/config.md` 스택 정의 → ② 프로젝트 파일 감지(`next.config.*`/`pyproject.toml`/`go.mod`) → ③ 기본값 **TypeScript + Next.js App Router**. 상세 기본값은 `references/stack-profile.md`를 조건부(온디맨드) Read한다: [L2]
 > ```bash
-> _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _SP="$_BAMS/references/stack-profile.md"; [ -e "$_SP" ] || _SP=""; [ -z "$_SP" ] && _SP=$(find . -path "*/bams-plugin/references/stack-profile.md" 2>/dev/null | head -1)  # [L2]
+> _BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _SP="$_BAMS/references/stack-profile.md"; [ -e "$_SP" ] || _SP=""; [ -z "$_SP" ] && _SP=$(find . -path "*/bams-plugin/references/stack-profile.md" 2>/dev/null | head -1)  # [L2]
 > ```
 
 - 이벤트 트래킹 구현 시 서버/클라이언트 경계 준수: 클라이언트 SDK 초기화는 `'use client'` 컴포넌트/Provider에서, 서버 수집은 Route Handler에서 — RSC에 브라우저 SDK import 금지
@@ -47,7 +47,7 @@ disallowedTools: []
 세부 행동 규칙은 agent-rules로 이관됨. 아래 stub이 참조하는 `$_AR` 경로 폴백: [L2]
 
 ```bash
-_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _AR="$_BAMS/references/agent-rules/data-integration-rules.md"; [ -e "$_AR" ] || _AR=""; [ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/data-integration-rules.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _AR="$_BAMS/references/agent-rules/data-integration-rules.md"; [ -e "$_AR" ] || _AR=""; [ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/data-integration-rules.md" 2>/dev/null | head -1)  # [L2]
 ```
 
 - DI-EVENT: 이벤트명 `[대상]_[행위]`, 공통 필드(timestamp/user_id/session_id/event_id), 스키마 버전·하위호환, PII 금지/마스킹, 발행 실패 시 로컬 큐 재발행. 상세: $_AR §"이벤트 설계 원칙"
@@ -107,5 +107,5 @@ _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\(
 DI-BP: 복잡 판단·신규 패턴 필요 시에만(무조건 아님 — L2 조건부) 아래 find 폴백으로 `best-practices/data-integration.md`를 탐색 후 Read한다. 발견 시 Responsibility별 협업 대상·절차·주의사항을 확인하고, 없으면 생략한다. [L2]
 
 ```bash
-_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BP="$_BAMS/references/best-practices/data-integration.md"; [ -e "$_BP" ] || _BP=""; [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/data-integration.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _BP="$_BAMS/references/best-practices/data-integration.md"; [ -e "$_BP" ] || _BP=""; [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/data-integration.md" 2>/dev/null | head -1)  # [L2]
 ```

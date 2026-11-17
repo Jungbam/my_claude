@@ -1,6 +1,6 @@
 ---
 description: 외부 디자인 가이드(JSX/HTML/ZIP)를 격리·검증·이식하는 전용 커맨드 — 9개 specialist(F1~F9) 파이프라인의 명시적 진입점
-argument-hint: [<가이드 경로>] [--scenario s1|s2|s3] [--target <대상>] [--dry-run] [--no-dry-run] [--skip-verify]
+argument-hint: "[<가이드 경로>] [--scenario s1|s2|s3] [--target <대상>] [--dry-run] [--no-dry-run] [--skip-verify]"
 ---
 
 # Bams: Design Import

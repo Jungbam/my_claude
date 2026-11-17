@@ -1,0 +1,1 @@
+{"task":"review-02-cache-repo","config":"bams","trial":1,"score":0.9,"duration_s":67,"tokens":239741,"out_tokens":6715,"cost_usd":0.41802400000000006,"turns":7,"agent_spawns":0,"skill_calls":0,"tool_calls":6,"cmd_resolved":true,"error":"","tampered":false,"passed":0,"total":0}

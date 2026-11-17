@@ -79,5 +79,12 @@ AskUserQuestion — "PR 생성됨. 즉시 배포?"
 
 ### Step 11. Land & Deploy (선택)
 
-배포 전 체크리스트 확인: (1) PR 머지 완료, (2) CI 통과, (3) Step 5-9 검증 통과, (4) PR head 커밋에 PASS verdict — `bash "$_VD" check --sha <PR head sha>`(`gh pr view <N> --json headRefOid`) exit 0 (`references/verdict-protocol.md` §3-4; 머지 후 base HEAD는 PR과 매칭되지 않으므로 `--sha` 필수).
-모두 통과 시 `_DEPLOY_SKILL` 실행. (4)가 exit 3이면 중단, exit 1·4면 release-quality-gate에 이번 head 기준 판정·기록을 요청한 뒤 재확인한다.
+배포 전 체크리스트 확인: (1) PR 머지 완료, (2) CI 통과, (3) Step 5-9 검증 통과, (4) PR head 커밋에 PASS verdict — 아래 블록을 **한 번의 Bash 호출**로 실행해(리졸버와 check를 같은 호출에 — 셸 변수는 호출 사이에 남지 않는다) `verdict_exit=0` (`references/verdict-protocol.md` §4; 머지 후 base HEAD는 PR과 매칭되지 않으므로 `--sha` 필수, `<PR head sha>` = `gh pr view <N> --json headRefOid -q .headRefOid`).
+
+```bash
+_PRSHA="<PR head sha>"   # gh pr view <N> --json headRefOid -q .headRefOid 결과로 바꾼다
+_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _VD="$_BAMS/hooks/lib/verdict.sh"; [ -e "$_VD" ] || _VD=""; [ -z "$_VD" ] && _VD=$(find . -path "*/bams-plugin/hooks/lib/verdict.sh" 2>/dev/null | head -1)
+if [ -z "$_VD" ]; then echo "verdict_exit=unavailable (verdict.sh 못 찾음 — 'verdict 없음'(1)과 다르다)"; else bash "$_VD" check --sha "$_PRSHA"; echo "verdict_exit=$?"; fi
+```
+
+모두 통과 시 `_DEPLOY_SKILL` 실행. (4)가 `verdict_exit=3`이면 중단, `unavailable`(verdict.sh 못 찾음)이면 배포하지 않고 "verdict 확인 불가(도구 없음)"를 보고, 1·4(무효)면 release-quality-gate에 이번 head 기준 판정·기록을 요청한 뒤 재확인한다.

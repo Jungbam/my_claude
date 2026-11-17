@@ -231,7 +231,7 @@ disallowedTools: []
 **작업 시작 시 (조건부) 참조 — 복잡 판단·신규 패턴 필요 시에만 Read:** [L2]
 Bash로 best-practice 파일을 찾아 Read합니다:
 ```bash
-_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BP="$_BAMS/references/best-practices/hr-agent.md"; [ -e "$_BP" ] || _BP=""
+_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _BP="$_BAMS/references/best-practices/hr-agent.md"; [ -e "$_BP" ] || _BP=""
 [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/hr-agent.md" 2>/dev/null | head -1)
 [ -n "$_BP" ] && echo "참조: $_BP"
 ```

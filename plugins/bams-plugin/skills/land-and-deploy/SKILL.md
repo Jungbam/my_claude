@@ -20,7 +20,7 @@ allowed-tools:
 
 ```bash
 _GSTACK_BIN="${CLAUDE_SKILL_DIR}/../../bin"
-[ -x "$_GSTACK_BIN/gstack-config" ] || { _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _GSTACK_BIN="$_BAMS/bin"; }
+[ -x "$_GSTACK_BIN/gstack-config" ] || { _BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _GSTACK_BIN="$_BAMS/bin"; }
 echo "GSTACK_BIN: ${_GSTACK_BIN:-NOT_FOUND}"
 echo "BRANCH: $(git branch --show-current 2>/dev/null || echo unknown)"
 ```
@@ -52,7 +52,7 @@ RECOMMENDATION: [what the user should do next]
 
 ```bash
 B="${CLAUDE_SKILL_DIR}/../browse/bin/browse"
-[ -x "$B" ] || { _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; B="$_BAMS/skills/browse/bin/browse"; }
+[ -x "$B" ] || { _BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); B="$_BAMS/skills/browse/bin/browse"; }
 [ -x "$B" ] && echo "READY: $B" || echo "NEEDS_SETUP"
 ```
 
@@ -122,7 +122,7 @@ available (`ToolSearch("+ezar-infra")` loads `mcp__ezar-infra__*`) and the repo 
 Tool map + safety rules (SSOT):
 
 ```bash
-_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _EZ_REF="$_BAMS/references/ezar-infra-deploy.md"; [ -e "$_EZ_REF" ] || _EZ_REF=""; [ -z "$_EZ_REF" ] && _EZ_REF=$(find . -path "*/bams-plugin/references/ezar-infra-deploy.md" 2>/dev/null | head -1)
+_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _EZ_REF="$_BAMS/references/ezar-infra-deploy.md"; [ -e "$_EZ_REF" ] || _EZ_REF=""; [ -z "$_EZ_REF" ] && _EZ_REF=$(find . -path "*/bams-plugin/references/ezar-infra-deploy.md" 2>/dev/null | head -1)
 ```
 
 In EZAR mode, Read `$_EZ_REF` and apply these overrides (everything else unchanged):

@@ -140,7 +140,7 @@ PRD 확정 후 UI 변경이 있으면 design-director에게 브리프(변경 대
 해당 작업 시에만 `$_AR` 섹션을 Read한다 `[L2]`:
 
 ```bash
-_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _AR="$_BAMS/references/agent-rules/product-strategy-rules.md"; [ -e "$_AR" ] || _AR=""; [ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/product-strategy-rules.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _AR="$_BAMS/references/agent-rules/product-strategy-rules.md"; [ -e "$_AR" ] || _AR=""; [ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/product-strategy-rules.md" 2>/dev/null | head -1)  # [L2]
 ```
 
 | 언제 | `$_AR` 섹션 |
@@ -169,5 +169,5 @@ business-analysis(기능 명세), ux-research(여정·니즈 검증), project-go
 복잡 판단·신규 패턴이 필요할 때만 `references/best-practices/product-strategy.md`를 찾아 Read한다(없으면 생략) `[L2]`:
 
 ```bash
-_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BP="$_BAMS/references/best-practices/product-strategy.md"; [ -e "$_BP" ] || _BP=""; [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/product-strategy.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _BP="$_BAMS/references/best-practices/product-strategy.md"; [ -e "$_BP" ] || _BP=""; [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/product-strategy.md" 2>/dev/null | head -1)  # [L2]
 ```

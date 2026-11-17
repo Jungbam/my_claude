@@ -26,7 +26,7 @@ allowed-tools:
 
 ```bash
 _GSTACK_BIN="${CLAUDE_SKILL_DIR}/../../bin"
-[ -x "$_GSTACK_BIN/gstack-config" ] || { _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _GSTACK_BIN="$_BAMS/bin"; }
+[ -x "$_GSTACK_BIN/gstack-config" ] || { _BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _GSTACK_BIN="$_BAMS/bin"; }
 echo "GSTACK_BIN: ${_GSTACK_BIN:-NOT_FOUND}"
 echo "BRANCH: $(git branch --show-current 2>/dev/null || echo unknown)"
 ```
@@ -422,7 +422,7 @@ After producing the Completion Summary above, persist the review result.
 `~/.gstack/` (user config directory, not project files). The skill preamble
 already writes to `~/.gstack/sessions/` and `~/.gstack/analytics/` — this is
 the same pattern. The review dashboard depends on this data. Skipping this
-command breaks the review readiness dashboard in /ship.
+command breaks the review readiness dashboard in /bams:ship.
 
 ```bash
 "$_GSTACK_BIN"/gstack-review-log '{"skill":"plan-eng-review","timestamp":"TIMESTAMP","status":"STATUS","unresolved":N,"critical_gaps":N,"issues_found":N,"mode":"MODE","commit":"COMMIT"}'
@@ -455,12 +455,12 @@ After displaying the Review Readiness Dashboard, check if additional reviews wou
 
 **Note staleness** of existing CEO or design reviews if this eng review found assumptions that contradict them, or if the commit hash shows significant drift.
 
-**If no additional reviews are needed** (or `skip_eng_review` is `true` in the dashboard config, meaning this eng review was optional): state "All relevant reviews complete. Run /ship when ready."
+**If no additional reviews are needed** (or `skip_eng_review` is `true` in the dashboard config, meaning this eng review was optional): state "All relevant reviews complete. Run /bams:ship when ready."
 
 Use AskUserQuestion with only the applicable options:
 - **A)** Run /plan-design-review (only if UI scope detected and no design review exists)
 - **B)** Run /plan-ceo-review (only if significant product change and no CEO review exists)
-- **C)** Ready to implement — run /ship when done
+- **C)** Ready to implement — run /bams:ship when done
 
 ## Unresolved decisions
 If the user does not respond to an AskUserQuestion or interrupts to move on, note which decisions were left unresolved. At the end of the review, list these as "Unresolved decisions that may bite you later" — never silently default to an option.

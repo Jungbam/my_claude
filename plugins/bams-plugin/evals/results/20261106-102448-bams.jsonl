@@ -1,0 +1,1 @@
+{"task":"bug-03-booking-overlap","config":"bams","trial":1,"score":1.0000,"duration_s":47,"tokens":142273,"out_tokens":5371,"cost_usd":0.330993,"turns":6,"agent_spawns":0,"skill_calls":0,"tool_calls":5,"cmd_resolved":true,"error":"","tampered":false,"passed":10,"total":10}

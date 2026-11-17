@@ -140,7 +140,7 @@ touch .crew/history.md
 ```bash
 # bams-plugin agents 디렉토리 탐색 (소스 → 캐시 순)
 _AGENTS_DIR=$(find . -path "*/bams-plugin/agents" -not -path "*/node_modules/*" 2>/dev/null | head -1)
-[ -z "$_AGENTS_DIR" ] && { _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _AGENTS_DIR="$_BAMS/agents"; [ -e "$_AGENTS_DIR" ] || _AGENTS_DIR=""; }
+[ -z "$_AGENTS_DIR" ] && { _BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _AGENTS_DIR="$_BAMS/agents"; [ -e "$_AGENTS_DIR" ] || _AGENTS_DIR=""; }
 
 if [ -n "$_AGENTS_DIR" ]; then
   for _MD in "$_AGENTS_DIR"/*.md; do
@@ -224,7 +224,7 @@ bams-plugin의 공용 reference 문서를 프로젝트 `.crew/references/`로 �
 ```bash
 # bams-plugin references 디렉토리 탐색 (소스 → 캐시 순)
 _REFS_DIR=$(find . -path "*/bams-plugin/references" -not -path "*/node_modules/*" 2>/dev/null | head -1)
-[ -z "$_REFS_DIR" ] && { _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _REFS_DIR="$_BAMS/references"; [ -e "$_REFS_DIR" ] || _REFS_DIR=""; }
+[ -z "$_REFS_DIR" ] && { _BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _REFS_DIR="$_BAMS/references"; [ -e "$_REFS_DIR" ] || _REFS_DIR=""; }
 
 if [ -n "$_REFS_DIR" ]; then
   mkdir -p .crew/references
@@ -646,7 +646,7 @@ CLAUDE.md에 Bams 조직 운영 규칙을 추가합니다. 이 규칙은 Claude�
 ```bash
 ls -d .claude/skills/verify-*/ 2>/dev/null                       # 기존 스킬 → 유지보수 모드
 _TPL=$(find . -path "*/bams-plugin/templates/verify-skill" -type d -not -path "*/node_modules/*" 2>/dev/null | head -1)
-[ -z "$_TPL" ] && { _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _TPL="$_BAMS/templates/verify-skill"; [ -d "$_TPL" ] || _TPL=""; }
+[ -z "$_TPL" ] && { _BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _TPL="$_BAMS/templates/verify-skill"; [ -d "$_TPL" ] || _TPL=""; }
 echo "template: ${_TPL:-NOT_FOUND}"
 git remote get-url origin 2>/dev/null
 ```
@@ -674,7 +674,19 @@ ezar 서비스 여부: `references/ezar-infra-deploy.md` §1(MCP 가용 + repo �
 >
 > 반환: 스킬 경로, status(proven/draft), proven_feature 또는 blocked_by, 증거 경로, 생성한 기능 목록.
 
-**3) 결과 기록 (메인)**: `.crew/config.md`에 `## 검증 스킬` 섹션을 추가/갱신한다 — 경로, status, proven_at, blocked_by, 유지보수 규칙 1줄("이번 diff가 건드리지 않은 기능에서 실패하면 스킬을 고치고 제품 코드는 고치지 않는다 — protocol §8"). 에이전트가 error를 반환해도 init은 중단하지 않고 `draft` + 사유로 기록한다.
+**3) 기계 검사 재실행 (메인)**: 에이전트 반환의 status를 그대로 믿지 않는다. 메인이 같은 Bash 호출 안에서 경로를 해석하고 검사를 다시 돌린다.
+
+```bash
+_CVS=$(find . -path "*/bams-plugin/scripts/check-verify-skill.sh" -not -path "*/node_modules/*" 2>/dev/null | head -1)
+[ -z "$_CVS" ] && { _BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _CVS="$_BAMS/scripts/check-verify-skill.sh"; [ -e "$_CVS" ] || _CVS=""; }
+if [ -z "$_CVS" ]; then echo "check_verify_skill=unavailable"; else bash "$_CVS" .claude/skills/verify-<app>; echo "check_verify_skill_exit=$?"; fi
+```
+
+- `check_verify_skill_exit=0` **이고** 마지막 줄이 `RESULT: proven`일 때만 `proven`으로 기록한다.
+- exit 0 + `RESULT: draft` → `draft`(에이전트가 proven이라 보고했어도 draft). exit 1(`RESULT: FAIL (n)`) → `draft` + `blocked_by: check-verify-skill FAIL — <첫 FAIL 줄>`. 같은 에이전트에 수정 1회 요청 후 재검사하고, 그래도 실패면 draft로 확정한다.
+- `unavailable`(스크립트 못 찾음) → `draft` + `blocked_by: check-verify-skill.sh 없음(기계 검사 불가)`.
+
+**4) 결과 기록 (메인)**: 3)의 판정으로 `.crew/config.md`에 `## 검증 스킬` 섹션을 추가/갱신한다 — 경로, status, proven_at, blocked_by, 유지보수 규칙 1줄("이번 diff가 건드리지 않은 기능에서 실패하면 스킬을 고치고 제품 코드는 고치지 않는다 — protocol §8"). 에이전트가 error를 반환해도 init은 중단하지 않고 `draft` + 사유로 기록한다.
 
 ## Step 12: 결과 보고
 

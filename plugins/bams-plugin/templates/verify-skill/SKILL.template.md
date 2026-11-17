@@ -7,6 +7,7 @@ description: "{App} 검증 스킬 — {surface: 웹 UI / API / CLI}를 로컬에
   생성 템플릿 — references/verification-skill-protocol.md 를 따른다.
   모든 {…} 는 리포 인터뷰에서 찾은 실제 값으로 치환한다. 남은 {…} 가 하나라도 있으면 생성 실패.
   해당 없는 섹션 항목은 지우지 말고 "해당 없음: <사유>" 로 적는다.
+  생성·proven 승격 직후 scripts/check-verify-skill.sh <이 디렉터리> 를 실행한다 — 통과(RESULT: proven)해야만 proven.
 -->
 
 # Verify {App}
@@ -27,7 +28,7 @@ blocked_by:              # draft 유지 사유 (필요 env 키, 접근 권한, �
 unverified_on_target:    # 대체 환경에서만 증명된 셋업 단계
 ```
 
-`draft`인 동안 이 스킬의 실행 결과는 제품 판정에 쓰지 않는다. 첫 성공 실행 후 위 블록을 갱신한다.
+`draft`인 동안 이 스킬의 실행 결과는 제품 판정에 쓰지 않는다. 첫 성공 실행 후 위 블록을 갱신하고 bams `scripts/check-verify-skill.sh`로 검사한다 — 검사에 실패한 proven은 draft로 취급된다.
 
 ## Launch
 

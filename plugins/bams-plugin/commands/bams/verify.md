@@ -1,6 +1,6 @@
 ---
 description: CI/CD 프리플라이트 — 빌드, 린트, 타입체크, 테스트 실행 및 결과 검증
-argument-hint: [test command override]
+argument-hint: "[test command override]"
 ---
 
 # Verify
@@ -24,7 +24,11 @@ argument-hint: [test command override]
 ls .claude/skills/verify-*/SKILL.md 2>/dev/null
 grep -hE '^(status|proven_at|proven_commit|blocked_by):' .claude/skills/verify-*/SKILL.md 2>/dev/null
 git diff --name-only HEAD 2>/dev/null; git diff --name-only --cached 2>/dev/null
+_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _CVS="$_BAMS/scripts/check-verify-skill.sh"; [ -e "$_CVS" ] || _CVS=""
+for d in .claude/skills/verify-*/; do [ -d "$d" ] || continue; if [ -n "$_CVS" ]; then bash "$_CVS" "$d"; echo "check-exit=$?"; else echo "check: check-verify-skill.sh 없음 → draft 취급"; fi; done
 ```
+
+**스킬 신뢰 판정 (기계 검사 — protocol §5-1)**: Status 블록의 `status: proven`은 자기 기록이다. 위 검사가 **exit 0 + `RESULT: proven`** 일 때만 proven으로 취급한다. exit 1(`FAIL:` 줄), `RESULT: draft`, 스크립트 없음이면 표기와 무관하게 **draft로 취급**하고, 그 사유(마지막 `RESULT:` 줄 + `FAIL:` 줄)를 Phase 0 결과와 위임 메시지에 그대로 넣는다.
 
 - **스킬 없음** → Phase 0 skip(사유: 검증 스킬 없음 — `/bams:init` Step 11.5로 생성 가능), Phase 1로.
 - **스킬 있음** → automation-qa를 Phase 0 모드로 spawn한다 (Task tool, subagent_type: **"bams-plugin:automation-qa"**):
@@ -34,13 +38,13 @@ git diff --name-only HEAD 2>/dev/null; git diff --name-only --cached 2>/dev/null
 >
 > - 변경 파일: [위 git diff 결과] → feature map에서 영향받는 기능을 고른다. 매칭 0건이면 map 첫 기능 1개를 smoke로.
 > - 순서: Launch → Doctor → 선택 기능 Drive → Evidence(`.crew/artifacts/test/verify-<app>/<run-id>/`) → Cleanup → 증거 잔존 확인.
-> - 스킬 `status: draft`이면: 성공 시 Status 블록을 proven으로 갱신, 실패 시 결과를 `inconclusive (draft)`로 반환(제품 FAIL 아님).
+> - 기계 검사 결과: [위 check-verify-skill.sh 출력의 RESULT/FAIL 줄]. **draft 취급**(표기가 draft이거나 검사 실패)이면: 성공 시 Status 블록을 proven으로 갱신한 뒤 `check-verify-skill.sh`를 다시 실행해 `RESULT: proven`을 확인(실패하면 proven을 남기지 않음), 실패 시 결과를 `inconclusive (draft)`로 반환(제품 FAIL 아님).
 > - **실패 귀속**: 이번 diff가 건드리지 않은 기능에서 실패하면 스킬 drift로 보고 `.claude/skills/verify-<app>/`만 고쳐 재drive한다. 제품 코드는 수정하지 않는다. 앱 동작이 실제로 깨진 것이면 map을 약화하지 말고 결함으로 보고.
 > - 공유·운영 인스턴스에는 Doctor(읽기)만. Drive는 이 실행이 띄운 로컬 인스턴스에만.
 >
 > 반환: 기능별 PASS/FAIL/inconclusive, 증거 경로, 스킬 drift 수정 여부(수정 파일 목록), 결함 후보.
 
-Phase 0 결과와 관계없이 Phase 1(정적 검증)은 항상 실행한다. Phase 0의 FAIL(proven 스킬, 이번 diff가 건드린 기능)은 Phase 2 게이트에서 NO-GO 사유가 된다.
+Phase 0 결과와 관계없이 Phase 1(정적 검증)은 항상 실행한다. Phase 0의 FAIL(기계 검사를 통과한 proven 스킬, 이번 diff가 건드린 기능)은 Phase 2 게이트에서 NO-GO 사유가 된다. draft 취급 스킬의 실패는 `inconclusive (draft)` — 게이트 근거가 아니다.
 
 ## Phase 1: 자동화 QA 검증
 

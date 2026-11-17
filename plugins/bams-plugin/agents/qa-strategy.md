@@ -68,7 +68,7 @@ delegation-protocol.md §2-5 계약으로 보고한다. status: GO → `DONE`, C
 세부 행동 규칙은 agent-rules로 이관됨(FR-9 ID화). 아래 stub이 참조하는 `$_AR` 경로 폴백: [L2]
 
 ```bash
-_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _AR="$_BAMS/references/agent-rules/qa-strategy-rules.md"; [ -e "$_AR" ] || _AR=""; [ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/qa-strategy-rules.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _AR="$_BAMS/references/agent-rules/qa-strategy-rules.md"; [ -e "$_AR" ] || _AR=""; [ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/qa-strategy-rules.md" 2>/dev/null | head -1)  # [L2]
 ```
 
 - QA-STACK: 기술 스택 판별(config→파일감지→기본 Next.js), 회귀 게이트 최소셋(tsc/lint/build/단위), 리소스 직렬 실행, test timeout 가드, RSC 제약. 상세: $_AR §"★ 기술 스택 프로파일 (위임 수신 시 판별)"
@@ -84,7 +84,7 @@ _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\(
 - QA-COLLAB: 협업 원칙(business-analysis 요구사항, FE/BE 제약, defect-triage 이력, governance 일정, 디자인 검증 기준). 상세: $_AR §"다른 Agent 협업 시"
 - QA-SPEC: [하드 게이트] Full/Fast 분기, spawn 1회 한도 우선순위, 미위임 역할마다 `specialist_skip_reason` 1줄 의무. 상세: $_AR §"★ [하드 게이트] specialist 위임 강제"
 - QA-CLEAN: 정리/제거 모드 분기 — diff 부재 시 제거 안전성 판정, 역참조·자산 리터럴 우선 검증, 엔트리포인트 KEEP. 상세: $_AR §"★ 정리/제거 모드 분기"
-- QA-REVIEW: 리뷰 위임(multi_perspective_review·functional_review) 시 지적마다 file:line·증거·증거 등급(measured/inferred/guess)·confidence를 붙이고 80 미만·false positive는 보고하지 않는다. Major 이상은 재현 증거(명령+출력 / 실패 테스트 / 입력값+file:line 경로 추적) 필수 — 없으면 `unverified`로 표기(게이트 미집계). 지적의 독립 검증은 메인이 하므로 직접 spawn하지 않는다. 상세: `references/multi-perspective-review.md` §지적 검증 필터
+- QA-REVIEW: 리뷰 위임(multi_perspective_review·functional_review) 시 지적마다 file:line·증거·증거 등급(measured/inferred/guess)·confidence를 붙이고 80 미만·false positive는 보고하지 않는다. Major 이상은 재현 증거(명령+출력 / 실패 테스트 / 입력값+file:line 경로 추적) 필수 — 없으면 `unverified`로 표기(게이트 미집계). 단 증거 없는 Critical·보안 관련 Major는 메인 검증자에게 넘어가고, 재현되지 않으면 `unverified-risk`로 게이트를 최소 CONDITIONAL로 만든다. 지적의 독립 검증은 메인이 하므로 직접 spawn하지 않는다. 상세: `references/multi-perspective-review.md` §지적 검증 필터
 
 ### load_profile 소비 (부서장 C-1~C-3, delegation-protocol §2-2/§2-3)
 
@@ -149,5 +149,5 @@ _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\(
 QA-BP: 복잡 판단·신규 패턴 필요 시에만(무조건 아님 — L2 조건부) 아래 find 폴백으로 `best-practices/qa-strategy.md`를 탐색 후 Read한다. 발견 시 Responsibility별 협업 대상·절차·주의사항을 확인하고, 없으면 생략한다. [L2]
 
 ```bash
-_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BP="$_BAMS/references/best-practices/qa-strategy.md"; [ -e "$_BP" ] || _BP=""; [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/qa-strategy.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _BP="$_BAMS/references/best-practices/qa-strategy.md"; [ -e "$_BP" ] || _BP=""; [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/qa-strategy.md" 2>/dev/null | head -1)  # [L2]
 ```

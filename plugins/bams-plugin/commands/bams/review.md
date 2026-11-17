@@ -1,6 +1,6 @@
 ---
-description: 5관점 병렬 리뷰 + 릴리스 게이트 판정 (--aspect 지원: spec/functional/performance/code/uiux/all). 구조적 리뷰·Codex 포함 심층 조사는 `/bams:deep-review`
-argument-hint: [파일, 디렉토리, 또는 "pr"] [--aspect <spec|functional|performance|code|uiux|all>[,...]]
+description: "5관점 병렬 리뷰 + 릴리스 게이트 판정 (--aspect 지원: spec/functional/performance/code/uiux/all). 구조적 리뷰·Codex 포함 심층 조사는 `/bams:deep-review`"
+argument-hint: '[파일, 디렉토리, 또는 "pr"] [--aspect <spec|functional|performance|code|uiux|all>[,...]]'
 ---
 
 > **사용 시점**: 코드 변경 후 5관점 병렬 리뷰 + 릴리스 품질 게이트가 필요할 때. deep-review보다 경량.
@@ -112,15 +112,15 @@ Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호
 
 모든 리뷰 spawn이 반환되면 SSOT §종합/중복 제거 규칙 1~7을 실행한다. 4번(필터·독립 검증)은 메인이 직접 수행한다:
 
-1. confidence 80 미만·false positive 지적 제거 (SSOT §지적 검증 필터 3)
-2. 남은 Critical/Major 지적마다 검증자 1개를 한 메시지로 묶어 병렬 spawn (8개 초과 시 8개씩):
+1. confidence 80 미만·false positive 지적 제거, 증거 없는 Major(보안 관련 제외)는 `unverified`로 분리 (SSOT §지적 검증 필터 3). 증거 없는 **Critical(카테고리 무관)과 보안 관련 Major**는 버리지 않고 2로 보낸다.
+2. 남은 Critical/Major 지적(증거 없는 Critical·보안 Major 포함)마다 검증자 1개를 한 메시지로 묶어 병렬 spawn (8개 초과 시 8개씩):
 
 Task tool, subagent_type: **"bams-plugin:defect-triage"** — 지적 1건당 1개, 쓰기 금지:
 <!-- load_profile:exempt non-department-lead spawn -->
 
 > SSOT §지적 검증 필터 4의 검증자 프롬프트에 지적·변경 의도·diff를 채워 전달.
 
-3. CONFIRMED만 Critical/Major로 남기고, REFUTED·UNCERTAIN은 "제외된 지적"으로 옮긴다 (§지적 검증 필터 5)
+3. CONFIRMED만 Critical/Major로 남기고, REFUTED는 "제외된 지적"으로 옮긴다. UNCERTAIN(재현도 반박도 못 함)은 제외하지 않는다 — Critical·보안 관련 Major면 `unverified-risk`(게이트 최소 **CONDITIONAL**, Critical/Major 건수에는 미포함), 그 외는 `unverified`(게이트 미반영)로 "미검증 지적"에 남긴다 (§지적 검증 필터 5, `references/issue-severity.md` §증거 등급). Phase 4 위임 메시지에 `unverified-risk` 지적 원문을 함께 넘긴다.
 
 ## Phase 4: 릴리스 품질 게이트 — 루프 A (QA부장 직접 spawn)
 
@@ -134,7 +134,7 @@ Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호
 > ```
 > task_description: "코드 리뷰 결과를 종합 판정하라"
 > input_artifacts:
->   - review_result: [Phase 3 종합 결과 — 심각도별 이슈 수, 상세 이슈 목록]
+>   - review_result: [Phase 3 종합 결과 — 심각도별 이슈 수(CONFIRMED만), 상세 이슈 목록, unverified-risk 지적 원문(있으면 게이트 최소 CONDITIONAL)]
 >   - changed_files: [파일 목록]
 >   - .crew/config.md
 > expected_output:
@@ -151,7 +151,14 @@ Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호
 
 **판정 모델 분리**: 메인은 이 spawn에 구현 에이전트와 다른 `model`을 지정한다(구현자 opus → `model: "sonnet"`, 구현자 sonnet → `"opus"`). Codex가 연결돼 있으면 Codex 판정이 우선이다(SSOT §3).
 
-**verdict 확인 (Phase 4 종료 조건)**: 반환 후 메인이 `bash "$_VD" check`(경로 폴백 SSOT §3)를 실행한다. exit 0/3 = 판정 기록 완료, exit 1 = 판정자가 파일을 남기지 않음 → 같은 판정자에게 기록만 재요청(1회), exit 4 = 판정자=구현자 → 다른 에이전트로 재판정. 미커밋 변경을 리뷰한 경우 `dirty: true`로 기록되며 커밋 후 patch-id로 매칭된다.
+**verdict 확인 (Phase 4 종료 조건)**: 반환 후 메인이 아래 블록을 **한 번의 Bash 호출**로 실행한다(리졸버와 check 를 같은 호출에 둔다 — Bash 호출 사이에는 `_VD` 같은 셸 변수가 남지 않는다).
+
+```bash
+_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _VD="$_BAMS/hooks/lib/verdict.sh"; [ -e "$_VD" ] || _VD=""; [ -z "$_VD" ] && _VD=$(find . -path "*/bams-plugin/hooks/lib/verdict.sh" 2>/dev/null | head -1)
+if [ -z "$_VD" ]; then echo "verdict_exit=unavailable (verdict.sh 못 찾음 — 'verdict 없음'(1)과 다르다)"; else bash "$_VD" check; echo "verdict_exit=$?"; fi
+```
+
+`verdict_exit=0`/`3` = 판정 기록 완료, `1` = 판정자가 파일을 남기지 않음 → 같은 판정자에게 기록만 재요청(1회), `4` = 무효(판정자=구현자 → 다른 에이전트로 재판정 / `invalid_evidence` = PASS 증거가 비었거나 exit≠0·명령 형식 아님 → 판정자가 검증 명령을 직접 실행해 재기록), `unavailable` = 플러그인 설치 경로에서 verdict.sh를 찾지 못함 → 리포트에 "verdict 확인 불가(도구 없음)"로 명시하고 게이트는 최대 CONDITIONAL. 미커밋 변경을 리뷰한 경우 `dirty: true`로 기록되며 커밋 후 patch-id로 매칭된다(`.crew/` 변경은 patch-id·dirty에서 제외).
 
 **기대 산출물**: 판정 결과, 기준별 증거, 필수 수정 사항, 권장 수정 사항, verdict 파일 경로
 
@@ -173,7 +180,8 @@ Task tool, subagent_type: **"bams-plugin:qa-strategy"** — 메인이 직접 호
   Critical: [N]건
   Major:    [N]건
   Minor:    [N]건
-  제외:     [N]건 (confidence 미달/false positive/검증 탈락)
+  미검증:   [N]건 (그중 unverified-risk [N]건 — 게이트 최소 CONDITIONAL)
+  제외:     [N]건 (confidence 미달/false positive/검증 반박)
 
 릴리스 게이트: [PASS/CONDITIONAL/FAIL]
 verdict: .crew/artifacts/review/verdict-<shortsha>.json (판정자 [agent/model], same_family [true/false/unknown])

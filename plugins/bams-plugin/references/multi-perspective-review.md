@@ -113,14 +113,15 @@ quality_criteria:
      | 실패 테스트 | 테스트 경로 + 실패 출력 |
      | 코드 경로 추적 | 구체 입력값 + 진입점→문제 줄까지 `file:line` 체인 |
 
-   - 증거 없는 Major 이상 지적은 `unverified`로 표기한다. 리포트 "미검증 지적"에만 남기고 **게이트·심각도 집계에서 뺀다**. `guess` 등급은 Major 이상이 될 수 없다.
+   - 증거 없는 Major 이상 지적은 `unverified`로 표기한다. `guess` 등급은 Major 이상이 될 수 없다.
+   - **고위험 지적은 증거가 없어도 버리지 않는다** — 증거 없는 **Critical(카테고리 무관)** 과 **보안 관련 Major**(인증·인가 우회, 인젝션, 시크릿·개인정보 노출, 권한 상승, 신뢰 경계 위반)는 3단계에서 분리하지 않고 4단계 검증자에게 보낸다. 재현되지 않으면 `unverified-risk`로 남아 게이트를 최소 CONDITIONAL로 만든다(5단계). 그 외 증거 없는 Major는 "미검증 지적"에만 남기고 **게이트·심각도 집계에서 뺀다**.
 2. **false positive — 보고하지 않는다**
    - 이번 변경 전부터 있던 문제 / 변경 범위 밖의 코드
    - 린터·타입체커·포매터가 잡는 것 (확인하려고 린터를 돌리지 않는다)
    - 취향·스타일 지적 (CLAUDE.md·config.md에 명시된 규칙 위반이 아니면)
    - 버그처럼 보이지만 실제로는 맞는 코드, 코드에서 명시적으로 억제된 경고(lint ignore 등)
    - 특정 입력·상태에서만 성립하는 추측성 지적 (재현 경로를 쓸 수 없으면)
-3. **메인 필터** — 종합 시 confidence 80 미만과 위 목록 해당 지적을 제거하고, 증거 없는 Major 이상은 `unverified`로 분리한다(검증자 spawn 없음). 구조적 리뷰·Codex처럼 confidence·증거 필드가 없는 출처는 이 단계를 건너뛰고 4로 간다 — 증거는 검증자가 만든다.
+3. **메인 필터** — 종합 시 confidence 80 미만과 위 목록 해당 지적을 제거하고, 증거 없는 Major(보안 관련 제외)는 `unverified`로 분리한다(검증자 spawn 없음). 증거 없는 Critical과 보안 관련 Major는 분리하지 않고 4로 보낸다 — 리뷰어가 증거를 빠뜨렸다는 이유만으로 실제 Critical이 게이트를 빠져나가지 않게 하기 위해서다. 구조적 리뷰·Codex처럼 confidence·증거 필드가 없는 출처는 이 단계를 건너뛰고 4로 간다 — 증거는 검증자가 만든다.
 4. **독립 검증 (메인이 spawn)** — 남은 Critical/Major 지적마다 쓰기 권한 없는 검증자 1개를 spawn한다. 서브에이전트는 다른 에이전트를 spawn할 수 없으므로 이 단계는 메인 커맨드가 수행한다. 지적들을 한 메시지에 묶어 병렬 spawn하고, 8개를 넘으면 8개씩 나눈다. 검증자 프롬프트:
    ```
    리뷰 지적 1건이 실제 문제인지 확인하라. 지적을 쓴 리뷰어와 독립적으로 판단한다.
@@ -130,7 +131,9 @@ quality_criteria:
    §지적 검증 필터 2의 false positive에 해당하면 REFUTED. 재현하지 못하면 UNCERTAIN.
    반환(4줄): verdict: CONFIRMED | REFUTED | UNCERTAIN / severity: {유지 또는 낮춘 등급} / grade: measured | inferred / evidence: {명령+출력 | 실패 테스트+출력 | 입력값+file:line 체인}
    ```
-5. **반영** — 재현 증거가 붙은 CONFIRMED만 Critical/Major로 남긴다(검증자가 낮춘 등급이 있으면 그 등급). REFUTED는 "제외된 지적", UNCERTAIN은 `unverified`로 "미검증 지적"에 1줄씩 남기고 둘 다 게이트 집계에서 뺀다. Minor는 검증하지 않는다.
+5. **반영** — 재현 증거가 붙은 CONFIRMED만 Critical/Major로 남긴다(검증자가 낮춘 등급이 있으면 그 등급). REFUTED는 "제외된 지적"에 1줄씩 남기고 게이트 집계에서 뺀다. UNCERTAIN은 다음 둘로 나눈다. Minor는 검증하지 않는다.
+   - **Critical 또는 보안 관련 Major** → `unverified-risk`. "미검증 지적"에 `[게이트: CONDITIONAL]` 표시로 남기고, Critical/Major 건수에는 넣지 않되 **게이트는 PASS가 될 수 없다**(최소 CONDITIONAL — `issue-severity.md` §기본 임계값). 사용자 확인 시 이 지적을 그대로 보여준다.
+   - 그 외 → `unverified`. "미검증 지적"에 1줄 남기고 게이트 집계에서 뺀다.
 
 ## 컨텍스트 패키징 포맷
 
@@ -178,9 +181,9 @@ Phase 1(파일 수집)에서 얻은 파일 경로·내용(또는 diff)을 부서
 
 ## 리포트 템플릿 (Critical/Major/Minor 구조)
 
-- **요약**: 심각도별 이슈 건수(증거 있는 CONFIRMED만), 미검증 지적 수, 제외된 지적 수(confidence 미달/false positive/검증 탈락) (+ `/bams:review`인 경우 릴리스 게이트 판정)
+- **요약**: 심각도별 이슈 건수(증거 있는 CONFIRMED만), 미검증 지적 수(그중 `unverified-risk` 수), 제외된 지적 수(confidence 미달/false positive/검증 탈락) (+ `/bams:review`인 경우 릴리스 게이트 판정)
 - **Critical/Major/Minor 이슈**: 각 이슈 상세 — 카테고리(5관점 중 하나), file:line, 설명, 증거, 증거 등급, 수정안, confidence, 검증 결과(Critical/Major)
-- **미검증 지적 (unverified)**: 1줄씩 — 지적 요약 + 빠진 증거. 게이트 미반영
+- **미검증 지적 (unverified / unverified-risk)**: 1줄씩 — 지적 요약 + 빠진 증거 + 검증자 결과. `unverified`는 게이트 미반영, `unverified-risk`는 `[게이트: CONDITIONAL]` 표시(게이트 판정 근거에 포함)
 - **제외된 지적**: 1줄씩 — 지적 요약 + 제외 사유
 - **긍정적 관찰**: 잘된 점
 - (`/bams:review`만) **릴리스 게이트 판정**: PASS/CONDITIONAL/FAIL + 근거

@@ -2,7 +2,7 @@
 
 ```bash
 B="${CLAUDE_SKILL_DIR}/../browse/bin/browse"
-[ -x "$B" ] || { _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; B="$_BAMS/skills/browse/bin/browse"; }
+[ -x "$B" ] || { _BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); B="$_BAMS/skills/browse/bin/browse"; }
 [ -x "$B" ] && echo "READY: $B" || echo "NEEDS_SETUP"
 ```
 

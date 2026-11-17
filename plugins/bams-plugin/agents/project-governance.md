@@ -181,7 +181,7 @@ WBS를 실행 단위 태스크로 전개할 때 아래 표를 그대로 사용�
 작업이 도메인 프랙티스를 요구할 때만(조건부) 아래 find로 best-practice 파일을 로드한다 — 무조건 Read 아님 `[L2]`:
 
 ```bash
-_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BP="$_BAMS/references/best-practices/project-governance.md"; [ -e "$_BP" ] || _BP=""  # [L2]
+_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _BP="$_BAMS/references/best-practices/project-governance.md"; [ -e "$_BP" ] || _BP=""  # [L2]
 [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/project-governance.md" 2>/dev/null | head -1)  # [L2]
 ```
 

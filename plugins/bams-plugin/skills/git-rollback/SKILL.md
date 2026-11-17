@@ -53,7 +53,7 @@ case "$MODE" in
     if [ "$YES" != 1 ]; then echo "적용하려면 --yes 재실행"; exit 1; fi
     # 파괴 명령 직전: careful hook 내재화 (세션 careful 활성 여부와 무관하게 2차 확인, M-2)
     DESTRUCTIVE_CMD="git revert $TARGET"
-    _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _CH="$_BAMS/skills/careful/bin/check-careful.sh"; [ -e "$_CH" ] || _CH=""
+    _BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _CH="$_BAMS/skills/careful/bin/check-careful.sh"; [ -e "$_CH" ] || _CH=""
     [ -n "$_CH" ] && [ -x "$_CH" ] && CLAUDE_HOOK_TOOL_INPUT="{\"command\": \"$DESTRUCTIVE_CMD\"}" bash "$_CH" 2>&1 | head -5
     git revert "$TARGET" --no-edit || { echo "revert 충돌 — 수동 해결"; exit 2; } ;;
   file)
@@ -64,7 +64,7 @@ case "$MODE" in
     if [ "$YES" != 1 ]; then echo "적용하려면 --yes 재실행"; exit 1; fi
     # 파괴 명령 직전: careful hook 내재화 (M-2)
     DESTRUCTIVE_CMD="git restore --source=$SRC --worktree -- $TARGET"
-    _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _CH="$_BAMS/skills/careful/bin/check-careful.sh"; [ -e "$_CH" ] || _CH=""
+    _BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _CH="$_BAMS/skills/careful/bin/check-careful.sh"; [ -e "$_CH" ] || _CH=""
     [ -n "$_CH" ] && [ -x "$_CH" ] && CLAUDE_HOOK_TOOL_INPUT="{\"command\": \"$DESTRUCTIVE_CMD\"}" bash "$_CH" 2>&1 | head -5
     git restore --source="$SRC" --worktree -- "$TARGET" || { echo "복원 실패"; exit 2; } ;;
   *) echo "사용법: commit <sha> | file <path>"; exit 2 ;;

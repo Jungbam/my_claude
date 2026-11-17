@@ -63,7 +63,7 @@ case "$SUB" in
             if [ "$YES" != 1 ]; then echo "강제 삭제(-D)는 --yes 필수 — 미병합 커밋 유실 위험"; exit 1; fi
             # 파괴 명령 직전: careful hook 내재화 (M-2)
             DESTRUCTIVE_CMD="git branch -D $NAME"
-            _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _CH="$_BAMS/skills/careful/bin/check-careful.sh"; [ -e "$_CH" ] || _CH=""
+            _BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _CH="$_BAMS/skills/careful/bin/check-careful.sh"; [ -e "$_CH" ] || _CH=""
             [ -n "$_CH" ] && [ -x "$_CH" ] && CLAUDE_HOOK_TOOL_INPUT="{\"command\": \"$DESTRUCTIVE_CMD\"}" bash "$_CH" 2>&1 | head -5
             git branch -D -- "$NAME" && echo "강제 삭제: $NAME"
           else

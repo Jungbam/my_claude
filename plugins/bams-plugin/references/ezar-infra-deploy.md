@@ -2,7 +2,7 @@
 
 > `/bams:deploy`, `land-and-deploy`, `setup-deploy`, platform-devops가 공용으로 참조한다.
 > ezar-infra = ezar 내부 운영 MCP (도구명 `mcp__ezar-infra__<tool>`). 배포 구조: PR 머지 → Bitbucket Pipelines(`build-deploy-<env>`) → deploy repo values 갱신 → ArgoCD sync.
-> Last synced: server v0.4.0, 42 tools, 2026-11-16. 드리프트 점검: `bash scripts/ezar-infra-tool-diff.sh` (exit 1 = 문서·서버 도구 목록 불일치 → 이 문서 갱신).
+> Last synced: server v0.4.0, 44 tools, 2026-11-16. 드리프트 점검: `bash scripts/ezar-infra-tool-diff.sh` (exit 1 = 문서·서버 도구 목록 불일치 → 이 문서 갱신).
 
 ## 1. 가용성 + 서비스 매핑 판별
 
@@ -24,7 +24,8 @@
 | 사전 점검 | `dev_pr_list`(열린 PR/머지 대상), `dev_build_status`(최근 빌드), `dev_deploy_status`(ArgoCD sync/health + 배포 tag vs 최신 빌드 tag), `dev_deploy_history`(롤백 후보 tag) | read |
 | 배포 대기 | `dev_build_status` → `dev_deploy_status` 폴링 | read |
 | 검증 | `dev_deploy_status`, `dev_pods`, 필요 시 `dev_pod_logs` | read |
-| 실패 분석 | `dev_build_log`, `dev_analyze_deploy_failure` | read |
+| 런타임 점검 | `dev_runtime`(`service`, `env`=기본 master — replicas·CPU/메모리/디스크 request·limit·현재 사용률·HPA·노드 DiskPressure, `warnings`에 한도 누락 요약), `dev_events`(`service`, `env`, `warnings_only`=기본 true, `limit`≤200 — Evicted·OOMKilling·FailedScheduling·BackOff·FailedMount·Unhealthy, 클러스터에 약 1시간만 보존) | read |
+| 실패 분석 | `dev_build_log`, `dev_analyze_deploy_failure`, 파드 이상 시 `dev_events`·`dev_runtime` | read |
 | 재배포 | `dev_build_trigger` (`build-deploy-<env>` 재실행) — **명시적 재배포 요청 시에만** | mutating |
 | 재시작 | `dev_restart` | mutating |
 | 롤백 | `dev_rollback` (`to_tag` 생략 시 직전, 지정 시 `dev_deploy_history`의 `image_tag`) | mutating |
@@ -41,7 +42,7 @@
    - `dev_build_status`: 파이프라인 `build-deploy-<env>` 성공까지 (실패 → `dev_build_log` + `dev_analyze_deploy_failure` 후 중단).
    - `dev_deploy_status`: ArgoCD **Synced + Healthy** 이고 **배포 image tag == 최신 빌드 tag** 일 때 성공.
    - 20분 초과 시 사용자에게 계속 대기/중단을 묻는다.
-4. **검증**: `dev_deploy_status` 재확인 + `dev_pods`(Running/Ready, 재시작 급증 없음). 이상 시 `dev_pod_logs`, `dev_analyze_deploy_failure`. 프로덕션 URL이 있으면 기존 canary(browse)도 병행.
+4. **검증**: `dev_deploy_status` 재확인 + `dev_pods`(Running/Ready, 재시작 급증 없음). 이상 시 `dev_pod_logs`, `dev_analyze_deploy_failure`, 재시작·Evicted·OOM·Pending이면 `dev_events`(이벤트는 약 1시간만 남으므로 배포 직후 바로 조회)와 `dev_runtime`(한도·사용률). 프로덕션 URL이 있으면 기존 canary(browse)도 병행.
 5. **롤백 (실패 시 옵션)**: 반드시 사용자에게 먼저 묻는다 → `dev_deploy_history`로 후보 tag 제시 → 승인 시 `dev_rollback`. prod는 승인 Operation이 생성되므로 `common_operation_get`으로 상태를 추적하고, 승인 대기 중임을 사용자에게 알린다(Slack/UI 승인).
 
 ## 4. 안전 규칙 (위반 금지)

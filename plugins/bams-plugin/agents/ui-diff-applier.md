@@ -32,7 +32,7 @@ disallowedTools: ["Edit", "Write"]
 ### codex 추론 위임 (gpt-6.1-sol via MCP)
 
 핵심 추론(AST 구조 diff·충돌 판단)을 codex(gpt-6.1-sol)에 위임한다. 공통 절차·run_codex() 정본·이중구조·via 태그·fallback 3단 체인은 SSOT 참조: `references/codex-delegation.md` [L2]
-경로 폴백: `_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; ls "$_BAMS/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
+경로 폴백: `_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); ls "$_BAMS/references/codex-delegation.md" || find . -path "*/references/codex-delegation.md"` [L2]
 - codex sandbox: `read-only` (F3 Read-only 강제 — **workspace-write 절대 금지**, 실제 Edit는 frontend-engineering 위임) · 컨트롤러 모델: `claude-sonnet-5-5` · harness tier: `sonnet`
 - 위임 지점: AST 분석·diff 생성·충돌 판단 초안 → codex; Claude 컨트롤러는 검증·통합 후 patch.diff 정리 (Bash heredoc/tee 저장)
 - codex 미가용 시: design-director 에스컬레이션 후 대기
@@ -201,5 +201,5 @@ index a1b2c3d..e4f5g6h 100644
 ## BP 온디맨드 참조 (L2)
 
 placeholder BP(추후 작성)이므로 무조건 로드하지 않는다. 해당 Responsibility 착수 분기에서 파일이 실재할 때만 온디맨드 Read(없으면 생략): [L2]
-`_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BP="$_BAMS/references/best-practices/ui-diff-applier.md"; [ -e "$_BP" ] || _BP=""` [L2]
+`_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _BP="$_BAMS/references/best-practices/ui-diff-applier.md"; [ -e "$_BP" ] || _BP=""` [L2]
 `[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/ui-diff-applier.md" 2>/dev/null | head -1)` [L2]

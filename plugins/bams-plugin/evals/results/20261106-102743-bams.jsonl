@@ -1,0 +1,1 @@
+{"task":"feat-03-csv-aggregate","config":"bams","trial":1,"score":1.0000,"duration_s":122,"tokens":255219,"out_tokens":5404,"cost_usd":0.6164268,"turns":7,"agent_spawns":1,"skill_calls":0,"tool_calls":11,"cmd_resolved":true,"error":"","tampered":false,"passed":11,"total":11}

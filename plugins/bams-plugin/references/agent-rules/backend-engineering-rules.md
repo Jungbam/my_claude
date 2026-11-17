@@ -5,7 +5,7 @@
 
 **경로 폴백** (본 파일 참조 시 — 캐시 우선, repo 폴백) `[L2]`:
 ```bash
-_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _AR="$_BAMS/references/agent-rules/backend-engineering-rules.md"; [ -e "$_AR" ] || _AR=""; [ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/backend-engineering-rules.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _AR="$_BAMS/references/agent-rules/backend-engineering-rules.md"; [ -e "$_AR" ] || _AR=""; [ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/backend-engineering-rules.md" 2>/dev/null | head -1)  # [L2]
 ```
 
 ### ★ 에러 발생 시 처리
@@ -76,7 +76,7 @@ echo "============================================="
 **작업 프랙티스 요구 분기 진입 시에만 Read (무조건 아님):** `[L2]`
 Bash로 best-practice 파일을 찾아 Read합니다 `[L2]`:
 ```bash
-_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BP="$_BAMS/references/best-practices/backend-engineering.md"; [ -e "$_BP" ] || _BP=""  # [L2]
+_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _BP="$_BAMS/references/best-practices/backend-engineering.md"; [ -e "$_BP" ] || _BP=""  # [L2]
 [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/backend-engineering.md" 2>/dev/null | head -1)  # [L2]
 [ -n "$_BP" ] && echo "참조: $_BP"  # [L2]
 ```

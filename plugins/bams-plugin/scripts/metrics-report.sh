@@ -3,6 +3,8 @@
 # 사용법: bash plugins/bams-plugin/scripts/metrics-report.sh [--since 30d|12h|all] [--project <이름>] [--file <events.jsonl>]
 #   기본 파일: ${BAMS_METRICS_DIR:-$HOME/.claude/bams-metrics}/events.jsonl. 기준 시각 고정(테스트용): BAMS_METRICS_NOW=<epoch초>
 #   의존: bash, jq. 깨진 줄은 건너뛴다. 이벤트 스키마: references/metrics.md
+#   리드타임 = pipeline_end.dur_ms(있으면) → 없으면 end.ts − start.ts. 에이전트 = agent_end(agent_id 중복 제거) 수,
+#   agent_end 가 없으면 pipeline_end.agent_spawns 로 폴백.
 set -u
 
 # ── 단가표 ($ / 1M tokens). 출처: Claude 공식 가격 페이지 https://platform.claude.com/docs/en/about-claude/pricing
@@ -93,14 +95,16 @@ jq -Rnr --argjson cut "$CUT" --arg project "$PROJECT" --arg prices "$PRICES" --a
       | ([$g[] | select(.ev == "agent_end")] | group_by(.agent_id) | map(last)) as $ag
       | ([$ag[].usage] + [$g[] | select(.ev == "session_usage") | .usage] | addu) as $u
       | {k: $k, start: $s.t, end: ($end.t // null), command: $s.command, project: $s.project, slug: ($end.slug // null),
-         lead: (if $end then $end.t - $s.t else null end), agents: ($ag | length),
+         lead: (if ($end.dur_ms | type) == "number" then $end.dur_ms / 1000 elif $end then $end.t - $s.t else null end),
+         agents: (if ($ag | length) == 0 and (($end.agent_spawns // null) | type) == "number" then $end.agent_spawns else ($ag | length) end),
          agents_nousage: ([$ag[] | select(.usage == null)] | length),
          tokens: ($u | tok), usage: $u, human: ([$g[] | select(.ev == "human_turn")] | length),
          status: ($end.status // "미종료"), result: ($end.result // "open")} ] as $started
   | ($started | map(.k)) as $ks
   | [ $E[] | select(.ev == "pipeline_end") | select(.pipeline_ts == null or (("\(.session_id)|\(.pipeline_ts)") as $k | $ks | index([$k]) | not))
-      | {k: "orphan|\(.session_id)|\(.ts)", start: null, end: .t, command: .command, project: .project, slug: .slug, lead: null,
-         agents: null, agents_nousage: 0, tokens: null, usage: null, human: null, status: .status, result: .result} ] as $orph
+      | {k: "orphan|\(.session_id)|\(.ts)", start: null, end: .t, command: .command, project: .project, slug: .slug,
+         lead: (if (.dur_ms | type) == "number" then .dur_ms / 1000 else null end),
+         agents: (if (.agent_spawns | type) == "number" then .agent_spawns else null end), agents_nousage: 0, tokens: null, usage: null, human: null, status: .status, result: .result} ] as $orph
   | ($started + $orph | sort_by(.start // .end)) as $rows
   | ($rows | map(. + (.usage | cost))) as $rows
   # 결함 유출 후보: hotfix/debug 시작 직전 7일 안에 끝난(없으면 시작한) 같은 프로젝트의 다른 파이프라인

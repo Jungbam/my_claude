@@ -3,7 +3,7 @@
 #   FAIL A: 커맨드·스킬·에이전트·references·templates·hooks 에 캐시 루트 전체 find 재등장
 #           (예: find ~/.claude/plugins/cache -path ".../skills/x/SKILL.md" | head -1)
 #           → 고아 버전 폴더(2.5.0 등)를 먼저 집어 구 사본을 로드한다(v2.9.0 이전 실제 결함).
-#   FAIL B: `_BAMS=$(sed` 로 시작하는 리졸버 스니펫이 정본과 한 글자라도 다름(drift).
+#   FAIL B: `_BAMS=$(` 로 시작하는 리졸버 스니펫이 정본과 한 글자라도 다름(drift — 구 sed 파서 `_BAMS=$(sed` 포함).
 #   FAIL C: 정본 문서(references/plugin-cache-sync.md)에 정본 스니펫 부재.
 # 정본: references/plugin-cache-sync.md §런타임 경로 해석.
 # usage: check-cache-resolver.sh [FILE...]   # 인자 없으면 플러그인 전체 스캔
@@ -12,7 +12,7 @@ set -u
 
 P="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SSOT="$P/references/plugin-cache-sync.md"
-CANON='_BAMS=$(sed -n '"'"'/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p'"'"' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}'
+CANON='_BAMS=$( { jq -r '"'"'[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty'"'"' ~/.claude/plugins/installed_plugins.json; sh -c '"'"'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'"'"'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true)'
 FIND_RE='find[[:space:]]+("?\$\{?HOME\}?"?|~)/\.claude/plugins/cache'
 
 FILES=("$@")
@@ -40,7 +40,7 @@ for f in "${FILES[@]}"; do
       *"$CANON"*) ;;
       *) echo "  FAIL  $rel:$ln: 리졸버 스니펫이 정본과 다름(drift)"; fails=$((fails + 1)) ;;
     esac
-  done < <(grep -nF '_BAMS=$(sed' "$f" 2>/dev/null)
+  done < <(grep -nF '_BAMS=$(' "$f" 2>/dev/null)
 done
 
 if [ "$#" -eq 0 ]; then

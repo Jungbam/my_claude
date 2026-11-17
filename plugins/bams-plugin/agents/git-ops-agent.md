@@ -58,7 +58,7 @@ Agent(
 GIT-BP: 비표준 git 상황·복잡 판단 필요 시에만(무조건 아님 — L2 조건부) 아래 find 폴백으로 `best-practices/git-ops-agent.md`를 탐색 후 Read한다. 발견 시 절차·주의사항을 확인하고, 없으면 생략한다. [L2]
 
 ```bash
-_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BP="$_BAMS/references/best-practices/git-ops-agent.md"; [ -e "$_BP" ] || _BP=""; [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/git-ops-agent.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _BP="$_BAMS/references/best-practices/git-ops-agent.md"; [ -e "$_BP" ] || _BP=""; [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/git-ops-agent.md" 2>/dev/null | head -1)  # [L2]
 ```
 
 ## 메모리

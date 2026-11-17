@@ -136,5 +136,5 @@ pipeline-orchestrator가 Phase 전환 시 이 에이전트를 호출하여 핸�
 ## BP 온디맨드 참조 (L2)
 
 해당 Responsibility 착수 분기에서만 best-practice를 온디맨드로 Read(없으면 생략): [L2]
-`_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BP="$_BAMS/references/best-practices/cross-department-coordinator.md"; [ -e "$_BP" ] || _BP=""` [L2]
+`_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _BP="$_BAMS/references/best-practices/cross-department-coordinator.md"; [ -e "$_BP" ] || _BP=""` [L2]
 `[ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/cross-department-coordinator.md" 2>/dev/null | head -1)` [L2]

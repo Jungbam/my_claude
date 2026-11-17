@@ -32,7 +32,7 @@ department: qa
 세부 행동 규칙은 agent-rules로 이관됨(FR-9 ID화). 아래 stub이 참조하는 `$_AR` 경로 폴백: [L2]
 
 ```bash
-_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _AR="$_BAMS/references/agent-rules/release-quality-gate-rules.md"; [ -e "$_AR" ] || _AR=""; [ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/release-quality-gate-rules.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _AR="$_BAMS/references/agent-rules/release-quality-gate-rules.md"; [ -e "$_AR" ] || _AR=""; [ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/release-quality-gate-rules.md" 2>/dev/null | head -1)  # [L2]
 ```
 
 - RQG-READINESS: GO 판단 전 P0/P1 완료·Critical/Major 0건·회귀 통과·성능·모니터링·롤백 6항 확인; 상류 증거(automation-qa/defect-triage) 부재 시 최대 CONDITIONAL-GO 상한, 자산 변경 시 전후 스크린샷 시각검증 게이트. 상세: $_AR §"출시 준비 상태 검토 시"
@@ -60,5 +60,5 @@ _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\(
 RQG-BP: 복잡 판단·신규 패턴 필요 시에만(무조건 아님 — L2 조건부) 아래 find 폴백으로 `best-practices/release-quality-gate.md`를 탐색 후 Read한다. 발견 시 Responsibility별 협업 대상·절차·주의사항을 확인하고, 없으면 생략한다. [L2]
 
 ```bash
-_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _BP="$_BAMS/references/best-practices/release-quality-gate.md"; [ -e "$_BP" ] || _BP=""; [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/release-quality-gate.md" 2>/dev/null | head -1)  # [L2]
+_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _BP="$_BAMS/references/best-practices/release-quality-gate.md"; [ -e "$_BP" ] || _BP=""; [ -z "$_BP" ] && _BP=$(find . -path "*/bams-plugin/references/best-practices/release-quality-gate.md" 2>/dev/null | head -1)  # [L2]
 ```

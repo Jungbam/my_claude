@@ -24,7 +24,7 @@ allowed-tools:
 
 ```bash
 _GSTACK_BIN="${CLAUDE_SKILL_DIR}/../../bin"
-[ -x "$_GSTACK_BIN/gstack-config" ] || { _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _GSTACK_BIN="$_BAMS/bin"; }
+[ -x "$_GSTACK_BIN/gstack-config" ] || { _BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _GSTACK_BIN="$_BAMS/bin"; }
 echo "GSTACK_BIN: ${_GSTACK_BIN:-NOT_FOUND}"
 echo "BRANCH: $(git branch --show-current 2>/dev/null || echo unknown)"
 ```
@@ -124,7 +124,7 @@ If the Eng Review is NOT "CLEAR":
 2. **If no override exists,** use AskUserQuestion:
    - Show that Eng Review is missing or has open issues
    - RECOMMENDATION: Choose C if the change is obviously trivial (< 20 lines, typo fix, config-only); Choose B for larger changes
-   - Options: A) Ship anyway  B) Abort — run /review or /plan-eng-review first  C) Change is too small to need eng review
+   - Options: A) Ship anyway  B) Abort — run /bams:review or /plan-eng-review first  C) Change is too small to need eng review
    - If CEO Review is missing, mention as informational ("CEO Review not run — recommended for product changes") but do NOT block
    - For Design Review: run `source <("$_GSTACK_BIN"/gstack-diff-scope <base> 2>/dev/null)`. If `SCOPE_FRONTEND=true` and no design review (plan-design-review or design-review-lite) exists in the dashboard, mention: "Design Review not run — this PR changes frontend code. The lite design check will run automatically in Step 3.5, but consider running /design-review for a full visual audit post-implementation." Still never block.
 
@@ -266,7 +266,7 @@ Present Codex output under a `CODEX (design):` header, merged with the checklist
    - If 3 or fewer ASK items, you may use individual AskUserQuestion calls instead
 
 7. **After all fixes (auto + user-approved):**
-   - If ANY fixes were applied: commit fixed files by name (`git add <fixed-files> && git commit -m "fix: pre-landing review fixes"`), then **STOP** and tell the user to run `/ship` again to re-test.
+   - If ANY fixes were applied: commit fixed files by name (`git add <fixed-files> && git commit -m "fix: pre-landing review fixes"`), then **STOP** and tell the user to run `/bams:ship` again to re-test.
    - If no fixes applied (all ASK items skipped, or no issues found): continue to Step 4.
 
 8. Output summary: `Pre-Landing Review: N issues — M auto-fixed, K asked (J fixed, L skipped)`

@@ -14,7 +14,7 @@ argument-hint:
 bams-plugin 스킬 로딩:
 
 ```bash
-_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _DEPLOY_SKILL="$_BAMS/skills/land-and-deploy/SKILL.md"; [ -e "$_DEPLOY_SKILL" ] || _DEPLOY_SKILL=""
+_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _DEPLOY_SKILL="$_BAMS/skills/land-and-deploy/SKILL.md"; [ -e "$_DEPLOY_SKILL" ] || _DEPLOY_SKILL=""
 ```
 
 스킬 파일이 없으면 에러 메시지 후 중단.
@@ -22,18 +22,20 @@ _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\(
 ### Verdict 확인 (SHA 결합 판정)
 
 ```bash
-_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _VD="$_BAMS/hooks/lib/verdict.sh"; [ -e "$_VD" ] || _VD=""; [ -z "$_VD" ] && _VD=$(find . -path "*/bams-plugin/hooks/lib/verdict.sh" 2>/dev/null | head -1)
-[ -n "$_VD" ] && bash "$_VD" check; echo "verdict_exit=$?"
+_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _VD="$_BAMS/hooks/lib/verdict.sh"; [ -e "$_VD" ] || _VD=""; [ -z "$_VD" ] && _VD=$(find . -path "*/bams-plugin/hooks/lib/verdict.sh" 2>/dev/null | head -1)
+if [ -z "$_VD" ]; then echo "verdict_exit=unavailable (verdict.sh 못 찾음 — 'verdict 없음'(1)과 다르다)"; else bash "$_VD" check; echo "verdict_exit=$?"; fi
 ```
 
-규약: `references/verdict-protocol.md` §4. 배포할 커밋에 맞는 PASS verdict가 있어야 Step 3 진행 — 머지 전이면 PR 브랜치에서 그대로 실행(HEAD = PR head), 이미 머지된 뒤 시작했다면 `bash "$_VD" check --sha <PR head sha>`(`gh pr view <N> --json headRefOid`)로 확인한다(머지 후 base HEAD는 sha·patch-id가 PR과 달라 매칭되지 않는다). exit 3(FAIL) = 중단·실패 기록. exit 1·4 = Step 1의 release-quality-gate가 판정·기록(구현자와 다른 `model`, Codex 우선)한 뒤 재확인, 그래도 exit≠0이면 배포 중단(deploy N=0). MCP 배포 도구(ezar-infra 등)·배포 스크립트는 `hooks/verdict-gate.sh`가 보지 못하므로 이 확인이 유일한 게이트다.
+이 블록은 **한 번의 Bash 호출**로 실행한다(Bash 호출 사이에는 `_VD` 같은 셸 변수가 남지 않으므로, 다시 확인할 때도 블록 전체를 재실행한다). `verdict_exit=unavailable` = 플러그인 설치 경로에서 verdict.sh를 못 찾음(도구 부재) — `1`(verdict 없음)과 구분한다.
+
+규약: `references/verdict-protocol.md` §4. 배포할 커밋에 맞는 PASS verdict가 있어야 Step 3 진행 — 머지 전이면 PR 브랜치에서 그대로 실행(HEAD = PR head), 이미 머지된 뒤 시작했다면 같은 블록의 마지막 줄 `check`를 `check --sha <PR head sha>`(`gh pr view <N> --json headRefOid`)로 바꿔 실행한다(머지 후 base HEAD는 sha·patch-id가 PR과 달라 매칭되지 않는다). exit 3(FAIL) = 중단·실패 기록. exit 1·4(무효) = Step 1의 release-quality-gate가 판정·기록(구현자와 다른 `model`, Codex 우선)한 뒤 재확인, 그래도 exit≠0이면 배포 중단(deploy N=0). `verdict_exit=unavailable`(verdict.sh 못 찾음)도 배포 중단 — 사용자에게 "verdict 확인 불가(도구 없음)"로 보고한다. MCP 배포 도구(ezar-infra 등)·배포 스크립트는 `hooks/verdict-gate.sh`가 보지 못하므로 이 확인이 유일한 게이트다.
 
 ### ezar-infra MCP 경로 판별
 
 ezar 서비스는 ezar-infra MCP(Bitbucket Pipelines + ArgoCD)로 배포 상태를 확인한다. 도구 맵·안전 규칙 SSOT:
 
 ```bash
-_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _EZ_REF="$_BAMS/references/ezar-infra-deploy.md"; [ -e "$_EZ_REF" ] || _EZ_REF=""; [ -z "$_EZ_REF" ] && _EZ_REF=$(find . -path "*/bams-plugin/references/ezar-infra-deploy.md" 2>/dev/null | head -1)
+_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _EZ_REF="$_BAMS/references/ezar-infra-deploy.md"; [ -e "$_EZ_REF" ] || _EZ_REF=""; [ -z "$_EZ_REF" ] && _EZ_REF=$(find . -path "*/bams-plugin/references/ezar-infra-deploy.md" 2>/dev/null | head -1)
 ```
 
 1. `ToolSearch("+ezar-infra")`로 `mcp__ezar-infra__*` 스키마 로드 → `common_whoami` 성공 확인.
@@ -60,7 +62,7 @@ _BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\(
 
 **EZAR_MODE=on**: 두 에이전트 위임 메시지에 서비스명·env·`_EZ_REF` 경로를 포함한다. release-quality-gate는 `dev_pr_list`(PR 상태)·`dev_build_status`(최근 빌드), platform-devops는 `dev_deploy_status`(Synced/Healthy, 배포 tag vs 최신 빌드 tag)·`dev_deploy_history`(롤백 후보 tag 확보)로 점검한다. 모두 read 도구만 사용.
 
-**두 결과를 모두 수집한 후**, 어느 하나라도 FAIL이면 배포를 중단합니다. 둘 다 통과해도 `bash "$_VD" check`가 exit 0이 아니면 중단합니다(release-quality-gate는 PASS/FAIL 판정 시 verdict 파일을 남긴다 — `agents/release-quality-gate.md` RQG-VERDICT).
+**두 결과를 모두 수집한 후**, 어느 하나라도 FAIL이면 배포를 중단합니다. 둘 다 통과해도 Pre-flight의 "Verdict 확인" 블록을 **리졸버 줄까지 통째로 한 번의 Bash 호출로** 다시 실행해 `verdict_exit=0`이 아니면 중단합니다(release-quality-gate는 PASS/FAIL 판정 시 verdict 파일을 남긴다 — `agents/release-quality-gate.md` RQG-VERDICT).
 
 **`references/issue-severity.md` §Release Gate 임계값 참조.**
 

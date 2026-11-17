@@ -1,6 +1,6 @@
 ---
-description: 5관점 병렬 + 구조적 리뷰 + Codex 세컨드 오피니언 심층 조사 (--aspect 지원: spec/functional/performance/code/uiux/all. 출시 게이트 미포함 — 게이트는 `/bams:review`)
-argument-hint: [파일/디렉토리/pr] [--aspect <spec|functional|performance|code|uiux|all>[,...]]
+description: "5관점 병렬 + 구조적 리뷰 + Codex 세컨드 오피니언 심층 조사 (--aspect 지원: spec/functional/performance/code/uiux/all. 출시 게이트 미포함 — 게이트는 `/bams:review`)"
+argument-hint: "[파일/디렉토리/pr] [--aspect <spec|functional|performance|code|uiux|all>[,...]]"
 ---
 
 > **사용 시점**: 5관점 + 구조적 리뷰 + Codex 세컨드 오피니언까지 포함한 심층 리뷰. 공통 규약 SSOT: `references/multi-perspective-review.md` (§역할 구분).
@@ -22,7 +22,7 @@ argument-hint: [파일/디렉토리/pr] [--aspect <spec|functional|performance|c
 스킬 로딩:
 
 ```bash
-_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _REVIEW_SKILL="$_BAMS/skills/review/SKILL.md"; [ -e "$_REVIEW_SKILL" ] || _REVIEW_SKILL=""
+_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _REVIEW_SKILL="$_BAMS/skills/review/SKILL.md"; [ -e "$_REVIEW_SKILL" ] || _REVIEW_SKILL=""
 _CODEX_SKILL="$_BAMS/skills/codex/SKILL.md"; [ -e "$_CODEX_SKILL" ] || _CODEX_SKILL=""
 codex --version >/dev/null 2>&1 && _CODEX_OK=1 || _CODEX_OK=0  # mcp__codex__* 도구가 있어도 1
 ```
@@ -70,7 +70,7 @@ SSOT §aspect별 위임 메시지 템플릿으로 code 외 각 aspect 부서장�
 Task tool, subagent_type: **"bams-plugin:defect-triage"** — 지적 1건당 1개, 쓰기 금지:
 <!-- load_profile:exempt non-department-lead spawn -->
 
-> SSOT §지적 검증 필터 4의 검증자 프롬프트에 지적·변경 의도·diff를 채워 전달. 재현 증거가 붙은 CONFIRMED만 남기고, REFUTED는 "제외된 지적", UNCERTAIN과 증거 없는 Major 이상(§지적 검증 필터 1·3)은 "미검증 지적(unverified)"으로.
+> SSOT §지적 검증 필터 4의 검증자 프롬프트에 지적·변경 의도·diff를 채워 전달. 재현 증거가 붙은 CONFIRMED만 남기고, REFUTED는 "제외된 지적"으로. 증거 없는 Critical·보안 관련 Major도 검증자에게 보내며, 재현되지 않은 Critical·보안 Major는 `unverified-risk`(게이트 판정 시 최소 CONDITIONAL), 나머지 UNCERTAIN과 증거 없는 Major는 `unverified`(게이트 미반영)로 "미검증 지적"에 남긴다(§지적 검증 필터 1·3·5).
 
 ## Step 4: 에이전트 개선점 수집 — 루프 A (Advisor 단독 호출)
 

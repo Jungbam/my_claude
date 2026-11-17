@@ -22,7 +22,7 @@ argument-hint: [--comprehensive]
 스킬 로딩:
 
 ```bash
-_BAMS=$(sed -n '/"bams-plugin@my-claude"/,/"installPath"/s/.*"installPath": *"\([^"]*\)".*/\1/p' ~/.claude/plugins/installed_plugins.json 2>/dev/null); [ -d "$_BAMS" ] || _BAMS=$(ls -dt ~/.claude/plugins/cache/*/bams-plugin/*/ 2>/dev/null | head -1); _BAMS=${_BAMS%/}; _CSO_SKILL="$_BAMS/skills/cso/SKILL.md"; [ -e "$_CSO_SKILL" ] || _CSO_SKILL=""
+_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _CSO_SKILL="$_BAMS/skills/cso/SKILL.md"; [ -e "$_CSO_SKILL" ] || _CSO_SKILL=""
 ```
 
 진행 추적 파일: `templates/security-audit.md` 기반으로 생성.
