@@ -1,0 +1,1 @@
+{"session_id":"m-sess-1","transcript_path":"__D__/main.jsonl","cwd":"__D__/proj","hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"bun test"},"tool_response":{"stdout":"2 pass, 0 fail","stderr":"","interrupted":false},"tool_use_id":"toolu_b1"}

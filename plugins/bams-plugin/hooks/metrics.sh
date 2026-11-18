@@ -13,6 +13,16 @@
 #   pipeline_end    PostToolUse Edit|Write — */.crew/history.md 에 새로 생긴 첫 헤더 줄의 slug·status
 #                   + 열린 파이프라인 기준 dur_ms(시작→기록, 초 정밀도)·agent_spawns(SubagentStart 수)
 #   session_usage   Stop — 열린(또는 방금 끝난) 파이프라인이 있을 때만, 메인 transcript 증분(줄 offset) usage
+# 완료 근거 기록(이벤트 아님 — pipeline-completion-guard.sh 의 1차 근거): 열린 파이프라인이 있을 때만
+#   PostToolUse TodoWrite|TaskCreate|TaskUpdate|Bash → <state>/<sid>.track 에 1줄씩 append(epoch_s␟kind␟data):
+#     todo␟<tool>        메인(agent_id 없음)의 단계 추적 호출 1회
+#     skip␟<줄>          그 호출 tool_input 문자열 중 "skip:" 가 든 줄(앞 300자, 판정은 guard 가 한다)
+#     vcheck␟            메인 Bash 의 `verdict.sh check`·`"$_VD" check`·bams_verdict_check
+#     vexit␟<0|1|3|4|unavailable>  그 Bash 출력의 마지막 `verdict_exit=` 값
+#     vwrite␟<경로>      (서브에이전트 포함) Bash 의 `verdict.sh write` — 출력의 verdict-*.json 경로(없으면 빈 값)
+#   transcript 비공개 형식·--no-session-persistence(transcript 파일 없음)와 무관하게 guard 가 판정할 수 있게 한다.
+#   순서 보장: PostToolUse metrics 는 동기(plugin.json 에 async 없음 — 테스트가 고정)라 도구 결과가 모델에
+#   돌아가기 전에 기록이 끝난다 → 최종 응답 뒤의 Stop 은 항상 기록을 본다. async 로 바꾸면 Stop 과 경합한다.
 # 성능: 대상이 아님이 확실한 입력(Stop·PostToolUse·일반 프롬프트)은 jq 없이 종료. 그 외 jq 1회(+transcript 파싱 1회).
 set +e
 case "${BAMS_METRICS:-on}" in off|OFF|0|false|no) exit 0 ;; esac
@@ -27,7 +37,14 @@ re='"hook_event_name"[[:space:]]*:[[:space:]]*"([A-Za-z]+)"'; EV=""; [[ $INPUT =
 re='"session_id"[[:space:]]*:[[:space:]]*"([A-Za-z0-9_.-]+)"'; SID=""; [[ $INPUT =~ $re ]] && SID="${BASH_REMATCH[1]}"
 case "$EV" in
   Stop) [ -n "$SID" ] && { [ -f "$ST/$SID.open" ] || [ -f "$ST/$SID.closing" ]; } || exit 0 ;;
-  PostToolUse) case "$INPUT" in *'.crew/history.md'*|*'bams:'*) ;; *) exit 0 ;; esac ;;
+  PostToolUse)
+    re='"tool_name"[[:space:]]*:[[:space:]]*"([A-Za-z0-9_]+)"'; TN=""; [[ $INPUT =~ $re ]] && TN="${BASH_REMATCH[1]}"
+    case "$TN" in
+      TodoWrite|TaskCreate|TaskUpdate) [ -n "$SID" ] && [ -f "$ST/$SID.open" ] || exit 0 ;;
+      Bash) [ -n "$SID" ] && [ -f "$ST/$SID.open" ] || exit 0
+            case "$INPUT" in *verdict*|*_VD*) ;; *) exit 0 ;; esac ;;
+      *) case "$INPUT" in *'.crew/history.md'*|*'bams:'*) ;; *) exit 0 ;; esac ;;
+    esac ;;
   UserPromptSubmit) case "$INPUT" in *'bams:'*) ;; *) [ -n "$SID" ] && [ ! -f "$ST/$SID.open" ] && exit 0 ;; esac ;;
 esac
 command -v jq >/dev/null 2>&1 || exit 0
@@ -53,6 +70,9 @@ RES=$(printf '%s' "$INPUT" | jq -r '
        | map(gsub("[[:cntrl:]]"; " ")) | join("\u001f")), ($o | tojson);
     def start($c; $a; $src): out("start"; $c; .prompt_id; .transcript_path;
       $base + {ev: "pipeline_start", command: $c, args: ($a | a80), source: $src, pipeline: $c, pipeline_ts: $ts});
+    def track($recs): if ($recs | length) == 0 then empty else
+      (["track", ($sid | key), $cwd, ($s | tostring), ($ms | tostring), $ts, "", "", ""] | map(gsub("[[:cntrl:]]"; " ")) | join("\u001f")), $recs[] end;
+    def rec($k; $d): "\($k)\u001f\($d | tostring | gsub("[[:cntrl:]]+"; " ") | gsub("^\\s+|\\s+$"; "") | .[0:300])";
   if $ev == "UserPromptExpansion" then
     ((.command_name // "") | bcmd) as $c | if $c == null then empty else start($c; (.command_args // ""); "expansion") end
   elif $ev == "UserPromptSubmit" then
@@ -71,6 +91,23 @@ RES=$(printf '%s' "$INPUT" | jq -r '
     | if $tn == "Skill" then
         ((.tool_input.skill // .tool_input.command // "") | bcmd) as $c
         | if $c == null then empty else start($c; (.tool_input.args // ""); "skill_tool") end
+      elif ($tn == "TodoWrite" or $tn == "TaskCreate" or $tn == "TaskUpdate") then
+        if (.agent_id // "") != "" then empty else
+          track([rec("todo"; $tn)]
+                + ([.tool_input | .. | strings | splits("\\r?\\n") | select(test("(^|[^A-Za-z])skip\\s*:"; "i"))]
+                   | unique | map(rec("skip"; .)) | .[0:40]))
+        end
+      elif $tn == "Bash" then
+        (.tool_input.command // "" | tostring) as $cmd | ((.agent_id // "") == "") as $main
+        | ([.tool_response | .. | strings] | join("\n")) as $o
+        | ($main and ($cmd | test("(verdict\\.sh|\\$\\{?_?VD\\}?)[\"\\x27]?\\s+check(\\s|$|[;&|])|bams_verdict_check"))) as $vc
+        | ($cmd | test("(verdict\\.sh|\\$\\{?_?VD\\}?)[\"\\x27]?\\s+write(\\s|$)|bams_verdict_write")) as $vw
+        | track((if $vc then [rec("vcheck"; "")]
+                   + ([$o | match("verdict_exit=(0|1|3|4|unavailable)(?![0-9A-Za-z_])"; "g") | .captures[0].string]
+                      | if length > 0 then [rec("vexit"; last)] else [] end)
+                 else [] end)
+                + (if $vw then [rec("vwrite"; ([$o | match("[^\\s\"\\x27`]*/\\.crew/artifacts/review/verdict-[A-Za-z0-9_.-]+\\.json"; "g") | .string] | last // ""))]
+                   else [] end))
       elif ($tn == "Edit" or $tn == "Write" or $tn == "MultiEdit") then
         (.tool_input.file_path // "" | tostring) as $fp
         | if ($fp | test("/\\.crew/history\\.md$") | not) then empty else
@@ -148,7 +185,7 @@ case "$KIND" in
     fi
     fill "$D" "" ""; emit
     printf '%s\n' "$TS$US$X1$US$X2$US$NOWS" > "$OPEN" 2>/dev/null
-    rm -f "$CLOSING" "$SPAWNS" 2>/dev/null
+    rm -f "$CLOSING" "$SPAWNS" "$ST/$SK.track" 2>/dev/null
     TP="$X3"; case "$TP" in '~/'*) TP="$HOME/${TP#\~/}" ;; esac
     if [ -n "$TP" ] && [ -r "$TP" ]; then n=$(wc -l < "$TP" 2>/dev/null); echo $((${n:-0} + 0)) > "$LINES" 2>/dev/null
     else rm -f "$LINES" 2>/dev/null; fi
@@ -174,6 +211,14 @@ case "$KIND" in
     emit
     printf '%s\n' "$X1" > "$HK" 2>/dev/null
     [ -n "$OCMD" ] && mv -f "$OPEN" "$CLOSING" 2>/dev/null   # Stop 1회분 usage를 더 받은 뒤 닫는다
+    ;;
+  track)
+    read_state "$OPEN" || exit 0
+    REC=""
+    while IFS= read -r l; do [ -n "$l" ] && REC="$REC$OEP$US$l"$'\n'; done <<EOF
+$LINE
+EOF
+    [ -n "$REC" ] && printf '%s' "$REC" >> "$ST/$SK.track" 2>/dev/null   # append 1회(병렬 도구 호출에도 줄 단위 유지)
     ;;
   astart)
     printf '%s\n' "$NOWMS" > "$ST/a_$X1" 2>/dev/null
@@ -237,7 +282,7 @@ case "$KIND" in
         echo "$TOT" > "$LINES" 2>/dev/null
       fi
     fi
-    [ "$STATEF" = "$CLOSING" ] && rm -f "$CLOSING" "$LINES" "$SPAWNS" 2>/dev/null
+    [ "$STATEF" = "$CLOSING" ] && rm -f "$CLOSING" "$LINES" "$SPAWNS" "$ST/$SK.track" 2>/dev/null
     ;;
 esac
 exit 0

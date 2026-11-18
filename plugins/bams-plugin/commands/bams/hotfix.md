@@ -12,8 +12,9 @@ $ARGUMENTS가 비어있으면 AskUserQuestion으로 버그 설명 받기.
 
 ## Steps
 
-> 시작 즉시 아래 목록을 **원문 그대로** TodoWrite에 복사한다. 건너뛰는 step은 지우지 않고 `— skip: <사유>`로 남긴다 (`references/step-status.md` §Steps 체크리스트 규약).
+> 첫 동작으로 아래 목록을 **원문 그대로** 작업 목록 도구에 등록한다 — `TaskCreate` 항목당 1회(스키마가 없으면 먼저 `ToolSearch` `select:TaskCreate,TaskUpdate`로 로드) 또는 `TodoWrite`(있는 버전). 진행은 `TaskUpdate`/`TodoWrite`로 갱신하고, 건너뛴 step은 지우지 않고 subject/항목 끝에 `— skip: <사유>`를 붙인다 (SSOT: `references/step-status.md` §Steps 체크리스트 규약).
 
+0. Steps 등록 — 이 목록 전체를 작업 목록 도구(TaskCreate/TodoWrite)에 원문 그대로 등록 (첫 동작, skip 불가)
 1. Pre-flight + 파이프라인 타입 검증 (`hotfix/preflight.md`)
 1-1. Linear 이슈 In Progress 전환 — issue-ops `linear-close-issues` start (요청에 Linear 식별자 없으면 skip)
 2. Step 1 버그 재현 + 진단 + 수정 (`hotfix/step-1-diagnose.md`)

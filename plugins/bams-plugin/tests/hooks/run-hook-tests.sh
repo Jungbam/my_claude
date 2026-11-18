@@ -806,8 +806,13 @@ for e in UserPromptExpansion UserPromptSubmit PostToolUse SubagentStart Subagent
   else FAIL=$((FAIL + 1)); echo "  FAIL  $e 에 metrics.sh 등록 없음/중복"; fi
 done
 MPM=$(jq -r '[.hooks.PostToolUse[]? | select(any(.hooks[]?; .command | test("metrics"))) | .matcher // ""][0]' "$PJ")
-for t in Edit Write Skill; do matcher_case "PostToolUse matcher '$MPM' → $t" "$MPM" "$t" match; done
-for t in Bash Read NotebookEdit; do matcher_case "PostToolUse matcher '$MPM' ↛ $t" "$MPM" "$t" nomatch; done
+for t in Edit Write Skill Bash TodoWrite TaskCreate TaskUpdate; do matcher_case "PostToolUse matcher '$MPM' → $t" "$MPM" "$t" match; done
+for t in Read NotebookEdit ToolSearch TaskList; do matcher_case "PostToolUse matcher '$MPM' ↛ $t" "$MPM" "$t" nomatch; done
+# 순서 보장(경합 방지): completion guard 가 Stop 에서 읽는 .track 은 PostToolUse metrics 가 쓴다 — 동기여야
+#   도구 결과가 모델에 돌아가기 전에 기록이 끝나 최종 응답 뒤 Stop 이 항상 본다(async 면 Stop 과 경합).
+if jq -e '[.hooks.PostToolUse[]?.hooks[]? | select(.command | test("hooks/metrics\\.sh"))] | length == 1 and all(.[]; (.async // false) == false)' "$PJ" >/dev/null 2>&1; then
+  PASS=$((PASS + 1)); echo "  PASS  PostToolUse metrics = 동기(.track 기록이 Stop 보다 먼저 끝남)"
+else FAIL=$((FAIL + 1)); echo "  FAIL  PostToolUse metrics 가 async — Stop guard 와 경합"; fi
 MSM=$(jq -r '[.hooks.SubagentStop[]? | select(any(.hooks[]?; .command | test("metrics"))) | .matcher // ""][0]' "$PJ")
 for a in bams-plugin:qa-strategy Explore general-purpose; do matcher_case "SubagentStop(metrics) 전체 매칭 → $a" "$MSM" "$a" match; done
 if jq -e '[(.hooks.SubagentStop, .hooks.Stop)[]?.hooks[]? | select(.command | test("metrics")) | .async] == [true, true]' "$PJ" >/dev/null; then
@@ -827,6 +832,7 @@ mtime() {
 }
 mtime "Stop(파이프라인 없음, jq 0회)"           stop.json            50
 mtime "PostToolUse 일반 Edit(jq 0회)"           post-edit-other.json 50
+mtime "PostToolUse 일반 Bash(jq 0회)"           post-bash-other.json 50
 mtime "UserPromptSubmit 일반 입력(jq 0회)"      ups-human.json       50
 mtime "UserPromptExpansion 시작(jq 1회)"        upe-dev.json         100
 mtime "SubagentStop transcript 파싱(jq 2회)"    sub-stop.json        100
@@ -885,7 +891,7 @@ cg_state cg-r1 review
 cg_run "review: TodoWrite·verdict 없음 → block" "$(cg_in r1 cg-r1 "$(cg_tx g G)")" block
 cg_run "같은 파이프라인 두 번째 Stop(다음 턴) → 통과(파이프라인당 1회)" "$(cg_in r1b cg-r1 "$(cg_tx g G)")" none
 cg_state cg-r1 review
-cg_reason "$(cg_in r1c cg-r1 "$(cg_tx g G)")" has "TodoWrite 미사용" "block 사유: TodoWrite 누락 + 복구 방법"
+cg_reason "$(cg_in r1c cg-r1 "$(cg_tx g G)")" has "작업 목록 도구(TaskCreate/TaskUpdate, 없으면 ToolSearch \`select:TaskCreate,TaskUpdate\`로 로드 / TodoWrite) 미사용" "block 사유: 작업 목록 누락 + 복구 방법(TaskCreate·ToolSearch 로드)"
 cg_state cg-r1 review
 cg_reason "$(cg_in r1d cg-r1 "$(cg_tx g G)")" has "verdict.sh' write --verdict" "block 사유: verdict 누락 + verdict.sh write 절대 경로"
 cg_state cg-r2 review
@@ -893,7 +899,7 @@ cg_run "review: stop_hook_active=true → 통과" "$(cg_in r2 cg-r2 "$(cg_tx g G
 cg_state cg-r3 review
 cg_run "review: TodoWrite만(verdict 없음) → block" "$(cg_in r3 cg-r3 "$(cg_tx t T)")" block
 cg_state cg-r3 review
-cg_reason "$(cg_in r3b cg-r3 "$(cg_tx t T)")" lacks "TodoWrite 미사용" "TodoWrite 있으면 사유에 TodoWrite 누락 없음"
+cg_reason "$(cg_in r3b cg-r3 "$(cg_tx t T)")" lacks "작업 목록 도구" "TodoWrite 있으면 사유에 작업 목록 누락 없음"
 touch -t 202001010000 "$CGR/.crew/artifacts/review/verdict-old.json"
 cg_state cg-r4 review
 cg_run "review: TodoWrite + 시작 전 verdict 파일만 → block" "$(cg_in r4 cg-r4 "$(cg_tx t T)")" block
@@ -948,9 +954,10 @@ cg_run "pipeline_end 후(closing) → 통과" "$(cg_in c1 cg-c1 "$(cg_tx g G)")"
 cg_state cg-c2 review $((CG_EP - 50000))
 cg_run "12시간 지난 상태 → 통과" "$(cg_in c2 cg-c2 "$(cg_tx g G)")" none
 cg_state cg-c3 review
-cg_run "transcript 부재 → fail-open" "$(cg_in c3 cg-c3 "$TMP/none.jsonl")" none
+cg_run "transcript 파일 없음(--no-session-persistence) + 기록 없음 → block(통과 아님)" "$(cg_in c3 cg-c3 "$TMP/none.jsonl")" block
 cg_run "BAMS_COMPLETION_GUARD=off → 통과" "$(cg_in c4 cg-c3 "$(cg_tx g G)")" none BAMS_COMPLETION_GUARD=off
 cg_run "BAMS_METRICS=off(상태 없음 취급) → 통과" "$(cg_in c5 cg-c3 "$(cg_tx g G)")" none BAMS_METRICS=off
+cg_state cg-c3 review
 wo=$(env BAMS_METRICS_DIR="$CGM" BAMS_COMPLETION_GUARD=warn bash "$HOOKS/pipeline-completion-guard.sh" < "$(cg_in c6 cg-c3 "$(cg_tx g G)")" 2>/dev/null)
 if printf '%s' "$wo" | jq -e '(.systemMessage | test("completion-guard")) and (has("decision") | not)' >/dev/null 2>&1; then PASS=$((PASS + 1)); echo "  PASS  warn → systemMessage 만(차단 없음)"
 else FAIL=$((FAIL + 1)); echo "  FAIL  warn 출력: $wo"; fi
@@ -981,6 +988,86 @@ cg_time() {
 }
 cg_time "no-op(열린 파이프라인 없음)" "$(cg_in t0 cg-none "$(cg_tx g G)")"
 cg_time "no-op(판정 끝난 파이프라인)" "$(cg_in t1 cg-r5 "$(cg_tx t T)")"
+
+echo "== completion guard: 세션 상태(.track) 근거 — transcript 없는 실행(claude -p --no-session-persistence) =="
+# 도구 호출은 metrics.sh PostToolUse 로 실제 기록하고(하네스와 같은 순서: PostToolUse → … → Stop), Stop 입력의
+#   transcript_path 는 존재하지 않는 파일로 둔다. 근거 = .track + last_assistant_message 뿐.
+NOTX="$TMP/no-such-transcript.jsonl"
+# cg_post <sid> <tool_name> <tool_input JSON> [tool_response JSON] [agent_id] — metrics.sh 로 PostToolUse 기록
+cg_post() {
+  local r="${4:-}"; [ -n "$r" ] || r='{}'
+  jq -cn --arg s "$1" --arg t "$2" --argjson i "$3" --argjson r "$r" --arg a "${5:-}" --arg c "$CGR" \
+    '{session_id:$s,transcript_path:"/nonexistent/x.jsonl",cwd:$c,hook_event_name:"PostToolUse",tool_name:$t,tool_input:$i,tool_response:$r,tool_use_id:"toolu_x"}
+     + (if $a != "" then {agent_id:$a, agent_type:"bams-plugin:release-quality-gate"} else {} end)' > "$TMP/cg-post.json"
+  env -u BAMS_METRICS BAMS_METRICS_DIR="$CGM" bash "$HOOKS/metrics.sh" < "$TMP/cg-post.json" >/dev/null 2>&1
+}
+TC1='{"subject":"0. Steps 등록","description":"Steps 체크리스트 등록"}'
+VCMD='_VD="$_BAMS/hooks/lib/verdict.sh"; [ -e "$_VD" ] || _VD=""
+if [ -z "$_VD" ]; then echo "verdict_exit=unavailable"; else bash "$_VD" check; echo "verdict_exit=$?"; fi'
+rm -f "$CGR"/.crew/artifacts/review/verdict-*.json
+cg_state cg-n1 review; rm -f "$CGM/state/cg-n1.track"
+cg_run "review: transcript 없음 + 작업 목록 기록 없음 → block" "$(cg_in n1 cg-n1 "$NOTX")" block
+cg_state cg-n1 review
+cg_reason "$(cg_in n1b cg-n1 "$NOTX")" has "(근거: none)" "근거 없음 → 사유에 '근거: none' 표기"
+cg_state cg-n2 review; rm -f "$CGM/state/cg-n2.track"
+cg_post cg-n2 TaskCreate "$TC1"
+if [ -f "$CGM/state/cg-n2.track" ] && grep -q "todo.TaskCreate" "$CGM/state/cg-n2.track"; then PASS=$((PASS + 1)); echo "  PASS  metrics.sh PostToolUse TaskCreate → .track 에 todo 기록"
+else FAIL=$((FAIL + 1)); echo "  FAIL  TaskCreate 기록 없음"; fi
+cg_run "review: transcript 없음 + TaskCreate 기록만(verdict 없음) → block" "$(cg_in n2 cg-n2 "$NOTX")" block
+cg_state cg-n2 review
+cg_reason "$(cg_in n2b cg-n2 "$NOTX")" lacks "작업 목록 도구" "TaskCreate 기록 → 사유에 작업 목록 누락 없음(verdict 만)"
+echo '{}' > "$CGR/.crew/artifacts/review/verdict-n3.json"
+cg_state cg-n3 review; rm -f "$CGM/state/cg-n3.track"; cg_post cg-n3 TaskCreate "$TC1"
+cg_run "review: transcript 없음 + TaskCreate 기록 + 시작 이후 verdict 파일 → 통과" "$(cg_in n3 cg-n3 "$NOTX")" none
+rm -f "$CGR"/.crew/artifacts/review/verdict-*.json
+cg_state cg-n4 review; rm -f "$CGM/state/cg-n4.track"; cg_post cg-n4 TaskCreate "$TC1"
+cg_post cg-n4 TaskUpdate '{"taskId":"13","status":"completed","subject":"13. verdict 파일 확인 — skip: 판정자 미연결(오프라인)"}'
+cg_run "review: TaskUpdate 항목 'skip: <사유>'(verdict) 기록 → 통과" "$(cg_in n4 cg-n4 "$NOTX")" none
+cg_state cg-n5 review; rm -f "$CGM/state/cg-n5.track"; cg_post cg-n5 TaskCreate "$TC1"
+cg_post cg-n5 TaskCreate '{"subject":"13. verdict 파일 확인 — 못 남기면 `— skip: <사유>`"}'
+cg_run "review: 기록된 skip 이 Steps 자리표시자 그대로 → block" "$(cg_in n5 cg-n5 "$NOTX")" block
+VOUT="$TMP/vout"; mkdir -p "$VOUT/.crew/artifacts/review"; echo '{}' > "$VOUT/.crew/artifacts/review/verdict-sub123.json"
+cg_state cg-n6 review; rm -f "$CGM/state/cg-n6.track"; cg_post cg-n6 TaskCreate "$TC1"
+cg_post cg-n6 Bash "$(jq -cn --arg d "$VOUT" '{command:"bash /p/hooks/lib/verdict.sh write --verdict PASS --dir \($d)"}')" \
+  "$(jq -cn --arg d "$VOUT" '{stdout:"\($d)/.crew/artifacts/review/verdict-sub123.json",stderr:""}')" ag-judge
+cg_run "review: 판정자 서브에이전트의 verdict.sh write(다른 --dir) 기록 경로 → 통과" "$(cg_in n6 cg-n6 "$NOTX")" none
+cg_state cg-n7 review; rm -f "$CGM/state/cg-n7.track"; cg_post cg-n7 TaskCreate "$TC1" '{}' ag-sub
+cg_run "review: 서브에이전트(agent_id)의 TaskCreate 는 메인 작업 목록 아님 → block" "$(cg_in n7 cg-n7 "$NOTX" false $'- skip: verdict — 판정자 미연결')" block
+cg_state cg-n8 review $((CG_EP - 30)); rm -f "$CGM/state/cg-n8.track"; cg_post cg-n8 TaskCreate "$TC1"
+cg_state cg-n8 review
+cg_run "review: 이전 파이프라인(epoch 다름)의 기록은 무시 → block" "$(cg_in n8 cg-n8 "$NOTX" false $'- skip: verdict — 사유')" block
+cg_state cg-n9 ship; rm -f "$CGM/state/cg-n9.track"; cg_post cg-n9 TaskCreate "$TC1"
+cg_post cg-n9 Bash "$(jq -cn --arg c "$VCMD" '{command:$c}')" '{"stdout":"none - - unknown\nverdict_exit=1","stderr":""}'
+if grep -q "vexit.1$" "$CGM/state/cg-n9.track" 2>/dev/null; then PASS=$((PASS + 1)); echo "  PASS  metrics.sh Bash \"\$_VD\" check → .track 에 vcheck + vexit=1"
+else FAIL=$((FAIL + 1)); echo "  FAIL  verdict check 기록 없음: $(cat "$CGM/state/cg-n9.track" 2>/dev/null)"; fi
+cg_run "ship: transcript 없음 + TaskCreate·verdict check 기록 + 최종 'verdict_exit=1' → 통과" "$(cg_in n9 cg-n9 "$NOTX" false $'NO-GO — verdict 없음\nverdict_exit=1')" none
+cg_state cg-n10 ship; rm -f "$CGM/state/cg-n10.track"; cg_post cg-n10 TaskCreate "$TC1"
+cg_post cg-n10 Bash "$(jq -cn --arg c "$VCMD" '{command:$c}')" '{"stdout":"verdict_exit=3","stderr":""}'
+cg_reason "$(cg_in n10 cg-n10 "$NOTX" false 'PR 생성 보류')" has "마지막 check 출력: verdict_exit=3" "ship: check 기록 있으나 최종 메시지 줄 없음 → block + 마지막 값 안내"
+cg_state cg-n11 ship; rm -f "$CGM/state/cg-n11.track"; cg_post cg-n11 TaskCreate "$TC1"
+cg_post cg-n11 Bash "$(jq -cn --arg c "$VCMD" '{command:$c}')" '{"stdout":"verdict_exit=0","stderr":""}' ag-sub
+cg_run "ship: check 를 서브에이전트만 실행(메인 아님) → block" "$(cg_in n11 cg-n11 "$NOTX" false 'verdict_exit=0')" block
+cg_state cg-n12 ship; rm -f "$CGM/state/cg-n12.track"; cg_post cg-n12 TaskCreate "$TC1"
+cg_post cg-n12 Bash '{"command":"grep -rn verdict references/ | head"}' '{"stdout":"verdict_exit=0","stderr":""}'
+cg_run "ship: verdict 를 언급만 하는 Bash(check 아님) → block" "$(cg_in n12 cg-n12 "$NOTX" false 'verdict_exit=0')" block
+# 열린 파이프라인이 없으면 PostToolUse 는 아무것도 남기지 않는다(.track 미생성)
+rm -f "$CGM/state/cg-none.track"; cg_post cg-none TaskCreate "$TC1"
+if [ ! -e "$CGM/state/cg-none.track" ]; then PASS=$((PASS + 1)); echo "  PASS  열린 파이프라인 없음 → TaskCreate 기록 안 함"
+else FAIL=$((FAIL + 1)); echo "  FAIL  열린 파이프라인 없이 .track 생성"; fi
+# 하네스 순서 end-to-end(전부 metrics.sh 가 기록): Expansion(review) → PostToolUse TaskCreate → 판정자 write → Stop(transcript 없음)
+CGE2="$TMP/cg-e2e2"; mkdir -p "$CGE2/proj/.git" "$CGE2/proj/.crew/artifacts/review"
+e2() { env -u BAMS_METRICS BAMS_METRICS_DIR="$CGE2/m" bash "$HOOKS/metrics.sh" >/dev/null 2>&1; }
+jq -cn --arg d "$CGE2" '{session_id:"cg-e2",prompt_id:"p-e2",cwd:"\($d)/proj",hook_event_name:"UserPromptExpansion",expansion_type:"slash_command",command_name:"bams-plugin:bams:review",command_args:"리뷰"}' | e2
+jq -cn --arg d "$CGE2" '{session_id:"cg-e2",cwd:"\($d)/proj",hook_event_name:"Stop",stop_hook_active:false,transcript_path:"\($d)/gone.jsonl",last_assistant_message:"리뷰 완료"}' > "$TMP/cg-e2-stop.json"
+cp "$TMP/cg-e2-stop.json" "$TMP/cg-e2-stop0.json"
+run_case "e2e: review 시작 직후 Stop(기록 없음, transcript 없음) → block" pipeline-completion-guard.sh "$TMP/cg-e2-stop0.json" 0 block BAMS_METRICS_DIR="$CGE2/m"
+jq -cn --arg d "$CGE2" '{session_id:"cg-e2",prompt_id:"p-e3",cwd:"\($d)/proj",hook_event_name:"UserPromptExpansion",expansion_type:"slash_command",command_name:"bams-plugin:bams:review",command_args:"다시"}' > "$TMP/cg-e2-upe.json"
+sleep 1; e2 < "$TMP/cg-e2-upe.json"   # 새 파이프라인(새 epoch) — 같은 커맨드 10초 중복 제거를 피하려 prompt_id 다르게
+OEP2=$(IFS=$'\x1f' read -r _ _ _ e < "$CGE2/m/state/cg-e2.open"; echo "$e"); printf '%s\x1f%s\x1f%s\x1f%s\n' "x" review p-e3 "$((OEP2 - 20))" > "$CGE2/m/state/cg-e2.open"
+jq -cn --arg d "$CGE2" '{session_id:"cg-e2",cwd:"\($d)/proj",hook_event_name:"PostToolUse",tool_name:"TaskCreate",tool_input:{subject:"0. Steps 등록"},tool_response:{}}' | e2
+echo '{}' > "$CGE2/proj/.crew/artifacts/review/verdict-e2.json"
+jq -cn --arg d "$CGE2" '{session_id:"cg-e2",cwd:"\($d)/proj",hook_event_name:"PostToolUse",agent_id:"ag-j",agent_type:"bams-plugin:release-quality-gate",tool_name:"Bash",tool_input:{command:"bash \"$_VD\" write --verdict PASS"},tool_response:{stdout:"\($d)/proj/.crew/artifacts/review/verdict-e2.json"}}' | e2
+run_case "e2e: TaskCreate·verdict write 기록 후 Stop(transcript 없음) → 통과" pipeline-completion-guard.sh "$TMP/cg-e2-stop.json" 0 none BAMS_METRICS_DIR="$CGE2/m"
 
 echo "== metrics-report.sh =="
 RPT="$HERE/../../scripts/metrics-report.sh"; RNOW=$(jq -n '"2026-10-25T00:00:00Z" | fromdate')

@@ -82,16 +82,16 @@ cat results/*2026110[56]-*-bams.jsonl > results/baseline-v2.8-bams.jsonl
 | 필드 | 뜻 |
 |------|----|
 | `todo_used` | 메인 세션이 TodoWrite(또는 TaskCreate/TaskUpdate)를 호출했는가 — 커맨드 `## Steps` 체크리스트 복사 |
-| `steps_copied` | 첫 TodoWrite의 항목 수(없으면 TaskCreate 수). 커맨드 Steps 개수와 비교(review 13·deep-review 12·ship/deploy 9) |
-| `skips_with_reason` / `skips_without_reason` | 마지막 TodoWrite 항목 + 최종 메시지 줄의 `skip: <사유>`(사유 2글자 이상) / 사유 없는 `skip:` 수. Steps 원문 자리표시자 `skip: <사유>`는 세지 않음 |
+| `steps_copied` | 첫 TodoWrite의 항목 수(없으면 TaskCreate 수). 커맨드 Steps 항목 수와 비교(`0. Steps 등록`·`10-1` 같은 하위 번호 포함: review 15·deep-review 14·ship/deploy 11) |
+| `skips_with_reason` / `skips_without_reason` | 마지막 TodoWrite 항목 + TaskCreate/TaskUpdate의 subject·description + 최종 메시지 줄의 `skip: <사유>`(사유 2글자 이상) / 사유 없는 `skip:` 수. Steps 원문 자리표시자 `skip: <사유>`는 세지 않음 |
 | `verdict_written` | 작업 디렉터리에 `.crew/artifacts/review/verdict-*.json`이 생겼는가 |
 | `verdict_judge_spawned` | Agent/Task 호출 중 `subagent_type`에 `release-quality-gate` 포함 |
 | `agent_spawns` | Agent/Task 호출 수(기존) |
-| `completion_guard_blocks` | Stop hook `pipeline-completion-guard` block 횟수(`--include-hook-events` hook 이벤트 또는 주입된 `[bams completion-guard]` 피드백). 스트림에 안 보이면 0 |
+| `completion_guard_blocks` | Stop hook `pipeline-completion-guard` block 횟수 — `--include-hook-events`의 `{"type":"system","subtype":"hook_response","hook_event":"Stop","stdout"/"output":…}`에서 stdout/output의 `decision:"block"`+completion-guard reason, 또는 주입된 `[bams completion-guard]` 피드백 중 큰 값. 스트림에 안 보이면 0. guard는 transcript가 없는 `-p --no-session-persistence` 실행에서도 metrics 세션 상태(`.track`)로 판정한다 |
 | `process_score` | 0~1, (todo_used, verdict_written, verdict_judge_spawned, 무사유 skip 없음) 동일 가중 평균. "무사유 skip 없음"은 todo_used일 때만 1. `verdict_written=null`이면 나머지 3개 평균 |
 
 - `process_score`는 **`score`에 섞지 않는다**. 머지 규칙(아래)은 여전히 outcome `score` 기준이고, process 표는 "하네스를 실제로 따랐는가"를 따로 본다.
 - verdict 두 항목은 review 계열 과제를 위한 것이다. bug/feat/plan 과제의 낮은 process_score는 그 커맨드에 verdict 단계가 없어서일 수 있으니 과제별로 읽는다.
-- single 구성은 플러그인이 없어 보통 0에 가깝다(기준선).
+- single 구성은 플러그인이 없어 보통 0에 가깝다(기준선). 허용 도구는 두 구성이 같다(`run.sh` 기본 `ALLOWED`에 TodoWrite·TaskCreate·TaskUpdate·ToolSearch 포함) — single도 작업 목록 등록 경로를 쓸 수 있다.
 - 한계: eval 리뷰 과제는 `change.diff`를 적용하지 않은 작업 트리에서 리뷰하므로, 거기서 쓴 verdict는 변경이 빠진 커밋에 결합된다(`references/verdict-protocol.md` §남는 한계). `verdict_written`은 "판정 단계를 수행했는가"만 뜻한다.
 - 한계: 에이전트가 Bash로 evals 경로를 읽을 수 있음(bams 구성은 스냅샷에서 evals 제외, 작업 사본에는 hidden/solution 없음). 합성 소과제라 큰 저장소 성능을 대변하지 않음.

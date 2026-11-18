@@ -7,8 +7,9 @@ argument-hint: "[파일/디렉토리/.diff/pr] [--aspect <spec|functional|perfor
 
 ## Steps
 
-> 시작 즉시 아래 목록을 **원문 그대로** TodoWrite에 복사한다. 건너뛰는 step은 지우지 않고 `— skip: <사유>`로 남긴다 (`references/step-status.md` §Steps 체크리스트 규약). 경량 경로의 skip 사유는 `lightweight (<n> lines, <m> files)`.
+> 첫 동작으로 아래 목록을 **원문 그대로** 작업 목록 도구에 등록한다 — `TaskCreate` 항목당 1회(스키마가 없으면 먼저 `ToolSearch` `select:TaskCreate,TaskUpdate`로 로드) 또는 `TodoWrite`(있는 버전). 진행은 `TaskUpdate`/`TodoWrite`로 갱신하고, 건너뛴 step은 지우지 않고 subject/항목 끝에 `— skip: <사유>`를 붙인다 (SSOT: `references/step-status.md` §Steps 체크리스트 규약). 경량 경로의 skip 사유는 `lightweight (<n> lines, <m> files)`.
 
+0. Steps 등록 — 이 목록 전체를 작업 목록 도구(TaskCreate/TodoWrite)에 원문 그대로 등록 (첫 동작, skip 불가)
 1. Pre-flight — 리뷰 대상 결정 + 스킬 로딩 + 진행 추적 파일
 2. Aspect 파싱 + 경로 판정 — 경량/full (`references/lightweight-path-protocol.md` §8)
 3. Step 1-2-3 리뷰 전략 선택 (AskUserQuestion)
@@ -128,7 +129,7 @@ Task tool, subagent_type: **"bams-plugin:pipeline-orchestrator"** — **조언�
 
 > Stop hook이 아래를 기계적으로 확인한다(마커 정의: `references/step-status.md` §완료 조건 마커). 하나라도 없으면 종료하지 않는다.
 
-- TodoWrite에 `## Steps` 12개 항목이 원문 그대로 있다. 실행하지 않은 step은 `skip:`을 포함한다.
-- 이번 세션에 생성된 `.crew/artifacts/review/verdict-*.json` 파일 — deep-review는 게이트 미포함이므로 보통 없고, 대신 Step 12가 `skip:`을 포함한 TodoWrite 항목/최종 메시지 줄로 남아 있다.
+- 작업 목록 도구(TaskCreate/TaskUpdate/TodoWrite)에 `## Steps` 항목(0~12)이 원문 그대로 있다. 실행하지 않은 step은 `skip:`을 포함한다.
+- 이번 세션에 생성된 `.crew/artifacts/review/verdict-*.json` 파일 — deep-review는 게이트 미포함이므로 보통 없고, 대신 Step 12가 `skip:`을 포함한 작업 목록 항목(TaskCreate/TaskUpdate/TodoWrite)/최종 메시지 줄로 남아 있다.
 - Step 9 검증자(defect-triage) spawn이 경로와 무관하게 1회 이상 있었다(검증 대상 Critical/Major가 0건인 full 경로만 `— skip: 검증 대상 없음`).
 - 최종 메시지에 리포트 경로와 skip 목록이 있다.

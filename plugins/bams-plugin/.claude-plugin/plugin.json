@@ -102,7 +102,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Edit|Write|Skill",
+        "matcher": "Edit|Write|Skill|Bash|TodoWrite|TaskCreate|TaskUpdate",
         "hooks": [
           {
             "type": "command",

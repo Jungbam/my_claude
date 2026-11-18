@@ -114,7 +114,7 @@ n — 기본 풀 사이클로 진행 (기본값)
 
 ## 8. review / deep-review 경량 경로 (메인 단독 리뷰) — SSOT
 
-> 배경(2026-11-17 eval review-01/02 ×3 + baseline 전수): 작은 diff에서 메인이 5관점 spawn·TodoWrite·verdict를 모두 건너뛰고 혼자 리뷰했다. 단독 리뷰 자체는 작은 diff에 합리적이므로 **허용하되 명시적 경로로 만들고**, 생략할 수 없는 것(Steps 기록·재현 증거·독립 판정자·verdict)을 고정한다.
+> 배경(2026-11-17 eval review-01/02 ×3 + baseline 전수): 작은 diff에서 메인이 5관점 spawn·Steps 등록(작업 목록 도구)·verdict를 모두 건너뛰고 혼자 리뷰했다. 단독 리뷰 자체는 작은 diff에 합리적이므로 **허용하되 명시적 경로로 만들고**, 생략할 수 없는 것(Steps 기록·재현 증거·독립 판정자·verdict)을 고정한다.
 
 ### 8-1. 발동 조건 (전부 충족 → 경량, 질문 없이 적용)
 
@@ -149,7 +149,7 @@ diff가 아닌 파일/디렉토리 리뷰는 대상 파일 수와 `wc -l` 합계
 
 ### 8-4. 경량에서도 생략 불가
 
-1. **Steps → TodoWrite**: 커맨드 `## Steps`를 원문 복사하고, 건너뛴 spawn step은 위 skip 문구로 남긴다(`references/step-status.md` §Steps 체크리스트 규약 7).
+1. **Steps → 작업 목록 도구**: 커맨드 `## Steps`를 `TaskCreate`/`TodoWrite`에 원문 등록하고(`0. Steps 등록`이 첫 동작, `references/step-status.md` §Steps 체크리스트 규약 1), 건너뛴 spawn step은 위 skip 문구로 남긴다(`references/step-status.md` §Steps 체크리스트 규약 7).
 2. **재현 증거**: 메인 지적은 `references/multi-perspective-review.md` §지적 검증 필터 1~2를 그대로 따른다 — 지적 형식, confidence 80 미만 미보고, Major 이상은 재현 증거(실행한 명령+출력 / 실패 테스트 / 입력값+`file:line` 체인), 증거 등급(`references/issue-severity.md` §증거 등급). 메인은 실제로 명령을 실행해 증거를 만든다.
 3. **독립 판정자 1 spawn** — skip 불가:
    - `review`: `bams-plugin:release-quality-gate` 1회. 메인 지적의 독립 검증(§지적 검증 필터 4·5) + 위험 지점 1곳 직접 확인 + 릴리스 게이트 판정(`issue-severity.md` §Release Gate, N=2) + PASS/FAIL이면 `hooks/lib/verdict.sh write`(`references/verdict-protocol.md` §3). 위임 메시지 템플릿은 `commands/bams/review.md` Phase 4 (경량).

@@ -51,7 +51,9 @@ SNAP=""; CPID=""; PENDING=0
 cleanup() { [ -n "$SNAP" ] && rm -rf "$SNAP"; }; trap cleanup EXIT
 
 # 허용 도구: 비대화 실행에서 승인 프롬프트가 없으므로 명시. 권한 모드는 acceptEdits (EVAL_PERMISSION_MODE로 변경 가능)
-ALLOWED="${EVAL_ALLOWED_TOOLS:-Bash,Read,Edit,Write,Glob,Grep,Agent,Task,Skill,TodoWrite,NotebookEdit}"
+#   작업 목록: 현행 Claude Code 는 TaskCreate/TaskUpdate(지연 로드 → ToolSearch 로 스키마 로드), 구버전은 TodoWrite — 모두 허용.
+#   bams·single 두 구성에 같은 목록을 쓴다(single 도 같은 등록 경로를 쓸 수 있어야 비교가 공정).
+ALLOWED="${EVAL_ALLOWED_TOOLS:-Bash,Read,Edit,Write,Glob,Grep,Agent,Task,Skill,TodoWrite,TaskCreate,TaskUpdate,ToolSearch,NotebookEdit}"
 PERM="${EVAL_PERMISSION_MODE:-acceptEdits}"
 
 # bams 구성: 작업 트리의 플러그인을 evals/ 등을 뺀 스냅샷으로 로드 (숨김 테스트·정답 유출 방지 + 실험 중 변경 격리)

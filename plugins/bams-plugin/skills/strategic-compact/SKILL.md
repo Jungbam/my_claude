@@ -69,7 +69,7 @@ Use this table to decide when to compact:
 | Phase Transition | Compact? | Why |
 |-----------------|----------|-----|
 | Research → Planning | Yes | Research context is bulky; plan is the distilled output |
-| Planning → Implementation | Yes | Plan is in TodoWrite or a file; free up context for code |
+| Planning → Implementation | Yes | Plan is in the task list (TaskCreate/TodoWrite) or a file; free up context for code |
 | Implementation → Testing | Maybe | Keep if tests reference recent code; compact if switching focus |
 | Debugging → Next feature | Yes | Debug traces pollute context for unrelated work |
 | Mid-implementation | No | Losing variable names, file paths, and partial state is costly |
@@ -82,14 +82,14 @@ Understanding what persists helps you compact with confidence:
 | Persists | Lost |
 |----------|------|
 | CLAUDE.md instructions | Intermediate reasoning and analysis |
-| TodoWrite task list | File contents you previously read |
+| Task list (TaskCreate/TodoWrite) | File contents you previously read |
 | Memory files (`~/.claude/memory/`) | Multi-step conversation context |
 | Git state (commits, branches) | Tool call history and counts |
 | Files on disk | Nuanced user preferences stated verbally |
 
 ## Best Practices
 
-1. **Compact after planning** — Once plan is finalized in TodoWrite, compact to start fresh
+1. **Compact after planning** — Once plan is finalized in the task list (TaskCreate/TodoWrite), compact to start fresh
 2. **Compact after debugging** — Clear error-resolution context before continuing
 3. **Don't compact mid-implementation** — Preserve context for related changes
 4. **Read the suggestion** — The hook tells you *when*, you decide *if*

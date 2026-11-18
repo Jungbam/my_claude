@@ -9,8 +9,9 @@ PR 생성과 머지를 관리하는 Ship 워크플로우입니다.
 
 ## Steps
 
-> 시작 즉시 아래 목록을 **원문 그대로** TodoWrite에 복사한다. 건너뛰는 step은 지우지 않고 `— skip: <사유>`로 남긴다 (`references/step-status.md` §Steps 체크리스트 규약).
+> 첫 동작으로 아래 목록을 **원문 그대로** 작업 목록 도구에 등록한다 — `TaskCreate` 항목당 1회(스키마가 없으면 먼저 `ToolSearch` `select:TaskCreate,TaskUpdate`로 로드) 또는 `TodoWrite`(있는 버전). 진행은 `TaskUpdate`/`TodoWrite`로 갱신하고, 건너뛴 step은 지우지 않고 subject/항목 끝에 `— skip: <사유>`를 붙인다 (SSOT: `references/step-status.md` §Steps 체크리스트 규약).
 
+0. Steps 등록 — 이 목록 전체를 작업 목록 도구(TaskCreate/TodoWrite)에 원문 그대로 등록 (첫 동작, skip 불가)
 1. Pre-flight — `_shared_common.md` Read + ship 스킬 로딩
 2. Verdict 확인 (1차) — `verdict.sh check` → `verdict_exit` 확인
 3. Step 1 출시 준비 검토 — release-quality-gate spawn (verdict exit 1·4면 이번 HEAD 판정·기록 포함)
@@ -96,6 +97,6 @@ Task tool, subagent_type: **"bams-plugin:issue-ops"** — 메인이 직접 호�
 
 > Stop hook이 아래를 기계적으로 확인한다(마커 정의: `references/step-status.md` §완료 조건 마커). 하나라도 없으면 종료하지 않는다.
 
-- TodoWrite에 `## Steps` 9개 항목이 원문 그대로 있다. 실행하지 않은 step은 `skip:`을 포함한다.
+- 작업 목록 도구(TaskCreate/TaskUpdate/TodoWrite)에 `## Steps` 항목(0~9)이 원문 그대로 있다. 실행하지 않은 step은 `skip:`을 포함한다.
 - 이번 세션에 Verdict 확인 블록이 실행됐고, 최종 메시지에 마지막 결과가 `verdict_exit=<0|1|3|4|unavailable>` 형식 1줄로 있다.
 - `verdict_exit≠0`인데 PR을 만들었다면 CONDITIONAL GO 조건(사용자 확인·PR 본문 "## Quality Gate 조건")이 기록돼 있다.

@@ -9,7 +9,7 @@
 - 저장: `${BAMS_METRICS_DIR:-~/.claude/bams-metrics}/events.jsonl` (프로젝트 공통, 1줄 1이벤트). 세션 상태는 같은 디렉터리의 `state/`(2일 지난 파일은 자동 삭제).
 - 개인정보: 프롬프트 본문은 저장하지 않는다. 커맨드 인자(`args`)만 앞 80자 저장한다.
 - hook은 출력·차단을 하지 않는다. 자기 오류는 모두 무시(fail-open)한다.
-- 세션 상태 소비자: `hooks/pipeline-completion-guard.sh`(Stop)가 `state/<session_id>.open`(`ts␟command␟prompt_id␟epoch_s`)으로 열린 `/bams:{review,deep-review,ship,deploy}`를 찾아 완료 조건(TodoWrite·verdict 파일/skip·`verdict.sh check`+`verdict_exit=` 줄)을 확인하고, 없으면 파이프라인당 1회 block한다(`state/<session_id>.cguard`에 판정 기록). `BAMS_COMPLETION_GUARD=block(기본)|warn|off`. 상태 형식을 바꾸면 이 hook과 `tests/hooks/run-hook-tests.sh`의 end-to-end 케이스도 함께 고친다. `BAMS_METRICS=off`면 상태가 없어 guard도 동작하지 않는다.
+- 세션 상태 소비자: `hooks/pipeline-completion-guard.sh`(Stop)가 `state/<session_id>.open`(`ts␟command␟prompt_id␟epoch_s`)으로 열린 `/bams:{review,deep-review,ship,deploy}`를 찾아 완료 조건(작업 목록 도구 TaskCreate/TaskUpdate/TodoWrite·verdict 파일/skip·`verdict.sh check`+`verdict_exit=` 줄)을 확인하고, 없으면 파이프라인당 1회 block한다(`state/<session_id>.cguard`에 판정 기록). `BAMS_COMPLETION_GUARD=block(기본)|warn|off`. 완료 근거는 `state/<session_id>.track`(1차)과 transcript(읽을 수 있을 때만 보조)를 합산한다. `.track`은 PostToolUse `TodoWrite|TaskCreate|TaskUpdate|Bash`에서 열린 파이프라인이 있을 때만 1줄씩 append된다(`epoch_s␟kind␟data` — `todo`(메인의 작업 목록 호출), `skip`(그 입력 중 `skip:` 줄), `vcheck`(메인 Bash의 `verdict.sh check`/`"$_VD" check`), `vexit`(그 출력의 마지막 `verdict_exit=` 값), `vwrite`(서브에이전트 포함 `verdict.sh write` 출력의 verdict 파일 경로)). transcript 파일이 없는 실행(`claude -p --no-session-persistence`)도 이 기록으로 판정하며, 두 근거가 모두 비면 미수행으로 보고 block한다. PostToolUse metrics는 **동기**여야 한다(async면 Stop과 경합 — 테스트가 고정). 상태 형식을 바꾸면 이 hook과 `tests/hooks/run-hook-tests.sh`의 end-to-end 케이스도 함께 고친다. `BAMS_METRICS=off`면 상태가 없어 guard도 동작하지 않는다.
 
 ## 2. 이벤트
 

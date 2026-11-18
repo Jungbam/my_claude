@@ -3,9 +3,9 @@
 # pipeline-completion-guard.sh — Stop: 이 세션에서 열린 /bams:{review,deep-review,ship,deploy} 파이프라인이
 #   완료 조건 없이 끝나려 하면 decision:block 으로 파이프라인당 1회 되돌린다.
 #   완료 조건(파이프라인 시작 이후, 커맨드 문서 `## Steps` 규약 — references/step-status.md):
-#     (1) 공통: TodoWrite(또는 TaskCreate/TaskUpdate) 호출 — `## Steps` 체크리스트 복사
+#     (1) 공통: 작업 목록 도구(TaskCreate/TaskUpdate 또는 TodoWrite) 호출 — `## Steps` 체크리스트 복사
 #     (2) review: <cwd 또는 상위 git 루트>/.crew/artifacts/review/verdict-*.json 중 mtime ≥ 시작 시각인 파일,
-#         또는 verdict 단계의 명시적 `skip: <사유>` 줄(TodoWrite 항목·시작 이후 assistant 텍스트·최종 메시지)
+#         또는 verdict 단계의 명시적 `skip: <사유>` 줄(작업 목록 항목·시작 이후 assistant 텍스트·최종 메시지)
 #     (2) deep-review: verdict 를 쓰지 않으므로 Step 12 의 `— skip: deep-review 게이트 미포함 …` 줄(또는 verdict 파일)
 #     (2) ship·deploy(skip 불가): `verdict.sh check`(또는 `"$_VD" check`) Bash 호출 + 최종 메시지의
 #         `verdict_exit=<0|1|3|4|unavailable>` 줄
@@ -18,8 +18,13 @@
 # 1회 제한: stop_hook_active=true 면 통과. 같은 파이프라인(epoch_s)에 대해 block/warn/ok 판정을
 #   <state>/<session_id>.cguard 에 남겨 이후 Stop 은 즉시 통과(다음 턴 반복 차단 없음).
 # 성능: 대상 파이프라인이 없으면 프로세스 0개(정규식 + 파일 존재 확인)로 종료. 모든 오류는 fail-open(exit 0).
+# 근거(1차 = 세션 상태): metrics.sh 가 PostToolUse(동기)로 <state>/<session_id>.track 에 남긴 기록
+#   (epoch_s␟todo|skip|vcheck|vexit|vwrite␟data — 이번 파이프라인 epoch 줄만). 보조 = transcript(읽을 수 있을 때만,
+#   비공개 형식이므로 추가 근거로만 쓴다). `claude -p --no-session-persistence` 처럼 transcript 파일이 없어도
+#   상태 기록만으로 판정한다 — 두 근거 모두 비어 있으면 "미수행"으로 보고 차단한다(통과 아님).
+#   최종 메시지 = 입력 last_assistant_message(비면 transcript 마지막 텍스트) — skip:·verdict_exit= 줄을 여기서 본다.
 # 입력(https://code.claude.com/docs/en/hooks#stop-input): session_id, transcript_path, cwd, stop_hook_active,
-#   last_assistant_message. transcript JSONL 은 비공개 내부 형식 — 파싱 실패 시 통과.
+#   last_assistant_message. 내부 오류(jq 없음·jq 실패·상태 파싱 실패)만 fail-open.
 set +e
 case "${BAMS_COMPLETION_GUARD:-block}" in
   off|OFF|0|false|no) exit 0 ;;
@@ -53,35 +58,44 @@ command -v jq >/dev/null 2>&1 || exit 0
 
 mark() { printf '%s %s\n' "$OEP" "$1" > "$MARK" 2>/dev/null; return 0; }
 
-# ── 입력: transcript_path·cwd (jq 1회), 최종 메시지는 아래 transcript jq 에 그대로 넘긴다 ──
+# ── 입력: transcript_path·cwd (jq 1회) ──
 META=$(printf '%s' "$INPUT" | jq -r '[(.transcript_path // "" | tostring), (.cwd // "" | tostring)] | map(gsub("[\t\n]"; " ")) | @tsv' 2>/dev/null) || exit 0
 TP="${META%%$'\t'*}"; CWD="${META#*$'\t'}"
 case "$TP" in '~/'*) TP="$HOME/${TP#\~/}" ;; esac
-[ -n "$TP" ] && [ -r "$TP" ] || exit 0   # transcript 없으면 판정 불가 → 통과
+[ -n "$TP" ] && [ -r "$TP" ] || TP=""   # transcript 없음(--no-session-persistence 등) → 상태 기록만으로 판정
 [ -n "$CWD" ] || CWD="$PWD"
+TRKS=""; [ -r "$ST/$SID.track" ] && TRKS=$(< "$ST/$SID.track")
 
-# ── transcript: 시작 이후 todo 호출 / verdict check Bash / verdict skip 줄 / 최종 메시지 verdict_exit 줄 ──
-#   jq 1회, grep 으로 후보 줄만. 최종 메시지 = 입력 last_assistant_message(비면 시작 이후 마지막 후보 텍스트).
-R=$(grep -E 'TodoWrite|TaskCreate|TaskUpdate|verdict|_VD|[Ss][Kk][Ii][Pp]' "$TP" 2>/dev/null | jq -rnR \
-  --arg ots "${OTS:0:19}" --argjson in "$INPUT" '
+# ── 근거 합산(jq 1회): 상태 기록(이번 epoch) + transcript 후보 줄(있으면, grep 으로 줄임) + 최종 메시지 ──
+R=$({ [ -n "$TP" ] && grep -E 'TodoWrite|TaskCreate|TaskUpdate|verdict|_VD|[Ss][Kk][Ii][Pp]' "$TP" 2>/dev/null; } | jq -rnR \
+  --arg ots "${OTS:0:19}" --arg ep "$OEP" --arg st "$TRKS" --argjson in "$INPUT" '
   def after: ((.timestamp // "") | tostring) as $t | ($t == "" or $ots == "" or $t[0:19] >= $ots);
   def vskip: test("(^|[^A-Za-z])skip\\s*:\\s*(?!<)\\S\\S"; "i") and test("verdict|판정|release-quality-gate|gate|게이트"; "i");
   def lines_vskip: [splits("\\r?\\n")] | any(vskip);
-  [inputs | fromjson? | objects | select(.type == "assistant") | select(after) | .message.content[]? | select(type == "object")] as $c
+  def w: if . == "" then "-" else gsub("\\s"; "_") end;
+  [$st | splits("\n") | split("\u001f") | select(length >= 2 and .[0] == $ep) | {k: .[1], d: (.[2:] | join(" "))}] as $r
+  | [inputs | fromjson? | objects | select(.type == "assistant") | select(after) | .message.content[]? | select(type == "object")] as $c
   | [$c[] | select(.type == "tool_use")] as $u
   | [$u[] | select(.name == "TodoWrite" or .name == "TaskCreate" or .name == "TaskUpdate")] as $todo
   | [$c[] | select(.type == "text") | (.text // "" | tostring)] as $txt
   | (($in.last_assistant_message // "") | tostring) as $lm
   | (if $lm != "" then $lm else ($txt | last // "") end) as $final
-  | ([$u[] | select(.name == "Bash") | (.input.command // "" | tostring)
-       | select(test("(verdict\\.sh|\\$\\{?_VD\\}?)[\"'"'"']?\\s+check(\\s|$|[;&|])|bams_verdict_check"))] | length > 0) as $vc
-  | (([$todo[] | .input | [.. | strings] | .[]] + $txt + [$lm]) | any(lines_vskip)) as $vs
+  | ([$r[] | select(.k == "todo")] | length) as $stodo
+  | (($r | any(.k == "vcheck"))
+     or ([$u[] | select(.name == "Bash") | (.input.command // "" | tostring)
+          | select(test("(verdict\\.sh|\\$\\{?_?VD\\}?)[\"'"'"']?\\s+check(\\s|$|[;&|])|bams_verdict_check"))] | length > 0)) as $vc
+  | (([$r[] | select(.k == "skip") | .d] + [$todo[] | .input | [.. | strings] | .[]] + $txt + [$lm]) | any(lines_vskip)) as $vs
   | ($final | test("verdict_exit=(0|1|3|4|unavailable)([^0-9A-Za-z_]|$)")) as $ve
-  | "\(($todo | length) > 0) \($vc) \($vs) \($ve)"' 2>/dev/null) || exit 0
+  | ([$r[] | select(.k == "vexit") | .d] | last // "") as $lastve
+  | ([$r[] | select(.k == "vwrite") | .d | select(. != "")] | last // "") as $vwp
+  | (if ($r | length) > 0 and ($c | length) > 0 then "state+transcript" elif ($r | length) > 0 then "state"
+     elif ($c | length) > 0 then "transcript" else "none" end) as $src
+  | "\(($stodo + ($todo | length)) > 0) \($vc) \($vs) \($ve) \($src) \($lastve | w) \($vwp | w)"' 2>/dev/null) || exit 0
 case "$R" in "true "*|"false "*) ;; *) exit 0 ;; esac
-read -r TODO VCHECK VSKIP VEXIT <<EOF
+read -r TODO VCHECK VSKIP VEXIT SRC LASTVE VWP <<EOF
 $R
 EOF
+[ "$LASTVE" = - ] && LASTVE=""; [ "$VWP" = - ] && VWP=""
 
 # review·deep-review: cwd → 상위(.git 또는 $HOME 에서 멈춤) 의 .crew/artifacts/review 최신 verdict 파일 mtime ≥ 시작
 mtime_of() {
@@ -109,22 +123,29 @@ verdict_file_ok() {
   return 1
 }
 
+# 기록된 `verdict.sh write` 출력 경로(서브에이전트가 다른 --dir 로 쓴 경우 포함) — 파일이 있고 시작 이후일 때만
+recorded_verdict_ok() {
+  local m
+  [ -n "$VWP" ] && [ -f "$VWP" ] || return 1
+  m=$(mtime_of "$VWP") && [ "$m" -ge "$OEP" ]
+}
+
 MISS=""; N=0
 VD="$(cd "${0%/*}/lib" 2>/dev/null && pwd)/verdict.sh"
 if [ "$TODO" != true ]; then
   N=$((N + 1))
-  MISS="$MISS ($N) TodoWrite 미사용 — 커맨드 문서의 '## Steps' 체크리스트를 TodoWrite 로 그대로 복사하고 단계마다 상태를 갱신하라(건너뛴 단계는 항목에 'skip: <사유>')."
+  MISS="$MISS ($N) 작업 목록 도구(TaskCreate/TaskUpdate, 없으면 ToolSearch \`select:TaskCreate,TaskUpdate\`로 로드 / TodoWrite) 미사용 — 커맨드 문서의 '## Steps' 체크리스트를 그대로 등록하고 단계마다 상태를 갱신하라(건너뛴 단계는 항목에 'skip: <사유>')."
 fi
 case "$OCMD" in
   review)
-    if [ "$VSKIP" != true ] && ! verdict_file_ok; then
+    if [ "$VSKIP" != true ] && ! verdict_file_ok && ! recorded_verdict_ok; then
       N=$((N + 1))
-      MISS="$MISS ($N) verdict 파일 없음 — 시작 이후 ${VROOT:-$CWD}/.crew/artifacts/review/verdict-*.json 이 생기지 않았다. Phase 4 판정자(Agent subagent_type=bams-plugin:release-quality-gate)가 bash '$VD' write --verdict PASS|FAIL --judge-agent release-quality-gate --author-agents <구현 에이전트 목록|main> --evidence '<exit>:<실행한 명령>' 으로 기록하게 한 뒤 Step 13(verdict.sh check)을 실행하라. 판정·기록을 할 수 없으면 TodoWrite Step 13 항목(또는 최종 메시지)에 '— skip: <실제 사유>'를 남겨라."
+      MISS="$MISS ($N) verdict 파일 없음 — 시작 이후 ${VROOT:-$CWD}/.crew/artifacts/review/verdict-*.json 이 생기지 않았다. Phase 4 판정자(Agent subagent_type=bams-plugin:release-quality-gate)가 bash '$VD' write --verdict PASS|FAIL --judge-agent release-quality-gate --author-agents <구현 에이전트 목록|main> --evidence '<exit>:<실행한 명령>' 으로 기록하게 한 뒤 Step 13(verdict.sh check)을 실행하라. 판정·기록을 할 수 없으면 작업 목록 Step 13 항목(또는 최종 메시지)에 '— skip: <실제 사유>'를 남겨라."
     fi ;;
   deep-review)
-    if [ "$VSKIP" != true ] && ! verdict_file_ok; then
+    if [ "$VSKIP" != true ] && ! verdict_file_ok && ! recorded_verdict_ok; then
       N=$((N + 1))
-      MISS="$MISS ($N) Step 12(verdict) 표기 없음 — deep-review 는 게이트를 포함하지 않으므로 TodoWrite Step 12 항목을 '— skip: deep-review 게이트 미포함 (판정은 /bams:review·/bams:ship)'으로 남겨라."
+      MISS="$MISS ($N) Step 12(verdict) 표기 없음 — deep-review 는 게이트를 포함하지 않으므로 작업 목록 Step 12 항목을 '— skip: deep-review 게이트 미포함 (판정은 /bams:review·/bams:ship)'으로 남겨라."
     fi ;;
   ship|deploy)
     if [ "$VCHECK" != true ]; then
@@ -134,11 +155,12 @@ case "$OCMD" in
     if [ "$VEXIT" != true ]; then
       N=$((N + 1))
       MISS="$MISS ($N) 최종 메시지에 verdict 결과 줄 없음 — 마지막 확인 결과를 'verdict_exit=<0|1|3|4|unavailable>' 형식 1줄로 최종 메시지에 적어라(skip 불가)."
+      [ -n "$LASTVE" ] && MISS="$MISS (마지막 check 출력: verdict_exit=$LASTVE)"
     fi ;;
 esac
 
 if [ "$N" = 0 ]; then mark ok; exit 0; fi
-REASON="[bams completion-guard] /bams:$OCMD 파이프라인(시작 $OTS)이 완료 조건을 채우지 않고 끝나려 한다. 누락 ${N}건:$MISS 누락 항목을 처리한 뒤 마무리하라. 이 차단은 파이프라인당 1회다(BAMS_COMPLETION_GUARD=warn|off 로 조정)."
+REASON="[bams completion-guard] /bams:$OCMD 파이프라인(시작 $OTS)이 완료 조건을 채우지 않고 끝나려 한다(근거: $SRC). 누락 ${N}건:$MISS 누락 항목을 처리한 뒤 마무리하라. 이 차단은 파이프라인당 1회다(BAMS_COMPLETION_GUARD=warn|off 로 조정)."
 if [ "$MODE" = warn ]; then
   mark warned
   jq -cn --arg r "$REASON" '{systemMessage: $r}'
