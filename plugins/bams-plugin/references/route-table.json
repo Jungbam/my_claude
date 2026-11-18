@@ -277,8 +277,22 @@
         ],
         "med": ["\\bqa(?![a-z])|\\be2e(?![a-z])|dogfood"]
       },
-      "negative": [],
-      "note": "브라우저 QA"
+      "negative": ["리니어|\\blinear(?![a-z])"],
+      "note": "브라우저 QA (Linear 등록 요청은 issues)"
+    },
+    {
+      "id": "issues", "target": "/bams-plugin:bams:issues", "kind": "skill", "needs_crew": true,
+      "patterns": {
+        "high": [
+          "(리니어|\\blinear(?![a-z])).{0,25}(등록|올려|만들어|생성|닫아|종료|완료 ?처리|done ?처리|동기화|연동|설정|셋업|매핑)",
+          "(이슈|티켓).{0,10}(리니어|\\blinear(?![a-z]))(에|로)",
+          "(리니어|\\blinear(?![a-z])).{0,20}(상태|현황|목록|status).{0,6}(보여|알려|확인|조회)",
+          "\\b(file|create|close|sync)( the| these| those| all)? (issues?|tickets?|findings?) (in|to|on|with) linear(?![a-z])"
+        ],
+        "med": ["리니어|\\blinear(?![a-z])"]
+      },
+      "negative": ["고쳐|수정해|해결해|\\bfix(?![a-z])"],
+      "note": "Linear 이슈 수동 관리 — 등록·종료·매핑 (식별자 붙은 버그 수정은 hotfix/dev)"
     },
     {
       "id": "browse", "target": "/bams-plugin:bams:browse", "kind": "skill", "needs_crew": false,

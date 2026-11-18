@@ -69,4 +69,36 @@ if printf '%s' "$cfg" | grep -qE '수정하지|금지|의존성'; then echo "con
 # bams 프롬프트는 전부 '/bams-plugin:bams:<cmd> ' 로 시작(--plugin-dir 로드 시 실측 등록명), single 은 슬래시 커맨드 없음
 nb=$(grep -c "^(cd .* claude '-p' '/bams-plugin:bams:" "$TMP/dry-bams.txt"); nall=$(grep -c '^---' "$TMP/dry-bams.txt")
 if [ "$nb" = "$nall" ] && ! grep -q "'/bams" "$TMP/dry-single.txt" && ! grep -q "claude '-p' '/bams:" "$TMP/dry-bams.txt"; then echo "prompt diff: OK ($nb/$nall bams prompts start with /bams-plugin:bams:)"; else echo "prompt diff: FAIL ($nb/$nall)"; fail=1; fi
+# 과정 지표(lib/process_metrics.sh): 합성 stream-json — 메인 TodoWrite 2회(첫 회 4항목), 서브에이전트 TodoWrite(무시),
+#   사유 있는 skip 2줄(마지막 TodoWrite 1 + 최종 메시지 1)·사유 없는 skip 1줄·Steps 자리표시자 1줄(미집계),
+#   release-quality-gate spawn 1회 + 다른 spawn 1회, hook 이벤트 block 1회, 작업 디렉터리 verdict 파일
+PM="$TMP/pm"; mkdir -p "$PM/w/.crew/artifacts/review" "$PM/w0"; echo '{}' > "$PM/w/.crew/artifacts/review/verdict-abc.json"
+{
+  jq -cn '{type:"system",subtype:"init",slash_commands:[]}'
+  jq -cn '{type:"assistant",parent_tool_use_id:null,message:{content:[{type:"tool_use",id:"u1",name:"TodoWrite",input:{todos:[{content:"1. 수집",status:"in_progress"},{content:"2. 리뷰",status:"pending"},{content:"3. 판정",status:"pending"},{content:"13. verdict 파일 확인 — 못 남기면 `— skip: <사유>`",status:"pending"}]}}]}}'
+  jq -cn '{type:"assistant",parent_tool_use_id:"a1",message:{content:[{type:"tool_use",id:"s1",name:"TodoWrite",input:{todos:[{content:"x — skip: sub",status:"pending"}]}}]}}'
+  jq -cn '{type:"assistant",message:{content:[{type:"tool_use",id:"a1",name:"Agent",input:{subagent_type:"bams-plugin:release-quality-gate",prompt:"판정"}},{type:"tool_use",id:"a2",name:"Agent",input:{subagent_type:"bams-plugin:qa-strategy",prompt:"리뷰"}}]}}'
+  jq -cn '{type:"assistant",message:{content:[{type:"tool_use",id:"u2",name:"TodoWrite",input:{todos:[{content:"1. 수집",status:"completed"},{content:"2. 리뷰 — skip: lightweight (40 lines, 2 files)",status:"completed"},{content:"3. 판정 — skip:",status:"completed"},{content:"13. verdict 파일 확인 — 못 남기면 `— skip: <사유>`",status:"completed"}]}}]}}'
+  jq -cn '{type:"system",subtype:"hook_response",hook_id:"h1",hook_event:"Stop",output:"{\"decision\":\"block\",\"reason\":\"[bams completion-guard] 누락\"}"}'
+  jq -cn '{type:"result",subtype:"success",result:"리뷰 완료\n- 회고 — skip: 경량 리뷰라 생략\n- 2. 리뷰 — skip: lightweight (40 lines, 2 files)"}'
+} > "$PM/s.jsonl"
+pm=$("$HERE/lib/process_metrics.sh" "$PM/s.jsonl" "$PM/w")
+want='{"todo_used":true,"steps_copied":4,"skips_with_reason":2,"skips_without_reason":1,"verdict_written":true,"verdict_judge_spawned":true,"agent_spawns":2,"completion_guard_blocks":1,"process_score":0.75}'
+if [ "$(jq -cS . <<<"$pm")" = "$(jq -cS . <<<"$want")" ]; then echo "process metrics: OK"; else echo "process metrics: FAIL got=$pm"; fail=1; fi
+pm0=$("$HERE/lib/process_metrics.sh" "$PM/s.jsonl")
+jq -e '.verdict_written == null and .process_score == 0.6667' >/dev/null <<<"$pm0" && echo "process metrics (no work dir → verdict_written null, 3항목 평균): OK" || { echo "process metrics no-work: FAIL $pm0"; fail=1; }
+jq -cn '{type:"result",subtype:"success",result:"끝"}' > "$PM/e.jsonl"
+jq -e '.todo_used == false and .steps_copied == 0 and .verdict_written == false and .process_score == 0' >/dev/null <<<"$("$HERE/lib/process_metrics.sh" "$PM/e.jsonl" "$PM/w0")" \
+  && echo "process metrics (아무것도 안 함 → 0, 체크리스트 없으면 skip 항목도 0): OK" || { echo "process metrics empty: FAIL"; fail=1; }
+jq -e '.process_score == null' >/dev/null <<<"$("$HERE/lib/process_metrics.sh" "$PM/none.jsonl")" && echo "process metrics (raw 없음 → null): OK" || { echo "process metrics missing raw: FAIL"; fail=1; }
+# compare.sh: 무효 행(cmd_resolved=false·error) 제외, regrade 행(error 없음) 포함, 음수 duration 버림, process 는 score 와 별도
+printf '%s\n' '{"task":"t1","config":"bams","trial":1,"score":1,"duration_s":10,"cost_usd":0.5,"cmd_resolved":true,"error":"","process_score":0.5,"todo_used":true}' \
+  '{"task":"t1","config":"bams","trial":2,"score":0,"duration_s":-1793858907,"cost_usd":0,"cmd_resolved":true,"error":"no_result_event; interrupted"}' \
+  '{"task":"t1","config":"bams","trial":3,"score":0,"duration_s":20,"cost_usd":0.3,"cmd_resolved":false,"error":""}' \
+  '{"task":"t1","config":"bams","trial":4,"score":0.5,"orig_score":0,"detail":"regrade"}' > "$PM/a.jsonl"
+printf '%s\n' '{"task":"t1","config":"single","trial":1,"score":1,"duration_s":-5,"cost_usd":0.2,"cmd_resolved":null,"error":""}' > "$PM/b.jsonl"
+co=$("$HERE/compare.sh" "$PM/a.jsonl" "$PM/b.jsonl" 2>&1)
+if printf '%s\n' "$co" | grep -Eq '^t1 +2/1 +2/0 +0\.75 +1 +\+0\.25 +10 +- ' && printf '%s\n' "$co" | grep -Eq '^t1 +2/1 +0\.5 +- +- +1/-'; then
+  echo "compare.sh (무효 행 제외·regrade 포함·음수 dur 무시·process 표): OK"
+else echo "compare.sh: FAIL"; printf '%s\n' "$co"; fail=1; fi
 [ "$fail" = 0 ] && echo "ALL OK" || { echo "VALIDATION FAILED"; exit 1; }

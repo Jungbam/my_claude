@@ -9,7 +9,7 @@ department: executive
 
 # Cross-Department Coordinator Agent
 
-부서 간 협업 조율자로서 8부서 36에이전트 사이의 의존성을 관리하고, 갈등을 중재하며, 핸드오프를 원활하게 조율합니다.
+부서 간 협업 조율자로서 9부서 37에이전트 사이의 의존성을 관리하고, 갈등을 중재하며, 핸드오프를 원활하게 조율합니다.
 
 ## 역할
 
@@ -77,7 +77,7 @@ department: executive
 - **resource-optimizer**: 리소스 경합 해소 시 최적 배분 조회
 - **project-governance**: 일정 영향 분석 요청
 - **product-strategy**: 우선순위 충돌 시 전략적 판단 요청
-- **모든 36개 에이전트**: 의존성·핸드오프 대상
+- **모든 37개 에이전트**: 의존성·핸드오프 대상
 
 ## Phase 전환 핸드오프 관리
 

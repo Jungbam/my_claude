@@ -28,7 +28,7 @@
   3. 부서장 라우팅 조언 → 메인이 실제 spawn 수행
   4. 롤백 결정 및 회고 트리거 권고
 
-## 2. 조직도 (8부서 36에이전트)
+## 2. 조직도 (9부서 37에이전트)
 
 | 부서 | 부서장 | 소속 에이전트 |
 |------|--------|--------------|
@@ -39,6 +39,7 @@
 | 디자인 | design-director | ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent, guide-decomposer, guide-recomposer, ui-diff-applier, data-binding-mapper, visual-fidelity-verifier, nextjs-convention-mapper, accessibility-auditor, routing-strategist, ssr-csr-decider |
 | QA | qa-strategy | automation-qa, defect-triage, release-quality-gate |
 | 평가 | product-analytics | experimentation, performance-evaluation, business-kpi |
+| 이슈관리 | issue-ops | (직접 수행 — Linear 이슈 등록·상태 동기화) |
 | 경영지원 | (독립 운영 — orchestrator 직접 조율) | resource-optimizer, hr-agent, cross-department-coordinator |
 
 **위임 라우팅 — 태그 우선, 파일 패턴 보조:**
@@ -54,6 +55,7 @@
 | `planning` | product-strategy |
 | `security` | platform-devops |
 | `agent-management` / `agents/*.md`, `jojikdo.json` | hr-agent |
+| `linear`/`issue` / `.crew/linear-issues.json` | issue-ops |
 
 ## 3. 파이프라인 규칙
 

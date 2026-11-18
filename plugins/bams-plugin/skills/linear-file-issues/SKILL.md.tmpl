@@ -1,0 +1,86 @@
+---
+name: linear-file-issues
+version: 1.0.0
+disable-model-invocation: true
+description: |
+  bams 커맨드 내부 엔진 — 직접 쓰지 말고 `/bams:issues file` 사용(review·deep-review·qa가 자동 호출).
+  QA·리뷰 리포트의 확인된 지적을 fingerprint로 중복 없이 이 레포의 Linear 프로젝트에 이슈로 등록하고 `.crew/linear-issues.json`에 기록한다.
+allowed-tools:
+  - Bash
+  - Read
+  - Grep
+  - mcp__plugin_engineering_linear__list_issues
+  - mcp__plugin_engineering_linear__get_issue
+  - mcp__plugin_engineering_linear__list_issue_statuses
+  - mcp__plugin_engineering_linear__list_issue_labels
+  - mcp__plugin_engineering_linear__save_issue
+  - mcp__plugin_engineering_linear__save_comment
+---
+
+# linear-file-issues — 지적 → Linear 이슈
+
+규약 SSOT: `references/linear-protocol.md` §4·§5·§9. 실행 주체: `issue-ops`.
+
+## 1. 입력
+
+```
+input: <리포트 경로 …>      # 생략 시 .crew/artifacts/review/ 최신 review-*.md 1개
+pipeline: <slug>  commit: <sha>
+flags: [--all] [--minor-summary] [--confirmed] [--dry-run]
+```
+
+## 2. 사전 확인 (하나라도 걸리면 쓰기 없이 반환)
+
+1. `_lin enabled`가 `false` → `status: DONE`, `linear: disabled`.
+2. `_lin team`이 비었음 → `linear-setup` §3 후보를 붙여 `status: NEEDS_CONTEXT`. 비대화 실행이면 이번 입력을 pending `file` 작업으로 쌓는다.
+3. Linear MCP 도구가 없음(§2) → 이번 입력을 pending에 쌓고 `status: DONE_WITH_CONCERNS`, `linear: pending N (MCP 없음)`.
+4. pending이 있으면 먼저 처리한다.
+
+{{LINEAR_HELPERS}}
+
+## 3. 지적 추출
+
+리포트를 Read해 등록 대상만 고른다(§5 대상 표).
+
+| 리포트 | 대상 위치 |
+|--------|-----------|
+| review·deep-review | "Critical/Major 이슈"의 검증 `CONFIRMED` 항목, "미검증 지적"의 `unverified-risk` 항목, (`--all`·`--minor-summary`) "Minor 이슈" |
+| debug | 근본 원인 1건(심각도는 리포트 값) |
+| QA `qa-report-*.md` | 이슈 표의 critical·high(+`--all`이면 medium·low). 같은 폴더 `baseline.json`의 `issues[]`가 있으면 그 값을 우선 |
+
+지적마다 다음 필드를 채운다. 비어 있으면 리포트 원문에서 찾고, 그래도 없으면 `(none)`.
+
+`severity · category · location(path:line 또는 url:/경로) · title · problem · evidence · evidence_grade · repro_cmd · impact · suggested_fix`
+
+`[수정됨]` 태그가 붙은 지적은 등록하지 않는다(이미 같은 파이프라인에서 고쳐짐 — 종료는 `linear-close-issues` 몫).
+
+## 4. 계획 → 대량 확인
+
+모든 지적의 fp를 계산하고 장부·Linear를 조회해 결과(`created`·`updated`·`reopened`·`skipped`)를 먼저 정한다.
+
+- Linear 조회: `list_issues(team: <team>, query: <fp>, includeArchived: true, fields: [id, title, status, statusType, priority, url, description])` → 본문에 `bams-fingerprint: <fp>` 줄이 있는 이슈만 같은 이슈로 본다.
+- 장부에 identifier가 있는데 Linear에서 찾지 못하면(삭제·이동) `get_issue(<identifier>)`로 한 번 더 보고, 그래도 없으면 장부 항목을 지우고 새로 만든다.
+- `created + reopened > 10`이고 `--confirmed`가 없으면 쓰기 없이 `status: NEEDS_CONTEXT`와 계획 표를 반환한다. `--dry-run`도 계획 표만 반환한다.
+
+## 5. 쓰기
+
+1. `list_issue_statuses(team)` → Todo(unstarted)·Backlog(backlog)·Done(completed) 상태를 type으로 고른다. `list_issue_labels(team)` → 실제 있는 라벨만 쓴다.
+2. **created**: `save_issue(team, project, title, description, priority, state, addLabels)` — 값은 §5 생성 값 표와 본문 형식 그대로. 본문의 증거는 비밀값 가리기를 먼저 적용한다.
+3. **updated**: 이 파이프라인이 처음 다시 찾은 경우에만 `save_comment(issueId, "재발견: {pipeline} @ {sha 앞 8자리} — {근거 1줄}")`. 심각도가 올랐으면 `save_issue(id, priority)`. 장부에 `last_seen_pipeline`을 남겨 같은 파이프라인에서 두 번 코멘트하지 않는다.
+4. **reopened**: `save_issue(id, state: <Todo>)` + `save_comment(issueId, "회귀 재발: {pipeline} @ {sha} — {근거}")`.
+5. 항목마다 결과를 장부에 쓴다.
+
+```bash
+ledger_put "$FP" "$(jq -nc --arg id "$ID" --arg url "$URL" --arg t "$TITLE" --arg sev "$SEV" --arg st "$STATE" \
+  --arg sty "$STATE_TYPE" --arg p "$PIPELINE" --arg src "$SRC" --arg loc "$LOC" --arg rc "$REPRO" --arg now "$(_now)" --arg new "${NEW:-0}" \
+  '{identifier:$id,url:$url,title:$t,severity:$sev,state:$st,state_type:$sty,pipeline:$p,last_seen_pipeline:$p,
+    source:$src,location:$loc,repro_cmd:$rc,updated_at:$now} + (if $new == "1" then {created_at:$now} else {} end)')"
+```
+
+(새로 만든 항목은 이 블록 앞에 `NEW=1`을 둔다.)
+
+6. 쓰기 실패: 그 항목만 pending에 쌓고(`op: file`, 지적 필드 전부) 다음 항목으로 간다. 같은 쓰기를 두 번 넘게 재시도하지 않는다.
+
+## 6. 반환
+
+`references/linear-protocol.md` §11 형식. 항목마다 `<identifier> <결과> [<심각도>] <제목> (fp <fp>)` 한 줄. 호출한 커맨드는 이 목록을 결과 제시에 그대로 붙인다.

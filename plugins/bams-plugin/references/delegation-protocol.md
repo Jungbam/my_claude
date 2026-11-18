@@ -27,6 +27,7 @@
 <!-- SYNC-SPECIALISTS:END -->
 - QA부장: **qa-strategy** — specialist: automation-qa, defect-triage, release-quality-gate
 - 평가부장: **product-analytics** — specialist: experimentation, performance-evaluation, business-kpi
+- 이슈관리부장: **issue-ops** — specialist 없음(Linear 이슈 등록·상태 동기화, `references/linear-protocol.md`)
 - 경영지원(독립): **resource-optimizer**, **hr-agent**, **cross-department-coordinator**, **git-ops-agent**(git skill 저비용 실행)
 - 조언자(Task 비호출): **pipeline-orchestrator**
 
@@ -140,6 +141,7 @@ dead-code 제거 위임 시 `task_description` 또는 `constraints`에 포함한
 | `design` / `ui` / `ux` | design-director | ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent |
 | `security` | platform-devops | platform-devops |
 | `agent-management` | hr-agent | hr-agent |
+| `linear` / `issue` | issue-ops | issue-ops |
 
 ### 3-2. 파일 패턴 기반 (태그 없을 때 — orchestrator 권고, 메인 spawn)
 
@@ -151,6 +153,7 @@ dead-code 제거 위임 시 `task_description` 또는 `constraints`에 포함한
 | `src/lib/data/**`, `scripts/etl/**`, `*.sql` | data-integration |
 | `src/styles/**`, `src/design/**`, `*.figma`, `design-tokens/**`, `src/components/**/style*` | design-director |
 | `agents/*.md`, `references/jojikdo.json`, `agents-config.ts` | hr-agent |
+| `.crew/linear-issues.json`, `.crew/linear-pending.json`, `.crew/config.md` `## Linear` | issue-ops |
 
 ### 3-3. 혼합 패턴
 

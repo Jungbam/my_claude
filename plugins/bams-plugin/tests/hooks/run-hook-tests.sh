@@ -15,7 +15,7 @@ run_case() {
   local label="$1" hook="$2" in="$3" want_exit="$4" want="$5"; shift 5
   local out="" code=0 got
   [ "$hook" = "-" ] || { out=$(env -u BAMS_DELEGATION_GUARD -u CLAUDE_MD_EDIT_ALLOWED -u CLAUDE_MD_STEP3 -u CLAUDE_MD_INIT \
-    -u BAMS_HOOK_TRACE -u BAMS_HOOK_CAPTURE_DIR -u BAMS_GUARD_EXTRA_PATHS -u BAMS_VERDICT_GATE -u BAMS_VERDICT_GH -u BAMS_VERDICT_GH_TIMEOUT "$@" bash "$HOOKS/$hook" < "$in" 2>/dev/null); code=$?; }
+    -u BAMS_HOOK_TRACE -u BAMS_HOOK_CAPTURE_DIR -u BAMS_GUARD_EXTRA_PATHS -u BAMS_VERDICT_GATE -u BAMS_VERDICT_GH -u BAMS_VERDICT_GH_TIMEOUT -u BAMS_COMPLETION_GUARD -u BAMS_METRICS "$@" bash "$HOOKS/$hook" < "$in" 2>/dev/null); code=$?; }
   if [ -z "$out" ]; then got=none
   elif printf '%s' "$out" | jq -e '.hookSpecificOutput.permissionDecision == "deny"' >/dev/null 2>&1; then got=deny
   elif printf '%s' "$out" | jq -e '.decision == "block" and (.reason | length > 0)' >/dev/null 2>&1; then got=block
@@ -830,6 +830,157 @@ mtime "PostToolUse 일반 Edit(jq 0회)"           post-edit-other.json 50
 mtime "UserPromptSubmit 일반 입력(jq 0회)"      ups-human.json       50
 mtime "UserPromptExpansion 시작(jq 1회)"        upe-dev.json         100
 mtime "SubagentStop transcript 파싱(jq 2회)"    sub-stop.json        100
+
+echo "== pipeline-completion-guard.sh (Stop — review/deep-review/ship/deploy 완료 조건) =="
+# 상태는 metrics.sh 와 같은 형식(<dir>/state/<sid>.open = ts␟cmd␟prompt_id␟epoch_s). 파이프라인 시작 = 지금-100초.
+CG="$TMP/cg"; CGM="$CG/metrics"; CGR="$CG/repo"
+mkdir -p "$CGM/state" "$CGR/.git" "$CGR/sub" "$CGR/.crew/artifacts/review"
+CG_EP=$(( $(date +%s) - 100 ))
+cg_iso() { jq -rn --argjson e "$1" '$e | todate | sub("Z$"; ".000Z")'; }
+CG_AFTER=$(cg_iso $((CG_EP + 10))); CG_BEFORE=$(cg_iso $((CG_EP - 50)))
+# cg_state <sid> <cmd> [epoch]  — 열린 파이프라인 상태(+ 이전 판정 marker 제거)
+cg_state() {
+  printf '%s\037%s\037%s\037%s\n' "$(jq -rn --argjson e "${3:-$CG_EP}" '$e | todate')" "$2" "p-$1" "${3:-$CG_EP}" > "$CGM/state/$1.open"
+  rm -f "$CGM/state/$1.cguard" "$CGM/state/$1.closing"
+}
+# cg_tx <name> <spec...> — transcript. T=시작 후 TodoWrite(3항목) · TB=시작 전 TodoWrite · TK=TaskCreate
+#   TS:<text>=시작 후 TodoWrite(항목 1개 내용 text) · VC=`bash "$_VD" check` · VS=`bash .../verdict.sh check --dir .`
+#   X:<text>=시작 후 assistant 텍스트 · G=무관한 Bash
+cg_tx() {
+  local t="$TMP/cg-$1.jsonl" s; shift; : > "$t"
+  for s in "$@"; do
+    case "$s" in
+      T)  jq -cn --arg ts "$CG_AFTER" '{type:"assistant",timestamp:$ts,message:{content:[{type:"tool_use",id:"t1",name:"TodoWrite",input:{todos:[{content:"1. diff 수집",status:"in_progress"},{content:"2. 5관점 리뷰",status:"pending"},{content:"3. verdict 기록",status:"pending"}]}}]}}' ;;
+      TB) jq -cn --arg ts "$CG_BEFORE" '{type:"assistant",timestamp:$ts,message:{content:[{type:"tool_use",id:"t0",name:"TodoWrite",input:{todos:[{content:"이전 작업",status:"completed"}]}}]}}' ;;
+      TK) jq -cn --arg ts "$CG_AFTER" '{type:"assistant",timestamp:$ts,message:{content:[{type:"tool_use",id:"t2",name:"TaskCreate",input:{subject:"1. diff 수집"}}]}}' ;;
+      TS:*) jq -cn --arg ts "$CG_AFTER" --arg c "${s#TS:}" '{type:"assistant",timestamp:$ts,message:{content:[{type:"tool_use",id:"t3",name:"TodoWrite",input:{todos:[{content:$c,status:"completed"}]}}]}}' ;;
+      VC) jq -cn --arg ts "$CG_AFTER" '{type:"assistant",timestamp:$ts,message:{content:[{type:"tool_use",id:"b1",name:"Bash",input:{command:"_VD=\"$_BAMS/hooks/lib/verdict.sh\"\nif [ -z \"$_VD\" ]; then echo unavailable; else bash \"$_VD\" check; echo \"verdict_exit=$?\"; fi"}}]}}' ;;
+      VS) jq -cn --arg ts "$CG_AFTER" '{type:"assistant",timestamp:$ts,message:{content:[{type:"tool_use",id:"b2",name:"Bash",input:{command:"bash /x/hooks/lib/verdict.sh check --dir ."}}]}}' ;;
+      X:*) jq -cn --arg ts "$CG_AFTER" --arg x "${s#X:}" '{type:"assistant",timestamp:$ts,message:{content:[{type:"text",text:$x}]}}' ;;
+      G)  jq -cn --arg ts "$CG_AFTER" '{type:"assistant",timestamp:$ts,message:{content:[{type:"tool_use",id:"b3",name:"Bash",input:{command:"cat change.diff | grep verdict"}}]}}' ;;
+    esac >> "$t"
+  done
+  echo "$t"
+}
+# cg_in <name> <sid> <transcript> [active=false] [last=완료] [cwd=$CGR]
+cg_in() {
+  jq -cn --arg s "$2" --arg t "$3" --argjson a "${4:-false}" --arg l "${5:-리뷰 완료}" --arg c "${6:-$CGR}" \
+    '{session_id:$s,transcript_path:$t,cwd:$c,permission_mode:"default",hook_event_name:"Stop",stop_hook_active:$a,last_assistant_message:$l}' > "$TMP/cg-in-$1.json"
+  echo "$TMP/cg-in-$1.json"
+}
+cg_run() { local l="$1" i="$2" w="$3"; shift 3; run_case "$l" pipeline-completion-guard.sh "$i" 0 "$w" BAMS_METRICS_DIR="$CGM" "$@"; }
+# cg_reason <input> <has|lacks> <고정 문자열> — block reason 내용 확인(marker 영향 없게 상태 재설정은 호출 측)
+cg_reason() {
+  local o ok=0
+  o=$(env -u BAMS_COMPLETION_GUARD -u BAMS_METRICS BAMS_METRICS_DIR="$CGM" bash "$HOOKS/pipeline-completion-guard.sh" < "$1" 2>/dev/null | jq -r '.reason // .systemMessage // ""' 2>/dev/null)
+  printf '%s' "$o" | grep -qF -- "$3" && ok=1
+  if { [ "$2" = has ] && [ $ok = 1 ]; } || { [ "$2" = lacks ] && [ $ok = 0 ]; }; then PASS=$((PASS + 1)); echo "  PASS  $4"
+  else FAIL=$((FAIL + 1)); echo "  FAIL  $4 ($2 '$3' / reason: ${o:0:200})"; fi
+}
+rm -f "$CGR"/.crew/artifacts/review/verdict-*.json
+cg_run "파이프라인 없음 → 통과" "$(cg_in n0 cg-none "$(cg_tx empty)")" none
+cg_state cg-dev dev
+cg_run "열린 파이프라인이 대상 외(dev) → 통과" "$(cg_in n1 cg-dev "$(cg_tx empty)")" none
+cg_state cg-r1 review
+cg_run "review: TodoWrite·verdict 없음 → block" "$(cg_in r1 cg-r1 "$(cg_tx g G)")" block
+cg_run "같은 파이프라인 두 번째 Stop(다음 턴) → 통과(파이프라인당 1회)" "$(cg_in r1b cg-r1 "$(cg_tx g G)")" none
+cg_state cg-r1 review
+cg_reason "$(cg_in r1c cg-r1 "$(cg_tx g G)")" has "TodoWrite 미사용" "block 사유: TodoWrite 누락 + 복구 방법"
+cg_state cg-r1 review
+cg_reason "$(cg_in r1d cg-r1 "$(cg_tx g G)")" has "verdict.sh' write --verdict" "block 사유: verdict 누락 + verdict.sh write 절대 경로"
+cg_state cg-r2 review
+cg_run "review: stop_hook_active=true → 통과" "$(cg_in r2 cg-r2 "$(cg_tx g G)" true)" none
+cg_state cg-r3 review
+cg_run "review: TodoWrite만(verdict 없음) → block" "$(cg_in r3 cg-r3 "$(cg_tx t T)")" block
+cg_state cg-r3 review
+cg_reason "$(cg_in r3b cg-r3 "$(cg_tx t T)")" lacks "TodoWrite 미사용" "TodoWrite 있으면 사유에 TodoWrite 누락 없음"
+touch -t 202001010000 "$CGR/.crew/artifacts/review/verdict-old.json"
+cg_state cg-r4 review
+cg_run "review: TodoWrite + 시작 전 verdict 파일만 → block" "$(cg_in r4 cg-r4 "$(cg_tx t T)")" block
+echo '{}' > "$CGR/.crew/artifacts/review/verdict-abc123.json"
+cg_state cg-r5 review
+cg_run "review: TodoWrite + 시작 이후 verdict 파일 → 통과" "$(cg_in r5 cg-r5 "$(cg_tx t T)")" none
+if grep -q " ok$" "$CGM/state/cg-r5.cguard" 2>/dev/null; then PASS=$((PASS + 1)); echo "  PASS  충족 → marker ok(이후 Stop 은 transcript 미파싱)"
+else FAIL=$((FAIL + 1)); echo "  FAIL  충족 후 marker ok 없음"; fi
+cg_state cg-r6 deep-review
+cg_run "deep-review: 하위 cwd → git 루트의 verdict 파일 인정" "$(cg_in r6 cg-r6 "$(cg_tx t T)" false 완료 "$CGR/sub")" none
+rm -f "$CGR/.crew/artifacts/review/verdict-abc123.json"
+cg_state cg-r7 review
+cg_run "review: TodoWrite + 최종 메시지 'skip: verdict — 사유' → 통과" "$(cg_in r7 cg-r7 "$(cg_tx t T)" false $'리뷰 결과\n- skip: verdict — 리뷰 대상 커밋 없음(diff 파일만)')" none
+cg_state cg-r8 review
+cg_run "review: 'skip:' 사유 없음 → block" "$(cg_in r8 cg-r8 "$(cg_tx t T)" false $'- verdict skip:')" block
+cg_state cg-r9 review
+cg_run "review: verdict 언급 없는 skip → block" "$(cg_in r9 cg-r9 "$(cg_tx t T)" false $'- skip: 회고 생략(경량 리뷰)')" block
+cg_state cg-r10 review
+cg_run "review: TodoWrite 항목 'skip: 판정 — 사유' → 통과" "$(cg_in r10 cg-r10 "$(cg_tx ts 'TS:5. 판정 기록 — skip: 커밋 없는 diff 리뷰')")" none
+cg_state cg-r11 review
+cg_run "review: 시작 전 TodoWrite + 시작 후 verdict skip → block(todo 누락)" "$(cg_in r11 cg-r11 "$(cg_tx tb TB X:'skip: verdict — 사유 있음')")" block
+cg_state cg-r12 review
+cg_run "review: 시작 전 TodoWrite 만 + verdict skip 없음 → block" "$(cg_in r12 cg-r12 "$(cg_tx tb2 TB)")" block
+cg_state cg-r13 review
+cg_run "review: TaskCreate(새 todo 도구) + skip → 통과" "$(cg_in r13 cg-r13 "$(cg_tx tk TK)" false 'skip: verdict — 판정자 미연결')" none
+cg_state cg-r14 review
+cg_run "review: Steps 원문 자리표시자 '— skip: <사유>' 그대로 복사 → block" "$(cg_in r14 cg-r14 "$(cg_tx r14 'TS:13. verdict 파일 확인 — `.crew/artifacts/review/verdict-*.json` 생성(`verdict.sh check`), 못 남기면 `— skip: <사유>`')")" block
+cg_state cg-d1 deep-review
+cg_run "deep-review: TodoWrite + Step 12 '— skip: deep-review 게이트 미포함' → 통과" "$(cg_in d1 cg-d1 "$(cg_tx d1 'TS:12. verdict 파일 — 게이트 미포함이므로 기본 `— skip: deep-review 게이트 미포함 (판정은 /bams:review·/bams:ship)`')")" none
+cg_state cg-d2 deep-review
+cg_run "deep-review: TodoWrite 만(Step 12 skip 줄 없음) → block" "$(cg_in d2 cg-d2 "$(cg_tx d2 T)")" block
+cg_state cg-d2 deep-review
+cg_reason "$(cg_in d2b cg-d2 "$(cg_tx d2 T)")" has "deep-review 게이트 미포함" "deep-review block 사유: Step 12 skip 표기 안내"
+cg_state cg-s1 ship
+cg_run "ship: TodoWrite + \$_VD check + 최종 'verdict_exit=0' → 통과" "$(cg_in s1 cg-s1 "$(cg_tx s1 T VC)" false $'PR 생성 완료\nverdict_exit=0')" none
+cg_state cg-s1b ship
+cg_run "ship: check 실행했지만 최종 메시지에 verdict_exit 줄 없음 → block" "$(cg_in s1b cg-s1b "$(cg_tx s1b T VC)")" block
+cg_state cg-s1c ship
+cg_run "ship: check 없이 'skip: verdict — 사유' → block(skip 불가)" "$(cg_in s1c cg-s1c "$(cg_tx s1c T)" false $'- skip: verdict — gh 없음\nverdict_exit=unavailable')" block
+cg_state cg-s1d ship
+cg_run "ship: 자리표시자 'verdict_exit=<n>' → block" "$(cg_in s1d cg-s1d "$(cg_tx s1d T VC)" false 'verdict_exit=<n>')" block
+cg_state cg-s2 ship
+cg_run "ship: TodoWrite만(check 없음) → block" "$(cg_in s2 cg-s2 "$(cg_tx s2 T G)")" block
+cg_state cg-s2 ship
+cg_reason "$(cg_in s2b cg-s2 "$(cg_tx s2 T G)")" has "verdict 확인 미실행" "ship block 사유: verdict check 누락"
+cg_state cg-s3 deploy
+cg_run "deploy: TodoWrite + verdict.sh check --dir + 'verdict_exit=unavailable' → 통과" "$(cg_in s3 cg-s3 "$(cg_tx s3 T VS)" false '- verdict_exit=unavailable (도구 없음) → 배포 중단')" none
+cg_state cg-s4 ship
+cg_run "ship: TodoWrite만(check·verdict_exit 없음) → block" "$(cg_in s4 cg-s4 "$(cg_tx s4 T)")" block
+cg_state cg-c1 review; mv "$CGM/state/cg-c1.open" "$CGM/state/cg-c1.closing"
+cg_run "pipeline_end 후(closing) → 통과" "$(cg_in c1 cg-c1 "$(cg_tx g G)")" none
+cg_state cg-c2 review $((CG_EP - 50000))
+cg_run "12시간 지난 상태 → 통과" "$(cg_in c2 cg-c2 "$(cg_tx g G)")" none
+cg_state cg-c3 review
+cg_run "transcript 부재 → fail-open" "$(cg_in c3 cg-c3 "$TMP/none.jsonl")" none
+cg_run "BAMS_COMPLETION_GUARD=off → 통과" "$(cg_in c4 cg-c3 "$(cg_tx g G)")" none BAMS_COMPLETION_GUARD=off
+cg_run "BAMS_METRICS=off(상태 없음 취급) → 통과" "$(cg_in c5 cg-c3 "$(cg_tx g G)")" none BAMS_METRICS=off
+wo=$(env BAMS_METRICS_DIR="$CGM" BAMS_COMPLETION_GUARD=warn bash "$HOOKS/pipeline-completion-guard.sh" < "$(cg_in c6 cg-c3 "$(cg_tx g G)")" 2>/dev/null)
+if printf '%s' "$wo" | jq -e '(.systemMessage | test("completion-guard")) and (has("decision") | not)' >/dev/null 2>&1; then PASS=$((PASS + 1)); echo "  PASS  warn → systemMessage 만(차단 없음)"
+else FAIL=$((FAIL + 1)); echo "  FAIL  warn 출력: $wo"; fi
+cg_run "warn 1회 후 같은 파이프라인 → 통과" "$(cg_in c7 cg-c3 "$(cg_tx g G)")" none
+cg_state cg-c3 review $((CG_EP + 5))
+cg_run "같은 세션의 새 파이프라인(시작 시각 다름) → 다시 판정(block)" "$(cg_in c8 cg-c3 "$(cg_tx g G)")" block
+jq -cn '{session_id:"cg-c9",hook_event_name:"SubagentStop",stop_hook_active:false}' > "$TMP/cg-sub.json"; cg_state cg-c9 review
+cg_run "Stop 아닌 이벤트(SubagentStop) → 통과" "$TMP/cg-sub.json" none
+cg_run "깨진 입력 → fail-open" "$FX/broken.json" none
+cg_run "빈 입력 → fail-open" /dev/null none
+# metrics.sh 가 실제로 쓴 상태로 end-to-end: /bams-plugin:bams:review 확장 → Stop → block
+CGE="$TMP/cg-e2e"; mkdir -p "$CGE/proj/.git"; : > "$CGE/main.jsonl"
+jq -cn --arg d "$CGE" '{session_id:"cg-e2e",prompt_id:"p-e",transcript_path:"\($d)/main.jsonl",cwd:"\($d)/proj",hook_event_name:"UserPromptExpansion",expansion_type:"slash_command",command_name:"bams-plugin:bams:review",command_args:"리뷰"}' > "$TMP/cg-upe.json"
+env -u BAMS_METRICS BAMS_METRICS_DIR="$CGE/m" bash "$HOOKS/metrics.sh" < "$TMP/cg-upe.json" >/dev/null 2>&1
+jq -cn --arg d "$CGE" '{session_id:"cg-e2e",transcript_path:"\($d)/main.jsonl",cwd:"\($d)/proj",hook_event_name:"Stop",stop_hook_active:false,last_assistant_message:"끝"}' > "$TMP/cg-e2e-stop.json"
+run_case "metrics.sh 상태(review 시작) → Stop block (end-to-end)" pipeline-completion-guard.sh "$TMP/cg-e2e-stop.json" 0 block BAMS_METRICS_DIR="$CGE/m"
+if jq -e '[.hooks.Stop[]?.hooks[]? | select(.command | test("hooks/pipeline-completion-guard\\.sh")) | select((.async // false) == false)] | length == 1' "$PJ" >/dev/null 2>&1; then
+  PASS=$((PASS + 1)); echo "  PASS  plugin.json Stop → pipeline-completion-guard.sh 1회 등록(동기 — block 이 유효)"
+else FAIL=$((FAIL + 1)); echo "  FAIL  plugin.json Stop 에 pipeline-completion-guard.sh 등록 없음/중복/async"; fi
+# 실행 시간: 대상 파이프라인 없음(프로세스 0개) / 이미 판정된 파이프라인(marker) — 10회 평균 ≤ 50ms
+cg_time() {
+  local label="$1" in="$2" t0 t1 avg i=0
+  t0=$(now_ms)
+  while [ $i -lt 10 ]; do BAMS_METRICS_DIR="$CGM" bash "$HOOKS/pipeline-completion-guard.sh" < "$in" >/dev/null 2>&1; i=$((i + 1)); done
+  t1=$(now_ms); avg=$(( (t1 - t0) / 10 ))
+  if [ "$avg" -le 50 ]; then PASS=$((PASS + 1)); echo "  PASS  $label 평균 ${avg}ms ≤ 50ms"
+  else FAIL=$((FAIL + 1)); echo "  FAIL  $label 평균 ${avg}ms > 50ms"; fi
+}
+cg_time "no-op(열린 파이프라인 없음)" "$(cg_in t0 cg-none "$(cg_tx g G)")"
+cg_time "no-op(판정 끝난 파이프라인)" "$(cg_in t1 cg-r5 "$(cg_tx t T)")"
 
 echo "== metrics-report.sh =="
 RPT="$HERE/../../scripts/metrics-report.sh"; RNOW=$(jq -n '"2026-10-25T00:00:00Z" | fromdate')

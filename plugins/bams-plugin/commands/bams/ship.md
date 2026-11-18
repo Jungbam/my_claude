@@ -7,6 +7,21 @@ argument-hint:
 
 PR 생성과 머지를 관리하는 Ship 워크플로우입니다.
 
+## Steps
+
+> 시작 즉시 아래 목록을 **원문 그대로** TodoWrite에 복사한다. 건너뛰는 step은 지우지 않고 `— skip: <사유>`로 남긴다 (`references/step-status.md` §Steps 체크리스트 규약).
+
+1. Pre-flight — `_shared_common.md` Read + ship 스킬 로딩
+2. Verdict 확인 (1차) — `verdict.sh check` → `verdict_exit` 확인
+3. Step 1 출시 준비 검토 — release-quality-gate spawn (verdict exit 1·4면 이번 HEAD 판정·기록 포함)
+4. Quality Gate 판정 파싱 — GO / CONDITIONAL GO / NO-GO
+5. GO 재확인 — Verdict 확인 블록 재실행 (`verdict_exit=0`일 때만 Step 2)
+6. Step 2 Ship 실행 — PR 생성 (NO-GO면 skip)
+7. Step 3 결과 확인 — PR URL·상태 보고
+7-1. Linear 이슈 동기화 — issue-ops `linear-close-issues` sweep (장부 awaiting 항목 없으면 skip)
+8. `.crew/history.md` 1줄 기록
+9. verdict 확인 결과 기록 — 최종 메시지에 `verdict_exit=<n>` 줄 + skip 목록
+
 ## Pre-flight
 
 **공통 규칙 로드**: 반드시 `plugins/bams-plugin/commands/bams/_shared_common.md`를 Read합니다.
@@ -64,7 +79,23 @@ release-quality-gate 반환에서 GO/CONDITIONAL GO/NO-GO 판정을 파싱합니
 
 PR URL과 상태를 보고합니다. 실패 시 원인 분석 및 재시도 옵션 제공.
 
+### Linear 이슈 동기화 (체크리스트 7-1)
+
+PR을 만든 뒤, `.crew/linear-issues.json`에 `awaiting` 항목이 있을 때만 실행한다(없거나 `## Linear` 꺼짐이면 `— skip: <사유>`). PR이 열린 수정은 In Review로, 이미 기본 브랜치에 머지된 수정은 Done으로 옮긴다. 규약 `references/linear-protocol.md` §6·§7. 게이트·verdict에는 영향이 없다.
+
+Task tool, subagent_type: **"bams-plugin:issue-ops"** — 메인이 직접 호출:
+> load_profile: { level: L2, refs: [{doc: config}] }
+> mode: sweep · pipeline: {slug} · commit: {git rev-parse HEAD}
+
 ## 마무리
 
 완료 시 `.crew/history.md`에 1줄 기록합니다:
 `YYYY-MM-DD | {slug} | ship | {완료|실패} | {한 줄 요약}`
+
+## 완료 조건
+
+> Stop hook이 아래를 기계적으로 확인한다(마커 정의: `references/step-status.md` §완료 조건 마커). 하나라도 없으면 종료하지 않는다.
+
+- TodoWrite에 `## Steps` 9개 항목이 원문 그대로 있다. 실행하지 않은 step은 `skip:`을 포함한다.
+- 이번 세션에 Verdict 확인 블록이 실행됐고, 최종 메시지에 마지막 결과가 `verdict_exit=<0|1|3|4|unavailable>` 형식 1줄로 있다.
+- `verdict_exit≠0`인데 PR을 만들었다면 CONDITIONAL GO 조건(사용자 확인·PR 본문 "## Quality Gate 조건")이 기록돼 있다.

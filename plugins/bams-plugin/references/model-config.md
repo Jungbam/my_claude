@@ -22,15 +22,15 @@ frontmatter에는 `model:` 바로 다음 줄에 `effort:` 필드를 둔다(서�
 
 - 부서장급 조율과 더불어 코드/문서를 직접 구현·변경하는 역할 포함.
 - 판단 깊이가 깊거나 여러 하위 에이전트/문서를 종합하는 역할.
-- 대상: frontend-engineering, backend-engineering, platform-devops, data-integration, design-director, qa-strategy, product-analytics, hr-agent, resource-optimizer, cross-department-coordinator (모든 부서장 포함 — 예외 없음. data-integration은 결제·인증·마이그레이션 등 프로덕션 코드를 직접 구현하므로 Tier 2).
+- 대상: frontend-engineering, backend-engineering, platform-devops, data-integration, design-director, qa-strategy, product-analytics, hr-agent, resource-optimizer, cross-department-coordinator (부서장은 원칙상 모두 Tier 2 — 유일한 예외는 issue-ops(Tier 3): Linear 조회·등록·상태 전이와 결정론적 fingerprint·git 증거 확인이 대부분이고 코드를 쓰지 않아 판단 깊이보다 호출 빈도·비용이 중요하다. data-integration은 결제·인증·마이그레이션 등 프로덕션 코드를 직접 구현하므로 Tier 2).
 
 ### Tier 3 — Sonnet 5.5 / effort `medium` (일부 `high`)
 **specialist**: 정형 구조 출력, 빠른 응답, 단일 도메인 세부 작업.
 
 - 부서장의 위임을 받아 특정 영역을 처리. Sonnet 5.5는 Sonnet 5와 동일 가격이라 비용 변동 없이 전환.
 - TTFT(첫 토큰까지 시간)와 응답 속도가 사용자 체감 UX에 직접 기여.
-- 코드 생성/검증 정확도가 민감한 **automation-qa, ui-diff-applier, visual-fidelity-verifier, accessibility-auditor** 4개는 `effort: high`, 나머지 16개는 `medium`.
-- 대상(20개): business-analysis, ux-research, automation-qa, defect-triage, experimentation, business-kpi, ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent, guide-decomposer, guide-recomposer, ui-diff-applier, data-binding-mapper, visual-fidelity-verifier, nextjs-convention-mapper, accessibility-auditor, routing-strategist, ssr-csr-decider
+- 코드 생성/검증 정확도가 민감한 **automation-qa, ui-diff-applier, visual-fidelity-verifier, accessibility-auditor** 4개는 `effort: high`, 나머지 17개는 `medium`.
+- 대상(21개): issue-ops(이슈관리 부서장 — Tier 2 예외), business-analysis, ux-research, automation-qa, defect-triage, experimentation, business-kpi, ui-designer, ux-designer, graphic-designer, motion-designer, design-system-agent, guide-decomposer, guide-recomposer, ui-diff-applier, data-binding-mapper, visual-fidelity-verifier, nextjs-convention-mapper, accessibility-auditor, routing-strategist, ssr-csr-decider
 
 ### Tier 4 — Haiku 5.5 / effort `low`
 **결정론적 절차 자동화**: bash 절차 위주 저비용 실행. 토큰 절감을 최우선 축으로 하는 skill/에이전트 위임 경로.
@@ -151,6 +151,12 @@ harness의 display/집계 정규화가 opus 계열 ID를 `"opus"` 라벨로 기�
 | performance-evaluation | 평가 specialist (저비용) | claude-haiku-5-5 | low | 부하/성능 — 판정 기준 완전 수치화로 결정론화, 최고빈도 자동트리거 |
 | business-kpi | 평가 specialist | claude-sonnet-5-5 | medium | KPI 지표 |
 
+### 이슈관리부 (Issue Ops)
+
+| 에이전트 | 역할 | 모델 | effort | 비고 |
+|---------|------|------|--------|------|
+| issue-ops | 이슈관리 부서장 | claude-sonnet-5-5 | medium | Linear 매핑·이슈 등록·증거 기반 종료 — Tier 2 예외(절차형, 코드 미작성) |
+
 ### 경영지원 (Operations — 독립 부서장급)
 
 | 에이전트 | 역할 | 모델 | effort | 비고 |
@@ -159,7 +165,7 @@ harness의 display/집계 정규화가 opus 계열 ID를 `"opus"` 라벨로 기�
 | hr-agent | 경영지원 | claude-opus-5-5 | high | 에이전트 생명주기, 조직도 관리 |
 | cross-department-coordinator | 경영지원 | claude-opus-5-5 | high | 부서간 협업 조율 |
 
-**총계**: Opus 5.5 = 14개 (Tier 1 xhigh 4 + Tier 2 high 10) / Sonnet 5.5 = 20개 (specialist, medium 16 + high 4) / Haiku 5.5 = 2개 (저비용/결정론 low) — 합계 36개
+**총계**: Opus 5.5 = 14개 (Tier 1 xhigh 4 + Tier 2 high 10) / Sonnet 5.5 = 21개 (specialist 20 + issue-ops, medium 17 + high 4) / Haiku 5.5 = 2개 (저비용/결정론 low) — 합계 37개
 
 ## 업그레이드 절차
 

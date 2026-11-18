@@ -7,6 +7,21 @@ argument-hint:
 
 배포 워크플로우를 실행합니다. 출시 준비 검증 후 배포를 진행합니다.
 
+## Steps
+
+> 시작 즉시 아래 목록을 **원문 그대로** TodoWrite에 복사한다. 건너뛰는 step은 지우지 않고 `— skip: <사유>`로 남긴다 (`references/step-status.md` §Steps 체크리스트 규약).
+
+1. Pre-flight — `_shared_common.md` Read + deploy 스킬 로딩
+2. Verdict 확인 (1차) — `verdict.sh check` → `verdict_exit` 확인
+3. ezar-infra MCP 경로 판별 (`EZAR_MODE`)
+4. Step 1-2 release-quality-gate + platform-devops 병렬 spawn
+5. 게이트 판정 + Verdict 확인 블록 재실행 (`verdict_exit=0` 아니면 중단)
+6. Step 3 배포 실행
+7. Step 4 배포 후 확인 — 헬스체크·롤백 옵션
+7-1. Linear 이슈 동기화 — issue-ops `linear-close-issues` sweep (장부 awaiting 항목 없으면 skip)
+8. `.crew/history.md` 1줄 기록
+9. verdict 확인 결과 기록 — 최종 메시지에 `verdict_exit=<n>` 줄 + skip 목록
+
 ## Pre-flight
 
 **공통 규칙 로드**: 반드시 `plugins/bams-plugin/commands/bams/_shared_common.md`를 Read합니다.
@@ -82,7 +97,23 @@ _BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_
 
 **EZAR_MODE=on**: `dev_deploy_status` + `dev_pods`(Running/Ready, 재시작 급증 없음)로 검증한다. 실패 시 `dev_analyze_deploy_failure`(+`dev_pod_logs`/`dev_build_log`)로 원인을 보고한다. 롤백은 **사용자에게 먼저 묻고** 승인 시 `dev_rollback`(`to_tag`는 `dev_deploy_history`의 `image_tag`) — prod는 승인 Operation이 생성되므로 `common_operation_get`으로 추적하며 Slack/UI 승인 대기를 안내한다.
 
+### Linear 이슈 동기화 (체크리스트 7-1)
+
+배포 후 확인이 끝난 뒤(롤백했으면 skip), `.crew/linear-issues.json`에 `awaiting` 항목이 있을 때만 실행한다(없거나 `## Linear` 꺼짐이면 `— skip: <사유>`). 기본 브랜치에 머지된 수정의 이슈를 검증 증거와 함께 Done으로 옮긴다. 규약 `references/linear-protocol.md` §6·§7. 게이트·verdict에는 영향이 없다.
+
+Task tool, subagent_type: **"bams-plugin:issue-ops"** — 메인이 직접 호출:
+> load_profile: { level: L2, refs: [{doc: config}] }
+> mode: sweep · pipeline: {slug} · commit: {git rev-parse HEAD}
+
 ## 마무리
 
 완료 시 `.crew/history.md`에 1줄 기록합니다:
 `YYYY-MM-DD | {slug} | deploy | {완료|실패} | {한 줄 요약}`
+
+## 완료 조건
+
+> Stop hook이 아래를 기계적으로 확인한다(마커 정의: `references/step-status.md` §완료 조건 마커). 하나라도 없으면 종료하지 않는다.
+
+- TodoWrite에 `## Steps` 9개 항목이 원문 그대로 있다. 실행하지 않은 step은 `skip:`을 포함한다(배포 중단 시 6·7은 `— skip: verdict_exit=<n> 배포 중단` 등).
+- 이번 세션에 Verdict 확인 블록이 실행됐고, 최종 메시지에 마지막 결과가 `verdict_exit=<0|1|3|4|unavailable>` 형식 1줄로 있다.
+- Step 6(배포 실행)이 `skip:` 없이 완료됐다면 그 직전 확인 결과가 `verdict_exit=0`이다(deploy N=0 — 다른 값이면 배포하지 않는다).

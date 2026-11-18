@@ -1,7 +1,7 @@
 # 경량 경로 프로토콜 (`--minimal`) — SSOT
 
-> F-R9. `dev` / `feature` / `hotfix` 3개 커맨드가 본 파일을 Pattern A(전체 참조)로 공유합니다.
-> review / deep-review / plan은 이미 경량이거나 축약 대상이 없어 본 프로토콜 대상에서 제외합니다.
+> F-R9. `dev` / `feature` / `hotfix` 3개 커맨드가 §1~§7(`--minimal`)을 Pattern A(전체 참조)로 공유합니다.
+> `review` / `deep-review`는 §1~§7 대상이 아니고, 자체 경량 경로(메인 단독 리뷰)를 **§8**에서 정의합니다. plan은 축약 대상이 없어 제외합니다.
 
 ## 1. 발동 조건
 
@@ -111,3 +111,49 @@ n — 기본 풀 사이클로 진행 (기본값)
 
 응답:
 ```
+
+## 8. review / deep-review 경량 경로 (메인 단독 리뷰) — SSOT
+
+> 배경(2026-11-17 eval review-01/02 ×3 + baseline 전수): 작은 diff에서 메인이 5관점 spawn·TodoWrite·verdict를 모두 건너뛰고 혼자 리뷰했다. 단독 리뷰 자체는 작은 diff에 합리적이므로 **허용하되 명시적 경로로 만들고**, 생략할 수 없는 것(Steps 기록·재현 증거·독립 판정자·verdict)을 고정한다.
+
+### 8-1. 발동 조건 (전부 충족 → 경량, 질문 없이 적용)
+
+| 조건 | 기준 |
+|------|------|
+| 변경 파일 수 | **≤ 5** |
+| 변경 라인 수 | **≤ 300** (추가 + 삭제, 0 초과) |
+| aspect | `ASPECT_LIST == ["code"]` (code 외 aspect는 부서장 spawn이 필요하므로 full) |
+| 모드 | 정리/제거 모드 아님 |
+| 플래그 | `$ARGUMENTS`에 `--full` 없음 (`--full`이면 규모와 무관하게 full) |
+
+하나라도 어긋나면 **full 경로 의무** — 메인 단독 리뷰 금지. 근거: ≤ 5파일·≤ 300줄은 메인이 diff 전체와 주변 코드를 한 컨텍스트에서 읽고 재현 명령까지 돌릴 수 있는 규모이고, 그 이상은 5관점 병렬의 커버리지 이득이 spawn 비용보다 크다. §1~§7의 `--minimal` 자동 감지(≤ 2파일·≤ 30줄)는 구현 파이프라인 전체 축약용이라 별개 기준이다.
+
+### 8-2. 측정 (리뷰 범위 결정 직후 1회)
+
+리뷰 대상 diff를 그대로 파이프로 넣는다(`git diff` · `git diff --cached` · `git diff main...HEAD` · `cat <파일>.diff` 중 실제 리뷰 대상).
+
+```bash
+<리뷰 대상 diff 명령> | awk '/^\+\+\+ /{f++; next} /^--- /{next} /^[+-]/{l++} END{printf "review_size files=%d lines=%d\n", f, l}'
+```
+
+diff가 아닌 파일/디렉토리 리뷰는 대상 파일 수와 `wc -l` 합계를 같은 기준에 쓴다. 결과(`review_size files=<m> lines=<n>`)와 경량/full 결정을 Steps의 "경로 판정" 항목과 리포트 상단에 적는다.
+
+### 8-3. 경량 경로에서 바뀌는 것
+
+| 항목 | full | 경량 |
+|------|------|------|
+| orchestrator 조언 (review Phase 2-a) | spawn | `— skip: lightweight (<n> lines, <m> files)` |
+| 5관점 리뷰 (review Phase 2-b / deep-review Step 1) | qa-strategy spawn | `— skip: lightweight (…)` → 메인이 5관점(정확성·보안·성능·품질·테스트)을 직접 리뷰 |
+| 지적 검증 (review Phase 3 defect-triage) | 지적 1건당 1 spawn | `— skip: lightweight (…)` → §8-4 판정자가 겸함 (deep-review는 defect-triage 묶음 1 spawn) |
+| 구조적 리뷰·Codex (deep-review Step 2·3) | 사용자 선택 | 변화 없음 (사용자 선택) |
+
+### 8-4. 경량에서도 생략 불가
+
+1. **Steps → TodoWrite**: 커맨드 `## Steps`를 원문 복사하고, 건너뛴 spawn step은 위 skip 문구로 남긴다(`references/step-status.md` §Steps 체크리스트 규약 7).
+2. **재현 증거**: 메인 지적은 `references/multi-perspective-review.md` §지적 검증 필터 1~2를 그대로 따른다 — 지적 형식, confidence 80 미만 미보고, Major 이상은 재현 증거(실행한 명령+출력 / 실패 테스트 / 입력값+`file:line` 체인), 증거 등급(`references/issue-severity.md` §증거 등급). 메인은 실제로 명령을 실행해 증거를 만든다.
+3. **독립 판정자 1 spawn** — skip 불가:
+   - `review`: `bams-plugin:release-quality-gate` 1회. 메인 지적의 독립 검증(§지적 검증 필터 4·5) + 위험 지점 1곳 직접 확인 + 릴리스 게이트 판정(`issue-severity.md` §Release Gate, N=2) + PASS/FAIL이면 `hooks/lib/verdict.sh write`(`references/verdict-protocol.md` §3). 위임 메시지 템플릿은 `commands/bams/review.md` Phase 4 (경량).
+   - `deep-review`: `bams-plugin:defect-triage` 묶음 1회(지적 0건이어도 위험 지점 1곳 확인). 게이트 미포함이므로 verdict는 쓰지 않는다.
+   - **모델 분리**: 판정자 spawn에는 메인·구현자와 다른 `model`을 지정한다(opus → `"sonnet"`, sonnet → `"opus"`). Codex가 연결돼 있으면 Codex 판정 우선(`verdict-protocol.md` §3).
+4. **완료 산출물**: `review`는 이번 세션의 `.crew/artifacts/review/verdict-*.json`(또는 허용 사유의 `skip:`), `deep-review`는 기본 `— skip: deep-review 게이트 미포함`. 정의: `references/step-status.md` §완료 조건 마커.
+5. **리포트 표기**: 리포트·결과 제시에 `경로: lightweight (<n> lines, <m> files) — 판정자 <agent/model>`을 남긴다.

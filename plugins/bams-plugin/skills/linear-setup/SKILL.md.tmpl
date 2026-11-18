@@ -1,0 +1,83 @@
+---
+name: linear-setup
+version: 1.0.0
+disable-model-invocation: true
+description: |
+  bams 커맨드 내부 엔진 — 직접 쓰지 말고 `/bams:issues setup` 사용.
+  이 레포의 Linear 팀·프로젝트 매핑을 확인하고, 없으면 git remote 이름으로 후보를 찾아 `.crew/config.md` `## Linear`에 기록한다.
+allowed-tools:
+  - Bash
+  - Read
+  - mcp__plugin_engineering_linear__list_teams
+  - mcp__plugin_engineering_linear__list_projects
+  - mcp__plugin_engineering_linear__list_issue_statuses
+  - mcp__plugin_engineering_linear__list_issue_labels
+---
+
+# linear-setup — 레포 ↔ Linear 매핑
+
+규약 SSOT: `references/linear-protocol.md` §2·§3. 실행 주체: `issue-ops`(메인이 spawn). 이 스킬은 읽기 전용 Linear 조회만 하고, 쓰는 곳은 `.crew/config.md` 하나다.
+
+## 1. 입력
+
+```
+mode: resolve            # 매핑 확인. 없으면 후보 반환(NEEDS_CONTEXT)
+mode: apply --choice <n> # 메인이 사용자에게 받은 선택을 기록
+mode: apply --team <KEY> [--project <이름|id>] | --disable
+```
+
+## 2. 매핑 확인
+
+```bash
+_lin() { sed -n '/^## Linear/,/^## /p' .crew/config.md 2>/dev/null | sed -n "s/^- $1: *//p" | head -1; }
+[ -f .crew/config.md ] || { echo "NO_CREW"; exit 0; }
+echo "enabled=$(_lin enabled) team=$(_lin team) project=$(_lin project) project_id=$(_lin project_id)"
+_REMOTE=$(git remote get-url origin 2>/dev/null); _REPO=$(basename "${_REMOTE:-$(git rev-parse --show-toplevel 2>/dev/null)}" .git)
+echo "repo=$(printf '%s' "$_REPO" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-//; s/-$//')"
+```
+
+- `NO_CREW` → `status: BLOCKED`, "`/bams:init` 먼저". 매핑을 만들지 않는다.
+- `enabled=false` → `status: DONE`, `linear: disabled`. 끝.
+- `team`이 있으면 검증만 한다: `list_teams`에 그 key가 있고 이름에 `archive`가 없는지, `project`가 있으면 `list_projects(query: <project>)`로 존재·미보관인지. 통과 → `status: DONE`, 매핑 그대로 반환. 실패 → 아래 3으로(기존 값은 후보 1순위로 표시).
+
+## 3. 후보 찾기 (섹션 없음 또는 검증 실패)
+
+1. `list_teams` 전체(페이지 이어 읽기) → 이름·key에 `archive`가 들어간 팀은 버린다.
+2. `list_projects(query: <repo 토큰 중 가장 긴 것>)`와 `list_projects(orderBy: updatedAt)` 최대 4페이지 → 보관·휴지통·completed·canceled 프로젝트는 버린다.
+3. 점수(§3): 이름 정규화값 = repo 100 · 포함 관계 70 · 토큰 겹침 ≥ 0.5 이면 50 · 팀 key/이름이 repo 토큰과 겹치는 팀 40. 프로젝트가 여러 팀이면 (팀, 프로젝트) 쌍으로 나눈다.
+4. 점수 순 상위 3개 + `팀만 지정` + `Linear 연동 끄기`를 반환한다.
+
+```
+status: NEEDS_CONTEXT
+needs: "이 레포(<repo>)의 QA 이슈를 어느 Linear 프로젝트에 등록할까요?"
+options:
+  1. BE / push-server-refactor (점수 100)
+  2. BE / push-server (점수 70)
+  3. PIPE / (프로젝트 없음) (점수 40)
+  4. 팀만 지정 — 팀 key 입력
+  5. Linear 연동 끄기
+```
+
+후보가 0개면 options는 4·5만 둔다. 서브에이전트는 직접 묻지 않는다 — 메인이 AskUserQuestion 1회로 묻고 `mode: apply`로 다시 spawn한다.
+
+## 4. 기록 (`mode: apply`)
+
+선택값을 다시 검증(팀 존재·archive 아님·프로젝트 존재)한 뒤 섹션을 쓴다. 기존 `## Linear` 섹션이 있으면 그 섹션만 바꾼다.
+
+```bash
+_SEC=$(printf '## Linear\n- enabled: %s\n- team: %s\n- project: %s\n- project_id: %s\n- default_labels: Bug\n- repo: %s\n- updated: %s\n' \
+  "$ENABLED" "$TEAM" "${PROJECT:-(none)}" "${PROJECT_ID:-(none)}" "$REPO" "$(date +%F)")
+_TMP=$(mktemp)
+SEC="$_SEC" awk '
+  /^## Linear[[:space:]]*$/ { print ENVIRON["SEC"]; print ""; skip=1; done=1; next }
+  skip && /^## / { skip=0 }
+  !skip { print }
+  END { if (!done) { print ""; print ENVIRON["SEC"] } }' .crew/config.md > "$_TMP" && mv "$_TMP" .crew/config.md
+grep -A7 '^## Linear' .crew/config.md
+```
+
+`--disable`이면 `ENABLED=false`, `TEAM=(none)`으로 쓴다. 마지막으로 `list_issue_statuses(team)`·`list_issue_labels(team)`을 읽어 `Bug`·`ready-for-agent`·`needs-triage` 라벨과 completed·started 상태가 있는지 보고한다(없으면 `DONE_WITH_CONCERNS` + 빠진 항목). 라벨을 만들지 않는다.
+
+## 5. 반환
+
+`references/linear-protocol.md` §11 형식. `linear: mapped <TEAM>/<PROJECT>` 또는 `linear: disabled` 한 줄을 포함한다.

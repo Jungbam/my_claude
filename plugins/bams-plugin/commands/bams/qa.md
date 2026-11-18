@@ -42,3 +42,13 @@ _QA_SKILL="$_BAMS/skills/qa-only/SKILL.md"; [ -e "$_QA_SKILL" ] || _QA_SKILL=""
 **`references/issue-severity.md` §Release Gate 임계값 참조.**
 
 차이점: 본 파이프라인 N값 = **2** (기본값 — SSOT §파이프라인별 Override 확인).
+
+## Step 4: Linear 이슈 등록
+
+QA 리포트(`.gstack/qa-reports/qa-report-*.md`)의 critical·high 이슈를 레포의 Linear 프로젝트에 등록한다. `.crew/config.md`가 없거나 `## Linear`가 `enabled: false`이거나 대상이 0건이면 건너뛰고 사유를 보고한다.
+
+Task tool, subagent_type: **"bams-plugin:issue-ops"** — 메인이 직접 호출:
+> load_profile: { level: L2, refs: [{doc: config}] }
+> mode: file · input: {QA 리포트 경로} · pipeline: qa_{도메인} · commit: {git rev-parse HEAD} — 계약 `references/linear-protocol.md` §5·§11
+
+반환이 `NEEDS_CONTEXT`(매핑 후보·10건 초과 등록)면 AskUserQuestion 1회 후 선택값을 붙여 한 번 더 spawn한다. 실패·pending은 보고만 하고 진행한다.

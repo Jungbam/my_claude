@@ -27,6 +27,26 @@ Glob으로 `.crew/config.md`가 존재하는지 확인합니다. 없으면:
 
 > **위임 체계 (Canonical)**: 이 커맨드는 `_shared_common.md` §위임 원칙 + 부록 **루프 B**(Advised)를 따른다. 메인(커맨드)이 qa-strategy / frontend-engineering / backend-engineering 부서장을 **직접** Task tool로 spawn한다. pipeline-orchestrator를 경유한 중첩 spawn 금지(harness 깊이 2 제약). 부서장은 도메인 내 specialist(defect-triage, automation-qa 등)를 최대 1회 추가 spawn 가능.
 
+## Linear 연동 (식별자가 있을 때만)
+
+요청에 Linear 식별자(`BE-123` 형태, `linear.app/…/issue/…` 링크)가 있을 때만 실행한다. 없으면 건너뛰고 최종 요약에 `Linear: skip — 식별자 없음`을 남긴다. 규약 `references/linear-protocol.md` §6·§7. 게이트·파이프라인 상태에는 영향이 없고, 실패는 pending으로 보고만 한다.
+
+**착수** — 사전 조건 직후, Phase 1 전:
+
+Task tool, subagent_type: **"bams-plugin:issue-ops"** — 메인이 직접 호출:
+> load_profile: { level: L2, refs: [{doc: config}] }
+> mode: start · input: {$ARGUMENTS 원문} · pipeline: {slug} · commit: {git rev-parse HEAD}
+
+`skipped (completed)`(이미 닫힌 이슈)가 오면 다시 고칠지 AskUserQuestion으로 확인한다. 확인된 식별자는 이후 부서장 위임 메시지에 `linear_issues: [..]`로 붙인다.
+
+**종료** — Phase 3 회귀 테스트 통과 직후, Phase 4 전:
+
+Task tool, subagent_type: **"bams-plugin:issue-ops"** — 메인이 직접 호출:
+> load_profile: { level: L2, refs: [{doc: config}] }
+> mode: close · input: {착수 때 확인된 식별자} · pipeline: {slug} · flags: --verify "{이번 파이프라인에서 통과한 테스트 명령}"
+
+issue-ops는 수정 커밋·직접 재실행한 검증·머지를 모두 확인할 때만 Done으로 옮긴다. 커밋 전이면 In Progress + `awaiting commit`, PR이 열려 있으면 In Review로 두고, 이후 `/bams:ship`·`/bams:deploy`의 sweep이나 `/bams:issues close`가 마무리한다. 최종 보고에 식별자별 결과를 붙인다.
+
 ## Phase 1: 버그 분류 및 재현 (defect-triage)
 
 ### 1a. 버그 정보 파싱
@@ -159,7 +179,7 @@ git 저장소인 경우, `git diff --stat` 표시.
 
 ### 4c. 최종 요약
 
-버그 증상, 근본 원인, 영향 분석, 수정 내용, 테스트 결과, 리포트 경로, 태스크 ID 제시.
+버그 증상, 근본 원인, 영향 분석, 수정 내용, 테스트 결과, 리포트 경로, 태스크 ID, Linear 식별자별 결과(또는 skip 사유) 제시.
 
 ## Phase 5: 상태 기록 위임
 

@@ -3059,6 +3059,124 @@
         }
       ],
       "department_lead": "qa_strategy_agent"
+    },
+    {
+      "department_id": "issue-management",
+      "department_name": "이슈관리부서",
+      "parent_department_id": null,
+      "mission": "QA·리뷰에서 확인된 문제를 레포별 Linear 프로젝트의 이슈로 추적하고, 수정이 검증되면 증거와 함께 닫는다",
+      "agents": [
+        {
+          "agent_id": "issue_ops_agent",
+          "agent_name": "Issue Ops Agent",
+          "responsibility": "레포 ↔ Linear 매핑 관리, 확인된 지적의 중복 없는 이슈 등록, 수정 착수·PR·머지에 맞춘 상태 동기화, 증거 기반 종료",
+          "inputs": [
+            "review_report",
+            "qa_report",
+            "debug_report",
+            "linear_identifiers",
+            "fix_commit",
+            "verification_evidence"
+          ],
+          "outputs": [
+            "linear_issue",
+            "linear_issue_ledger",
+            "linear_pending_queue",
+            "linear_mapping"
+          ],
+          "skills": [
+            {
+              "skill_id": "resolve_linear_mapping",
+              "skill_name": "Linear Mapping Setup",
+              "purpose": "레포의 Linear 팀·프로젝트를 확인하고, 없으면 git remote 이름으로 후보를 찾아 사용자 선택을 .crew/config.md에 기록한다",
+              "inputs": [
+                "git remote",
+                "list_teams",
+                "list_projects",
+                ".crew/config.md"
+              ],
+              "process": [
+                "기존 ## Linear 섹션을 검증한다",
+                "없으면 레포 이름과 프로젝트·팀 이름의 유사도로 후보를 산출한다",
+                "archive 팀과 닫힌 프로젝트를 제외한다",
+                "메인이 받아 온 사용자 선택을 검증 후 기록한다"
+              ],
+              "artifacts": [
+                "linear_mapping"
+              ],
+              "agent_calls": [],
+              "completion_criteria": [
+                "레포의 Linear 대상이 기록되었거나 연동이 명시적으로 꺼졌다"
+              ]
+            },
+            {
+              "skill_id": "file_qa_findings",
+              "skill_name": "QA Findings Filing",
+              "purpose": "검증된 Critical/Major·unverified-risk 지적을 fingerprint로 중복 없이 Linear 이슈로 등록한다",
+              "inputs": [
+                "review_report",
+                "qa_report",
+                "linear_mapping"
+              ],
+              "process": [
+                "등록 대상 지적을 고른다",
+                "fingerprint로 장부와 Linear를 조회한다",
+                "생성·재발견 코멘트·회귀 재오픈을 결정한다",
+                "10건 초과 대량 등록은 사용자 확인을 요청한다",
+                "결과를 장부에 기록한다"
+              ],
+              "artifacts": [
+                "linear_issue",
+                "linear_issue_ledger"
+              ],
+              "agent_calls": [
+                {
+                  "callee_agent": "qa_strategy_agent",
+                  "call_purpose": "지적의 심각도·검증 결과 확인(재판정하지 않음)",
+                  "expected_output": "confirmed_findings"
+                }
+              ],
+              "completion_criteria": [
+                "모든 대상 지적이 created/updated/reopened/skipped/pending 중 하나로 보고된다"
+              ]
+            },
+            {
+              "skill_id": "sync_issue_status",
+              "skill_name": "Issue Status Sync",
+              "purpose": "수정 착수·PR·머지에 맞춰 이슈 상태를 옮기고, 수정 커밋·검증 명령·머지가 모두 확인될 때만 Done으로 닫는다",
+              "inputs": [
+                "linear_identifiers",
+                "fix_commit",
+                "verification_evidence",
+                "linear_issue_ledger"
+              ],
+              "process": [
+                "착수 시 In Progress로 옮긴다",
+                "수정 커밋이 HEAD에 있고 지적 파일을 바꿨는지 확인한다",
+                "검증 명령을 직접 실행한다",
+                "PR이 열려 있으면 In Review, 기본 브랜치에 머지되면 Done으로 옮기고 증거를 코멘트한다"
+              ],
+              "artifacts": [
+                "linear_issue",
+                "linear_issue_ledger"
+              ],
+              "agent_calls": [
+                {
+                  "callee_agent": "release_quality_gate_agent",
+                  "call_purpose": "HEAD verdict를 종료 증거로 참조",
+                  "expected_output": "release_decision"
+                }
+              ],
+              "completion_criteria": [
+                "증거 없는 Done 전이가 0건이다"
+              ]
+            }
+          ],
+          "model": "claude-sonnet-5-5",
+          "role": "department_lead"
+        }
+      ],
+      "department_lead": "issue_ops_agent"
     }
   ],
   "cross_department_workflows": [
@@ -3183,6 +3301,12 @@
           "owner_agent": "release_quality_gate_agent",
           "skill": "review_release_readiness",
           "output": "release_decision"
+        },
+        {
+          "step_order": 7,
+          "owner_agent": "issue_ops_agent",
+          "skill": "sync_issue_status",
+          "output": "linear_issue"
         }
       ],
       "exit_criteria": [
@@ -3267,6 +3391,10 @@
       {
         "decision": "출시 승인/차단",
         "owner_agent": "release_quality_gate_agent"
+      },
+      {
+        "decision": "Linear 이슈 등록·종료 (종료는 수정 커밋·검증·머지 증거 필수)",
+        "owner_agent": "issue_ops_agent"
       }
     ],
     "approval_rules": [

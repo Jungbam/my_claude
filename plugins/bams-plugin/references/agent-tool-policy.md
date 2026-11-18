@@ -55,6 +55,7 @@
 | product-analytics | Write/Edit 금지. 보고서는 output으로 반환하고, 호출자가 저장 |
 | automation-qa | Write/Edit 허용 — 테스트 코드 작성이 핵심 역할 |
 | visual-fidelity-verifier | Write/Edit 차단 (`disallowedTools: ["Edit", "Write"]`). 산출물(verdict.json, screenshots)은 Bash heredoc/tee로 저장 — H-D3 보안 정밀화 적용 |
+| issue-ops | Write/Edit/NotebookEdit 차단 (`disallowedTools: [Write, Edit, NotebookEdit]`) — 코드를 고치지 않는 부서장. `.crew/config.md` `## Linear`·`.crew/linear-issues.json`·`.crew/linear-pending.json`만 Bash(jq·awk·`mv`)로 쓴다. Linear 외부 쓰기는 `references/linear-protocol.md` §10 |
 
 ## frontmatter 선언 방법
 

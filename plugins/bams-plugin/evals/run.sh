@@ -84,7 +84,9 @@ CFG
 q() { printf "'%s'" "${1//\'/\'\\\'\'}"; }  # 로케일과 무관한 단순 single-quote 인용 (dry-run 출력용)
 
 build_args() { # 전역 ARGS 배열 구성. $1=최종 프롬프트 $2=budget
-  ARGS=(-p "$1" --output-format stream-json --verbose --permission-mode "$PERM" --allowedTools "$ALLOWED"
+  # --include-hook-events: Stop hook(pipeline-completion-guard) block 을 스트림에서 세기 위함(출력에만 영향, 두 구성 공통)
+  # shellcheck disable=SC2054 # "project,local" 은 한 인자(쉼표 목록)
+  ARGS=(-p "$1" --output-format stream-json --verbose --include-hook-events --permission-mode "$PERM" --allowedTools "$ALLOWED"
         --max-budget-usd "$2" --no-session-persistence --setting-sources project,local)
   [ -n "$MODEL" ] && ARGS+=(--model "$MODEL")
   # 사용자 MCP 커넥터가 양쪽 컨텍스트/비용에 섞이지 않게 차단 (EVAL_STRICT_MCP=0 으로 해제)
@@ -102,8 +104,10 @@ TOTAL_COST=0
 # 실행 후 처리(파싱 -> 채점 -> 기록). 정상 종료·타임아웃·시그널 중단 모두 같은 경로로 기록한다.
 # 입력 전역: R_task R_trial R_work R_raw R_err R_start R_rc R_tmo R_note
 finish_run() {
-  local dur result evs tools errmsg="" cost=0 turns=0 toks=0 outtoks=0 tc=0 ag=0 sk=0
-  dur=$(( $(date +%s) - R_start ))
+  local dur=null now result evs tools errmsg="" cost=0 turns=0 toks=0 outtoks=0 tc=0 ag=0 sk=0
+  # 시그널 중단 중 date 실패·R_start 미설정이면 음수/거대값이 나왔다(QA) → 숫자 아니거나 음수면 null
+  now=$(date +%s 2>/dev/null)
+  case "$now:${R_start:-}" in *[!0-9:]*|:*|*:) ;; *) [ "$now" -ge "$R_start" ] && dur=$((now - R_start)) ;; esac
   evs="$(jq -cR 'fromjson? | select(type=="object")' "$R_raw" 2>/dev/null)"
   result="$(printf '%s\n' "$evs" | jq -c 'select(.type=="result")' 2>/dev/null | tail -1)"
   # 도구 호출 집계 (tool_use id 기준 중복 제거). Agent/Task = 서브에이전트 spawn, Skill = 스킬 호출
@@ -147,12 +151,18 @@ finish_run() {
     errmsg="${errmsg:+$errmsg; }grade_failed"
   fi
 
+  # 과정 지표(작업 디렉터리 정리 전에 계산): lib/process_metrics.sh — score 와 별도 필드
+  local proc
+  proc="$("$HERE/lib/process_metrics.sh" "$R_raw" "$R_work" 2>/dev/null)"
+  jq -e 'type == "object"' >/dev/null 2>&1 <<<"$proc" || proc='{}'
+
   local rec
   rec="$(jq -nc --arg task "$R_task" --arg config "$CONFIG" --argjson trial "$R_trial" --argjson score "$score" \
     --argjson dur "$dur" --argjson tokens "$toks" --argjson out_tokens "$outtoks" --argjson cost "$cost" \
     --argjson turns "$turns" --argjson tool_calls "$tc" --argjson agent_spawns "$ag" --argjson skill_calls "$sk" --argjson cmd_resolved "$cmd_resolved" \
-    --arg error "$errmsg" --argjson tampered "$tampered" --argjson passed "$passed" --argjson total "$total" \
-    '{task:$task,config:$config,trial:$trial,score:$score,duration_s:$dur,tokens:$tokens,out_tokens:$out_tokens,cost_usd:$cost,turns:$turns,agent_spawns:$agent_spawns,skill_calls:$skill_calls,tool_calls:$tool_calls,cmd_resolved:$cmd_resolved,error:$error,tampered:$tampered,passed:$passed,total:$total}')"
+    --arg error "$errmsg" --argjson tampered "$tampered" --argjson passed "$passed" --argjson total "$total" --argjson proc "$proc" \
+    '{task:$task,config:$config,trial:$trial,score:$score,duration_s:$dur,tokens:$tokens,out_tokens:$out_tokens,cost_usd:$cost,turns:$turns,agent_spawns:$agent_spawns,skill_calls:$skill_calls,tool_calls:$tool_calls,cmd_resolved:$cmd_resolved,error:$error,tampered:$tampered,passed:$passed,total:$total}
+     + ($proc | del(.agent_spawns))')"
   # 파일에 먼저 기록(O_APPEND 한 줄), 그 다음 stdout 은 실패해도 무시
   printf '%s\n' "$rec" >> "$RESULT"
   printf '%s\n' "$rec" 2>/dev/null || true

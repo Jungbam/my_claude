@@ -511,6 +511,7 @@ CLAUDE.md에 Bams 조직 운영 규칙을 추가합니다. 이 규칙은 Claude�
 <!-- SYNC-SPECIALISTS:END -->
 - QA: qa-strategy, automation-qa, defect-triage, release-quality-gate
 - 평가: product-analytics, experimentation, performance-evaluation, business-kpi
+- 이슈관리: issue-ops (QA·리뷰 지적 → Linear 이슈 등록, 수정 검증 후 종료)
 - 총괄팀(독립 운영): pipeline-orchestrator (조언자 — Task 비호출), cross-department-coordinator, resource-optimizer, hr-agent, git-ops-agent (git skill 저비용 실행 전담)
 
 ### 2. 파이프라인 네이밍 규칙
@@ -553,6 +554,7 @@ CLAUDE.md에 Bams 조직 운영 규칙을 추가합니다. 이 규칙은 Claude�
 | design/ui/ux | design-director |
 | security | platform-devops |
 | agent-management | hr-agent |
+| linear/issue | issue-ops |
 
 **파일 패턴 기반 (태그 없을 때):**
 

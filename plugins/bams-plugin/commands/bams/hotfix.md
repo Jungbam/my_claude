@@ -15,9 +15,11 @@ $ARGUMENTS가 비어있으면 AskUserQuestion으로 버그 설명 받기.
 > 시작 즉시 아래 목록을 **원문 그대로** TodoWrite에 복사한다. 건너뛰는 step은 지우지 않고 `— skip: <사유>`로 남긴다 (`references/step-status.md` §Steps 체크리스트 규약).
 
 1. Pre-flight + 파이프라인 타입 검증 (`hotfix/preflight.md`)
+1-1. Linear 이슈 In Progress 전환 — issue-ops `linear-close-issues` start (요청에 Linear 식별자 없으면 skip)
 2. Step 1 버그 재현 + 진단 + 수정 (`hotfix/step-1-diagnose.md`)
 3. Step 2 QA 검증 — 브라우저 재현 (`hotfix/step-2-qa.md`, 선택)
 4. Step 3 CI/CD 프리플라이트 `/bams:verify` (`hotfix/step-3-4-cicd.md`)
+4-1. Linear 이슈 종료 — issue-ops `linear-close-issues` close (식별자 없으면 skip)
 5. Step 4 출시 준비 검토 — release-quality-gate (`hotfix/step-3-4-cicd.md`)
 6. Step 5 배포 (`hotfix/step-5-deploy.md`, 선택)
 7. 개선점 수집 + 자동 회고 (`hotfix/step-finalization.md`)
@@ -30,6 +32,26 @@ $ARGUMENTS가 비어있으면 AskUserQuestion으로 버그 설명 받기.
 **`references/lightweight-path-protocol.md` 참조.** 플래그 인식 + 자동 규모 감지(`git diff --stat` ≤2파일/±30줄) + 스팸 방지(파이프라인당 1회) + 축약 규칙을 표준 프로토콜대로 따릅니다.
 
 차이점: 본 파이프라인 축약 규칙은 SSOT §"hotfix" 목록 적용 (Step 1 진단+수정은 축약 없음).
+
+## Linear 연동 (식별자가 있을 때만)
+
+요청에 Linear 식별자(`BE-123` 형태, `linear.app/…/issue/…` 링크)가 있을 때만 실행한다. 없으면 두 항목 모두 `— skip: Linear 식별자 없음`. 규약 `references/linear-protocol.md` §6·§7. 게이트·파이프라인 상태에는 영향이 없고, 실패는 pending으로 보고만 한다.
+
+**착수 (체크리스트 1-1)** — Pre-flight 직후, Step 1 진단 spawn 전:
+
+Task tool, subagent_type: **"bams-plugin:issue-ops"** — 메인이 직접 호출:
+> load_profile: { level: L2, refs: [{doc: config}] }
+> mode: start · input: {$ARGUMENTS 원문} · pipeline: {slug} · commit: {git rev-parse HEAD}
+
+`skipped (completed)`(이미 닫힌 이슈)가 오면 다시 고칠지 AskUserQuestion으로 확인한다. 확인된 식별자는 이후 부서장 위임 메시지에 `linear_issues: [..]`로 붙인다.
+
+**종료 (체크리스트 4-1)** — Step 3 `/bams:verify` 통과 직후:
+
+Task tool, subagent_type: **"bams-plugin:issue-ops"** — 메인이 직접 호출:
+> load_profile: { level: L2, refs: [{doc: config}] }
+> mode: close · input: {착수 때 확인된 식별자} · pipeline: {slug} · flags: --verify "{이번 파이프라인에서 통과한 테스트 명령}"
+
+issue-ops는 수정 커밋·직접 재실행한 검증·머지를 모두 확인할 때만 Done으로 옮긴다. 커밋 전이면 In Progress + `awaiting commit`, PR이 열려 있으면 In Review로 두고, 이후 `/bams:ship`·`/bams:deploy`의 sweep이나 `/bams:issues close`가 마무리한다. 최종 보고에 식별자별 결과를 붙인다.
 
 ## 공통 규칙 로드
 
