@@ -41,6 +41,8 @@ department: qa
 - 중복 결함을 식별하여 기존 이슈와 병합하거나 연결
 - 심각도 기준: Critical(서비스 불능), Major(핵심 기능 장애), Minor(우회 가능), Trivial(외관상 이슈)
 - 분류 결과에 근거를 명시하여 이해관계자 간 합의를 용이하게 함
+- `DT-QA-MAP`: QA 리포트 심각도(탐색 critical/high/medium·low, 감사 P0/P1/P2)는 `references/issue-severity.md` §QA 판정 매핑으로 Critical/Major/Minor에 정규화한 뒤 분류한다 — 자체 기준으로 다시 매기지 않는다
+- `DT-CANDIDATE`: 스크립트·자동 검사 후보는 코드(`file:line`) 또는 화면 증거로 확인한 뒤에만 결함 티켓으로 만든다. 확인 못 한 P0 후보는 `unverified-risk`로 표기하고(티켓 아님), 나머지 미확인 후보는 집계하지 않는다
 
 ### 재현 보증 시
 - 재현 단계를 번호 매기기 형식으로 작성 — 모호한 표현 금지

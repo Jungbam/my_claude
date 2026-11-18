@@ -34,7 +34,7 @@ v1.1.0: 전체 파이프라인 병렬화 최적화 — 약 30% 타임라인 단�
 | `/bams:security` | 보안 감사 (OWASP/STRIDE) | 2~3단계 |
 | `/bams:performance <url>` | 성능 측정/최적화 | 1~3단계 |
 | `/bams:weekly` | 주간 루틴 (스프린트+회고) | 4단계 |
-| `/bams:qa <url>` | 브라우저 QA 테스트 | 3단계 |
+| `/bams:qa <url> [--audit ui,a11y,perf\|all]` | 브라우저 QA — 탐색 모드(기본, 흐름을 따라가며 결함 탐색) / 감사 모드(`--audit`, UI·A11Y·PERF를 스크립트 증거로 측정, 엔진 `qa-audit`) | 3단계 |
 | `/bams:ship` | PR 생성 + 머지 | 3단계 |
 | `/bams:deploy` | 배포 (Land & Deploy) | 4단계 |
 | `/bams:issues <setup\|file\|close\|status>` | Linear 이슈 관리 — QA·리뷰 지적 등록, 수정 검증 후 종료 | 1~2단계 |
@@ -83,7 +83,7 @@ v1.1.0: 전체 파이프라인 병렬화 최적화 — 약 30% 타임라인 단�
 - `issue-ops` — 레포별 Linear 매핑, QA·리뷰 지적 이슈 등록, 수정 검증 후 Done 처리 (`/bams:issues`)
 
 ## QA 관련 커맨드 구분
-- `/bams:qa` — 브라우저 기반 QA 테스트 워크플로우 (자동화 테스트 계획 + 브라우저 검증)
+- `/bams:qa` — 브라우저 기반 QA 테스트 워크플로우 (자동화 테스트 계획 + 브라우저 검증). `--audit [ui,a11y,perf|all]`이면 탐색 대신 측정형 감사(엔진 `qa-audit`, 관찰 전용)
 - `/bams:qc` — QA부서 허브 (qa-strategy 부서장 + 4개 에이전트 선택)
 - `/bams:verify` — CI/CD 프리플라이트 (빌드, 린트, 타입체크, 테스트 실행)
 - `/bams:issues` — QA·리뷰에서 확인된 지적을 Linear 이슈로 관리 (review·deep-review·qa가 자동 등록, hotfix·dev·debug가 자동 종료)
@@ -91,7 +91,7 @@ v1.1.0: 전체 파이프라인 병렬화 최적화 — 약 30% 타임라인 단�
 ## 시스템 요구사항
 
 - **bams-plugin 에이전트**: 항상 사용 가능 (20개 에이전트)
-- **bams-plugin 스킬**: browse, qa-only, benchmark, cso, ship, land-and-deploy, document-release, retro 등
+- **bams-plugin 스킬**: browse, qa-only, qa-audit(`/bams:qa --audit` 내부 엔진), benchmark, cso, ship, land-and-deploy, document-release, retro 등
 - 스킬 미설치 시 워크플로우 명령어는 대체 행동으로 동작합니다.
 
 ## 병렬화 전략 (v1.1.0)

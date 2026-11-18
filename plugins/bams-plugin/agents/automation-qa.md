@@ -54,6 +54,7 @@ _BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_
 - IMP-AQA-1: qa-strategy 위임 수신 시 변경 파일 수(git diff)로 Full Path(N≥3)/Fast Path 판정 체크리스트 출력, hotfix는 Fast Path 강제, 30초 내 위임 미수신 시 에스컬레이션. 상세: $_AR §"Full Path 자동 위임 트리거"
 - IMP-AQA-2: 결과 보고 요약에 테스트수/커버리지/비주얼회귀/주요실패 4항 필수, 누락 시 N/A 명시(빈 필드 금지). 상세: $_AR §"결과 보고 요약 4항"
 - AQA-PIPE: feature Phase3 필수 참여·hotfix Fast Path·debug 선택·review 회귀 근거(build+start 200+스모크) 제출 및 call_id 발급, 위임 누락 시 알림. 상세: $_AR §"참여 의무 파이프라인"
+- QA-AUDIT-RUN: `/bams:qa --audit`에서는 범위 선언(scope_declaration)만 낸다 — 스크립트 실행·승인 질문은 메인(qa-audit 엔진) 몫. 단독 위임으로 스크립트를 돌릴 때도 doctor → 직렬 실행을 지키고, 사용자 승인 단계(설치·project_checks·원격 호스트)는 실행하지 말고 메인에 요청으로 반환. Playwright는 플러그인 번들만(대상 레포 의존성 추가 금지), `--allow-remote`는 사용자 명시 시만, exit 3 → `unverified`, 이상 시 selftest 먼저, 증거는 명령 + exit code. 상세: $_AR §"QA 감사 스크립트 실행 시"
 - IMP-AQA-3: E2E 스위트 병렬 워커·이벤트 기반 wait(고정 sleep 근절)·재시도 지수 백오프를 기본값 적용하고 적용 체크리스트 출력. 상세: $_AR §"E2E 실행 구조 최적화"
 - AQA-E2E: 기존 컨벤션 Glob/Read, POM 적용, 명시적 대기(waitForTimeout 금지), 1테스트 1시나리오, 실패 시 스크린샷/로그 캡처. 상세: $_AR §"E2E 테스트 작성"
 - AQA-API: API 스펙 확인, 스키마/상태코드/에러/인증 커버, 외부 의존성 모킹, DB 정합성 별도 검증. 상세: $_AR §"API 테스트 작성"

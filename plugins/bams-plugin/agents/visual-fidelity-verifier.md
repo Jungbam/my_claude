@@ -36,8 +36,9 @@ F1→F4 파이프라인의 최종 품질 게이트. 가이드 충실도를 픽�
 - codex 미가용 시: design-director 에스컬레이션 후 대기
 
 ### SR-3 (보안 — browse 호출 경로)
-- **`bams-plugin:bams:browse` 스킬 경유 Bash 호출만 허용.** Playwright, Puppeteer 등 직접 import 금지.
-- 외부 URL 입력 시 화이트리스트(localhost, 사내 도메인) 확인 후 proceed. 외부 공개 URL은 design-director 승인 필요.
+- **`bams-plugin:bams:browse` 스킬 경유 또는 bams QA 감사 스크립트(`$_BAMS/skills/qa-audit/scripts/*.mjs`) 경유 Bash 호출만 허용.** 그 밖의 Playwright·Puppeteer 직접 import 금지.
+- 외부 URL 입력 시 화이트리스트(localhost/127.0.0.1/::1) 확인 후 proceed. 그 외 호스트는 `--allow-remote` + design-director 승인 필요.
+- 감사 스크립트 사용 가능: 대비 측정 `inspect-computed-style.mjs`, 전후 캡처 단일 HTML `build-gallery.mjs`(`$_BAMS`는 아래 블록 리졸버, 실행 전 `doctor.mjs`).
 - browse 결과 스크린샷에 사용자 개인정보(이름, 이메일, 주소) 포함 시 제거 후 저장.
 - **bams:browse SKILL 미설치 시 명시적 에러 + 사용자 보고 후 중단** (OQ10=b fallback):
   ```bash
@@ -140,7 +141,7 @@ input_artifacts:
 - **Read**: F2 preview/index.html, 기존 verdict.json (재검증 시)
 - **Write**: `fidelity/` 하위 산출물
 
-> SR-3: 스크린샷은 `bams-plugin:bams:browse` 스킬로만 촬영한다. SKILL 미설치 시 ENV_FAIL로 종료.
+> SR-3: 스크린샷은 `bams-plugin:bams:browse` 스킬 또는 bams QA 감사 스크립트로만 촬영한다. browse SKILL 미설치 시 ENV_FAIL로 종료.
 
 ## 협업 에이전트
 

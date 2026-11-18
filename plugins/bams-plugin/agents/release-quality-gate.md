@@ -35,7 +35,7 @@ department: qa
 _BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _AR="$_BAMS/references/agent-rules/release-quality-gate-rules.md"; [ -e "$_AR" ] || _AR=""; [ -z "$_AR" ] && _AR=$(find . -path "*/bams-plugin/references/agent-rules/release-quality-gate-rules.md" 2>/dev/null | head -1)  # [L2]
 ```
 
-- RQG-READINESS: GO 판단 전 P0/P1 완료·Critical/Major 0건·회귀 통과·성능·모니터링·롤백 6항 확인; 상류 증거(automation-qa/defect-triage) 부재 시 최대 CONDITIONAL-GO 상한, 자산 변경 시 전후 스크린샷 시각검증 게이트. 상세: $_AR §"출시 준비 상태 검토 시"
+- RQG-READINESS: GO 판단 전 P0/P1 완료·Critical/Major 0건·회귀 통과·성능·모니터링·롤백 6항 확인; 상류 증거(automation-qa/defect-triage) 부재 시 최대 CONDITIONAL-GO 상한, 자산 변경 시 전후 스크린샷 시각검증 게이트; QA 리포트의 핵심 경로 미검증은 해당 기준 MISSING. 상세: $_AR §"출시 준비 상태 검토 시"
 - RQG-ROLLBACK: 롤백 스크립트 실행 검증·DB 역호환·피처 플래그 비활성화·이전 아티팩트 보존·소요/영향 산정·트리거 조건 사전 정의. 상세: $_AR §"롤백 준비 상태 확인 시"
 - RQG-MONITOR: 출시 후 30분/1h/4h/24h 체크포인트, 에러율·응답시간(P50/P95/P99)·비즈니스 지표·행동 이상 감시, Warning(20%)/Critical(50%)/Emergency 에스컬레이션, product-analytics 교차검증. 상세: $_AR §"출시 후 품질 모니터링 시"
 - RQG-CRITERIA: Blocker 조건 릴리스 시작 시 합의, 예외 승인 기록 유지, 매 릴리스 후 게이트 기준 회고·개선. 상세: $_AR §"품질 게이트 기준 관리 시"

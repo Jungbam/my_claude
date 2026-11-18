@@ -33,6 +33,8 @@ Auto-shuts down after 30 min idle. State persists between calls (cookies, tabs, 
 
 ## QA Workflows
 
+> `/bams:qa <url>` runs exploratory QA with this browser. `/bams:qa --audit [ui,a11y,perf|all]` runs the measured audit mode instead (engine: `qa-audit` skill, observe-only, script evidence for UI/A11Y/PERF).
+
 ### Test a user flow (login, signup, checkout, etc.)
 
 ```bash

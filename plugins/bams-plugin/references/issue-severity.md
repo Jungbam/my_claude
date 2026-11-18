@@ -76,7 +76,7 @@
 
 ## Release Gate 임계값 (SSOT)
 
-모든 릴리스 게이트 판정(review / dev QG / feature Phase 3 / hotfix / ship / deploy / qa)은 아래 임계값을 쓴다. 파이프라인별 조정은 §파이프라인별 Override.
+모든 릴리스 게이트 판정(review / dev QG / feature Phase 3 / hotfix / ship / deploy / qa / qa --audit)은 아래 임계값을 쓴다. 파이프라인별 조정은 §파이프라인별 Override.
 
 ### 기본 임계값
 
@@ -99,7 +99,8 @@
 | `hotfix` | 0 | ≤ 1 | 프로덕션 hotfix는 잔여 리스크 최소화 |
 | `ship` | 0 | ≤ 2 | 기본값 |
 | `deploy` | 0 | ≤ 0 | 배포 직전은 Major도 0 (RQG override) |
-| `qa` | 0 | ≤ 2 | 기본값 |
+| `qa` (탐색형) | 0 | ≤ 2 | 기본값 — `/bams:qa <url>` 탐색형. 심각도 변환은 §QA 판정 매핑 |
+| `qa --audit` | 0 | ≤ 0 | 측정형 감사 — P1은 수정 계획이 필요한 조건부 출시. 심각도 변환은 §QA 판정 매핑 |
 
 Override를 인용하는 커맨드는 근거를 함께 적는다. 근거 없는 완화는 금지한다.
 
@@ -137,3 +138,28 @@ CSS/폰트/이미지 등 **자산 변경 배치**(축소·삭제·교체 포함)
 | `code` | (변경 없음 — 기존 §기본 임계값 그대로) | (변경 없음) | — |
 
 **다중 aspect 통합 판정 (worst-case)**: aspect별로 판정한 뒤 하나라도 FAIL이면 FAIL, FAIL 없이 CONDITIONAL이 있으면 CONDITIONAL, 모두 PASS일 때만 PASS.
+
+## QA 판정 매핑 (SSOT)
+
+탐색형 QA(`/bams:qa <url>`, qa·qa-only 엔진의 critical/high/medium/low)와 감사형 QA(`/bams:qa --audit`, P0/P1/P2)의 심각도를 본 파일의 심각도로 옮기는 기준이다. 옮긴 건수에 §파이프라인별 Override의 `qa`(탐색형) 또는 `qa --audit` 행을 적용한다. design-qa(PASS/CONDITIONAL/FAIL)와 accessibility-auditor `a11y-verdict.json`도 같은 매핑과 `qa --audit` 행을 쓴다.
+
+| 탐색 (issue-taxonomy) | 감사 (qa-audit) | issue-severity | 게이트 효과 |
+|---|---|---|---|
+| critical | P0 | Critical | 1건 이상이면 NO-GO |
+| high | P1 | Major | `qa` 행(Major ≤ 2) / `qa --audit` 행(Major ≤ 0) |
+| medium · low | P2 | Minor | 집계만 |
+| (실행 못 한 범위) | 미검증 | `unverified` | 결함 집계 제외. 핵심 경로면 규칙 (a) |
+| 확인 못 한 P0 후보 | 미확인 P0 후보 | `unverified-risk` | §증거 등급 예외대로 PASS 불가 |
+| 스크립트 후보(확인 전) | 후보 | (집계 안 함) | — |
+
+- 표기: PASS = GO, CONDITIONAL = CONDITIONAL-GO, FAIL = NO-GO (§기본 임계값과 같다). `qa --audit`에서 Major 1~5건은 CONDITIONAL-GO, 6건 이상은 §기본 임계값 FAIL 행대로 NO-GO.
+- health score는 참고 지표이며 게이트가 아니다.
+- **핵심 경로**: 감사 = 프로젝트 QA 프로필 `core_routes` ∪ 사용자 지정 ∪ diff 영향 라우트. 탐색 = 테스트 계획의 핵심 플로우 ∪ diff 영향 라우트. 비어 있으면 실행 전에 사용자에게 1회 묻는다.
+- release-quality-gate는 QA 리포트의 "핵심 경로 미검증"을 해당 기준 MISSING으로 본다(→ INCOMPLETE, GO 불가).
+
+**규칙**
+
+- (a) 핵심 경로에 `unverified`가 1건 이상이면 PASS(GO) 불가 — 최대 CONDITIONAL(CONDITIONAL-GO). 적용: `qa`·`qa --audit`·design-qa·`a11y-verdict.json`. review 계열(review·deep-review·dev QG 등)에는 적용하지 않는다.
+- (b) 코드(`file:line`)나 화면으로 확인하지 않은 스크립트·자동 검사 후보는 결함 건수에 넣지 않는다. 확인한 뒤에만 P0/P1/P2(critical~low)로 올린다.
+- (c) 확인하지 못한 P0 후보는 `unverified-risk`로 남긴다 — Critical 건수에 넣지 않지만 PASS로 둘 수 없다(§증거 등급 예외와 같은 효과).
+- (d) §aspect별 Override `uiux` 행의 추가 Critical 기준은 `/bams:review --aspect uiux` 전용이며 QA 판정에는 적용하지 않는다(다른 aspect 행도 같다).

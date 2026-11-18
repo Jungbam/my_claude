@@ -1,0 +1,222 @@
+---
+name: qa-audit
+version: 1.0.0
+disable-model-invocation: true
+description: |
+  bams 커맨드 내부 엔진 — 직접 쓰지 말고 `/bams:qa --audit` 사용.
+  UI·A11Y·PERF 측정형 감사(관찰 전용): 결정론적 스크립트 증거 + 분모 + 판정 줄.
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - Grep
+  - Glob
+  - AskUserQuestion
+---
+<!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
+<!-- Regenerate: bash scripts/gen-skill-docs.sh -->
+
+# qa-audit: 측정형 QA 감사 엔진
+
+웹앱을 UI·A11Y·PERF 축에서 **스크립트로 측정하고 관찰·보고만** 한다. 안내와 리포트는 한국어로 쓴다.
+`/bams:qa --audit`가 이 파일을 Read해서 실행한다. 이 문서의 `${CLAUDE_SKILL_DIR}`는 `$_BAMS/skills/qa-audit`로 읽는다(아래 §4 리졸버).
+
+탐색형 QA(사용자처럼 클릭해 기능 버그 찾기)는 이 엔진이 아니다 — `/bams:qa <url>`(qa-only 엔진). 한 호출에서 둘을 섞지 않는다.
+
+## 1. 모드와 수준
+
+**입력** (`/bams:qa`가 넘긴다): 축(`--audit ui,a11y,perf|all`, 생략 시 `all`), 수준(`--level`, 기본 `standard`), `--allow-remote` 여부, base URL, Step 1 범위 선언(라우트·핵심 경로·viewport·서버 종류·인증·엔드포인트·ready 셀렉터).
+
+| 축 | 보는 것 | 축 문서 [L2] |
+|---|---|---|
+| **UI** | 디자인 시스템 사용 규칙, 중복 컴포넌트, 컬러 토큰·폰트 위계·페이지 위계(정적 스캔 + computed style) | `${CLAUDE_SKILL_DIR}/references/ui-audit.md` |
+| **A11Y** | 자동 접근성 검사(axe), 이름·라벨·제목 구조, 키보드 순회·포커스 표시·가림·트랩, 320px reflow, 텍스트 간격, reduced motion, 보조기기 데이터 표기 | `${CLAUDE_SKILL_DIR}/references/a11y-audit.md` |
+| **PERF** | 캐시 계층별 API·웹 cold/warm, p50/p95, Server-Timing, 조회 대비 렌더, 로딩·스켈레톤 | `${CLAUDE_SKILL_DIR}/references/perf-audit.md`, `${CLAUDE_SKILL_DIR}/references/loading-skeleton-checklist.md` |
+| **ALL** | UI → A11Y → PERF를 **한 세션에서 직렬** 실행, 리포트 하나 | 위 전부 |
+
+ALL이어도 서브에이전트로 나누지 않는다(위임 깊이 2, 브라우저 스크립트 직렬 실행).
+
+| 수준 | UI | A11Y | PERF |
+|---|---|---|---|
+| quick | 정적 스캔만 | 정적 A2/A3 + 대표 라우트 `audit-a11y` 1 viewport(1440) | server-warm API, browser-warm 1회 |
+| **standard** (기본) | 정적 + computed style 2 viewport | 정적 + `audit-a11y`(axe 포함) 2 viewport + 대비·터치 대상 + 키보드 흐름 표 | API cold/warm 30회, 웹 3회 중앙값, 스켈레톤 캡처 |
+| full | standard + 320/768/1024 | standard + 변경 라우트 전부 + 스크린 리더 표본 + A6 수동 표본 | standard + 오류 주입 + SPA 재진입 + 모바일 |
+
+- 리포트 첫 줄(판정 줄) 바로 아래 범위 표에 **수준과 분모**를 쓴다. quick·standard 결과를 "전수 검증 완료"라고 쓰지 않는다.
+- server-cold는 캐시 우회 수단(`--nocache-header` 또는 프로필 `perf.nocache_header`)이 있을 때만 측정한다. 없으면 스크립트가 그 행을 `unverified`로 남긴다.
+
+## 2. 원칙
+
+리포트를 쓰거나 판정하기 전에 `${CLAUDE_SKILL_DIR}/../../references/qa-principles.md`를 Read한다 [L2] — 특히 §1 검증 원칙 8, §2 리포트 문장 규칙, §3 증거 층위, §5 분모.
+
+- 이 엔진은 **정적 스캔을 위해 대상 레포 소스를 읽는다**. 탐색형 QA의 "소스 코드를 읽지 않는다" 규칙의 예외다(감사 모드 한정).
+- 스크립트 결과는 **후보**다. 코드(`file:line`)나 화면으로 확인한 뒤에만 결함으로 올린다.
+- 못 한 검증은 `미검증`(`unverified`)으로 쓴다. 생략하지 않는다.
+- 자동 검사 결과는 `자동 검사 위반 0`처럼 쓴다. "준수"로 쓰지 않는다.
+
+## 3. 흐름
+
+1. **범위 선언** — 라우트·핵심 경로·viewport·서버 종류·인증 방식·엔드포인트·ready 셀렉터·수준을 확정한다. 빠진 것이 있으면 AskUserQuestion **한 번에** 묻는다.
+   - **프로필 자동 로드** — 대상 레포에 `.crew/qa-profile.json`이 있으면 **모든 스크립트에** `--profile .crew/qa-profile.json`을 넘긴다(`base_url`·`core_routes`·`routes`·`ready_selector`·`viewports`도 여기서 읽는다). `.crew/qa-profile.md`가 있으면 사람 판정 기준·프로세스 제약으로 함께 읽는다. 스키마·로드 규칙: `${CLAUDE_SKILL_DIR}/references/qa-profile.md` [L2].
+   - **프로필이 없으면** 멈추지 않는다. ① 기본값으로 실행 ② `node "$S/profile-draft.mjs" --repo . --out "$RUN"` → `<run>/qa-profile.draft.json`(대상 레포에는 쓰지 않는다) ③ 리포트 범위 표에 `프로필 없음 — 기본값, 건너뛴 규칙 N개(미검증)`(N은 스크립트 `skipped_rules`를 규칙 이름으로 합친 수) ④ 저장 여부는 흐름 7단계에서 1회만 묻는다.
+   - **핵심 경로가 비어 있으면** 실행 전에 1회 묻는다(정의: `issue-severity.md` §QA 판정 매핑).
+   - **데이터 규모 먼저 측정** — 화면이 다루는 목록·표의 규모(최대 건수·중앙값 등)를 실행 전에 재서 범위 표에 쓴다(`qa-principles.md` §5). 규모를 모르면 페이지당 건수·검색형 선택·가상화 같은 판단을 하지 않는다. 잴 수 없으면 `미검증`으로 쓴다.
+   - **`project_checks` 승인** — 프로필에 `project_checks`가 있으면 여기서 명령 목록을 보여 주고 AskUserQuestion **1회**로 승인을 받는다(§5 프로젝트 검증 명령). 승인 없이는 실행하지 않는다.
+   - **의도 원장 읽기** — 대상 레포 `.crew/qa-intent-ledger.md`가 있으면 읽는다(형식: `${CLAUDE_SKILL_DIR}/templates/intent-ledger.example.md` [L2]). ① 의도 결정에 이미 있는 항목은 **다시 묻지 않고** 기록된 결정(`intended`·`bug`·`next-phase`)을 따른다. 근거가 된 원천(디자인 문서·데이터 출처)이나 그 위치의 구조가 바뀐 항목만 다시 확인한다. ② 놓친 결함은 이번 실행에서 같은 결함을 잡는지 재현 확인 대상으로 삼는다.
+2. **대상 레포 제약 확인** — `qa-principles.md` §4. `CLAUDE.md`, `.crew/config.md`, `.crew/gotchas.md`의 금지 작업(build, DB 쓰기, 새 env, 의존성 추가 등)과 충돌하는 단계는 건너뛰고 `미검증·한계`에 기록한다. 제약을 덮어쓰지 않는다. 프로필 `forbidden_ops`는 요약일 뿐이고 정본이 우선한다.
+3. **doctor** — §4. 실행 환경과 axe 출처를 확인하고 결과를 리포트 범위 표에 옮긴다.
+4. **실행** — 승인된 `project_checks`를 먼저(§5 프로젝트 검증 명령), 이어서 §5 스크립트를 축 순서(UI → A11Y → PERF)대로 **직렬** 실행한다. 명령마다 exit code를 기록한다.
+5. **판단** — 후보를 코드·화면으로 확인해 결함 / 의도된 예외 / 미확인으로 나눈다. 축별 기본 심각도는 축 문서를 따른다. 확인 못 한 P0 후보는 `unverified-risk`. 원장 ①에 결정이 있는 항목은 그 결정을 근거로 적는다.
+6. **리포트** — `${CLAUDE_SKILL_DIR}/references/report-template.md` 형식으로 `<run>/report.md`를 쓴다(§6). 첫 줄은 판정 줄(§7).
+7. **마무리** — 리포트를 쓴 뒤:
+   - **의도 원장 기록 요청** — 이번에 답을 받은 의도 확인 항목은 원장 ①에, 사용자 리뷰에서만 나온 지적은 원장 ②에 넣을 행을 리포트 `## 의도 확인 요청` 아래에 초안으로 싣고 기록을 요청한다. 원장 파일은 사용자 승인 없이 쓰지 않는다.
+   - **프로필 저장 여부(프로필이 없을 때만)** — AskUserQuestion **1회**: "초안을 `.crew/qa-profile.json`으로 저장할까요?" 승인하면 그때 초안을 복사한다. **승인 없이는 `.crew/qa-profile.json`을 쓰지 않는다.** 저장 시 `_todo` 항목(`typography`·`core_routes` 등)을 채우도록 안내한다 — `_`로 시작하는 키(`_todo`·`_detected`)는 검증에서 제외되므로 남겨도 되고 지워도 된다. 커밋은 사용자에게 맡긴다. 템플릿: `${CLAUDE_SKILL_DIR}/templates/qa-profile.example.json`, `qa-profile.example.md` [L2].
+
+## 4. 실행 환경
+
+### 스크립트 디렉터리 `S`
+
+Bash 호출마다 셸 상태가 사라진다. **Bash 호출마다 아래 블록으로 `S`를 다시 설정**한다(`RUN`도 처음 만든 경로를 그대로 다시 적는다).
+
+```bash
+S="${CLAUDE_SKILL_DIR}/scripts"
+if [ ! -f "$S/doctor.mjs" ]; then
+_BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); S="$_BAMS/skills/qa-audit/scripts"
+fi
+[ -f "$S/doctor.mjs" ] || { echo "qa-audit 스크립트 없음: $S — 플러그인 설치 확인" >&2; exit 2; }
+```
+
+- 런타임은 Node 18+(`node`로 실행). Playwright·axe는 **플러그인 번들**에서 해석한다. 대상 앱 레포에 의존성을 추가하지 않는다.
+- 스크립트 종료 코드: `0` 실행 완료(결함을 찾아도 0) · `2` 사용법 오류·호스트/라우트 가드 거부 · `3` 환경 없음(Playwright·브라우저).
+
+### doctor
+
+`$RUN`은 §6 블록으로 먼저 만든다.
+
+```bash
+node "$S/doctor.mjs" --out "$RUN"; echo "exit=$?"
+```
+
+- doctor는 JSON을 stdout에만 출력하고, `--out`이 있으면 `<run>/doctor.md`만 쓴다(json 파일은 만들지 않는다). 리포트에는 `doctor.md`를 증거로 적는다.
+- exit 0 → 준비 완료. axe가 없어도 0이다 — 이때 A1(axe)은 `unverified`(실패 아님), 출처 없음 사유를 리포트에 쓴다.
+- **exit 3** → doctor가 출력한 설치 명령(플러그인 루트에서 `bun install && bunx playwright install chromium` 또는 `bash <plugin root>/setup.sh`)을 사용자에게 보여 주고, AskUserQuestion **1회**로 "플러그인 디렉터리에 설치할까요?"를 묻는다.
+  - 승인 → 플러그인 디렉터리에서만 설치 후 doctor 재실행.
+  - 거절 → 브라우저 층(`inspect-computed-style`·`audit-a11y`·`measure-web`·`skeleton-hold`) 전체를 `unverified`로 두고 정적 스캔·API 측정만 진행한다.
+- doctor의 Playwright 출처·버전, axe 출처·버전을 리포트 범위 표에 그대로 옮긴다.
+
+### 호스트·인증·서버 종류
+
+- 기본 허용 호스트는 `localhost`·`127.0.0.1`·`::1`이다. 그 밖의 호스트는 사용자가 `--allow-remote`를 명시했을 때만 스크립트에 넘긴다. 가드 거부(exit 2)를 우회하지 않는다.
+- 라우트는 `/`로 시작하는 경로만 쓴다. 절대 URL은 base와 같은 출처일 때만.
+- base URL은 `http`/`https`만 쓴다. 자격증명이 든 URL(`http://user:pw@host`)과 쿼리(`?`)·조각(`#`)이 붙은 base는 exit 2로 거부된다 — base는 경로까지만 쓴다. 스크립트는 산출물(md·json)에 base를 origin + 경로로 기록한다(자격증명·쿼리·조각 제외).
+- 인증 화면은 `--cookie` 또는 env `QA_COOKIE`로 세션을 넘긴다. **쿠키 값은 리포트·로그·재현 명령에 쓰지 않는다** — 재현 명령에는 `QA_COOKIE=<생략>`으로 적는다. 비로그인 사용자가 로그인 리다이렉트·소개 화면을 보면 해당 화면 검사로 세지 않는다.
+- **`--server dev|prod|staging|unknown`을 모든 브라우저·측정 스크립트에 넘기고 리포트에 반드시 기재**한다. dev 서버 성능 값은 운영 수치로 쓰지 않는다.
+
+## 5. 스크립트
+
+공통 인자(브라우저·측정 스크립트): `--out "$RUN"`(필수) `--server <kind>` `[--base <url>]`(생략 시 프로필 `base_url`, 기본 `http://localhost:3000`) `[--profile <path>]` `[--cookie "..."]`(또는 env `QA_COOKIE`) `[--allow-remote]`.
+`scan-ui-static`의 `--base`만 예외로 **git 기준 브랜치**다(생략 시 프로필 `base_branch` → 자동 감지). `--base`·`base_branch`는 ref 이름만(영문·숫자·`._/@-`, `-`로 시작·`..` 포함 불가) — 위반이나 커밋으로 해석되지 않는 ref는 exit 2.
+스크립트는 모르는 플래그는 exit 2(사용법 오류)로 거부한다. 아래 표에 없는 인자는 효과가 없으니 넘기지 않는다.
+
+| 스크립트 | 축·단계 | 주요 인자 (공통 외) | 산출물 (`<run>/`) |
+|---|---|---|---|
+| `doctor.mjs` | 환경 | `[--out "$RUN"] [--axe <path>\|none] [--repo <dir>] [--base <url>]` | stdout JSON, `doctor.md`(`--out`일 때만) |
+| `scan-ui-static.mjs` | UI U1–U6, A11Y A2/A3 정적 | `--repo .`(필수) `--out "$RUN"`(필수) `[--profile <path>] [--base <branch>] [--files a,b] [--all]` | `ui-static.md/json` |
+| `inspect-computed-style.mjs` | UI U5–U7, A11Y A7 대비·터치 대상 | `--routes /a,/b`(생략 시 프로필 `routes`/`core_routes`) `[--viewports 1440x1000,390x844] [--ready <selector>] [--settle-ms 800] [--repo <dir>]` | `ui-computed.md/json`, `screens/<route>__page__<width>.png` |
+| `audit-a11y.mjs` | A11Y A1–A6 | inspect-computed-style와 같음 + `[--axe <path>\|none] [--tab-limit N] [--no-reflow] [--no-spacing]` | `a11y.md/json` |
+| `measure-api.mjs` | PERF P1–P2 | `--endpoints <json>`(필수) `[--runs 30] [--modes server-cold,server-warm] [--nocache-header <h>] [--timing-names a,b] [--timeout-ms 30000]` | `perf-api.md/json` |
+| `measure-web.mjs` | PERF P1·P3·P4 | `--routes /a,/b`(필수) `[--ready <selector>] [--devices mobile,desktop] [--runs 3] [--modes browser-cold,browser-warm,query-warm] [--api-pattern <regex>] [--leave-selector <css>] [--busy-selector <css>] [--observe-ms 1500]` — `--viewports` 없음(`--devices`) | `perf-web.md/json` |
+| `skeleton-hold.mjs` | PERF P5–P6 (Next.js 스트리밍 전용) | `--routes key=/a,/b`(필수) `[--viewports <list>]`(생략 시 프로필 `viewports` → `1440x1000,390x1000`) `[--hold all\|last] [--hydrate] [--phase before\|after] [--boxes <css,…>] [--busy-selector <css>]` — `--ready` 없음 | `skeleton-<phase>.md/json`, `screens/<key>__<phase>-held__<width>.png`·`…-loaded__…` |
+| `build-gallery.mjs` | 전후 비교 | `--dirs "$RUN/screens"`(필수) `--out "$RUN/gallery.html"`(필수) `[--title <제목>] [--cases a,b]` — 입력은 `<case>__<state>__<width>.png` | `gallery.html` |
+| `selftest/selftest.mjs` | 스크립트 보정(§9) | `[--no-axe]` | stdout |
+
+엔드포인트 파일 형식: `${CLAUDE_SKILL_DIR}/templates/endpoints.example.json`(`group`·`name`·`path`). 대상 레포가 아니라 `<run>/endpoints.json`에 만든다.
+프로필 초안: `profile-draft.mjs --repo .`(필수) `--out "$RUN"`(필수) → `<run>/qa-profile.draft.json`. 프로필이 없을 때만 실행한다(§3 1단계).
+
+### 프로젝트 검증 명령 (`project_checks`)
+
+프로필 `project_checks`(`[{name, cmd, axis}]`)는 대상 레포가 이미 가진 검증 명령(lint·타입·디자인 규칙 검사 등)이다. 비어 있으면 이 절을 건너뛴다.
+
+- **실행 전 사용자 승인(필수)** — 프로필은 감사 대상 레포(남의 레포·PR 브랜치일 수 있다)가 정하므로 `cmd`는 신뢰하지 않는다. 범위 선언(§3 1단계)에서 전체 목록(`name`·`axis`·`cmd` 원문)을 한 번에 보여 주고 AskUserQuestion **1회**로 묻는다: 전체 실행 / 일부 선택 / 건너뛰기. **승인 없이는 어떤 `cmd`도 실행하지 않는다.** 거절·건너뛴 항목은 리포트 `미검증·한계`에 `project_checks <name> — 사용자 미승인`으로 쓴다.
+- 승인은 **이번 실행에만** 유효하다. 다음 실행에서는 다시 묻는다(직전 실행 `project-checks.md`의 `$ ` 줄과 `cmd` 문자열을 비교해 바뀐 항목을 표시할 수 있다 — 같아도 승인을 생략하지는 않는다).
+- doctor 다음, 축 스크립트 전에 **목록 순서대로 직렬** 실행한다. **병렬로 돌리지 않는다** — 출력이 섞이면 어느 명령이 실패했는지 짚을 수 없다.
+- **실행 방식** — `cmd`를 셸 인용에 끼워 넣지 않는다. 승인된 항목마다 Write 도구로 `cmd` 원문을 그대로 `<run>/project-checks/<name>.sh`에 쓰고(파일명은 `name`에서 영숫자·`.`·`_`·`-` 외 문자를 `_`로 바꾼다) 그 파일을 `sh`로 실행한다.
+- 명령마다 **명령 원문 + exit code**를 증거로 남긴다(`<run>/project-checks.md`, 출력은 필요한 줄만 발췌). 결과는 `axis` 축 절에 싣는다.
+- exit ≠ 0은 그 축의 **후보**다. 판정·심각도는 다른 후보와 같은 절차(축 문서 → `issue-severity.md` §QA 판정 매핑)를 따른다.
+- 명령이 대상 레포 제약(build·DB 쓰기·새 env 등, §3 2단계)과 충돌하면 실행하지 않고 `미검증·한계`에 사유를 쓴다.
+- 감사 중 리뷰 반영으로 코드가 바뀌면 이전 결과는 근거가 아니다 — `project_checks` **전부**를 처음부터 다시 실행한다(일부만 재실행하지 않는다).
+
+```bash
+# 승인된 항목마다 한 번씩, 앞 명령이 끝난 뒤 다음 명령 (<name>.sh = Write로 쓴 cmd 원문)
+F="$RUN/project-checks/<name>.sh"; { echo "\$ $(cat "$F")"; sh "$F"; echo "exit=$?"; } >> "$RUN/project-checks.md" 2>&1
+```
+
+### 축별 실행 (수준에 따라 §1 표의 범위만)
+
+```bash
+# UI
+node "$S/scan-ui-static.mjs" --repo . --out "$RUN"; echo "exit=$?"
+node "$S/inspect-computed-style.mjs" --base "$BASE" --routes "$ROUTES" --out "$RUN" --server "$SERVER"; echo "exit=$?"   # standard 이상
+# A11Y
+node "$S/audit-a11y.mjs" --base "$BASE" --routes "$ROUTES" --out "$RUN" --server "$SERVER"; echo "exit=$?"
+# PERF
+node "$S/measure-api.mjs" --base "$BASE" --endpoints "$RUN/endpoints.json" --out "$RUN" --server "$SERVER"; echo "exit=$?"
+node "$S/measure-web.mjs" --base "$BASE" --routes "$ROUTES" --ready "$READY" --out "$RUN" --server "$SERVER"; echo "exit=$?"
+node "$S/skeleton-hold.mjs" --base "$BASE" --routes "$ROUTES" --out "$RUN" --server "$SERVER"; echo "exit=$?"   # standard 이상
+node "$S/build-gallery.mjs" --dirs "$RUN/screens" --out "$RUN/gallery.html"; echo "exit=$?"
+```
+
+- 프로필이 있으면 각 명령에 `--profile .crew/qa-profile.json`을 붙인다(`build-gallery` 제외).
+- 원격 호스트면 각 명령에 `--allow-remote`를, 인증이면 `QA_COOKIE`를 env로 붙인다.
+- 한 명령이 exit 3이면 그 축의 해당 층을 `unverified`로 두고 다음 명령으로 진행한다. exit 2면 인자를 고쳐 1회 재실행하고, 그래도 2면 `unverified` + 사유.
+- HTTP 상태 처리: `inspect-computed-style`은 HTTP ≥400 페이지를 검사하지 않는다(`HTTP n — 정상 UI 검사 제외`, md 요약 줄에 검사 제외 수). `measure-web`은 표본마다 문서 HTTP 상태를 남기고(md `HTTP` 칸) ≥400·응답 없음 표본을 `unverified`로 둔다. `measure-api`는 2xx만 표본으로 쓰고(3xx·4xx/5xx·네트워크 오류는 `excluded`), 요청마다 `--timeout-ms`(기본 30000)로 끊는다. 표본 0이면 행 `unverified`(사유에 상태 분포), 응답이 하나도 없으면 `error`, 연속 오류 3회면 그 행을 중단한다(`stopped_early`). 상세는 `perf-audit.md` P2·P3.
+- `scan-ui-static`은 stdout에 요약(규칙별 건수·산출물 경로)만 낸다. 목록은 파일·규칙당 60건까지 나열하고 초과분은 md `외 N건` 행·json `truncated`로 남는다 — 건수는 규칙별 건수를 쓴다.
+- `skeleton-hold`는 Next.js 스트리밍(`$RC`) 화면 전용이다. 보류된 reveal이 없으면(`held=0`) `unverified`. 이 캡처는 자연 CLS 측정이 아니다.
+- 키보드 흐름 표(A11Y)와 스크린 리더 표본(full)은 스크립트 결과 위에 사람이 확인한 결과로 채운다 — 상세는 a11y 축 문서.
+
+## 6. 산출물
+
+`<run>` = `.crew/artifacts/qa/{YYYY-MM-DD}-audit-{axes}[-n]/` (예: `audit-ui-a11y`, `audit-all`). 같은 날 같은 범위가 있으면 `-2`, `-3`.
+
+```bash
+RUN=".crew/artifacts/qa/$(date +%Y-%m-%d)-audit-all"; _b="$RUN"; _n=1
+while [ -e "$RUN" ]; do _n=$((_n+1)); RUN="$_b-$_n"; done; mkdir -p "$RUN/screens"; echo "$RUN"
+```
+
+| 파일 | 내용 |
+|---|---|
+| `report.md` | 리포트 — 첫 줄 판정 줄 |
+| `doctor.md` | 실행 환경 |
+| `*.md`·`*.json` | 축별 원시 증거(§5 표) |
+| `screens/*.png`, `gallery.html` | 캡처, 전후 비교 |
+| `endpoints.json` | 이번 실행의 PERF 엔드포인트 |
+| `project-checks.md` | `project_checks` 명령 + exit (프로필에 있을 때) |
+| `qa-profile.draft.json` | 프로필 초안 (프로필이 없을 때만) |
+
+`report.md`는 Write로 `<run>/report.md`에 쓴다 — 대상 레포의 다른 경로에는 쓰지 않는다. 예외는 사용자가 승인한 `.crew/qa-profile.json`(초안 저장)과 `.crew/qa-intent-ledger.md`(원장 기록)뿐이다.
+
+경로 규약 전체: `qa-principles.md` §6. 원시 증거는 지우거나 고쳐 쓰지 않는다 — 재시도는 새 시도로 남긴다.
+
+## 7. 판정
+
+- 심각도 변환과 게이트는 `${CLAUDE_SKILL_DIR}/../../references/issue-severity.md` §QA 판정 매핑과 §파이프라인별 Override의 `qa --audit` 행을 따른다 [L2]. 이 문서에 임계값을 다시 적지 않는다.
+- 판정 줄: `**판정: GO|CONDITIONAL-GO|NO-GO** — Critical(P0) a / Major(P1) b / Minor(P2) c · 핵심 경로 미검증 d`.
+- 집계에는 **확인된 결함만** 넣는다. 확인 전 후보·`unverified`는 넣지 않고, 핵심 경로 미검증과 `unverified-risk`는 같은 절의 규칙대로 판정을 제한한다.
+- 성능 예산이 없으면 성능 수치는 **기준선만** 쓰고 판정에 쓰지 않는다(`perf-audit.md` 예산 절). dev 서버 측정은 예산 판정 근거가 아니다.
+- health score류 점수는 내지 않는다.
+
+## 8. 수정
+
+- 이 엔진은 관찰만 한다. 대상 레포 코드·env·DB·API 응답을 바꾸지 않는다. 지연·오류 주입은 QA 브라우저 안에서만 한다.
+- 수정은 사용자가 요청할 때 `/bams:hotfix`(1건) 또는 `/bams:dev`(다건)로 넘긴다.
+- 수정 후 재검증은 리포트 `## 재현`의 명령을 그대로 다시 실행한다. 코드가 바뀌었으면 이전 결과를 근거로 쓰지 않는다.
+- 화면 값과 원천 데이터(API·DB)를 대조하는 요청은 이 엔진 범위가 아니다 — 도메인 데이터 QA 도구를 사용하도록 안내한다.
+
+## 9. 보정
+
+- `scripts/`를 고치면 **selftest를 전부 통과**해야 한다: `node "$S/selftest/selftest.mjs"` 그리고 `node "$S/selftest/selftest.mjs" --no-axe`. 하나라도 실패하면 그 스크립트 결과를 감사 근거로 쓰지 않는다.
+- 스크립트 이상이 의심되면 감사를 계속하기 전에 selftest부터 돌린다.
+- **사용자 리뷰에서만 나온 지적**(감사 결과에 없던 것)은 대상 레포 의도 원장 `.crew/qa-intent-ledger.md` ② 놓친 결함에 기록한다(사용자 승인 후, §3 7단계).
+  - 그 프로젝트에만 해당하면 `.crew/qa-profile.json`·`.crew/qa-profile.md` 갱신을 제안한다(승인 없이 쓰지 않음).
+  - 다른 프로젝트에도 일반화할 수 있으면 **하네스 개선 요청(hr-agent)** 을 올린다 — 축 문서 체크리스트·스캔 규칙 추가와 selftest fixture 재현 케이스. 원장 ② 반영 위치 열에 요청을 적는다.
+- 원장 ②의 재현 확인이 `미검출`로 남은 항목은 다음 회고에서 다룬다.

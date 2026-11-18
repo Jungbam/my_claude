@@ -46,6 +46,33 @@ Major/Critical 결함의 정량 근거(grep count 등) 보고 시, 동일 명령
 
 ★ 위 항목 중 미완료가 있으면 GO 보고 불가
 
+### ★ QA 판정 원칙
+
+QA 판정·리포트(탐색·감사 QA, design-qa, 접근성 감사 결과 포함)에 적용한다. 원칙 상세는 `references/qa-principles.md`, 심각도·게이트 매핑 SSOT는 `references/issue-severity.md` §QA 판정 매핑이며, 여기서 임계값을 재정의하지 않는다.
+
+- **분모 필수**: 건수만 쓰지 않고 검사 범위를 함께 쓴다(탐색: 발견 D / 방문 V / viewport K / 미방문 사유, diff-aware: 영향 라우트 R 중 T). 상세: `qa-principles.md` §5
+- **후보와 결함 분리**: 스크립트·자동 검사 결과는 후보다. 코드(`file:line`) 또는 화면 증거로 확인한 것만 결함으로 집계하고, 확인 못 한 P0 후보는 `unverified-risk`로 남긴다. 상세: `qa-principles.md` §3
+- **핵심 경로 미검증이면 GO 금지**: 핵심 경로가 하나라도 `unverified`면 GO로 판정하지 않는다(최대 CONDITIONAL-GO). 상세: `issue-severity.md` §QA 판정 매핑
+- **자동 검사 통과 ≠ 준수**: 자동 검사 결과는 "자동 검사 위반 0"으로 표기하고 준수 근거로 쓰지 않는다. 상세: `qa-principles.md` §1
+- **dev 서버 성능 ≠ 운영 수치**: dev 서버 측정값은 운영 성능 수치·성능 기준 증거로 쓰지 않고, 서버 종류(dev / prod build / staging)를 함께 기록한다. 상세: `qa-principles.md` §1
+
+### ★ 탐색 vs 감사 선택
+
+> stub ID: QA-AUDIT
+
+QA 요청을 받으면 무엇을 증명해야 하는지로 모드를 고른다. 판정 매핑은 두 모드 모두 `references/issue-severity.md` §QA 판정 매핑을 따르고, 감사 모드는 같은 문서 §파이프라인별 Override의 `qa --audit` 행을 쓴다(여기서 임계값을 재정의하지 않는다).
+
+| 증명할 것 | 모드 | 진입점 |
+|---|---|---|
+| 기능 흐름 버그 — 클릭·폼·내비게이션·콘솔 에러 등 사용자처럼 써 보며 찾는 결함 | 탐색(explore) | `/bams:qa <url>` (`--quick`, `--regression <base>`) |
+| DS 준수(토큰·타이포·컴포넌트 재사용)·접근성·성능의 증거 | 감사(audit) | `/bams:qa [<url>] --audit [ui,a11y,perf\|all]` (`--level quick\|standard\|full`) |
+
+- 한 호출에서 두 모드를 섞지 않는다. 둘 다 필요하면 따로 실행하고 리포트도 따로 낸다.
+- 탐색은 소스 코드를 읽지 않는다. 감사의 정적 스캔은 예외로 소스를 읽는다(감사 엔진 규칙).
+- 감사는 관찰 전용이다. 수정은 사용자 요청 시 `/bams:hotfix`·`/bams:dev`로 넘긴다.
+- 감사 위임 시 automation-qa의 Step 1 산출물은 범위 선언(`scope_declaration`)이다. 형식·실행 규칙: automation-qa-rules §"QA 감사 스크립트 실행 시"
+- 원천 데이터 대조(화면 값 ↔ 원천 데이터)는 감사 축이 아니다 — 도메인 데이터 QA 도구를 쓰도록 안내한다.
+
 ### ★ qa-strategy 보고서 필수 포함 항목 (결과 보고 시)
 
 | 항목 | 필수 |
@@ -81,8 +108,8 @@ release_quality_gate: delegated | self
 ### ★ design-director 실패 시 QA 시각 검증 대체 SOP
 
 design-director 에러 감지 또는 완료 보고 없을 시:
-1. FE 구현 완료 후 스크린샷 촬영 (Bash: npm run screenshot 또는 bams:browse)
-2. 이전 버전 스크린샷과 픽셀 차이 분석 (수동 또는 자동화)
+1. FE 구현 전후 화면을 같은 라우트·viewport로 캡처한다 — `bams:browse` 또는 감사 스크립트(`$_BAMS/skills/qa-audit/scripts/skeleton-hold.mjs`·`inspect-computed-style.mjs`). 스크립트 실행 규칙은 automation-qa-rules §"QA 감사 스크립트 실행 시"
+2. `$_BAMS/skills/qa-audit/scripts/build-gallery.mjs`로 전후 캡처를 단일 HTML(`<run>/gallery.html`)로 묶어 비교한다. 픽셀 diff가 필요하면 visual-fidelity-verifier가 맡는다(디자인 부서 — 메인에 라우팅 요청)
 3. 주요 UI 체크포인트: 컬러 토큰, 타이포그래피, 간격, 컴포넌트 상태
 4. 결과를 QA 보고서의 "시각 회귀 테스트" 섹션에 기록
 

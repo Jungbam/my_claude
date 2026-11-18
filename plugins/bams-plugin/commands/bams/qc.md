@@ -16,4 +16,6 @@ argument-hint:
 | `bams-plugin:defect-triage` | 결함 분류, 재현 보장, 근본 원인 추적 |
 | `bams-plugin:release-quality-gate` | 출시 준비 검토, 롤백 점검, 출시 후 모니터링 |
 
+측정형 감사(UI·A11Y·PERF 증거)는 `/bams:qa --audit`
+
 Step 1 질문 헤더: "어떤 QA 에이전트를 사용하시겠습니까?"

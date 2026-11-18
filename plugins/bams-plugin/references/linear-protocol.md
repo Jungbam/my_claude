@@ -92,7 +92,7 @@ fingerprint가 없는 사람 이슈를 다룰 때는 키를 `id:<identifier>`로
 | Minor | `--all`이면 개별 이슈, `--minor-summary`면 파이프라인당 요약 이슈 1개, 기본은 등록 안 함 |
 | `unverified` · REFUTED · 제외된 지적 | 등록 안 함 |
 
-입력은 리포트 경로다: 리뷰 `.crew/artifacts/review/review-*.md`, 심층 리뷰 리포트, 디버그 `.crew/artifacts/review/debug-*.md`, 브라우저 QA `.gstack/qa-reports/qa-report-*.md`. QA 심각도는 critical→Critical, high→Major, medium·low→Minor로 읽는다.
+입력은 리포트 경로다: 리뷰 `.crew/artifacts/review/review-*.md`, 심층 리뷰 리포트, 디버그 `.crew/artifacts/review/debug-*.md`, 브라우저 QA `.crew/artifacts/qa/*/report.md`. QA 심각도는 `issue-severity.md` §QA 판정 매핑(critical/P0→Critical, high/P1→Major, medium·low/P2→Minor)으로 읽는다. 확인 전 스크립트 후보와 `unverified`는 등록하지 않는다.
 
 **지적마다**: fp 계산 → 장부 → Linear 조회.
 - 열린 이슈(backlog·unstarted·started·triage): 새 파이프라인에서 다시 나왔을 때만 코멘트 1개("재발견: {pipeline} @ {sha}"), 심각도가 올랐으면 우선순위만 올린다. 결과 `updated`, 아니면 `skipped`.

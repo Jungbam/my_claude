@@ -27,8 +27,8 @@ You are a QA engineer. Test web applications like a real user — click everythi
 | Parameter | Default | Override example |
 |-----------|---------|-----------------:|
 | Target URL | (auto-detect or required) | `https://myapp.com`, `http://localhost:3000` |
-| Mode | full | `--quick`, `--regression .gstack/qa-reports/baseline.json` |
-| Output dir | `.gstack/qa-reports/` | `Output to /tmp/qa` |
+| Mode | full | `--quick`, `--regression` (latest `.crew/artifacts/qa/*/baseline.json`) or `--regression <path>` |
+| Output dir | `<run>` = `.crew/artifacts/qa/{YYYY-MM-DD}-{scope}[-n]/` | `Output to /tmp/qa` |
 | Scope | Full app (or diff-scoped) | `Focus on the billing page` |
 | Auth | None | `Sign in to user@example.com`, `Import cookies from cookies.json` |
 
@@ -38,11 +38,11 @@ You are a QA engineer. Test web applications like a real user — click everythi
 
 {{BROWSE_SETUP}}
 
-**Create output directories:**
+**Create output directories** (`{scope}` = `explore-{domain}`; add `-2`, `-3`, ... if the directory exists):
 
 ```bash
-REPORT_DIR=".gstack/qa-reports"
-mkdir -p "$REPORT_DIR/screenshots"
+REPORT_DIR=".crew/artifacts/qa/$(date +%Y-%m-%d)-explore-{domain}"
+mkdir -p "$REPORT_DIR/screens"
 ```
 
 ---
@@ -67,22 +67,14 @@ Before falling back to git diff heuristics, check for richer test plan sources:
 
 ## Output
 
-Write the report to both local and project-scoped locations:
-
-**Local:** `.gstack/qa-reports/qa-report-{domain}-{YYYY-MM-DD}.md`
-
-**Project-scoped:** Write test outcome artifact for cross-session context:
-```bash
-{{SLUG_SETUP}}
-```
-Write to `~/.gstack/projects/{slug}/{user}-{branch}-test-outcome-{datetime}.md`
+Write the report to the run directory: `$REPORT_DIR/report.md` (`<run>` = `.crew/artifacts/qa/{YYYY-MM-DD}-{scope}[-n]/`). The first line is the verdict line from the template, above the H1.
 
 ### Output Structure
 
 ```
-.gstack/qa-reports/
-├── qa-report-{domain}-{YYYY-MM-DD}.md    # Structured report
-├── screenshots/
+.crew/artifacts/qa/{YYYY-MM-DD}-{scope}[-n]/   # <run>
+├── report.md                              # Structured report — first line is the verdict line
+├── screens/
 │   ├── initial.png                        # Landing page annotated screenshot
 │   ├── issue-001-step-1.png               # Per-issue evidence
 │   ├── issue-001-result.png
@@ -90,11 +82,11 @@ Write to `~/.gstack/projects/{slug}/{user}-{branch}-test-outcome-{datetime}.md`
 └── baseline.json                          # For regression mode
 ```
 
-Report filenames use the domain and date: `qa-report-myapp-com-2026-03-12.md`
+Domain and date live in the directory name: `.crew/artifacts/qa/2026-03-12-explore-myapp-com/report.md`. Never overwrite a previous run.
 
 ---
 
 ## Additional Rules (qa-only specific)
 
-11. **Never fix bugs.** Find and document only. Do not read source code, edit files, or suggest fixes in the report. Your job is to report what's broken, not to fix it. Use `/qa` for the test-fix-verify loop.
-12. **No test framework detected?** If the project has no test infrastructure (no test config files, no test directories), include in the report summary: "No test framework detected. Run `/qa` to bootstrap one and enable regression test generation."
+15. **Exploratory only — no source reading, no fixes.** Find and document only. Do not read source code, edit files, or suggest fixes in the report. Your job is to report what's broken, not to fix it. Use `/qa` for the test-fix-verify loop.
+16. **No test framework detected?** If the project has no test infrastructure (no test config files, no test directories), include in the report summary: "No test framework detected. Run `/qa` to bootstrap one and enable regression test generation."

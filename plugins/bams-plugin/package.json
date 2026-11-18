@@ -5,11 +5,13 @@
   "type": "module",
   "scripts": {
     "build": "bun build --compile skills/browse/src/cli.ts --outfile skills/browse/bin/browse && bun build --compile skills/browse/src/find-browse.ts --outfile skills/browse/bin/find-browse",
-    "test": "bun test skills/browse/test/"
+    "test": "bun test skills/browse/test/",
+    "qa-audit:selftest": "node skills/qa-audit/scripts/selftest/selftest.mjs"
   },
   "dependencies": {
     "playwright": "^1.58.2",
-    "diff": "^7.0.0"
+    "diff": "^7.0.0",
+    "axe-core": "^4.11.0"
   },
   "engines": {
     "bun": ">=1.0.0"

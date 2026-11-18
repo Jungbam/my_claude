@@ -1,0 +1,79 @@
+{
+  "$schema_version": 1,
+  "name": "example-web",
+  "base_url": "http://localhost:3000",
+  "core_routes": ["/", "/items/1"],
+  "routes": ["/", "/items", "/items/1", "/settings"],
+  "ready_selector": "[data-ready='true']",
+  "viewports": "1440x1000,390x844",
+  "base_branch": "main",
+  "design_docs": ["docs/design-system.md"],
+  "source_roots": ["src"],
+  "extensions": [".ts", ".tsx", ".js", ".jsx", ".css"],
+  "ui_dir": "src/components/ui",
+  "token_definition_files": ["src/styles/tokens.css"],
+  "runtime_vars": ["--header-height"],
+  "raw_color_allowed": ["^src/styles/tokens\\.css$"],
+  "skeleton_files": ["skeleton", "placeholder"],
+  "banned_imports": ["legacy-ui-kit"],
+  "ui_wrappers": {
+    "@radix-ui/react-dialog": "src/components/ui/dialog.tsx",
+    "@radix-ui/react-tabs": "src/components/ui/tabs.tsx"
+  },
+  "duplicate_threshold": 0.4,
+  "typography": {
+    "text-body": { "size_rem": 1, "line_height": 1.5, "weight": 400 },
+    "text-title": { "size_px_desktop": 28, "size_px_mobile": 22, "line_height": 1.3, "weight": 700 }
+  },
+  "extra_font_sizes_px": [12],
+  "mobile_breakpoint_px": 768,
+  "target_size_px": { "mobile": 44, "minimum": 24 },
+  "contrast": { "normal": 4.5, "large": 3, "ui": 3 },
+  "page_structure": {
+    "container": "src/components/layout/page-container.tsx",
+    "breadcrumb": "src/components/ui/breadcrumb.tsx",
+    "header": "src/components/layout/page-header.tsx",
+    "card": "src/components/ui/card.tsx",
+    "table": "src/components/ui/table.tsx",
+    "skeleton": "src/components/ui/skeleton.tsx",
+    "refresh_notice": "src/components/feedback/refresh-notice.tsx",
+    "empty": "src/components/feedback/empty-state.tsx"
+  },
+  "perf": {
+    "server_env": ["CACHE_BYPASS_ENABLED=1"],
+    "nocache_header": "x-cache-bypass",
+    "server_timing_names": ["db", "app"],
+    "budgets": {
+      "/items/1": { "api_p95_ms": 800, "lcp_mobile_ms": 2500, "ready_ms": 3000 }
+    }
+  },
+  "a11y": {
+    "axe_tags": ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"],
+    "global_focus_rule": false,
+    "skip_link_pattern": "skip|본문|main content|콘텐츠로",
+    "reflow_width": 320,
+    "tab_limit": 80,
+    "placeholder_glyphs": ["—", "–", "-", "N/A", "n/a"],
+    "skeleton_selector": "[data-slot='skeleton'],.animate-pulse,[class*='skeleton']",
+    "ignore_selector": "nextjs-portal,[data-nextjs-toast],[data-nextjs-dialog-overlay],.tsqd-parent-container,.tsqd-open-btn"
+  },
+  "loading": {
+    "busy_selector": "[role='status'][aria-busy='true']",
+    "blocking_threshold_ms": 300,
+    "slow_ms": 3000,
+    "overdue_ms": 10000
+  },
+  "project_checks": [
+    { "name": "lint", "cmd": "npm run lint", "axis": "ui" },
+    { "name": "typecheck", "cmd": "npm run typecheck", "axis": "ui" }
+  ],
+  "notation_rules": [
+    { "scope": "금액 표기 화면", "rule": "통화 기호와 단위를 원문 출처 표기와 같게 쓴다" },
+    { "scope": "날짜 열", "rule": "YYYY-MM-DD 형식으로 통일한다" }
+  ],
+  "forbidden_ops": [
+    "프로덕션 빌드 실행 금지",
+    "데이터베이스 쓰기 금지",
+    "새 환경 변수 추가 금지"
+  ]
+}

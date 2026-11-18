@@ -7,12 +7,13 @@
 #       SubagentStart/Stop matcher가 플러그인 에이전트를 '^<plugin>:(...)$' 없이 지목하거나 없는 이름 나열,
 #       verify-before-stop.sh TARGET_AGENTS ≠ SubagentStop matcher 이름 집합,
 #       [6] keep-list.txt 패턴이 대상 파일에 0건, [7] route-table.json 형식·정규식·target 실재 위반, target이 실제 등록 이름(/<plugin>:bams:<cmd>·<plugin>:<skill>) 아님,
-#       [8] 캐시 루트 전체 find(… | head -1) 재등장·리졸버 스니펫 drift (scripts/check-cache-resolver.sh).
-# INFO: route-table에 없는 /bams: 커맨드(--quiet에서 생략).
+#       [8] 캐시 루트 전체 find(… | head -1) 재등장·리졸버 스니펫 drift (scripts/check-cache-resolver.sh),
+#       [9] skills/qa-audit/scripts/**/*.mjs 의 node --check 실패, playwright 모듈명 문자열 리터럴이 lib/common.mjs 밖(주석 줄 제외)에 존재(문자열 휴리스틱).
+# INFO: route-table에 없는 /bams: 커맨드(--quiet에서 생략), [9] node 없음(node --check 건너뜀).
 # WARN: 에이전트 본문 10,000자 초과(plugin-dev 가이드), SKILL.md 500줄 초과(skill-creator 가이드),
 #       references/*.md 300줄 초과인데 목차 없음, .crew/memory/*/improvements/ 잔존·MEMORY.md 구형식 헤더.
 # env: BAMS_HARNESS_PJ=<plugin.json 대체 경로>(테스트용), BAMS_CREW_DIR=<.crew>(기본: git 루트의 .crew, 없으면 [5] skip),
-#      BAMS_KEEP_LIST=<keep-list 대체>, BAMS_ROUTE_TABLE=<route-table 대체>(테스트용).
+#      BAMS_KEEP_LIST=<keep-list 대체>, BAMS_ROUTE_TABLE=<route-table 대체>, BAMS_QA_SCRIPTS=<qa-audit scripts 대체>(테스트용).
 # macOS 기본 bash 3.2 / BSD awk 호환. timeout·GNU 전용 옵션 사용 금지.
 set -u
 
@@ -286,6 +287,38 @@ fi
 info "[8] cache path resolver"
 bash "$PLUGIN_DIR/scripts/check-cache-resolver.sh" 2>&1 | grep '^  FAIL' > "$T/cr"
 flush "$T/cr"
+
+# ── 9. QA 감사 스크립트 (skills/qa-audit/scripts) ────────────────────
+#   (a) *.mjs 문법 — node --check (node 없으면 INFO 후 건너뜀)
+#   (b) playwright 로딩은 lib/common.mjs(loadPlaywright) 단일 지점 — 문자열 휴리스틱(AST 아님):
+#       lib/common.mjs 밖에서 playwright 모듈명 문자열 리터럴("playwright"·'playwright-core'·`@playwright/test`,
+#       하위 경로 "playwright/…" 포함)이 있으면 FAIL. require/import/createRequire 별칭 호출도 리터럴로 잡는다.
+#       주석 줄(공백 뒤 //, /*, * 로 시작)은 제외. 변수 조합 등 리터럴 없는 로딩은 탐지 못 함.
+QA_S="${BAMS_QA_SCRIPTS:-$PLUGIN_DIR/skills/qa-audit/scripts}"
+if [ -d "$QA_S" ]; then
+  info "[9] QA audit scripts"
+  find "$QA_S" -name '*.mjs' -type f 2>/dev/null | sort > "$T/qa_mjs"
+  : > "$T/qa"
+  if command -v node >/dev/null 2>&1; then
+    while IFS= read -r f; do
+      node --check "$f" < /dev/null > "$T/qa_err" 2>&1 \
+        || echo "  FAIL  QA 감사 스크립트 문법 오류(node --check): ${f#$PLUGIN_DIR/} — $(grep -m1 'Error' "$T/qa_err")"
+    done < "$T/qa_mjs" >> "$T/qa"
+  else
+    info "  INFO  node 없음 — [9] node --check 건너뜀"
+  fi
+  PW_RE="[\"'\`](@playwright/test|playwright(-core)?)(/[^\"'\`]*)?[\"'\`]"
+  PW_COMMENT_RE='^[0-9]+:[[:space:]]*(//|/\*|\*)'
+  while IFS= read -r f; do
+    [ "$f" = "$QA_S/lib/common.mjs" ] && continue
+    grep -nE "$PW_RE" "$f" | grep -vE "$PW_COMMENT_RE" | while IFS= read -r l; do
+      echo "  FAIL  playwright 모듈명 리터럴(require/import/createRequire 등 직접 로딩 — lib/common.mjs 의 loadPlaywright() 사용): ${f#$PLUGIN_DIR/}:${l%%:*}"
+    done
+  done < "$T/qa_mjs" >> "$T/qa"
+  flush "$T/qa"
+else
+  info "[9] QA audit scripts — skip (${QA_S#$PLUGIN_DIR/} 없음)"
+fi
 
 echo ""
 echo "=== validate-harness: FAIL=$FAILS WARN=$WARNS ==="

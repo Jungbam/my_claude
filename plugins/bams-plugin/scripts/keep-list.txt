@@ -13,3 +13,11 @@
 # codex 호출 모델 규약 (정본: references/model-config.md)
 model="gpt-6\.1-sol"	skills/codex/SKILL.md*
 gpt-6\.1-sol	references/model-config.md
+# QA 감사 — 허용 호스트 가드·플러그인 번들 Playwright 단일 로더 (skills/qa-audit)
+--allow-remote	skills/qa-audit/scripts/lib/common.mjs
+PLAYWRIGHT_MODULE	skills/qa-audit/scripts/lib/common.mjs
+# QA 판정 원칙 — 자동 검사 위반 0 ≠ 준수, 핵심 경로 미검증, axe 미발견 = unverified(실패 아님)
+자동 검사 위반 0	references/qa-principles.md
+핵심 경로	references/issue-severity.md
+unverified	agents/accessibility-auditor.md
+미검증	skills/qa-audit/SKILL.md*

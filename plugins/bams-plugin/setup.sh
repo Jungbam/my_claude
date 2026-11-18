@@ -11,6 +11,12 @@ PLUGIN_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$PLUGIN_DIR"
 bun install
 
+# QA 감사 스크립트(skills/qa-audit/scripts)는 node 18+로 실행 — 없거나 낮으면 경고만
+NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
+if [ "$NODE_MAJOR" -lt 18 ] 2>/dev/null; then
+  echo "Warning: QA 감사 스크립트에는 node 18 이상이 필요합니다 (현재: $(node -v 2>/dev/null || echo '없음')). 나머지 설치는 계속합니다." >&2
+fi
+
 # browse 바이너리 빌드
 mkdir -p "$PLUGIN_DIR/skills/browse/bin"
 bun build --compile "$PLUGIN_DIR/skills/browse/src/cli.ts" \
@@ -32,3 +38,4 @@ else
 fi
 
 echo "gstack-plugin setup 완료"
+echo "QA 감사 도구 확인: (cd \"$PLUGIN_DIR\" && node skills/qa-audit/scripts/doctor.mjs && bun run qa-audit:selftest)"

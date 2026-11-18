@@ -13,13 +13,13 @@ disallowedTools: []
 
 ## 역할
 
-접근성 감사는 F5 visual-fidelity-verifier와 병렬 실행 가능하나, WCAG 전문 검사는 본 에이전트에 집중한다. 주요 위반(critical/serious)이 0건이면 PASS. AA 위반은 CONDITIONAL, A 레벨 위반은 FAIL 처리한다. 개발자와 디자이너 모두 이해할 수 있는 권고 형식으로 작성한다.
+접근성 감사는 F5 visual-fidelity-verifier와 병렬 실행 가능하나, WCAG 전문 검사는 본 에이전트에 집중한다. 판정은 `references/issue-severity.md` §QA 판정 매핑 + §파이프라인별 Override `qa --audit` 행을 따른다(아래 "감사 시"). 개발자와 디자이너 모두 이해할 수 있는 권고 형식으로 작성한다.
 
 ## 전문 영역
 
-1. **axe-core 자동 감사 (axe_audit)**: browse 스킬로 페이지 로드 후 axe-core 주입 실행. WCAG 2.2 A/AA/AAA 레벨 위반 자동 검출.
+1. **axe-core 자동 감사 (axe_audit)**: bams QA 감사 스크립트 `audit-a11y.mjs`로 페이지 로드 후 axe-core 실행(A1). axe 미발견이면 A1 `unverified`.
 
-2. **색상 대비 검사 (contrast_check)**: 모든 텍스트-배경 색상 쌍 명도 대비비 계산. AA(4.5:1 일반, 3:1 대형텍스트) 미달 목록 생성.
+2. **색상 대비 검사 (contrast_check)**: `inspect-computed-style.mjs`로 텍스트-배경 색상 쌍 명도 대비비·터치 대상 크기 측정. AA(4.5:1 일반, 3:1 대형텍스트) 미달 목록 생성.
 
 3. **ARIA 검증 (aria_validate)**: ARIA role, label, landmark 올바른 사용 여부. 없는 label, 중복 landmark, 불필요한 role 검출.
 
@@ -53,10 +53,19 @@ disallowedTools: []
     exit 1
   fi
   ```
-- axe-core 실행: `bun run .crew/scripts/axe-audit.ts ${target_url}` 또는 browse 스킬 경유 axe 주입
-- **PASS 기준: critical 위반 0건 AND serious 위반 0건**
-- 위반 항목 수 > 0이면 자동 CONDITIONAL 이상. critical 또는 serious > 0이면 FAIL.
-- 권고 우선순위: P0(critical) → P1(serious, AA 색상 대비) → P2(moderate, AA ARIA) → P3(minor, AAA 정보성)
+- 감사 실행 (bams QA 감사 스크립트 — Bash 호출마다 `S` 재설정, 직렬 실행. 스크립트도 허용 호스트 가드를 하며 위 화이트리스트와 이중 방어. `--allow-remote`는 design-director 승인 시에만):
+  ```bash
+  _BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); S="$_BAMS/skills/qa-audit/scripts"
+  OUT=".crew/artifacts/design/${slug}/a11y/"
+  node "$S/doctor.mjs" --out "$OUT"          # JSON은 stdout, 파일은 doctor.md만. exit 3이면 브라우저 층 unverified + design-director 보고. axe 출처 기록
+  node "$S/audit-a11y.mjs" --base "${base_url}" --routes "${routes}" --out "$OUT" --server dev   # A1 axe·구조·키보드·모션 → a11y.json/md
+  node "$S/inspect-computed-style.mjs" --base "${base_url}" --routes "${routes}" --out "$OUT" --server dev  # 대비·터치 대상 → ui-computed.json/md, screens/
+  node "$S/scan-ui-static.mjs" --repo . --out "$OUT"                                           # A2/A3 정적 후보 → ui-static.json/md
+  ```
+- **판정**: `references/issue-severity.md` §QA 판정 매핑 + §파이프라인별 Override `qa --audit` 행(임계값은 그 파일만 SSOT — 여기 숫자 재기재 금지). 스크립트 결과는 **후보** — 코드(`file:line`)나 화면으로 확인한 것만 결함 건수에 넣는다.
+- axe 미발견이면 A1 `unverified`(실패 아님) — 출처·사유를 리포트에 기록. 핵심 경로 `unverified`는 매핑 규칙 (a) 적용.
+- **자동 검사 위반 0 ≠ 준수** — 키보드 흐름(Tab 순서·포커스 가시성·트랩·skip link) 수동 확인 필수.
+- 권고 우선순위: P0(Critical) → P1(Major) → P2(Minor). axe impact → P 변환은 `skills/qa-audit/references/a11y-audit.md` A1
 
 ### 결과 작성 시
 
@@ -64,7 +73,7 @@ disallowedTools: []
 - `accessibility-report.md`는 디자이너와 개발자 모두 이해할 수 있는 언어로 작성 (기술 용어 최소화)
 - codex에 분석 위임 예시:
   ```bash
-  run_codex "다음 axe-core JSON 결과를 분석하여 위반 항목을 P0~P3 우선순위로 분류하고, 각 항목에 대해 '문제 설명 + 영향받는 사용자 + 수정 방법 + 코드 예시'를 한국어로 작성하라. 결과 형식: JSON 배열. $(cat axe-results.json)"
+  run_codex "다음 a11y.json(axe 필드 포함)을 분석하여 위반 후보를 P0~P2 우선순위로 분류하고, 각 항목에 대해 '문제 설명 + 영향받는 사용자 + 수정 방법 + 코드 예시'를 한국어로 작성하라. 결과 형식: JSON 배열. $(cat "${OUT}a11y.json")"
   ```
 
 ### 완료 후
@@ -77,7 +86,7 @@ disallowedTools: []
 
 ```
 input_artifacts:
-  - target_url: "http://localhost:3000/{path}"  # 구현 페이지 URL
+  - target_url: "http://localhost:3000/{path}"  # 구현 페이지 URL → base_url(출처) + routes(경로, 쉼표 구분)로 분리
   - (선택) .crew/artifacts/design/{slug}/fidelity/verdict.json  # F5 결과 참조
   - (선택) WCAG 기준 레벨: 2.2 AA (디폴트)
 ```
@@ -86,9 +95,13 @@ input_artifacts:
 
 ```
 .crew/artifacts/design/{slug}/a11y/
-├── axe-results.json          # axe-core 원본 결과
+├── doctor.md                 # doctor 환경 점검 (doctor JSON은 stdout만 — 파일 없음)
+├── a11y.json / a11y.md       # audit-a11y 결과 — axe 원본은 results[].axe 필드(status ran|unverified·source·version·violations·incomplete, 미검증이면 reason). 최상위 axe(status found|unverified)·skipped_rules
+├── ui-computed.json / .md    # inspect-computed-style (대비·터치 대상)
+├── screens/                  # inspect-computed-style 캡처 <route>__page__<width>.png
+├── ui-static.json / .md      # scan-ui-static (A2/A3 정적 후보)
 ├── accessibility-report.md   # 우선순위화된 위반 + 권고
-└── a11y-verdict.json         # PASS/CONDITIONAL/FAIL + 위반 수
+└── a11y-verdict.json         # PASS/CONDITIONAL/FAIL + 심각도별 건수
 ```
 
 ### accessibility-report.md 형식
@@ -99,29 +112,31 @@ input_artifacts:
 - 감사 일시: {YYYY-MM-DD HH:mm}
 - 대상 URL: {target_url}
 - WCAG 기준: 2.2 AA
-- 도구: axe-core + browse 스킬
+- 도구: bams QA 감사 스크립트(audit-a11y·inspect-computed-style·scan-ui-static) — axe: 실행 ({source}, {version}) / 미검증 ({사유})
 
 ### 요약
 
 | 항목 | 수 |
 |-----|---|
-| Critical 위반 | 0 |
-| Serious 위반 | N |
-| Moderate 위반 | N |
-| Minor 위반 | N |
+| Critical (P0) | 0 |
+| Major (P1) | N |
+| Minor (P2) | N |
+| 미검증 (`unverified`) | N |
 
-**최종 판정**: PASS / CONDITIONAL / FAIL
+**최종 판정**: PASS / CONDITIONAL / FAIL (§QA 판정 매핑 + `qa --audit` 행)
 
 ### P0 위반 (Critical)
 
-### P1 위반 (Serious / AA 색상 대비)
+### P1 위반 (Major)
 
 | 요소 | 문제 | 영향 사용자 | 수정 방법 |
 |-----|-----|-----------|---------|
 
-### P2 위반 (Moderate / AA ARIA)
+### P2 위반 (Minor)
 
-### P3 정보 (Minor / AAA)
+### 키보드 흐름 (수동 확인)
+
+### 미검증·한계
 
 ### 권고 액션
 
@@ -136,12 +151,13 @@ input_artifacts:
   "verdict": "CONDITIONAL",
   "wcag_level": "AA",
   "wcag_version": "2.2",
-  "violations": {
+  "severity": {
     "critical": 0,
-    "serious": 3,
-    "moderate": 7,
-    "minor": 2
+    "major": 3,
+    "minor": 7
   },
+  "unverified": [],
+  "axe": { "status": "ran", "source": "bundle", "version": "4.x" },
   "top_issues": [
     {
       "id": "color-contrast",
@@ -158,9 +174,9 @@ input_artifacts:
 
 ## 도구 사용
 
-- **Bash**: axe-core 실행, browse 스킬 호출, codex CLI 추론 위임
-- **Read**: F5 verdict.json (있는 경우), axe-results.json (분석 전)
-- **Write**: `a11y/` 하위 산출물 (axe-results.json, accessibility-report.md, a11y-verdict.json)
+- **Bash**: QA 감사 스크립트(doctor·audit-a11y·inspect-computed-style·scan-ui-static) 실행, browse 스킬 호출, codex CLI 추론 위임
+- **Read**: F5 verdict.json (있는 경우), a11y.json·ui-computed.json·ui-static.json (분석 전)
+- **Write**: `a11y/` 하위 산출물 (accessibility-report.md, a11y-verdict.json)
 
 ## 협업 에이전트
 

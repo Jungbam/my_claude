@@ -59,8 +59,8 @@ You are a QA engineer. Test web applications like a real user — click everythi
 | Parameter | Default | Override example |
 |-----------|---------|-----------------:|
 | Target URL | (auto-detect or required) | `https://myapp.com`, `http://localhost:3000` |
-| Mode | full | `--quick`, `--regression .gstack/qa-reports/baseline.json` |
-| Output dir | `.gstack/qa-reports/` | `Output to /tmp/qa` |
+| Mode | full | `--quick`, `--regression` (latest `.crew/artifacts/qa/*/baseline.json`) or `--regression <path>` |
+| Output dir | `<run>` = `.crew/artifacts/qa/{YYYY-MM-DD}-{scope}[-n]/` | `Output to /tmp/qa` |
 | Scope | Full app (or diff-scoped) | `Focus on the billing page` |
 | Auth | None | `Sign in to user@example.com`, `Import cookies from cookies.json` |
 
@@ -79,11 +79,11 @@ B="${CLAUDE_SKILL_DIR}/../browse/bin/browse"
 If `NEEDS_SETUP`: ask the user "browse needs a one-time build (~10 seconds). OK to proceed?" and wait. Then run `bash <bams-plugin dir>/setup.sh` (needs `bun`; install with `curl -fsSL https://bun.sh/install | bash`).
 Each Bash call is a fresh shell: set `B=<path printed after READY>` in every command that uses `$B`.
 
-**Create output directories:**
+**Create output directories** (`{scope}` = `explore-{domain}`; add `-2`, `-3`, ... if the directory exists):
 
 ```bash
-REPORT_DIR=".gstack/qa-reports"
-mkdir -p "$REPORT_DIR/screenshots"
+REPORT_DIR=".crew/artifacts/qa/$(date +%Y-%m-%d)-explore-{domain}"
+mkdir -p "$REPORT_DIR/screens"
 ```
 
 ---
@@ -144,7 +144,7 @@ This is the **primary mode** for developers verifying their work. When the user 
 6. **Check TODOS.md** (if it exists) for known bugs or issues related to the changed files. If a TODO describes a bug that this branch should fix, add it to your test plan. If you find a new bug during QA that isn't in TODOS.md, note it in the report.
 
 7. **Report findings** scoped to the branch changes:
-   - "Changes tested: N pages/routes affected by this branch"
+   - "Changes tested: T of R pages/routes affected by this branch" — the untested R−T are `unverified`
    - For each: does it work? Screenshot evidence.
    - Any regressions on adjacent pages?
 
@@ -157,7 +157,7 @@ Systematic exploration. Visit every reachable page. Document 5-10 well-evidenced
 30-second smoke test. Visit homepage + top 5 navigation targets. Check: page loads? Console errors? Broken links? Produce health score. No detailed issue documentation.
 
 ### Regression (`--regression <baseline>`)
-Run full mode, then load `baseline.json` from a previous run. Diff: which issues are fixed? Which are new? What's the score delta? Append regression section to report.
+Run full mode, then load `baseline.json` from a previous run (default: the most recent `.crew/artifacts/qa/*/baseline.json`). Diff: which issues are fixed? Which are new? What's the score delta? Append regression section to report.
 
 ---
 
@@ -166,8 +166,8 @@ Run full mode, then load `baseline.json` from a previous run. Diff: which issues
 ### Phase 1: Initialize
 
 1. Find browse binary (see Setup above)
-2. Create output directories
-3. Copy report template from `qa/templates/qa-report-template.md` to output dir
+2. Create the run directory `<run>` = `.crew/artifacts/qa/{YYYY-MM-DD}-{scope}[-n]/` and set `REPORT_DIR` to it; screenshots go in `$REPORT_DIR/screens/`
+3. Copy report template from `qa/templates/qa-report-template.md` to `$REPORT_DIR/report.md`. Keep the template's first line (the verdict line) as the first line of the report, above the H1
 4. Start timer for duration tracking
 
 ### Phase 2: Authenticate (if needed)
@@ -200,7 +200,7 @@ Get a map of the application:
 
 ```bash
 $B goto <target-url>
-$B snapshot -i -a -o "$REPORT_DIR/screenshots/initial.png"
+$B snapshot -i -a -o "$REPORT_DIR/screens/initial.png"
 $B links                          # map navigation structure
 $B console --errors               # any errors on landing?
 ```
@@ -219,7 +219,7 @@ Visit pages systematically. At each page:
 
 ```bash
 $B goto <page-url>
-$B snapshot -i -a -o "$REPORT_DIR/screenshots/page-name.png"
+$B snapshot -i -a -o "$REPORT_DIR/screens/page-name.png"
 $B console --errors
 ```
 
@@ -234,7 +234,7 @@ Then follow the **per-page exploration checklist** (see `qa/references/issue-tax
 7. **Responsiveness** — Check mobile viewport if relevant:
    ```bash
    $B viewport 375x812
-   $B screenshot "$REPORT_DIR/screenshots/page-mobile.png"
+   $B screenshot "$REPORT_DIR/screens/page-mobile.png"
    $B viewport 1280x720
    ```
 
@@ -256,9 +256,9 @@ Document each issue **immediately when found** — don't batch them.
 5. Write repro steps referencing screenshots
 
 ```bash
-$B screenshot "$REPORT_DIR/screenshots/issue-001-step-1.png"
+$B screenshot "$REPORT_DIR/screens/issue-001-step-1.png"
 $B click @e5
-$B screenshot "$REPORT_DIR/screenshots/issue-001-result.png"
+$B screenshot "$REPORT_DIR/screens/issue-001-result.png"
 $B snapshot -D
 ```
 
@@ -267,19 +267,20 @@ $B snapshot -D
 2. Describe what's wrong
 
 ```bash
-$B snapshot -i -a -o "$REPORT_DIR/screenshots/issue-002.png"
+$B snapshot -i -a -o "$REPORT_DIR/screens/issue-002.png"
 ```
 
 **Write each issue to the report immediately** using the template format from `qa/templates/qa-report-template.md`.
 
 ### Phase 6: Wrap Up
 
-1. **Compute health score** using the rubric below
+1. **Compute health score** using the rubric below (reference metric, not a gate)
 2. **Write "Top 3 Things to Fix"** — the 3 highest-severity issues
 3. **Write console health summary** — aggregate all console errors seen across pages
-4. **Update severity counts** in the summary table
-5. **Fill in report metadata** — date, duration, pages visited, screenshot count, framework
-6. **Save baseline** — write `baseline.json` with:
+4. **Update severity counts** in the summary table (confirmed defects only — unconfirmed candidates and `unverified` items go under `미검증·한계`)
+5. **Write the verdict line** (first line of the report) — map severities and decide GO / CONDITIONAL-GO / NO-GO with `${CLAUDE_SKILL_DIR}/../../references/issue-severity.md` §QA 판정 매핑. If any core path is `unverified`, the verdict cannot be GO
+6. **Fill in report metadata** — date, duration, pages visited, screenshot count, framework, and the denominator (`qa-principles.md` §5)
+7. **Save baseline** — write `$REPORT_DIR/baseline.json` with:
    ```json
    {
      "date": "YYYY-MM-DD",
@@ -339,29 +340,7 @@ Minimum 0 per category.
 
 ## Framework-Specific Guidance
 
-### Next.js
-- Check console for hydration errors (`Hydration failed`, `Text content did not match`)
-- Monitor `_next/data` requests in network — 404s indicate broken data fetching
-- Test client-side navigation (click links, don't just `goto`) — catches routing issues
-- Check for CLS (Cumulative Layout Shift) on pages with dynamic content
-
-### Rails
-- Check for N+1 query warnings in console (if development mode)
-- Verify CSRF token presence in forms
-- Test Turbo/Stimulus integration — do page transitions work smoothly?
-- Check for flash messages appearing and dismissing correctly
-
-### WordPress
-- Check for plugin conflicts (JS errors from different plugins)
-- Verify admin bar visibility for logged-in users
-- Test REST API endpoints (`/wp-json/`)
-- Check for mixed content warnings (common with WP)
-
-### General SPA (React, Vue, Angular)
-- Use `snapshot -i` for navigation — `links` command misses client-side routes
-- Check for stale state (navigate away and back — does data refresh?)
-- Test browser back/forward — does the app handle history correctly?
-- Check for memory leaks (monitor console after extended use)
+**[L2]** When the framework detected in Phase 3 is Next.js, Rails, WordPress, or an SPA — Read `${CLAUDE_SKILL_DIR}/../qa/references/framework-guidance.md` and apply its checks.
 
 ---
 
@@ -371,35 +350,29 @@ Minimum 0 per category.
 2. **Verify before documenting.** Retry the issue once to confirm it's reproducible, not a fluke.
 3. **Never include credentials.** Write `[REDACTED]` for passwords in repro steps.
 4. **Write incrementally.** Append each issue to the report as you find it. Don't batch.
-5. **Never read source code.** Test as a user, not a developer.
+5. **Exploratory mode: do not read source code.** Test as a user, not a developer. Exception: static scans in audit (`--audit`) mode follow the audit engine's rules.
 6. **Check console after every interaction.** JS errors that don't surface visually are still bugs.
 7. **Test like a user.** Use realistic data. Walk through complete workflows end-to-end.
-8. **Depth over breadth.** 5-10 well-documented issues with evidence > 20 vague descriptions.
+8. **Depth over breadth.** 5-10 well-documented issues with evidence > 20 vague descriptions. State the denominator — discovered / visited / viewports / reason for each unvisited page (`qa-principles.md` §5).
 9. **Never delete output files.** Screenshots and reports accumulate — that's intentional.
 10. **Use `snapshot -C` for tricky UIs.** Finds clickable divs that the accessibility tree misses.
 11. **Show screenshots to the user.** After every `$B screenshot`, `$B snapshot -a -o`, or `$B responsive` command, use the Read tool on the output file(s) so the user can see them inline. For `responsive` (3 files), Read all three. This is critical — without it, screenshots are invisible to the user.
 12. **Never refuse to use the browser.** When the user invokes /qa or /qa-only, they are requesting browser-based testing. Never suggest evals, unit tests, or other alternatives as a substitute. Even if the diff appears to have no UI changes, backend changes affect app behavior — always open the browser and test.
+13. **Read the QA principles before writing the report.** **[L2]** Read `${CLAUDE_SKILL_DIR}/../../references/qa-principles.md` §2 (report sentences) and §3 (evidence layers) before writing the report.
+14. **Check target repo constraints before starting.** Read the target repo's `CLAUDE.md`, `.crew/config.md`, `.crew/gotchas.md` first (same file, §4). If a forbidden action (auto commit/stash, adding a test framework, build, DB writes, new env) conflicts with a QA step, skip that step and record it under `미검증·한계` — never override the constraint.
 
 ---
 
 ## Output
 
-Write the report to both local and project-scoped locations:
-
-**Local:** `.gstack/qa-reports/qa-report-{domain}-{YYYY-MM-DD}.md`
-
-**Project-scoped:** Write test outcome artifact for cross-session context:
-```bash
-eval "$("$_GSTACK_BIN"/gstack-slug 2>/dev/null)" && mkdir -p ~/.gstack/projects/$SLUG
-```
-Write to `~/.gstack/projects/{slug}/{user}-{branch}-test-outcome-{datetime}.md`
+Write the report to the run directory: `$REPORT_DIR/report.md` (`<run>` = `.crew/artifacts/qa/{YYYY-MM-DD}-{scope}[-n]/`). The first line is the verdict line from the template, above the H1.
 
 ### Output Structure
 
 ```
-.gstack/qa-reports/
-├── qa-report-{domain}-{YYYY-MM-DD}.md    # Structured report
-├── screenshots/
+.crew/artifacts/qa/{YYYY-MM-DD}-{scope}[-n]/   # <run>
+├── report.md                              # Structured report — first line is the verdict line
+├── screens/
 │   ├── initial.png                        # Landing page annotated screenshot
 │   ├── issue-001-step-1.png               # Per-issue evidence
 │   ├── issue-001-result.png
@@ -407,11 +380,11 @@ Write to `~/.gstack/projects/{slug}/{user}-{branch}-test-outcome-{datetime}.md`
 └── baseline.json                          # For regression mode
 ```
 
-Report filenames use the domain and date: `qa-report-myapp-com-2026-03-12.md`
+Domain and date live in the directory name: `.crew/artifacts/qa/2026-03-12-explore-myapp-com/report.md`. Never overwrite a previous run.
 
 ---
 
 ## Additional Rules (qa-only specific)
 
-11. **Never fix bugs.** Find and document only. Do not read source code, edit files, or suggest fixes in the report. Your job is to report what's broken, not to fix it. Use `/qa` for the test-fix-verify loop.
-12. **No test framework detected?** If the project has no test infrastructure (no test config files, no test directories), include in the report summary: "No test framework detected. Run `/qa` to bootstrap one and enable regression test generation."
+15. **Exploratory only — no source reading, no fixes.** Find and document only. Do not read source code, edit files, or suggest fixes in the report. Your job is to report what's broken, not to fix it. Use `/qa` for the test-fix-verify loop.
+16. **No test framework detected?** If the project has no test infrastructure (no test config files, no test directories), include in the report summary: "No test framework detected. Run `/qa` to bootstrap one and enable regression test generation."

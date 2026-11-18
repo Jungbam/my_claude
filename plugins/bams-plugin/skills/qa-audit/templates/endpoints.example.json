@@ -1,0 +1,5 @@
+[
+  { "group": "list", "name": "items limit=50", "path": "/api/items?limit=50" },
+  { "group": "detail", "name": "item 1", "path": "/api/items/1" },
+  { "group": "search", "name": "items search q=alpha", "path": "/api/items?q=alpha&limit=20" }
+]

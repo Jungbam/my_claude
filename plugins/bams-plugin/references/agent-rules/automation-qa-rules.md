@@ -47,6 +47,50 @@ echo "[automation-qa] QA Phase 위임 미수신 감지 — qa-strategy QA Phase 
 
 qa-strategy로부터 feature Phase 3 위임을 받지 않은 경우, pipeline-orchestrator에게 "QA 참여 누락" 알림 전송.
 
+### QA 감사 스크립트 실행 시
+
+> stub ID: QA-AUDIT-RUN
+
+`/bams:qa --audit`(감사 모드) 위임을 받으면 Step 1 산출물은 테스트 계획이 아니라 **범위 선언(`scope_declaration`)**이다. 이 커맨드에서 automation-qa는 범위 선언만 위임받고, 스크립트 실행과 사용자 승인 질문(doctor exit 3 설치 승인, `project_checks` 승인, 원격 호스트)은 메인(qa-audit 엔진)이 한다 — 서브에이전트는 사용자에게 질문할 수 없기 때문이다.
+
+단독 위임으로 스크립트를 직접 돌리게 된 경우에도 아래 실행 규칙을 지킨다. 사용자 승인이 필요한 단계(설치·`project_checks`·원격 호스트)는 실행하지 말고, 필요한 명령과 사유를 메인에 요청으로 반환한다. 스크립트는 관찰 전용이다 — 결과는 후보이며 결함 확정·판정은 `references/qa-principles.md` §3과 `references/issue-severity.md` §QA 판정 매핑을 따른다.
+
+**경로**: Bash 호출마다 셸 상태가 초기화되므로, 매 호출에서 위 경로 폴백 스니펫으로 `_BAMS`를 다시 구한 뒤 `S="$_BAMS/skills/qa-audit/scripts"`를 설정한다.
+
+**실행 규칙**
+
+1. **실행 전 doctor**: `node "$S/doctor.mjs" --out <run>`을 먼저 돌려(JSON은 stdout, 파일은 `<run>/doctor.md`만) Playwright 출처·버전, axe 상태(`found`/`unverified`)를 리포트 범위·환경 표에 기록한다. axe가 없어도 doctor는 통과이며, A1(axe)만 `unverified`로 남긴다.
+2. **Playwright는 플러그인 번들만**: 스크립트는 플러그인 번들(또는 `PLAYWRIGHT_MODULE`)의 Playwright를 쓴다. 대상 레포에 Playwright·axe-core 등 의존성을 추가하거나 설치 명령을 실행하지 않는다. 설치가 필요하면 doctor가 안내하는 플러그인 디렉터리 기준 명령을 메인에 보고하고, 설치 여부는 사용자가 정한다.
+3. **허용 호스트 가드**: 기본 허용은 `localhost`/`127.0.0.1`/`::1`이다. 그 밖의 호스트에 쓰는 `--allow-remote`는 사용자가 명시했을 때만 붙인다. 가드 거부(exit 2)를 우회하려고 스스로 `--allow-remote`를 붙이거나 다른 출처 절대 URL을 넣지 않는다. base URL은 `http`/`https`만, 자격증명이 든 URL(`user:pw@host`)과 쿼리(`?`)·조각(`#`)이 붙은 base는 exit 2로 거부된다 — base는 경로까지만 쓰고, 인증은 아래 4번(`--cookie`/`QA_COOKIE`)으로만 넘긴다. 산출물에는 base가 origin + 경로로 기록된다(자격증명·쿼리·조각 제외).
+4. **인증**: 쿠키는 `--cookie` 또는 `QA_COOKIE`로만 넘기고 값은 리포트·로그·위임 메시지에 쓰지 않는다(인증 방식만 기록).
+5. **직렬 실행**: 스크립트는 한 번에 하나씩, 축 순서 UI → A11Y → PERF로 실행한다. 빌드·테스트 등 다른 무거운 명령과 동시에 돌리지 않는다(qa-strategy QA-STACK 직렬 규칙).
+6. **`--server` 필수 기재**: 서버 종류(dev / prod / staging / unknown)를 매 실행에 넘긴다. dev 서버 성능 수치는 운영 수치나 성능 기준 증거로 쓰지 않는다.
+7. **exit code 처리**: `0` 실행 완료(결함 발견도 0) / `2` 사용법 오류·가드 거부·프로필 검증 실패 → 인자를 고치고, 가드 거부면 메인에 보고 / `3` 환경 없음(Playwright·브라우저) → 해당 브라우저 층 전체를 `unverified`(사유 포함)로 기록하고 결함·실패로 집계하지 않는다.
+8. **스크립트 이상 의심 시 selftest 먼저**: 결과가 비정상(예상 범위에서 결과 0, 예외 종료, 같은 입력에 다른 결과)이면 대상 앱 결함으로 보고하기 전에 `node "$S/selftest/selftest.mjs"`(axe 없으면 `--no-axe`)를 돌린다. selftest 실패는 도구 결함(error_source=env 또는 self)으로 보고하고, 해당 축은 `unverified`로 남긴다.
+9. **증거는 명령 + exit code**: 실행한 명령(쿠키 값 제외)·exit code·산출물 경로(`<run>/…`)를 리포트 §재현에 그대로 남긴다. 출력 요약만으로 통과를 주장하지 않는다.
+
+**범위 선언 산출물 형식** (`expected_output: scope_declaration`)
+
+```yaml
+scope_declaration:
+  axes: [ui, a11y, perf]          # 위임받은 --audit 값 (all = 세 축)
+  level: quick | standard | full
+  base: http://localhost:<port>   # 원격이면 사용자 명시 --allow-remote 여부 함께
+  server: dev | prod | staging | unknown
+  routes: [/, /items, /items/<id>]          # 동적 세그먼트는 실제 값으로 치환
+  core_routes: [/items]           # 프로필 core_routes ∪ 사용자 지정 ∪ diff 영향 라우트
+  viewports: [<width>x<height>, …]
+  auth: none | cookie(QA_COOKIE) | <방식>   # 쿠키 값 기재 금지
+  endpoints: <endpoints.json 경로> | [{group, name, path}, …]   # PERF 축일 때. measure-api는 GET만(method 미지원)
+  ready_selector: "<CSS 셀렉터>"   # 화면 준비 완료 판단 기준
+  profile: <.crew/qa-profile.json 경로> | 기본값
+  constraints: [<대상 레포 제약 — qa-principles.md §4>]
+  missing: [<비어 있는 항목>]      # 메인이 사용자에게 한 번에 묻는다
+```
+
+- `core_routes`가 비면 추측으로 채우지 않고 `missing`에 넣는다(메인이 실행 전 1회 확인).
+- 축과 무관한 항목(예: UI만일 때 `endpoints`)은 `해당 없음`으로 쓴다 — 빈 필드 금지.
+
 ### E2E 실행 구조 최적화
 
 E2E 스위트 구성 시 아래 3개 레버를 **기본값으로 적용**한다(speed clamp/저성능 방지):

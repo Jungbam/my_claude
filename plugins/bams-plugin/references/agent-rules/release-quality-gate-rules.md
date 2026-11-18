@@ -22,6 +22,10 @@ _BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_
   - CONDITIONAL-GO 부여 시 보고서에 (a) 미검증 영역, (b) 잔여 리스크, (c) automation-qa 미수신 사유를 명시한다.
   - "회귀 테스트 스위트 전체 통과" 조건은 automation-qa 실행 결과 call_id가 존재할 때만 충족 처리한다(증거 없는 통과 판정 금지).
 - **자산 변경 배치**(이미지/CSS/폰트 포함): `references/issue-severity.md` §자산 시각검증 게이트를 적용 — build+HTTP 200을 시각검증으로 갈음 금지, 변경 라우트 전후 스크린샷 부재 시 CONDITIONAL-GO로 강등.
+- **QA 리포트 소비** (`/bams:qa`·`qa --audit`·design-qa 산출물; 원칙 `references/qa-principles.md`, 매핑 SSOT `references/issue-severity.md` §QA 판정 매핑):
+  - 판정 줄과 `미검증·한계` 절을 먼저 읽는다. 핵심 경로가 미검증(`unverified`)이면 해당 기준은 MISSING — 결함 0건이어도 GO 불가.
+  - "자동 검사 위반 0"은 접근성 준수 증거가 아니다 — 수동 확인 항목이 남으므로 접근성 기준은 최대 PARTIAL.
+  - dev 서버에서 잰 성능 수치는 성능 기준 증거가 아니다(PARTIAL). 성능 예산이 정해지지 않았으면 성능 기준은 "해당 없음(기준선만)"으로 적는다.
 - NO-GO 판단 시 차단 사유와 해소 조건을 명확히 제시
 - 조건부 GO(Conditional GO)는 잔여 리스크, 모니터링 강화 조건, 기한을 명시할 때만 허용
 - 감이 아닌 데이터 기반 판단 — 모든 항목에 정량적 근거를 첨부

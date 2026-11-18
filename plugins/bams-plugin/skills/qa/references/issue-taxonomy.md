@@ -2,12 +2,14 @@
 
 ## Severity Levels
 
-| Severity | Definition | Examples |
-|----------|------------|----------|
-| **critical** | Blocks a core workflow, causes data loss, or crashes the app | Form submit causes error page, checkout flow broken, data deleted without confirmation |
-| **high** | Major feature broken or unusable, no workaround | Search returns wrong results, file upload silently fails, auth redirect loop |
-| **medium** | Feature works but with noticeable problems, workaround exists | Slow page load (>5s), form validation missing but submit still works, layout broken on mobile only |
-| **low** | Minor cosmetic or polish issue | Typo in footer, 1px alignment issue, hover state inconsistent |
+| Severity | 매핑(issue-severity / 감사 P) | Definition | Examples |
+|----------|------------------------------|------------|----------|
+| **critical** | Critical / P0 | Blocks a core workflow, causes data loss, or crashes the app | Form submit causes error page, checkout flow broken, data deleted without confirmation |
+| **high** | Major / P1 | Major feature broken or unusable, no workaround | Search returns wrong results, file upload silently fails, auth redirect loop |
+| **medium** | Minor / P2 | Feature works but with noticeable problems, workaround exists | Slow page load (>5s), form validation missing but submit still works, layout broken on mobile only |
+| **low** | Minor / P2 | Minor cosmetic or polish issue | Typo in footer, 1px alignment issue, hover state inconsistent |
+
+판정(GO / CONDITIONAL-GO / NO-GO)과 게이트 임계값은 이 문서에 두지 않는다 — 플러그인 루트 `references/issue-severity.md` §QA 판정 매핑(SSOT)을 따른다. 실행하지 못한 범위는 결함이 아니라 `unverified`로, 코드·화면으로 확인하기 전의 스크립트 후보는 결함 집계 밖으로 둔다(같은 절).
 
 ## Categories
 

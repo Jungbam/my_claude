@@ -26,21 +26,25 @@ allowed-tools:
 ## 2. 사용법
 
 ```
-/design-qa <url> [--spec <path>] [--viewport mobile|tablet|desktop|all]
+/design-qa <url> [--spec <path>] [--viewport mobile|tablet|desktop|all] [--server dev|prod|staging|unknown] [--allow-remote]
 ```
 
 - `<url>`: 검증 대상 페이지 URL (필수)
 - `--spec`: 구현 의도 spec 경로. 생략 시 `.crew/artifacts/design/*-design-ui.md` 최신 자동 로드
 - `--viewport`: `mobile`(375) / `tablet`(768) / `desktop`(1280) / `all`(기본, 3종 모두)
+- `--server`: 서버 종류(기본 `unknown`). 감사 스크립트에 그대로 넘기고 리포트에 적는다
+- `--allow-remote`: `localhost`·`127.0.0.1`·`::1` 외 호스트. 사용자가 명시했을 때만 쓴다
 
 ## 3. arg-parse 프리앰블
 
 ```bash
-VIEWPORT=all; SPEC=""; POS=()
+VIEWPORT=all; SPEC=""; SERVER=unknown; REMOTE=""; POS=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --spec) SPEC="$2"; shift ;;
     --viewport) VIEWPORT="$2"; shift ;;
+    --server) SERVER="$2"; shift ;;
+    --allow-remote) REMOTE="--allow-remote" ;;
     --) shift; break ;;
     -*) echo "unknown flag: $1" >&2; exit 2 ;;
     *) POS+=("$1") ;;
@@ -49,7 +53,7 @@ while [ $# -gt 0 ]; do
 done
 URL="${POS[0]}"
 if [ -z "$URL" ]; then
-  echo "usage: /design-qa <url> [--spec <path>] [--viewport mobile|tablet|desktop|all]" >&2
+  echo "usage: /design-qa <url> [--spec <path>] [--viewport mobile|tablet|desktop|all] [--server <kind>] [--allow-remote]" >&2
   exit 2
 fi
 # spec 자동 로드
@@ -61,17 +65,18 @@ fi
 
 ## 4. 10항 하이브리드 체크리스트
 
-**자동 판정 (7항)** — bams:browse 결과로 결정론적 판정:
+**자동 판정 (7항)** — QA 감사 스크립트(`qa-audit/scripts`, §5) 결과와 bams:browse 촬영으로 판정한다.
+스크립트 결과는 **후보**다. 화면·코드로 확인한 것만 결함으로 올린다(`references/qa-principles.md`).
 
 | # | 항목 | 판정 방식 |
 |---|------|----------|
-| 1 | 정보 계층 | heading 순서 자동 스캔 (h1→h2→h3 위계 spec 일치) |
-| 3 | 여백/간격 | spacing scale 8/16/24 준수 검증 |
+| 1 | 정보 계층 | `audit-a11y.mjs` `results[].structure.heading_skips`(제목 단계 건너뜀) + spec 위계 대조 |
+| 3 | 여백/간격 | `scan-ui-static.mjs` `U6-arbitrary-spacing`(임의 간격 후보) + 스크린샷으로 확인 |
 | 6 | 다크모드 | bams:browse dark toggle 후 재촬영, 토큰 전환·대비 유지 |
-| 7 | 반응형 | mobile/tablet/desktop 3 viewport 의도된 레이아웃 |
-| 8 | 접근성 | axe-core 결과 (aria 라벨, focus visible) |
-| 9 | 모션 | prefers-reduced-motion 존중 확인 |
-| 10 | 텍스트 오버플로우 | 긴 콘텐츠 삽입 후 재촬영, 잘림 검출 |
+| 7 | 반응형 | `inspect-computed-style.mjs` `results[].overflow` — 375/768/1280 viewport |
+| 8 | 접근성 | `audit-a11y.mjs` `results[].axe`(axe 미발견이면 `status: "unverified"` — A1 미검증, 실패 아님) + `inspect-computed-style.mjs` `results[].contrast_fail` |
+| 9 | 모션 | `audit-a11y.mjs` `results[].motion`(reduced motion에서 계속 도는 애니메이션) |
+| 10 | 텍스트 오버플로우 | `audit-a11y.mjs` `results[].reflow.overflow`(320px 별도 측정)·`results[].text_spacing_clipped` + 긴 콘텐츠는 bams:browse로 삽입 후 재촬영 |
 
 **사용자 확인 (3항)** — 주관적·애매하여 사용자 판단 필요:
 
@@ -83,39 +88,64 @@ fi
 
 ## 5. 실행 로직
 
+Bash 호출마다 셸 상태가 사라지므로 **호출마다 `_BAMS`·`S`를 다시 설정**한다.
+
 ```bash
 # Step 1: spec 로드 → 검증 항목 매핑
 [ -n "$SPEC" ] && [ -f "$SPEC" ] && echo "spec: $SPEC"
 
-# Step 2: bams:browse로 초기 스크린샷 (viewport별)
+# Step 2: 경로 해석 — bams:browse(촬영) + QA 감사 스크립트
 _BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_by(.scope != "user") | .[].installPath // empty' ~/.claude/plugins/installed_plugins.json; sh -c 'ls -dt "$HOME"/.claude/plugins/cache/*/bams-plugin/*/'; } 2>/dev/null | while IFS= read -r _p; do [ -d "$_p" ] && [ ! -e "$_p/.orphaned_at" ] && echo "${_p%/}" && break; done || true); _BROWSE_SKILL="$_BAMS/skills/browse/SKILL.md"; [ -e "$_BROWSE_SKILL" ] || _BROWSE_SKILL=""
+S="$_BAMS/skills/qa-audit/scripts"
 [ -z "$_BROWSE_SKILL" ] && _BROWSE_SKILL=$(find . -path "*/bams-plugin/skills/browse/SKILL.md" 2>/dev/null | head -1)
 [ -z "$_BROWSE_SKILL" ] && { echo "bams:browse skill 미설치 — 촬영 불가" >&2; exit 2; }
-# bams:browse 호출: viewport별 스크린샷 촬영 (mobile/tablet/desktop, dark toggle 포함)
+[ -f "$S/doctor.mjs" ] || echo "warn: QA 감사 스크립트 없음 — 자동 판정 항목은 unverified" >&2
 
-# Step 3: 10항 순차 판정 (자동 7 + 사용자 3)
-#  자동: heading/spacing/dark/responsive/a11y/motion/overflow 결정론적 검증
+# Step 3: 입력 정리 (출처·경로 분리, viewport → WxH)
+BASE=$(printf '%s' "$URL" | sed -E 's#^(https?://[^/]+).*#\1#'); ROUTE="${URL#"$BASE"}"; [ -z "$ROUTE" ] && ROUTE=/
+case "$VIEWPORT" in
+  mobile) VPS=375x812 ;; tablet) VPS=768x1024 ;; desktop) VPS=1280x800 ;;
+  *) VPS=375x812,768x1024,1280x800 ;;
+esac
+TIMESTAMP=$(date -u +%Y%m%d-%H%M%S)
+EVID=".crew/artifacts/review/design-qa-$TIMESTAMP"; mkdir -p "$EVID/screens"
+
+# Step 4: 감사 스크립트 직렬 실행 — 명령마다 exit code 기록
+node "$S/doctor.mjs" --out "$EVID"; echo "exit=$?"   # JSON은 stdout, 파일은 $EVID/doctor.md만
+node "$S/scan-ui-static.mjs" --repo . --out "$EVID"; echo "exit=$?"
+node "$S/inspect-computed-style.mjs" --base "$BASE" --routes "$ROUTE" --viewports "$VPS" --out "$EVID" --server "$SERVER" $REMOTE; echo "exit=$?"
+node "$S/audit-a11y.mjs" --base "$BASE" --routes "$ROUTE" --viewports "$VPS" --out "$EVID" --server "$SERVER" $REMOTE; echo "exit=$?"
+# bams:browse: viewport별 스크린샷, dark toggle 재촬영(#6), 긴 콘텐츠 삽입 후 재촬영(#10)
+
+# Step 5: 10항 순차 판정 (자동 7 + 사용자 3)
+#  자동: 스크립트 후보를 화면·코드로 확인 → 결함 / 의도된 예외 / 미확인
 #  사용자: CTA/상태/인터랙션 → echo 안내 후 사용자 confirm/reject 수집
 #          (skill 내 stdin 대화가 어려우므로 판정 대기 항목을 리포트에 CONDITIONAL로 기록)
 
-# Step 4: 리포트 생성 (templates/design-qa-report.md 기반)
-TIMESTAMP=$(date -u +%Y%m%d-%H%M%S)
+# Step 6: 리포트 생성 (templates/design-qa-report.md 기반)
 REPORT=".crew/artifacts/review/design-qa-$TIMESTAMP.md"
-mkdir -p .crew/artifacts/review
-# 템플릿 복사 + {url}/{spec_path}/{viewport}/판정 필드 치환 → $REPORT 저장
+# 템플릿 복사 + {url}/{spec_path}/{viewport}/판정 필드 치환 → $REPORT 저장 (증거: $EVID, 명령 + exit code)
 echo "리포트: $REPORT"
 ```
 
+- 스크립트 exit `3`(Playwright·브라우저 없음) → 해당 항목 `unverified`(실패 아님), doctor 설치 안내를 리포트에 옮긴다. exit `2`(인자 오류·호스트 가드 거부) → 인자를 고쳐 1회 재실행, 그래도 2면 `unverified` + 사유. 가드 거부를 우회하려고 `--allow-remote`를 임의로 붙이지 않는다.
+- 인증 화면은 env `QA_COOKIE`로 넘기고 값은 리포트·로그에 쓰지 않는다.
+
 ## 6. exit code
 
-| code | 의미 |
-|------|------|
-| 0 | PASS — 10항 모두 자동 판정 PASS |
-| 1 | CONDITIONAL — 사용자 확인 항목 다수 (판정 대기) |
-| 2 | FAIL — 자동 판정 실패 또는 입력 오류 |
+판정은 `references/issue-severity.md` §QA 판정 매핑과 §파이프라인별 Override `qa --audit` 행을 따른다(임계값은 그 파일에만 있다). 핵심 경로에 `unverified`가 있으면 PASS로 두지 않는다(같은 절 규칙 (a)).
+
+| code | 판정 | 게이트 표기 | 의미 |
+|------|------|------------|------|
+| 0 | PASS | GO | 확인된 결함 건수가 §QA 판정 매핑의 GO 조건 안 + 사용자 확인 3항 승인 |
+| 1 | CONDITIONAL | CONDITIONAL-GO | §QA 판정 매핑의 CONDITIONAL 조건, 핵심 경로 `unverified`, 또는 사용자 확인 대기 |
+| 2 | FAIL | NO-GO | §QA 판정 매핑의 NO-GO 조건, 또는 입력 오류 |
+
+- 자동 검사 위반 0 ≠ 준수 — 리포트에는 `자동 검사 위반 0`으로 쓰고 "접근성 준수"로 쓰지 않는다.
 
 ## 7. 관련
 
 관련: visual-fidelity-verifier (정량 픽셀 diff + WCAG 명도),
      bams:browse (헤드리스 브라우저 — 본 skill의 촬영 도구),
+     QA 감사 스크립트 (`qa-audit/scripts` — 자동 판정 측정, `/bams:qa --audit`와 같은 도구),
      /careful (파괴 명령 hook — 본 skill은 read-only이므로 미필요)

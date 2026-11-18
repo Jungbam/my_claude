@@ -74,6 +74,8 @@ Each Bash call is a fresh shell: set `B=<path printed after READY>` in every com
 
 ## QA Workflows
 
+> `/bams:qa <url>` runs exploratory QA with this browser. `/bams:qa --audit [ui,a11y,perf|all]` runs the measured audit mode instead (engine: `qa-audit` skill, observe-only, script evidence for UI/A11Y/PERF).
+
 ### Test a user flow (login, signup, checkout, etc.)
 
 ```bash

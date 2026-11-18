@@ -37,7 +37,7 @@ git commit -m "fix(qa): ISSUE-NNN — short description"
 
 ```bash
 $B goto <affected-url>
-$B screenshot "$REPORT_DIR/screenshots/issue-NNN-after.png"
+$B screenshot "$REPORT_DIR/screens/issue-NNN-after.png"
 $B console --errors
 $B snapshot -D
 ```
@@ -75,7 +75,7 @@ The test MUST:
   ```
   // Regression: ISSUE-NNN — {what broke}
   // Found by /qa on {YYYY-MM-DD}
-  // Report: .gstack/qa-reports/qa-report-{domain}-{date}.md
+  // Report: .crew/artifacts/qa/{YYYY-MM-DD}-{scope}/report.md
   ```
 
 Test type decision:
