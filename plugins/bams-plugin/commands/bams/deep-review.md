@@ -19,7 +19,7 @@ argument-hint: "[파일/디렉토리/.diff/pr] [--aspect <spec|functional|perfor
 7. Step 1-extra aspect 확장 spawn (code 외 aspect 있을 때만)
 8. 경량 단독 리뷰 — 메인이 5관점 지적 + 재현 증거 작성 (full이면 skip)
 9. 종합 리포트 + 독립 검증자 spawn (full: 검증 대상 있을 때 / 경량: 묶음 1회 — **생략 불가**)
-9-1. Linear 이슈 등록 — issue-ops `linear-file-issues` (`## Linear` 꺼짐·등록 대상 0건이면 skip)
+9-1. Linear 이슈 등록 — issue-ops `linear-file-issues` 초안 → 확인 → 등록 (`## Linear` 꺼짐·등록 대상 0건·비대화면 skip)
 10. Step 4 에이전트 개선점 수집 (orchestrator 조언)
 11. `.crew/history.md` 1줄 + 회고 확인
 12. verdict 파일 — 게이트 미포함이므로 기본 `— skip: deep-review 게이트 미포함 (판정은 /bams:review·/bams:ship)`
@@ -95,13 +95,13 @@ Task tool, subagent_type: **"bams-plugin:defect-triage"** — full은 지적 1�
 
 ### Linear 이슈 등록 (Step 9-1)
 
-검증 반영(§필터 5)과 종합 리포트 저장이 끝난 뒤, CONFIRMED Critical/Major와 `unverified-risk`를 레포의 Linear 프로젝트에 등록한다. `.crew/config.md` `## Linear`가 `enabled: false`이거나 등록 대상이 0건이면 `— skip: <사유>`.
+검증 반영(§필터 5)과 종합 리포트 저장이 끝난 뒤, CONFIRMED Critical/Major와 `unverified-risk`를 ezar-linear 규칙에 맞춘 초안으로 만들고, 사용자가 고른 것만 레포의 Linear 프로젝트에 등록한다. `.crew/config.md` `## Linear`가 `enabled: false`이거나 등록 대상이 0건이면 `— skip: <사유>`.
 
 Task tool, subagent_type: **"bams-plugin:issue-ops"** — 메인이 직접 호출:
 > load_profile: { level: L2, refs: [{doc: config}] }
-> mode: file · input: {종합 리포트 경로} · pipeline: {slug} · commit: {git rev-parse HEAD} — 계약 `references/linear-protocol.md` §5·§11
+> mode: file · input: {종합 리포트 경로} · pipeline: {slug} · commit: {git rev-parse HEAD} — 계약 `references/linear-protocol.md` §5·§8
 
-반환이 `NEEDS_CONTEXT`(매핑 후보·10건 초과 등록)면 AskUserQuestion 1회 후 선택값을 붙여 한 번 더 spawn한다. 실패·pending은 보고만 하고 진행한다.
+반환이 `NEEDS_CONTEXT`면 AskUserQuestion 1회 후 선택값을 붙여 한 번 더 spawn한다. 매핑 후보면 `mode: setup`으로, 초안 확인이면 초안 표를 보여 주고(전부 등록 / 고른 번호만 / 등록 안 함) `--confirmed <번호|all>`을 붙인다. 물을 수 없는 실행(eval·headless)이면 등록하지 않고 초안 경로만 보고한다(`ezar-linear:issues` §1 초안 먼저). 실패는 보고만 하고 진행한다.
 
 ## Step 4: 에이전트 개선점 수집 — 루프 A (Advisor 단독 호출)
 
