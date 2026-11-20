@@ -19,7 +19,6 @@ PR 생성과 머지를 관리하는 Ship 워크플로우입니다.
 5. GO 재확인 — Verdict 확인 블록 재실행 (`verdict_exit=0`일 때만 Step 2)
 6. Step 2 Ship 실행 — PR 생성 (NO-GO면 skip)
 7. Step 3 결과 확인 — PR URL·상태 보고
-7-1. Linear 이슈 동기화 — issue-ops `linear-close-issues` sweep (장부 awaiting 항목 없으면 skip)
 8. `.crew/history.md` 1줄 기록
 9. verdict 확인 결과 기록 — 최종 메시지에 `verdict_exit=<n>` 줄 + skip 목록
 
@@ -80,13 +79,9 @@ release-quality-gate 반환에서 GO/CONDITIONAL GO/NO-GO 판정을 파싱합니
 
 PR URL과 상태를 보고합니다. 실패 시 원인 분석 및 재시도 옵션 제공.
 
-### Linear 이슈 동기화 (체크리스트 7-1)
+### Linear 식별자 (체크리스트 없음)
 
-PR을 만든 뒤, `.crew/linear-issues.json`에 `awaiting` 항목이 있을 때만 실행한다(없거나 `## Linear` 꺼짐이면 `— skip: <사유>`). PR이 열린 수정은 In Review로, 이미 기본 브랜치에 머지된 수정은 Done으로 옮긴다. 규약 `references/linear-protocol.md` §6·§7. 게이트·verdict에는 영향이 없다.
-
-Task tool, subagent_type: **"bams-plugin:issue-ops"** — 메인이 직접 호출:
-> load_profile: { level: L2, refs: [{doc: config}] }
-> mode: sweep · pipeline: {slug} · commit: {git rev-parse HEAD}
+이번 변경이 고친 Linear 이슈가 있으면(커밋 메시지·위임 메시지의 `linear_issues`) PR 본문에 `Fixes <ID>`를 한 줄씩 넣는다. 이슈 상태는 옮기지 않는다 — merge 후 Done은 근거를 본 쪽이 `ezar-linear:issues` 규칙대로 옮긴다(`references/linear-protocol.md` §6).
 
 ## 마무리
 

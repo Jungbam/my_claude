@@ -22,7 +22,7 @@ argument-hint: '[파일, 디렉토리, .diff 파일, 또는 "pr"] [--aspect <spe
 8. Phase 3 종합 + defect-triage 검증자 spawn
 9. Phase 4 릴리스 게이트 판정자 spawn — **생략 불가** (경량: release-quality-gate 1회)
 10. Phase 5 리포트 저장 `.crew/artifacts/review/review-<ts>.md`
-10-1. Phase 5-1 Linear 이슈 등록 — issue-ops `linear-file-issues` (`## Linear` 꺼짐·등록 대상 0건이면 skip)
+10-1. Phase 5-1 Linear 이슈 등록 — issue-ops `linear-file-issues` 초안 → 확인 → 등록 (`## Linear` 꺼짐·등록 대상 0건·비대화면 skip)
 11. Phase 6~7 결과 제시 + 이슈 수정 제안
 12. Phase 8 `.crew/history.md` 1줄 + 회고 확인
 13. verdict 파일 확인 — `.crew/artifacts/review/verdict-*.json` 생성(`verdict.sh check`), 못 남기면 `— skip: <사유>`
@@ -188,13 +188,13 @@ exit 의미는 `references/verdict-protocol.md` §4. review 처리: `0`/`3` = �
 
 ## Phase 5-1: Linear 이슈 등록 (Step 10-1)
 
-리포트 저장 직후, CONFIRMED Critical/Major와 `unverified-risk`를 레포의 Linear 프로젝트에 등록한다. 게이트 판정·verdict에는 영향이 없다. `.crew/config.md` `## Linear`가 `enabled: false`이거나 등록 대상이 0건이면 `— skip: <사유>`.
+리포트 저장 직후, CONFIRMED Critical/Major와 `unverified-risk`를 ezar-linear 규칙에 맞춘 초안으로 만들고, 사용자가 고른 것만 레포의 Linear 프로젝트에 등록한다. 게이트 판정·verdict에는 영향이 없다. `.crew/config.md` `## Linear`가 `enabled: false`이거나 등록 대상이 0건이면 `— skip: <사유>`.
 
 Task tool, subagent_type: **"bams-plugin:issue-ops"** — 메인이 직접 호출:
 > load_profile: { level: L2, refs: [{doc: config}] }
-> mode: file · input: {Phase 5 리포트 경로} · pipeline: {slug} · commit: {git rev-parse HEAD} — 계약 `references/linear-protocol.md` §5·§11
+> mode: file · input: {Phase 5 리포트 경로} · pipeline: {slug} · commit: {git rev-parse HEAD} — 계약 `references/linear-protocol.md` §5·§8
 
-반환이 `NEEDS_CONTEXT`(매핑 후보·10건 초과 등록)면 AskUserQuestion 1회 후 선택값을 붙여 한 번 더 spawn한다. 실패·pending은 보고만 하고 진행한다. 반환된 식별자 목록은 Phase 6 결과와 Phase 7 수정 위임 메시지에 붙인다.
+반환이 `NEEDS_CONTEXT`면 AskUserQuestion 1회 후 선택값을 붙여 한 번 더 spawn한다. 매핑 후보면 `mode: setup`으로, 초안 확인이면 초안 표를 보여 주고(전부 등록 / 고른 번호만 / 등록 안 함) `--confirmed <번호|all>`을 붙인다. 물을 수 없는 실행(eval·headless)이면 등록하지 않고 초안 경로만 보고한다(`ezar-linear:issues` §1 초안 먼저). 실패는 보고만 하고 진행한다. 반환된 식별자 목록은 Phase 6 결과와 Phase 7 수정 위임 메시지에 붙인다.
 
 ## Phase 6: 결과 제시
 
@@ -212,7 +212,7 @@ Task tool, subagent_type: **"bams-plugin:issue-ops"** — 메인이 직접 호�
   제외:     [N]건 (confidence 미달/false positive/검증 반박)
 
 릴리스 게이트: [PASS/CONDITIONAL/FAIL]
-Linear:   created [N] · updated [N] · pending [N] (또는 skip: <사유>)
+Linear:   created [N] · commented [N] · failed [N] (또는 skip: <사유> · 초안만: <경로>)
 verdict: .crew/artifacts/review/verdict-<shortsha>.json (판정자 [agent/model], same_family [true/false/unknown])
          또는 verdict — skip: <사유>
 ```

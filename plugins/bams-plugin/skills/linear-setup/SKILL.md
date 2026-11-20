@@ -1,6 +1,6 @@
 ---
 name: linear-setup
-version: 1.0.0
+version: 2.0.0
 disable-model-invocation: true
 description: |
   bams 커맨드 내부 엔진 — 직접 쓰지 말고 `/bams:issues setup` 사용.
@@ -8,17 +8,17 @@ description: |
 allowed-tools:
   - Bash
   - Read
-  - mcp__plugin_engineering_linear__list_teams
-  - mcp__plugin_engineering_linear__list_projects
-  - mcp__plugin_engineering_linear__list_issue_statuses
-  - mcp__plugin_engineering_linear__list_issue_labels
+  - mcp__plugin_linear_linear__list_teams
+  - mcp__plugin_linear_linear__list_projects
+  - mcp__plugin_linear_linear__list_issue_statuses
+  - mcp__plugin_linear_linear__list_issue_labels
 ---
 <!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
 <!-- Regenerate: bash scripts/gen-skill-docs.sh -->
 
 # linear-setup — 레포 ↔ Linear 매핑
 
-규약 SSOT: `references/linear-protocol.md` §2·§3. 실행 주체: `issue-ops`(메인이 spawn). 이 스킬은 읽기 전용 Linear 조회만 하고, 쓰는 곳은 `.crew/config.md` 하나다.
+규약 SSOT: `references/linear-protocol.md` §2·§3. 팀·프로젝트를 찾는 순서는 ezar-linear `issues` §2와 같다. 실행 주체: `issue-ops`(메인이 spawn). 이 스킬은 읽기 전용 Linear 조회만 하고, 쓰는 곳은 `.crew/config.md` 하나다.
 
 ## 1. 입력
 
@@ -38,6 +38,8 @@ _REMOTE=$(git remote get-url origin 2>/dev/null); _REPO=$(basename "${_REMOTE:-$
 echo "repo=$(printf '%s' "$_REPO" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-//; s/-$//')"
 ```
 
+- 저장소 CLAUDE.md·AGENTS.md에 Linear 절(팀·프로젝트)이 있으면 그것이 먼저다. `.crew/config.md` 매핑과 다르면 그 차이를 보고하고 CLAUDE.md·AGENTS.md 쪽을 기록 후보 1순위로 둔다.
+  `grep -n -i -A6 '^#.*linear' CLAUDE.md AGENTS.md 2>/dev/null | head -20`
 - `NO_CREW` → `status: BLOCKED`, "`/bams:init` 먼저". 매핑을 만들지 않는다.
 - `enabled=false` → `status: DONE`, `linear: disabled`. 끝.
 - `team`이 있으면 검증만 한다: `list_teams`에 그 key가 있고 이름에 `archive`가 없는지, `project`가 있으면 `list_projects(query: <project>)`로 존재·미보관인지. 통과 → `status: DONE`, 매핑 그대로 반환. 실패 → 아래 3으로(기존 값은 후보 1순위로 표시).
@@ -67,7 +69,7 @@ options:
 선택값을 다시 검증(팀 존재·archive 아님·프로젝트 존재)한 뒤 섹션을 쓴다. 기존 `## Linear` 섹션이 있으면 그 섹션만 바꾼다.
 
 ```bash
-_SEC=$(printf '## Linear\n- enabled: %s\n- team: %s\n- project: %s\n- project_id: %s\n- default_labels: Bug\n- repo: %s\n- updated: %s\n' \
+_SEC=$(printf '## Linear\n- enabled: %s\n- team: %s\n- project: %s\n- project_id: %s\n- repo: %s\n- updated: %s\n' \
   "$ENABLED" "$TEAM" "${PROJECT:-(none)}" "${PROJECT_ID:-(none)}" "$REPO" "$(date +%F)")
 _TMP=$(mktemp)
 SEC="$_SEC" awk '
@@ -75,10 +77,10 @@ SEC="$_SEC" awk '
   skip && /^## / { skip=0 }
   !skip { print }
   END { if (!done) { print ""; print ENVIRON["SEC"] } }' .crew/config.md > "$_TMP" && mv "$_TMP" .crew/config.md
-grep -A7 '^## Linear' .crew/config.md
+grep -A6 '^## Linear' .crew/config.md
 ```
 
-`--disable`이면 `ENABLED=false`, `TEAM=(none)`으로 쓴다. 마지막으로 `list_issue_statuses(team)`·`list_issue_labels(team)`을 읽어 `Bug`·`ready-for-agent`·`needs-triage` 라벨과 completed·started 상태가 있는지 보고한다(없으면 `DONE_WITH_CONCERNS` + 빠진 항목). 라벨을 만들지 않는다.
+`--disable`이면 `ENABLED=false`, `TEAM=(none)`으로 쓴다. 마지막으로 `list_issue_statuses(team)`·`list_issue_labels(team)`을 읽어 종류 라벨(`Bug`·`Feature`·`Improvement`·`Maintenance`·`Research`·`Ops`)과 backlog 상태가 있는지 보고한다(없으면 `DONE_WITH_CONCERNS` + 빠진 항목). 라벨·프로젝트를 만들지 않는다(ezar-linear 훅 G1·G2).
 
 ## 5. 반환
 
