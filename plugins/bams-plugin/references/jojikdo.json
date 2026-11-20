@@ -3064,24 +3064,21 @@
       "department_id": "issue-management",
       "department_name": "이슈관리부서",
       "parent_department_id": null,
-      "mission": "QA·리뷰에서 확인된 문제를 레포별 Linear 프로젝트의 이슈로 추적하고, 수정이 검증되면 증거와 함께 닫는다",
+      "mission": "리뷰·QA에서 확인된 문제를 ezar-linear 전사 규칙에 맞춰 레포별 Linear 프로젝트의 이슈로 올린다(상태 옮기기·닫기는 ezar-linear:issues 몫)",
       "agents": [
         {
           "agent_id": "issue_ops_agent",
           "agent_name": "Issue Ops Agent",
-          "responsibility": "레포 ↔ Linear 매핑 관리, 확인된 지적의 중복 없는 이슈 등록, 수정 착수·PR·머지에 맞춘 상태 동기화, 증거 기반 종료",
+          "responsibility": "레포 ↔ Linear 매핑 관리, 확인된 지적의 출처 ID 기반 중복 판정, 초안 확인 후 이슈 등록",
           "inputs": [
             "review_report",
             "qa_report",
             "debug_report",
-            "linear_identifiers",
-            "fix_commit",
-            "verification_evidence"
+            "user_confirmation"
           ],
           "outputs": [
             "linear_issue",
-            "linear_issue_ledger",
-            "linear_pending_queue",
+            "linear_issue_draft",
             "linear_mapping"
           ],
           "skills": [
@@ -3112,7 +3109,7 @@
             {
               "skill_id": "file_qa_findings",
               "skill_name": "QA Findings Filing",
-              "purpose": "검증된 Critical/Major·unverified-risk 지적을 fingerprint로 중복 없이 Linear 이슈로 등록한다",
+              "purpose": "검증된 Critical/Major·unverified-risk 지적을 ezar-linear 규칙에 맞춘 초안으로 만들고, 사용자가 고른 것만 Linear 이슈로 등록한다",
               "inputs": [
                 "review_report",
                 "qa_report",
@@ -3120,14 +3117,14 @@
               ],
               "process": [
                 "등록 대상 지적을 고른다",
-                "fingerprint로 장부와 Linear를 조회한다",
-                "생성·재발견 코멘트·회귀 재오픈을 결정한다",
-                "10건 초과 대량 등록은 사용자 확인을 요청한다",
-                "결과를 장부에 기록한다"
+                "출처 ID(bams:<repo>/<fp>)와 낱말 검색으로 중복을 판정한다",
+                "종류 라벨·제목·본문·Agent notes로 초안을 만든다",
+                "메인이 사용자 확인을 받는다",
+                "확인된 항목만 Backlog로 만들거나 근거 댓글을 단다"
               ],
               "artifacts": [
                 "linear_issue",
-                "linear_issue_ledger"
+                "linear_issue_draft"
               ],
               "agent_calls": [
                 {
@@ -3137,38 +3134,7 @@
                 }
               ],
               "completion_criteria": [
-                "모든 대상 지적이 created/updated/reopened/skipped/pending 중 하나로 보고된다"
-              ]
-            },
-            {
-              "skill_id": "sync_issue_status",
-              "skill_name": "Issue Status Sync",
-              "purpose": "수정 착수·PR·머지에 맞춰 이슈 상태를 옮기고, 수정 커밋·검증 명령·머지가 모두 확인될 때만 Done으로 닫는다",
-              "inputs": [
-                "linear_identifiers",
-                "fix_commit",
-                "verification_evidence",
-                "linear_issue_ledger"
-              ],
-              "process": [
-                "착수 시 In Progress로 옮긴다",
-                "수정 커밋이 HEAD에 있고 지적 파일을 바꿨는지 확인한다",
-                "검증 명령을 직접 실행한다",
-                "PR이 열려 있으면 In Review, 기본 브랜치에 머지되면 Done으로 옮기고 증거를 코멘트한다"
-              ],
-              "artifacts": [
-                "linear_issue",
-                "linear_issue_ledger"
-              ],
-              "agent_calls": [
-                {
-                  "callee_agent": "release_quality_gate_agent",
-                  "call_purpose": "HEAD verdict를 종료 증거로 참조",
-                  "expected_output": "release_decision"
-                }
-              ],
-              "completion_criteria": [
-                "증거 없는 Done 전이가 0건이다"
+                "모든 대상 지적이 created/commented/skipped/failed 중 하나로 보고된다"
               ]
             }
           ],
@@ -3301,12 +3267,6 @@
           "owner_agent": "release_quality_gate_agent",
           "skill": "review_release_readiness",
           "output": "release_decision"
-        },
-        {
-          "step_order": 7,
-          "owner_agent": "issue_ops_agent",
-          "skill": "sync_issue_status",
-          "output": "linear_issue"
         }
       ],
       "exit_criteria": [
@@ -3393,7 +3353,7 @@
         "owner_agent": "release_quality_gate_agent"
       },
       {
-        "decision": "Linear 이슈 등록·종료 (종료는 수정 커밋·검증·머지 증거 필수)",
+        "decision": "Linear 이슈 등록 (ezar-linear 규칙, 초안 확인 후. 상태 옮기기·닫기는 하지 않음)",
         "owner_agent": "issue_ops_agent"
       }
     ],

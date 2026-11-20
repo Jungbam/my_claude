@@ -38,7 +38,7 @@
 |------|----|------|
 | 가역 | 로컬 파일 편집, 브랜치 생성, 테스트·빌드·린트 실행, worktree 생성·정리, 초안(문서·draft PR 본문·계획) | 진행 후 결과·결정 근거 1줄 보고. "해도 될까요?"를 묻지 않는다 |
 | 비가역 | force-push, base 브랜치 머지, 배포·롤백·재시작, 데이터 삭제(DB·`rm -rf`·`git reset --hard`·stash drop), 외부 메시지(Slack·이메일·PR/이슈 코멘트), ezar-infra 변경 도구 — `references/ezar-infra-deploy.md` §2 mutating + §4·§5 **[M]** 표시 도구 전부(예: `dev_rollback`·`dev_secret_set`·`dev_approval_decide`; 목록은 그 문서가 SSOT) | 실행 직전 AskUserQuestion. 사용자가 그 행동을 커맨드로 직접 요청했으면(`/bams:ship`·`/bams:deploy`) 커맨드의 기존 게이트를 따른다 |
-| 외부 쓰기 — 예외 | Linear 이슈 생성·상태 전이·코멘트 (issue-ops, `references/linear-protocol.md` §8 연동 지점) | 사용자가 요청한 연동이므로 묻지 않고 실행 후 식별자 보고. 예외의 예외: 한 번에 생성+재오픈 10건 초과는 먼저 AskUserQuestion, Done 전이는 수정 커밋·검증·머지 증거가 있을 때만, `.crew/config.md` `## Linear` `enabled: false`면 실행 안 함 |
+| 외부 쓰기 — Linear | 리뷰·QA 지적의 이슈 생성·근거 댓글 (issue-ops, `references/linear-protocol.md` §6 연동 지점) | ezar-linear 규칙: 초안 표를 보여 주고 사용자가 고른 것만 쓴다(같은 요청 안의 "확인 없이 등록"만 예외). 물을 수 없으면 쓰지 않는다. 상태 전이·닫기는 bams가 하지 않는다. `.crew/config.md` `## Linear` `enabled: false`면 실행 안 함 |
 
 질문하기 전에 분류한다:
 
