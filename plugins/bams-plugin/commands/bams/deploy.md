@@ -19,7 +19,6 @@ argument-hint:
 5. 게이트 판정 + Verdict 확인 블록 재실행 (`verdict_exit=0` 아니면 중단)
 6. Step 3 배포 실행
 7. Step 4 배포 후 확인 — 헬스체크·롤백 옵션
-7-1. Linear 이슈 동기화 — issue-ops `linear-close-issues` sweep (장부 awaiting 항목 없으면 skip)
 8. `.crew/history.md` 1줄 기록
 9. verdict 확인 결과 기록 — 최종 메시지에 `verdict_exit=<n>` 줄 + skip 목록
 
@@ -97,14 +96,6 @@ _BAMS=$( { jq -r '[.plugins["bams-plugin@my-claude"] // empty] | flatten | sort_
 - 이상 징후 시 롤백 옵션 제공
 
 **EZAR_MODE=on**: `dev_deploy_status` + `dev_pods`(Running/Ready, 재시작 급증 없음)로 검증한다. 실패 시 `dev_analyze_deploy_failure`(+`dev_pod_logs`/`dev_build_log`)로 원인을 보고한다. 롤백은 **사용자에게 먼저 묻고** 승인 시 `dev_rollback`(`to_tag`는 `dev_deploy_history`의 `image_tag`) — prod는 승인 Operation이 생성되므로 `common_operation_get`으로 추적하며 Slack/UI 승인 대기를 안내한다.
-
-### Linear 이슈 동기화 (체크리스트 7-1)
-
-배포 후 확인이 끝난 뒤(롤백했으면 skip), `.crew/linear-issues.json`에 `awaiting` 항목이 있을 때만 실행한다(없거나 `## Linear` 꺼짐이면 `— skip: <사유>`). 기본 브랜치에 머지된 수정의 이슈를 검증 증거와 함께 Done으로 옮긴다. 규약 `references/linear-protocol.md` §6·§7. 게이트·verdict에는 영향이 없다.
-
-Task tool, subagent_type: **"bams-plugin:issue-ops"** — 메인이 직접 호출:
-> load_profile: { level: L2, refs: [{doc: config}] }
-> mode: sweep · pipeline: {slug} · commit: {git rev-parse HEAD}
 
 ## 마무리
 

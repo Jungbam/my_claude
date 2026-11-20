@@ -37,7 +37,7 @@ v1.1.0: 전체 파이프라인 병렬화 최적화 — 약 30% 타임라인 단�
 | `/bams:qa <url> [--audit ui,a11y,perf\|all]` | 브라우저 QA — 탐색 모드(기본, 흐름을 따라가며 결함 탐색) / 감사 모드(`--audit`, UI·A11Y·PERF를 스크립트 증거로 측정, 엔진 `qa-audit`) | 3단계 |
 | `/bams:ship` | PR 생성 + 머지 | 3단계 |
 | `/bams:deploy` | 배포 (Land & Deploy) | 4단계 |
-| `/bams:issues <setup\|file\|close\|status>` | Linear 이슈 관리 — QA·리뷰 지적 등록, 수정 검증 후 종료 | 1~2단계 |
+| `/bams:issues <setup\|file\|status>` | Linear 이슈 등록 — 리뷰·QA 지적을 ezar-linear 규칙으로 초안 확인 후 등록 | 1~2단계 |
 
 ## 부서별 스킬 허브
 
@@ -80,13 +80,13 @@ v1.1.0: 전체 파이프라인 병렬화 최적화 — 약 30% 타임라인 단�
 - `release-quality-gate` — 출시 준비 검토, 롤백 점검, 출시 후 모니터링
 
 ### 이슈관리부서
-- `issue-ops` — 레포별 Linear 매핑, QA·리뷰 지적 이슈 등록, 수정 검증 후 Done 처리 (`/bams:issues`)
+- `issue-ops` — 레포별 Linear 매핑, 리뷰·QA 지적 이슈 등록(ezar-linear 규칙, 초안 확인 후) (`/bams:issues`)
 
 ## QA 관련 커맨드 구분
 - `/bams:qa` — 브라우저 기반 QA 테스트 워크플로우 (자동화 테스트 계획 + 브라우저 검증). `--audit [ui,a11y,perf|all]`이면 탐색 대신 측정형 감사(엔진 `qa-audit`, 관찰 전용)
 - `/bams:qc` — QA부서 허브 (qa-strategy 부서장 + 4개 에이전트 선택)
 - `/bams:verify` — CI/CD 프리플라이트 (빌드, 린트, 타입체크, 테스트 실행)
-- `/bams:issues` — QA·리뷰에서 확인된 지적을 Linear 이슈로 관리 (review·deep-review·qa가 자동 등록, hotfix·dev·debug가 자동 종료)
+- `/bams:issues` — 리뷰·QA에서 확인된 지적을 Linear 이슈로 등록 (review·deep-review·qa 끝에 초안 확인 후 등록. 상태 옮기기·닫기는 `ezar-linear:issues`)
 
 ## 시스템 요구사항
 
